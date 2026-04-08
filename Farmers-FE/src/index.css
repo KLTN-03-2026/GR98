@@ -1,0 +1,758 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Base palette (from provided brand palette image) */
+  --base-primary: #7BAE3C;
+  --base-secondary: #2F5D50;
+  --base-tertiary: #3B82F6;
+  --base-neutral: #1F2937;
+
+  /* Generated scales (50..900). Use `color-mix` for consistent ramp. */
+  --primary-50: color-mix(in oklab, var(--base-primary) 10%, white);
+  --primary-100: color-mix(in oklab, var(--base-primary) 20%, white);
+  --primary-200: color-mix(in oklab, var(--base-primary) 35%, white);
+  --primary-300: color-mix(in oklab, var(--base-primary) 50%, white);
+  --primary-400: color-mix(in oklab, var(--base-primary) 70%, white);
+  --primary-500: var(--base-primary);
+  --primary-600: color-mix(in oklab, var(--base-primary) 85%, black);
+  --primary-700: color-mix(in oklab, var(--base-primary) 72%, black);
+  --primary-800: color-mix(in oklab, var(--base-primary) 58%, black);
+  --primary-900: color-mix(in oklab, var(--base-primary) 44%, black);
+
+  --secondary-50: color-mix(in oklab, var(--base-secondary) 10%, white);
+  --secondary-100: color-mix(in oklab, var(--base-secondary) 20%, white);
+  --secondary-200: color-mix(in oklab, var(--base-secondary) 35%, white);
+  --secondary-300: color-mix(in oklab, var(--base-secondary) 50%, white);
+  --secondary-400: color-mix(in oklab, var(--base-secondary) 70%, white);
+  --secondary-500: var(--base-secondary);
+  --secondary-600: color-mix(in oklab, var(--base-secondary) 85%, black);
+  --secondary-700: color-mix(in oklab, var(--base-secondary) 72%, black);
+  --secondary-800: color-mix(in oklab, var(--base-secondary) 58%, black);
+  --secondary-900: color-mix(in oklab, var(--base-secondary) 44%, black);
+
+  --tertiary-50: color-mix(in oklab, var(--base-tertiary) 10%, white);
+  --tertiary-100: color-mix(in oklab, var(--base-tertiary) 20%, white);
+  --tertiary-200: color-mix(in oklab, var(--base-tertiary) 35%, white);
+  --tertiary-300: color-mix(in oklab, var(--base-tertiary) 50%, white);
+  --tertiary-400: color-mix(in oklab, var(--base-tertiary) 70%, white);
+  --tertiary-500: var(--base-tertiary);
+  --tertiary-600: color-mix(in oklab, var(--base-tertiary) 85%, black);
+  --tertiary-700: color-mix(in oklab, var(--base-tertiary) 72%, black);
+  --tertiary-800: color-mix(in oklab, var(--base-tertiary) 58%, black);
+  --tertiary-900: color-mix(in oklab, var(--base-tertiary) 44%, black);
+
+  --neutral-50: color-mix(in oklab, var(--base-neutral) 8%, white);
+  --neutral-100: color-mix(in oklab, var(--base-neutral) 14%, white);
+  --neutral-200: color-mix(in oklab, var(--base-neutral) 22%, white);
+  --neutral-300: color-mix(in oklab, var(--base-neutral) 32%, white);
+  --neutral-400: color-mix(in oklab, var(--base-neutral) 45%, white);
+  --neutral-500: color-mix(in oklab, var(--base-neutral) 65%, white);
+  --neutral-600: color-mix(in oklab, var(--base-neutral) 80%, white);
+  --neutral-700: color-mix(in oklab, var(--base-neutral) 88%, black);
+  --neutral-800: color-mix(in oklab, var(--base-neutral) 72%, black);
+  --neutral-900: var(--base-neutral);
+
+  /* Success palette (#22C55E) */
+  --success-50: color-mix(in oklab, #22C55E 10%, white);
+  --success-100: color-mix(in oklab, #22C55E 20%, white);
+  --success-200: color-mix(in oklab, #22C55E 35%, white);
+  --success-300: color-mix(in oklab, #22C55E 50%, white);
+  --success-400: color-mix(in oklab, #22C55E 70%, white);
+  --success-500: #22C55E;
+  --success-600: color-mix(in oklab, #22C55E 85%, black);
+  --success-700: color-mix(in oklab, #22C55E 72%, black);
+  --success-800: color-mix(in oklab, #22C55E 58%, black);
+  --success-900: color-mix(in oklab, #22C55E 44%, black);
+
+  /* Warning palette (#F59E0B) */
+  --warning-50: color-mix(in oklab, #F59E0B 10%, white);
+  --warning-100: color-mix(in oklab, #F59E0B 20%, white);
+  --warning-200: color-mix(in oklab, #F59E0B 35%, white);
+  --warning-300: color-mix(in oklab, #F59E0B 50%, white);
+  --warning-400: color-mix(in oklab, #F59E0B 70%, white);
+  --warning-500: #F59E0B;
+  --warning-600: color-mix(in oklab, #F59E0B 85%, black);
+  --warning-700: color-mix(in oklab, #F59E0B 72%, black);
+  --warning-800: color-mix(in oklab, #F59E0B 58%, black);
+  --warning-900: color-mix(in oklab, #F59E0B 44%, black);
+
+  /* Info palette (#3B82F6) */
+  --info-50: color-mix(in oklab, #3B82F6 10%, white);
+  --info-100: color-mix(in oklab, #3B82F6 20%, white);
+  --info-200: color-mix(in oklab, #3B82F6 35%, white);
+  --info-300: color-mix(in oklab, #3B82F6 50%, white);
+  --info-400: color-mix(in oklab, #3B82F6 70%, white);
+  --info-500: #3B82F6;
+  --info-600: color-mix(in oklab, #3B82F6 85%, black);
+  --info-700: color-mix(in oklab, #3B82F6 72%, black);
+  --info-800: color-mix(in oklab, #3B82F6 58%, black);
+  --info-900: color-mix(in oklab, #3B82F6 44%, black);
+
+  /* Purple palette (#8B5CF6) */
+  --purple-50: color-mix(in oklab, #8B5CF6 10%, white);
+  --purple-100: color-mix(in oklab, #8B5CF6 20%, white);
+  --purple-200: color-mix(in oklab, #8B5CF6 35%, white);
+  --purple-300: color-mix(in oklab, #8B5CF6 50%, white);
+  --purple-400: color-mix(in oklab, #8B5CF6 70%, white);
+  --purple-500: #8B5CF6;
+  --purple-600: color-mix(in oklab, #8B5CF6 85%, black);
+  --purple-700: color-mix(in oklab, #8B5CF6 72%, black);
+  --purple-800: color-mix(in oklab, #8B5CF6 58%, black);
+  --purple-900: color-mix(in oklab, #8B5CF6 44%, black);
+
+  /* Modern Design System */
+  --radius: 0.5rem;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+
+  /* Transition timing */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Semantic tokens (shadcn-style) */
+  --background: white;
+  --foreground: var(--neutral-900);
+  --card: white;
+  --card-foreground: var(--neutral-900);
+  --popover: white;
+  --popover-foreground: var(--neutral-900);
+
+  --primary: var(--primary-500);
+  --primary-foreground: white;
+  --secondary: var(--secondary-500);
+  --secondary-foreground: white;
+
+  --muted: var(--neutral-100);
+  --muted-foreground: var(--neutral-600);
+  --accent: var(--primary-50);
+  --accent-foreground: var(--neutral-900);
+
+  --destructive: #ef4444;
+  --destructive-foreground: white;
+
+  --border: var(--neutral-200);
+  --input: var(--neutral-200);
+  --ring: color-mix(in oklab, var(--base-primary) 35%, white);
+
+  --chart-1: var(--tertiary-500);
+  --chart-2: var(--secondary-500);
+  --chart-3: var(--primary-500);
+  --chart-4: var(--tertiary-700);
+  --chart-5: var(--secondary-700);
+
+  --sidebar: var(--neutral-50);
+  --sidebar-foreground: var(--neutral-900);
+  --sidebar-primary: var(--primary-600);
+  --sidebar-primary-foreground: white;
+  --sidebar-accent: var(--neutral-100);
+  --sidebar-accent-foreground: var(--neutral-900);
+  --sidebar-border: var(--neutral-200);
+  --sidebar-ring: var(--ring);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --radius: 0.625rem;
+  --shadow-x: 0;
+  --shadow-y: 1px;
+  --shadow-blur: 3px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --background: color-mix(in oklab, var(--neutral-900) 96%, var(--base-secondary));
+  --foreground: var(--neutral-50);
+  --card: color-mix(in oklab, var(--neutral-900) 90%, var(--base-secondary));
+  --card-foreground: var(--neutral-50);
+  --popover: color-mix(in oklab, var(--neutral-900) 86%, var(--base-secondary));
+  --popover-foreground: var(--neutral-50);
+
+  --primary: var(--primary-300);
+  --primary-foreground: var(--neutral-900);
+  --secondary: color-mix(in oklab, var(--secondary-400) 80%, var(--secondary-500));
+  --secondary-foreground: var(--neutral-50);
+
+  --muted: color-mix(in oklab, var(--neutral-900) 84%, var(--base-secondary));
+  --muted-foreground: color-mix(in oklab, var(--neutral-50) 72%, var(--neutral-900));
+  --accent: color-mix(in oklab, var(--base-primary) 22%, var(--neutral-900));
+  --accent-foreground: var(--neutral-50);
+
+  --border: color-mix(in oklab, var(--neutral-900) 80%, var(--neutral-200));
+  --input: color-mix(in oklab, var(--neutral-900) 76%, var(--neutral-200));
+  --ring: color-mix(in oklab, var(--base-primary) 45%, var(--neutral-900));
+
+  --chart-1: var(--tertiary-400);
+  --chart-2: var(--secondary-400);
+  --chart-3: var(--primary-400);
+  --chart-4: var(--tertiary-600);
+  --chart-5: var(--secondary-600);
+
+  --sidebar: color-mix(in oklab, var(--neutral-900) 90%, var(--base-secondary));
+  --sidebar-foreground: var(--neutral-50);
+  --sidebar-primary: var(--primary-300);
+  --sidebar-primary-foreground: var(--neutral-900);
+  --sidebar-accent: color-mix(in oklab, var(--base-primary) 18%, var(--neutral-900));
+  --sidebar-accent-foreground: var(--neutral-50);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --radius: 0.625rem;
+  --shadow-x: 0;
+  --shadow-y: 1px;
+  --shadow-blur: 3px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+}
+
+body {
+  letter-spacing: var(--tracking-normal);
+}
+
+/* Custom dialog width override */
+.dialog-content-wide {
+  width: 90vw !important;
+  max-width: 90vw !important;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-muted-foreground;
+  }
+}
+
+@layer utilities {
+
+  /* Primary system colors */
+  .border-primary-dashed {
+    @apply border-2 border-dashed border-primary/60;
+  }
+
+  .border-secondary-dashed {
+    @apply border-2 border-dashed border-secondary/60;
+  }
+
+  .border-muted-dashed {
+    @apply border-2 border-dashed border-muted-foreground/20;
+  }
+
+  .border-destructive-dashed {
+    @apply border-2 border-dashed border-red-500/60 dark:border-red-400/60;
+  }
+
+  /* Color palette borders */
+  .border-success-dashed {
+    @apply border-2 border-dashed border-green-500/60 dark:border-green-400/60;
+  }
+
+  .border-warning-dashed {
+    @apply border-2 border-dashed border-amber-500/60 dark:border-amber-400/60;
+  }
+
+  .border-info-dashed {
+    @apply border-2 border-dashed border-blue-500/60 dark:border-blue-400/60;
+  }
+
+  .border-purple-dashed {
+    @apply border-2 border-dashed border-purple-500/60 dark:border-purple-400/60;
+  }
+
+  .border-pink-dashed {
+    @apply border-2 border-dashed border-pink-500/60 dark:border-pink-400/60;
+  }
+
+  .border-orange-dashed {
+    @apply border-2 border-dashed border-orange-500/60 dark:border-orange-400/60;
+  }
+
+  .border-emerald-dashed {
+    @apply border-2 border-dashed border-emerald-500/60 dark:border-emerald-400/60;
+  }
+
+  .border-cyan-dashed {
+    @apply border-2 border-dashed border-cyan-500/60 dark:border-cyan-400/60;
+  }
+
+  .border-indigo-dashed {
+    @apply border-2 border-dashed border-indigo-500/60 dark:border-indigo-400/60;
+  }
+
+  .border-slate-dashed {
+    @apply border-2 border-dashed border-slate-500/60 dark:border-slate-400/60;
+  }
+
+  .border-gray-dashed {
+    @apply border-2 border-dashed border-gray-500/60 dark:border-gray-400/60;
+  }
+
+  .border-zinc-dashed {
+    @apply border-2 border-dashed border-zinc-500/60 dark:border-zinc-400/60;
+  }
+
+  .border-red-dashed {
+    @apply border-2 border-dashed border-red-500/60 dark:border-red-400/60;
+  }
+
+  .border-rose-dashed {
+    @apply border-2 border-dashed border-rose-500/60 dark:border-rose-400/60;
+  }
+
+  .border-teal-dashed {
+    @apply border-2 border-dashed border-teal-500/60 dark:border-teal-400/60;
+  }
+
+  .border-lime-dashed {
+    @apply border-2 border-dashed border-lime-500/60 dark:border-lime-400/60;
+  }
+
+  .border-yellow-dashed {
+    @apply border-2 border-dashed border-yellow-500/60 dark:border-yellow-400/60;
+  }
+
+  /* Vintage style variants */
+  .border-vintage-dashed {
+    border: 2px dashed #8B7355;
+    filter: sepia(20%) contrast(0.8) brightness(0.9);
+    box-shadow: inset 0 0 0 1px rgba(139, 115, 85, 0.1);
+  }
+
+  .border-retro-dashed {
+    @apply border border-dashed border-amber-600/80;
+    filter: sepia(15%) saturate(0.9) brightness(0.95);
+  }
+
+  /* Glass Morphism Utilities */
+  .glass {
+    @apply bg-white/10 backdrop-blur-xl border border-white/20 shadow-lg;
+  }
+
+  .glass-sm {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-sm;
+  }
+
+  .glass-primary {
+    @apply bg-[var(--primary)]/10 backdrop-blur-xl border border-[var(--primary)]/20 shadow-lg;
+  }
+
+  .glass-dark {
+    @apply bg-black/20 backdrop-blur-2xl border border-white/10 shadow-xl;
+  }
+
+  .glass-secondary {
+    @apply bg-[var(--secondary)]/10 backdrop-blur-xl border border-[var(--secondary)]/20 shadow-lg;
+  }
+
+  /* Dark mode glass adjustments */
+  .dark .glass {
+    @apply bg-white/5 border-white/10;
+  }
+
+  .dark .glass-sm {
+    @apply bg-white/[3%] border-white/5;
+  }
+
+  .dark .glass-dark {
+    @apply bg-white/5 border-white/15;
+  }
+
+  /* Smooth transitions for all interactive elements */
+  button, a, input, select, textarea {
+    @apply transition-all duration-200;
+  }
+
+  /* Status badge colors based on schema */
+  .badge-published {
+    @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400;
+  }
+
+  .badge-draft {
+    @apply bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400;
+  }
+
+  .badge-out-of-stock {
+    @apply bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400;
+  }
+
+  .badge-archived {
+    @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+  }
+
+  .badge-pending {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400;
+  }
+
+  .badge-packing {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400;
+  }
+
+  .badge-shipped {
+    @apply bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400;
+  }
+
+  .badge-delivered {
+    @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
+  }
+
+  .badge-cancelled {
+    @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+  }
+}
+
+/* Custom Toast Styling */
+.custom-toast-container {
+  width: auto !important;
+  max-width: 420px !important;
+  font-family: var(--font-sans) !important;
+}
+
+.custom-toast {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-lg) !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  padding: 16px 20px !important;
+  margin-bottom: 8px !important;
+  min-height: auto !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.custom-toast .Toastify__toast-body {
+  padding: 0 !important;
+  margin: 0 !important;
+  color: var(--foreground) !important;
+  font-weight: 500 !important;
+}
+
+.custom-toast .Toastify__toast-body>div {
+  color: var(--foreground) !important;
+}
+
+.custom-toast * {
+  color: inherit !important;
+}
+
+/* Force text color trong light mode */
+:root .custom-toast {
+  color: #6b7280 !important;
+  /* Gray-500 for a softer look in light mode */
+}
+
+:root .custom-toast .Toastify__toast-body {
+  color: #6b7280 !important;
+}
+
+:root .custom-toast .Toastify__toast-body>div {
+  color: #6b7280 !important;
+}
+
+/* Dark mode keeps the CSS variable */
+.dark .custom-toast {
+  color: var(--foreground) !important;
+}
+
+.dark .custom-toast .Toastify__toast-body {
+  color: var(--foreground) !important;
+}
+
+.dark .custom-toast .Toastify__toast-body>div {
+  color: var(--foreground) !important;
+}
+
+.custom-toast-progress {
+  background: var(--primary) !important;
+  height: 3px !important;
+  border-radius: 0 0 var(--radius) var(--radius) !important;
+}
+
+/* Success Toast */
+.Toastify__toast--success.custom-toast {
+  border-color: color-mix(in oklab, var(--primary) 30%, transparent) !important;
+  background: var(--card) !important;
+}
+
+.Toastify__toast--success .custom-toast-progress {
+  background: var(--primary) !important;
+}
+
+/* Error Toast */
+.Toastify__toast--error.custom-toast {
+  border-color: color-mix(in oklab, var(--destructive) 30%, transparent) !important;
+  background: var(--card) !important;
+}
+
+.Toastify__toast--error .custom-toast-progress {
+  background: var(--destructive) !important;
+}
+
+/* Warning Toast */
+.Toastify__toast--warning.custom-toast {
+  border-color: color-mix(in oklab, var(--chart-2) 30%, transparent) !important;
+  background: var(--card) !important;
+}
+
+.Toastify__toast--warning .custom-toast-progress {
+  background: var(--chart-2) !important;
+}
+
+/* Info Toast */
+.Toastify__toast--info.custom-toast {
+  border-color: color-mix(in oklab, var(--chart-1) 30%, transparent) !important;
+  background: var(--card) !important;
+}
+
+.Toastify__toast--info .custom-toast-progress {
+  background: var(--chart-1) !important;
+}
+
+/* Hover effects */
+.custom-toast:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: var(--shadow-xl) !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+
+@keyframes Toastify__slideOutRight {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translate3d(110%, 0, 0);
+    opacity: 0;
+  }
+}
+
+/* Toast progress bar animation */
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Toast progress bar animation */
+@keyframes progress-bar {
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0%;
+  }
+}
+
+.animate-progress-bar {
+  animation: progress-bar 4s linear forwards;
+}
+
+/* Custom Scrollbar Styling */
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-radius: calc(var(--radius) / 2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: calc(var(--radius) / 2);
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--muted);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--muted);
+}
+
+/* Dark mode specific adjustments */
+.dark ::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
+}
+
+.dark ::-webkit-scrollbar-thumb:active {
+  background: color-mix(in oklab, var(--muted-foreground) 90%, transparent);
+}
+
+.dark * {
+  scrollbar-color: var(--border) var(--muted);
+}
+
+/* Custom scrollbar for specific containers if needed */
+.custom-scrollbar {
+  overflow: auto;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--primary) 60%, transparent);
+  border-radius: calc(var(--radius) / 2);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--primary) 80%, transparent);
+}
+
+/* Thin scrollbar variant */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 2px;
+}
+
+/* Animation improvements */
+.Toastify__slide-enter--top-right {
+  animation: Toastify__slideInRight 0.4s ease-out !important;
+}
+
+.Toastify__slide-exit--top-right {
+  animation: Toastify__slideOutRight 0.3s ease-in !important;
+}
+
+@keyframes Toastify__slideInRight {
+  from {
+    transform: translate3d(110%, 0, 0);
+    opacity: 0;
+  }
+
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes Toastify__slideOutRight {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translate3d(110%, 0, 0);
+    opacity: 0;
+  }
+}

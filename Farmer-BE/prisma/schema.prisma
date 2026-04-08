@@ -1,0 +1,488 @@
+// =============================================================================
+// schema.prisma — Agri-Integrator
+// Stack : Prisma + PostgreSQL (pgvector for RAG)
+// Roles : ADMIN | SUPERVISOR | CLIENT
+// Auth  : JWT stateless — role + adminId stored in token, no Permission table
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  CLIENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum FarmerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PlotStatus {
+  ACTIVE // dang trong cay
+  HARVESTED // da thu hoach
+  IDLE // chua trong
+  SUSPENDED // tam ngung
+}
+
+enum AssignStatus {
+  PENDING
+  ACTIVE
+  DONE
+  CANCELLED
+}
+
+enum ReportType {
+  ROUTINE // bao cao hang ngay thuong
+  INCIDENT // su co bat thuong can xu ly
+}
+
+enum ContractStatus {
+  DRAFT
+  SIGNED // trigger tao Product tren E-com
+  COMPLETED
+  CANCELLED
+}
+
+enum QualityGrade {
+  A
+  B
+  C
+  REJECT
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+enum PaymentMethod {
+  COD
+  VNPAY
+  MOMO
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum FulfillStatus {
+  PENDING
+  PACKING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("RefreshTokens")
+}
+
+// Password reset request store
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("PasswordResets")
+}
+
+// Nguon duy nhat cho authentication
+// Role duoc luu trong JWT — khong co Permission table
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  avatar       String?    @db.Text
+  role         Role
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  adminProfile      AdminProfile?
+  supervisorProfile SupervisorProfile?
+  clientProfile     ClientProfile?
+  refreshToken      RefreshToken?
+  passwordResets    PasswordReset[]
+
+  @@map("users")
+}
+
+// Profile mo rong cho ADMIN
+// adminId = User.id cua chinh ho — dung lam tenant key tren tat ca bang khac
+model AdminProfile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  businessName String
+  taxCode      String?
+  bankAccount  String?
+  province     String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations — tat ca data cua Admin nay
+  zones       Zone[]
+  supervisors SupervisorProfile[]
+  farmers     Farmer[]
+  plots       Plot[]
+  contracts   Contract[]
+  priceBoards PriceBoard[]
+  products    Product[]
+  orders      Order[]
+  assignments Assignment[]
+  categories  Category[]
+
+  @@map("AdminProfiles")
+}
+
+// Profile mo rong cho SUPERVISOR
+// adminId -> biet Supervisor nay thuoc Admin nao (tenant isolation)
+model SupervisorProfile {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  adminId      String // TENANT KEY
+  zoneId       String?
+  employeeCode String    @unique
+  hiredAt      DateTime  @default(now())
+  lat          Float? // GPS hien tai, cap nhat qua /supervisor/location
+  lng          Float?
+  lastSeenAt   DateTime?
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin AdminProfile @relation(fields: [adminId], references: [id])
+  zone  Zone?        @relation(fields: [zoneId], references: [id])
+
+  assignments  Assignment[]
+  dailyReports DailyReport[]
+
+  @@map("SupervisorProfiles")
+}
+
+// Profile mo rong cho CLIENT
+// adminId optional — cho phep Client mua hang tu nhieu tenant (theo Order.adminId)
+model ClientProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  adminId        String? // TENANT KEY (optional — multi-tenant buyer)
+  defaultAddress String?
+  province       String?
+  createdAt      DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders  Order[]
+  reviews Review[]
+
+  @@map("ClientProfiles")
+}
+
+// =============================================================================
+// DOMAIN 2 — HRM & BUSINESS AREA
+// =============================================================================
+
+// Khu vuc san xuat — "Business Area" cua Admin
+model Zone {
+  id          String @id @default(cuid())
+  adminId     String // TENANT KEY
+  name        String
+  province    String
+  district    String
+  centerLat   Float?
+  centerLng   Float?
+  totalAreaHa Float  @default(0)
+
+  admin AdminProfile @relation(fields: [adminId], references: [id])
+
+  supervisors SupervisorProfile[]
+  plots       Plot[]
+
+  @@map("Zones")
+}
+
+// Nong dan ky hop dong bao tieu
+model Farmer {
+  id          String       @id @default(cuid())
+  adminId     String // TENANT KEY
+  fullName    String
+  phone       String
+  cccd        String       @unique // So CCCD, unique toan he thong
+  bankAccount String?
+  address     String?
+  province    String?
+  status      FarmerStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+
+  admin     AdminProfile @relation(fields: [adminId], references: [id])
+  plots     Plot[]
+  contracts Contract[]
+
+  @@map("Farmers")
+}
+
+// Lo dat
+model Plot {
+  id               String     @id @default(cuid())
+  farmerId         String
+  adminId          String // TENANT KEY
+  zoneId           String?
+  plotCode         String     @unique
+  cropType         String
+  areaHa           Float
+  lat              Float?
+  lng              Float?
+  status           PlotStatus @default(ACTIVE)
+  plantingDate     DateTime?
+  expectedHarvest  DateTime?
+  estimatedYieldKg Float?
+  createdAt        DateTime   @default(now())
+
+  farmer Farmer       @relation(fields: [farmerId], references: [id])
+  admin  AdminProfile @relation(fields: [adminId], references: [id])
+  zone   Zone?        @relation(fields: [zoneId], references: [id])
+
+  assignments  Assignment[]
+  dailyReports DailyReport[]
+  contracts    Contract[]
+  products     Product[]
+
+  @@map("Plots")
+}
+
+// Giao viec
+model Assignment {
+  id           String       @id @default(cuid())
+  supervisorId String
+  plotId       String
+  adminId      String // TENANT KEY
+  status       AssignStatus @default(PENDING)
+  assignedAt   DateTime     @default(now())
+  dueDate      DateTime?
+  note         String?
+
+  supervisor SupervisorProfile @relation(fields: [supervisorId], references: [id])
+  plot       Plot              @relation(fields: [plotId], references: [id])
+  admin      AdminProfile      @relation(fields: [adminId], references: [id])
+
+  @@map("Assignments")
+}
+
+model DailyReport {
+  id           String     @id @default(cuid())
+  supervisorId String
+  plotId       String
+  adminId      String // TENANT KEY
+  type         ReportType @default(ROUTINE)
+  content      String
+  imageUrls    String[]
+  isSynced     Boolean    @default(false)
+  reportedAt   DateTime   @default(now())
+  syncedAt     DateTime?
+
+  supervisor SupervisorProfile @relation(fields: [supervisorId], references: [id])
+  plot       Plot              @relation(fields: [plotId], references: [id])
+
+  @@map("DailyReports")
+}
+
+model PriceBoard {
+  id            String       @id @default(cuid())
+  adminId       String // TENANT KEY
+  cropType      String
+  grade         QualityGrade
+  buyPrice      Float
+  sellPrice     Float
+  effectiveDate DateTime     @default(now())
+  isActive      Boolean      @default(true)
+
+  admin     AdminProfile @relation(fields: [adminId], references: [id])
+  contracts Contract[]
+
+  @@map("PriceBoards")
+}
+
+// =============================================================================
+// DOMAIN 3 — CONTRACT & E-COM
+// =============================================================================
+
+model Contract {
+  id           String         @id @default(cuid())
+  adminId      String // TENANT KEY
+  farmerId     String
+  plotId       String
+  priceBoardId String?
+  contractNo   String         @unique
+  cropType     String
+  quantityKg   Float
+  pricePerKg   Float
+  totalAmount  Float
+  grade        QualityGrade
+  status       ContractStatus @default(DRAFT)
+  signedAt     DateTime?
+  harvestDue   DateTime?
+  signatureUrl String?
+  createdAt    DateTime       @default(now())
+
+  admin      AdminProfile @relation(fields: [adminId], references: [id])
+  farmer     Farmer       @relation(fields: [farmerId], references: [id])
+  plot       Plot         @relation(fields: [plotId], references: [id])
+  priceBoard PriceBoard?  @relation(fields: [priceBoardId], references: [id])
+  product    Product?
+
+  @@map("Contracts")
+}
+
+model Product {
+  id                String        @id @default(cuid())
+  adminId           String // TENANT KEY
+  plotId            String?
+  contractId        String?       @unique
+  name              String
+  slug              String        @unique
+  description       String?
+  cropType          String
+  grade             QualityGrade
+  pricePerKg        Float
+  stockKg           Float         @default(0)
+  minOrderKg        Float         @default(1)
+  qrCode            String        @unique
+  imageUrls         String[]
+  status            ProductStatus @default(DRAFT)
+  harvestDate       DateTime?
+  aiConfidenceScore Float?
+  createdAt         DateTime      @default(now())
+
+  admin      AdminProfile      @relation(fields: [adminId], references: [id])
+  plot       Plot?             @relation(fields: [plotId], references: [id])
+  contract   Contract?         @relation(fields: [contractId], references: [id])
+  categories ProductCategory[]
+  orderItems OrderItem[]
+  reviews    Review[]
+
+  @@map("Products")
+}
+
+model Category {
+  id        String  @id @default(cuid())
+  adminId   String // TENANT KEY
+  name      String
+  slug      String  @unique
+  imageUrl  String?
+  sortOrder Int     @default(0)
+
+  admin    AdminProfile      @relation(fields: [adminId], references: [id])
+  products ProductCategory[]
+
+  @@map("Categories")
+}
+
+model ProductCategory {
+  productId  String
+  categoryId String
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@map("ProductCategories")
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  clientId      String
+  adminId       String // TENANT KEY
+  orderNo       String        @unique
+  subtotal      Float
+  shippingFee   Float         @default(0)
+  discount      Float         @default(0)
+  total         Float
+  paymentMethod PaymentMethod
+  paymentRef    String?
+  paymentStatus PaymentStatus @default(PENDING)
+  fulfillStatus FulfillStatus @default(PENDING)
+  shippingAddr  Json
+  trackingCode  String?
+  note          String?
+  orderedAt     DateTime      @default(now())
+  paidAt        DateTime?
+
+  client     ClientProfile @relation(fields: [clientId], references: [id])
+  admin      AdminProfile  @relation(fields: [adminId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("Orders")
+}
+
+model OrderItem {
+  id            String @id @default(cuid())
+  orderId       String
+  productId     String
+  nameSnapshot  String
+  priceSnapshot Float
+  quantityKg    Float
+  subtotal      Float
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("OrderItems")
+}
+
+model Review {
+  id               String       @id @default(cuid())
+  productId        String
+  clientId         String
+  rating           Int
+  comment          String?
+  imageUrls        String[]
+  verifiedPurchase Boolean      @default(false)
+  status           ReviewStatus @default(PENDING)
+  createdAt        DateTime     @default(now())
+
+  product Product       @relation(fields: [productId], references: [id])
+  client  ClientProfile @relation(fields: [clientId], references: [id])
+
+  @@map("Reviews")
+}

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type {
+  AuthUser,
   CreateOrderRequest,
   LoginRequest,
   Order,
@@ -11,46 +12,186 @@ import {
   authApi,
   categoryApi,
   extractData,
+  type AuthUserResponse,
+  type CreateShippingAddressPayload,
+  type MeResponse,
   orderApi,
   productApi,
+  profileApi,
   reviewApi,
+  type ShippingAddressApi,
 } from '@/client/lib/api-client';
 import { useAuthStore } from '@/client/store';
+import {
+  setAccessTokenCookie,
+  setRefreshTokenCookie,
+} from '@/lib/cookie-utils';
 
 // ============================================================
 // AUTH HOOKS
 // ============================================================
+
+/** GET /auth/me — đồng bộ navbar + trang profile */
+export function useMe() {
+  const { isAuthenticated } = useAuthStore();
+  return useQuery({
+    queryKey: ['me'],
+    queryFn: async () => {
+      const res = await authApi.getMe();
+      return extractData<MeResponse>(res);
+    },
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateShippingAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateShippingAddressPayload) => {
+      const res = await profileApi.createAddress(data);
+      return extractData<ShippingAddressApi>(res);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+      toast.success('Đã thêm địa chỉ giao hàng');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không thêm được địa chỉ');
+    },
+  });
+}
+
+export function useDeleteShippingAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await profileApi.deleteAddress(id);
+      return extractData<{ id: string; deletedAt: string }>(res);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+      toast.success('Đã xóa địa chỉ');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không xóa được địa chỉ');
+    },
+  });
+}
+
+export function useSetDefaultShippingAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await profileApi.setDefaultAddress(id);
+      return extractData<{ id: string; isDefault: boolean }>(res);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+      toast.success('Đã đặt địa chỉ mặc định');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không đặt được mặc định');
+    },
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+      await authApi.changePassword(data);
+    },
+    onSuccess: () => {
+      toast.success('Đổi mật khẩu thành công!');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không đổi được mật khẩu');
+    },
+  });
+}
+
+export function useUpdateMe() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { fullName?: string; phone?: string }) => {
+      await authApi.updateMe(data);
+    },
+    onSuccess: () => {
+      toast.success('Cập nhật hồ sơ thành công!');
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không cập nhật được hồ sơ');
+    },
+  });
+}
+
+export function useDeleteAccount() {
+  const queryClient = useQueryClient();
+  const { logout } = useAuthStore();
+  return useMutation({
+    mutationFn: async () => {
+      await authApi.deleteAccount();
+    },
+    onSuccess: () => {
+      toast.success('Tài khoản đã được xóa.');
+      queryClient.clear();
+      logout();
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không xóa được tài khoản');
+    },
+  });
+}
+
 export function useLogin() {
   const { login } = useAuthStore();
   return useMutation({
     mutationFn: async (data: LoginRequest) => {
-      // 1. Login to get token
       const loginResponse = await authApi.login(data);
-      const { accessToken } = extractData<{ accessToken: string }>(loginResponse);
+      const { accessToken, refreshToken, user } = extractData<{
+        accessToken: string;
+        refreshToken: string;
+        user: AuthUserResponse;
+      }>(loginResponse);
 
-      // 2. Get user info
-      const meResponse = await authApi.getMe();
-      const meData = extractData<{
-        role: string;
-        profileId: string;
-        adminId?: string;
-        fullName: string | null;
-        email: string | null;
-        phone: string | null;
-      }>(meResponse);
+      setAccessTokenCookie(accessToken);
+      if (refreshToken) {
+        setRefreshTokenCookie(refreshToken);
+      }
 
-      return { accessToken, meData, email: data.email || '' };
+      let me: MeResponse;
+      try {
+        const meResponse = await authApi.getMe();
+        me = extractData<MeResponse>(meResponse);
+      } catch {
+        me = {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          phone: user.phone,
+          avatar: null,
+          role: user.role,
+          createdAt: new Date().toISOString(),
+          adminProfile: null,
+          supervisorProfile: null,
+          clientProfile: null,
+        };
+      }
+
+      return { accessToken, refreshToken, me, loginUser: user };
     },
-    onSuccess: ({ accessToken, meData, email }) => {
-      // 3. Build AuthUser and save to store
+    onSuccess: ({ accessToken, me, loginUser }) => {
       const authUser: AuthUser = {
-        id: meData.profileId,
-        email: meData.email || email,
-        fullName: meData.fullName || email.split('@')[0],
-        phone: meData.phone || undefined,
-        role: meData.role as AuthUser['role'],
+        id: me.id,
+        email: me.email,
+        fullName: me.fullName,
+        phone: me.phone ?? undefined,
+        role: me.role,
         status: 'ACTIVE',
         accessToken,
+        avatarUrl: me.avatar ?? undefined,
+        adminId: loginUser.adminId ?? undefined,
       };
       login(authUser, accessToken);
       toast.success('Đăng nhập thành công!');
@@ -63,11 +204,13 @@ export function useLogin() {
 
 export function useLogout() {
   const { logout } = useAuthStore();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
       // Call logout API if needed
     },
     onSettled: () => {
+      queryClient.removeQueries({ queryKey: ['me'] });
       logout();
       localStorage.removeItem('ec_cart');
       toast.success('Đã đăng xuất');

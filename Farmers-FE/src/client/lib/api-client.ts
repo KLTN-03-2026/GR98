@@ -177,32 +177,109 @@ export const authApi = {
   resetPassword: (token: string, newPassword: string) =>
     apiPost<{ message: string }>('/auth/reset-password', { token, newPassword }),
 
-  // GET /auth/me → UserProfile
+  // GET /auth/me → MeResponse
   getMe: () =>
-    apiGet<AuthUserResponse>('/auth/me'),
+    apiGet<MeResponse>('/auth/me'),
 
-  // PUT /auth/me → UserProfile
+  // PUT /auth/me → MeResponse
   updateMe: (data: { fullName?: string; phone?: string }) =>
-    apiPut<AuthUserResponse>('/auth/me', data),
+    apiPut<MeResponse>('/auth/me', data),
 
   // POST /auth/logout → { success: boolean }
   logout: () =>
     apiPost<{ success: boolean }>('/auth/logout', {}),
+
+  // POST /profile/change-password → { message }
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    apiPost<{ message: string }>('/profile/change-password', data),
+
+  // DELETE /profile/me → { message }
+  deleteAccount: () =>
+    apiDelete<{ message: string }>('/profile/me'),
 };
 
 // ============================================================
 // SHARED TYPES
 // ============================================================
 
+/** Payload `user` từ POST /auth/login và /auth/register */
 export interface AuthUserResponse {
   id: string;
   email: string;
   fullName: string;
   phone: string | null;
   role: 'ADMIN' | 'SUPERVISOR' | 'CLIENT';
-  profileId: string;
+  profileId: string | null;
   adminId: string | null;
 }
+
+/** GET /auth/me — đầy đủ profile + địa chỉ (khớp AuthService.getMe) */
+export interface MeResponse {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  avatar: string | null;
+  role: 'ADMIN' | 'SUPERVISOR' | 'CLIENT';
+  createdAt: string;
+  adminProfile: {
+    id: string;
+    businessName: string;
+    province: string;
+    taxCode: string | null;
+    bankAccount: string | null;
+  } | null;
+  supervisorProfile: {
+    id: string;
+    employeeCode: string;
+    adminId: string;
+    zoneId: string | null;
+  } | null;
+  clientProfile: {
+    id: string;
+    province: string | null;
+    createdAt: string;
+    shippingAddresses: Array<{
+      id: string;
+      fullName: string;
+      phone: string;
+      addressLine: string;
+      district: string | null;
+      province: string;
+      isDefault: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+  } | null;
+}
+
+export type ShippingAddressApi = NonNullable<MeResponse['clientProfile']>['shippingAddresses'][number];
+
+export type CreateShippingAddressPayload = {
+  fullName: string;
+  phone: string;
+  addressLine: string;
+  district?: string;
+  province: string;
+  isDefault?: boolean;
+};
+
+// ============================================================
+// PROFILE API (địa chỉ giao hàng — /profile/*)
+// ============================================================
+export const profileApi = {
+  createAddress: (data: CreateShippingAddressPayload) =>
+    apiPost<ShippingAddressApi>('/profile/addresses', data),
+
+  updateAddress: (id: string, data: Partial<CreateShippingAddressPayload>) =>
+    apiPatch<ShippingAddressApi>(`/profile/addresses/${id}`, data),
+
+  deleteAddress: (id: string) =>
+    apiDelete<{ id: string; deletedAt: string }>(`/profile/addresses/${id}`),
+
+  setDefaultAddress: (id: string) =>
+    apiPatch<{ id: string; isDefault: boolean }>(`/profile/addresses/${id}/set-default`, {}),
+};
 
 // ============================================================
 // PRODUCT API ENDPOINTS

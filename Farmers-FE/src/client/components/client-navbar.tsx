@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useCartStore } from '@/client/store';
 import { useAuthStore } from '@/client/store';
+import { useLogout } from '@/client/hooks/use-queries';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -56,7 +57,8 @@ const TOPBAR_LINKS = [
 export default function ClientNavbar() {
   const location = useLocation();
   const { getItemCount } = useCartStore();
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
+  const { mutate: logoutMutate } = useLogout();
   const cartCount = getItemCount();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -247,7 +249,7 @@ export default function ClientNavbar() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onClick={() => logout()}
+                      onClick={() => logoutMutate()}
                       className="text-destructive cursor-pointer flex items-center gap-2"
                     >
                       <LogOut className="h-4 w-4" />

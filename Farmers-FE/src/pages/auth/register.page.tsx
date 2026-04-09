@@ -19,7 +19,9 @@ import {
   authApi,
   extractData,
   type AuthUserResponse,
+  type MeResponse,
 } from "@/client/lib/api-client";
+import type { AuthUser } from "@/client/types";
 import { useAuthStore } from "@/client/store";
 import { toast } from "sonner";
 import {
@@ -128,15 +130,24 @@ export default function RegisterPage() {
       setAccessTokenCookie(accessToken);
       setRefreshTokenCookie(refreshToken);
 
+      let me: MeResponse | null = null;
+      try {
+        const meRes = await authApi.getMe();
+        me = extractData<MeResponse>(meRes);
+      } catch {
+        /* dùng payload đăng ký nếu /auth/me lỗi */
+      }
+
       login(
         {
-          id: user.profileId,
-          email: user.email,
-          fullName: user.fullName,
-          phone: user.phone ?? undefined,
-          role: user.role,
+          id: me?.id ?? user.id,
+          email: me?.email ?? user.email,
+          fullName: me?.fullName ?? user.fullName,
+          phone: (me?.phone ?? user.phone) ?? undefined,
+          role: (me?.role ?? user.role) as AuthUser["role"],
           status: "ACTIVE",
           accessToken,
+          avatarUrl: me?.avatar ?? undefined,
         },
         accessToken,
         refreshToken,

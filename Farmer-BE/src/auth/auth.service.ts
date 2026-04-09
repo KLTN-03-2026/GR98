@@ -2,6 +2,8 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,6 +18,95 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
+
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        avatar: true,
+        role: true,
+        createdAt: true,
+        adminProfile: {
+          select: {
+            id: true,
+            businessName: true,
+            province: true,
+            taxCode: true,
+            bankAccount: true,
+          },
+        },
+        supervisorProfile: {
+          select: {
+            id: true,
+            employeeCode: true,
+            adminId: true,
+            zoneId: true,
+          },
+        },
+        clientProfile: {
+          select: {
+            id: true,
+            province: true,
+            createdAt: true,
+            shippingAddresses: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                addressLine: true,
+                district: true,
+                province: true,
+                isDefault: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+              orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    return user;
+  }
+
+  async updateMe(userId: string, data: { fullName?: string; phone?: string }) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Người dùng không tồn tại');
+
+    if (data.phone !== undefined) {
+      const phoneTrimmed = data.phone.trim();
+      if (phoneTrimmed) {
+        const existingPhone = await this.prisma.user.findFirst({
+          where: { phone: phoneTrimmed, id: { not: userId } },
+        });
+        if (existingPhone) {
+          throw new ConflictException('Số điện thoại đã được sử dụng');
+        }
+      }
+    }
+
+    const updateData: any = {};
+    if (data.fullName !== undefined) updateData.fullName = data.fullName;
+    if (data.phone !== undefined) updateData.phone = data.phone.trim() || null;
+
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
+    }
+
+    return this.getMe(userId);
+  }
 
   async register(registerDto: RegisterDto) {
     const existingUser = await this.prisma.user.findUnique({
@@ -54,7 +145,6 @@ export class AuthService {
           userId: createdUser.id,
           adminId: null,
           province: null,
-          defaultAddress: null,
         },
       });
 

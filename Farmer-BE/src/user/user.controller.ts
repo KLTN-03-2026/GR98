@@ -82,11 +82,6 @@ export class UserController {
           example: 'Công ty TNHH Nông Sản Xanh',
           description: 'Chỉ dùng cho ADMIN',
         },
-        defaultAddress: {
-          type: 'string',
-          example: '123 Đường ABC, Quận 1, TP.HCM',
-          description: 'Chỉ dùng cho CLIENT',
-        },
       },
     },
   })

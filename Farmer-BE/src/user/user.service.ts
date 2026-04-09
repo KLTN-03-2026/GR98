@@ -128,7 +128,6 @@ export class UserService {
           data: {
             userId: createdUser.id,
             adminId: creatorAdminId,
-            defaultAddress: dto.defaultAddress ?? null,
             province: dto.province ?? null,
           },
         });
@@ -199,7 +198,7 @@ export class UserService {
             select: { id: true, employeeCode: true, adminId: true },
           },
           clientProfile: {
-            select: { id: true, province: true, defaultAddress: true },
+            select: { id: true, province: true },
           },
         },
       }),
@@ -258,7 +257,7 @@ export class UserService {
           },
         },
         clientProfile: {
-          select: { id: true, province: true, defaultAddress: true },
+          select: { id: true, province: true },
         },
       },
     });
@@ -314,7 +313,6 @@ export class UserService {
     delete updateData.password;
     delete updateData.businessName;
     delete updateData.province;
-    delete updateData.defaultAddress;
     delete updateData.clearAvatar;
 
     // Handle avatar
@@ -362,8 +360,6 @@ export class UserService {
       // Update CLIENT profile
       if (existing.role === Role.CLIENT) {
         const clientUpdate: any = {};
-        if (dto.defaultAddress !== undefined)
-          clientUpdate.defaultAddress = dto.defaultAddress;
         if (dto.province !== undefined) clientUpdate.province = dto.province;
         if (Object.keys(clientUpdate).length > 0) {
           await tx.clientProfile.update({

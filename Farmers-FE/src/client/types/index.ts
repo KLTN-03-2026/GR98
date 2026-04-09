@@ -33,12 +33,25 @@ export interface User {
   avatarUrl?: string;
 }
 
+/** Địa chỉ giao hàng (bảng ClientShippingAddresses) */
+export interface ClientShippingAddressRow {
+  id: string;
+  fullName: string;
+  phone: string;
+  addressLine: string;
+  district?: string | null;
+  province: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ClientProfile {
   id: string;
   userId: string;
-  defaultAddress?: string;
   province?: string;
-  createdAt: string;
+  createdAt?: string;
+  shippingAddresses?: ClientShippingAddressRow[];
 }
 
 export interface AuthUser extends User {

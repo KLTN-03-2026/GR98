@@ -111,11 +111,13 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
   const isDefault = !avatarUrl;
 
   const handleLogout = () => {
-    // Xóa Cookie và clear localStorage
     clearAllAuthCookies();
     logout();
-    // Redirect về trang login
-    navigate("/auth/login");
+    localStorage.removeItem("ec_cart");
+    const loginPath = location.pathname.startsWith("/supervisor")
+      ? "/supervisor/login"
+      : "/admin/login";
+    navigate(loginPath, { replace: true });
   };
 
   const getInitials = (name: string) => {

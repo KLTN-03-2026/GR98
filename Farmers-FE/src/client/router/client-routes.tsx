@@ -32,8 +32,8 @@ import { ProtectedRoute } from '@/router/guards';
  *
  * Tất cả wrapped trong ClientLayout (navbar + footer)
  */
+/** Pathless layout dưới RootLayout (`path: '/'`) — tránh lồng `path: '/'` hai lần (RR6 có thể không match `/` đúng). */
 const clientLayoutRoute: RouteObject = {
-  path: '/',
   element: <ClientLayout />,
   children: [
     // Public routes

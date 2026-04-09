@@ -10,9 +10,9 @@ import {
     Package,
     ReceiptText,
     ShieldCheck,
+    ShoppingBag,
     Sprout,
     Star,
-    User,
     Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -28,6 +28,7 @@ export type SidebarItem = {
 
 export const getSidebarItems = (basePath: '/dashboard' | '/supervisor'): SidebarItem[] => {
     const commonMainItems: SidebarItem[] = [
+        { icon: ShoppingBag, label: 'Cửa hàng', category: 'main', path: '/' },
         { icon: LayoutDashboard, label: 'Dashboard', category: 'management', path: `${basePath}/overview` },
     ];
 

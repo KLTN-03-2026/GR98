@@ -30,10 +30,13 @@ import { Separator } from "@/components/ui/separator";
 // import { ModeToggle } from '@/components/custom/mode-toggle';
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb, useBreadcrumb } from "@/components/ui/breadcrumb";
+import { useAuthStore } from "@/client/store";
+import { clearAllAuthCookies } from "@/lib/cookie-utils";
+import { toast } from "sonner";
 
 interface NavbarProps {
   sidebarCollapsed: boolean;
@@ -51,6 +54,8 @@ export function Navbar({
   const breadcrumbItems = useBreadcrumb();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout } = useAuthStore();
 
   // Avatar state - moved here to avoid hooks after early return
   const DEFAULT_AVATAR_URL =
@@ -71,18 +76,17 @@ export function Navbar({
     };
   }, []);
 
-  // Mock user data
-  const user = {
-    fullName: "Jane Doe",
-    phone: "0123456789",
-    avatar: null as null | { url: string },
-    hardRole: "USER",
-    roles: [] as Array<string>,
-  };
-
   const handleLogout = () => {
-    // Mock logout
-    console.log("Logged out");
+    clearAllAuthCookies();
+    logout();
+    localStorage.removeItem("ec_cart");
+    toast.success("Đã đăng xuất");
+    const loginPath = location.pathname.startsWith("/supervisor")
+      ? "/supervisor/login"
+      : location.pathname.startsWith("/dashboard")
+        ? "/admin/login"
+        : "/auth/login";
+    navigate(loginPath, { replace: true });
   };
 
   const handleProfileClick = () => {
@@ -139,9 +143,8 @@ export function Navbar({
       .slice(0, 2);
   };
 
-  const avatarUrl = user?.avatar?.url || DEFAULT_AVATAR_URL;
-  const isDefault =
-    !user?.avatar?.url || user.avatar.url === DEFAULT_AVATAR_URL;
+  const avatarUrl = user?.avatarUrl || DEFAULT_AVATAR_URL;
+  const isDefault = !user?.avatarUrl || user.avatarUrl === DEFAULT_AVATAR_URL;
 
   return (
     <motion.nav
@@ -306,7 +309,7 @@ export function Navbar({
                     <Skeleton className="absolute w-full h-full rounded-full" />
                   )}
                   <AvatarImage
-                    className={`${user?.avatar ? "object-cover w-full h-full" : ""}`}
+                    className={`${user?.avatarUrl ? "object-cover w-full h-full" : ""}`}
                     src={avatarUrl}
                     alt="User"
                     onLoad={() => setIsImageLoaded(true)}
@@ -316,11 +319,7 @@ export function Navbar({
                     }}
                   />
                   <AvatarFallback className="text-xs">
-                    {user
-                      ? user.avatar
-                        ? user.avatar.url
-                        : getInitials(user.fullName)
-                      : "U"}
+                    {user ? getInitials(user.fullName) : "U"}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -332,18 +331,13 @@ export function Navbar({
                     {user?.fullName || "User"}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {user?.phone || "No phone"}
+                    {user?.phone || user?.email || "—"}
                   </p>
-                  {/* {user?.status && (
-                    <p className="text-xs leading-none text-muted-foreground">
-                      Status: {user.status}
-                    </p>
-                  )} */}
                   <Badge
                     variant="secondary"
                     className="font-medium text-xs px-2 py-0"
                   >
-                    Member
+                    {user?.role ?? "Khách"}
                   </Badge>
                 </div>
               </DropdownMenuLabel>

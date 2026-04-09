@@ -306,12 +306,96 @@ export function useProductsByCategory(
 // ============================================================
 // CATEGORY HOOKS
 // ============================================================
-export function useCategories() {
+export function useCategories(params?: { page?: number; limit?: number; search?: string }) {
   return useQuery({
-    queryKey: ['categories'],
+    queryKey: ['categories', params],
     queryFn: async () => {
-      const response = await categoryApi.list();
-      return extractData<import('@/client/types').Category[]>(response);
+      const response = await categoryApi.list(params);
+      return extractData<import('@/client/lib/api-client').PaginatedCategoriesResponse>(response);
+    },
+  });
+}
+
+export function useCategoryById(id: string) {
+  return useQuery({
+    queryKey: ['category', id],
+    queryFn: async () => {
+      const response = await categoryApi.getById(id);
+      return extractData<import('@/client/lib/api-client').CategoryResponse>(response);
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: import('@/client/lib/api-client').CreateCategoryPayload) => {
+      const response = await categoryApi.create(data);
+      return extractData<import('@/client/lib/api-client').CategoryResponse>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Đã tạo danh mục mới');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không tạo được danh mục');
+    },
+  });
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<import('@/client/lib/api-client').CreateCategoryPayload>;
+    }) => {
+      const response = await categoryApi.update(id, data);
+      return extractData<import('@/client/lib/api-client').CategoryResponse>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Đã cập nhật danh mục');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không cập nhật được danh mục');
+    },
+  });
+}
+
+export function useReorderCategories() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (orders: Array<{ id: string; sortOrder: number }>) => {
+      await categoryApi.reorder(orders);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Đã cập nhật thứ tự');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không cập nhật được thứ tự');
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await categoryApi.delete(id);
+      return extractData<{ id: string; deletedAt: string }>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Đã xóa danh mục');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không xóa được danh mục');
     },
   });
 }

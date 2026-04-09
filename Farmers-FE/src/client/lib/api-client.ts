@@ -313,11 +313,56 @@ export const productApi = {
 // ============================================================
 // CATEGORY API ENDPOINTS
 // ============================================================
+export interface CategoryResponse {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  imageUrl: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  productCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaginatedCategoriesResponse {
+  data: CategoryResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CreateCategoryPayload {
+  name: string;
+  slug?: string;
+  description?: string;
+  imageUrl?: string;
+  sortOrder?: number;
+}
+
 export const categoryApi = {
-  list: () => apiGet<unknown>('/categories'),
+  list: (params?: { page?: number; limit?: number; search?: string }) =>
+    apiGet<PaginatedCategoriesResponse>('/categories', { params }),
+
+  getById: (id: string) =>
+    apiGet<CategoryResponse>(`/categories/${id}`),
 
   getBySlug: (slug: string) =>
-    apiGet<unknown>(`/categories/${slug}`),
+    apiGet<CategoryResponse>(`/categories/slug/${slug}`),
+
+  create: (data: CreateCategoryPayload) =>
+    apiPost<CategoryResponse>('/categories', data),
+
+  update: (id: string, data: Partial<CreateCategoryPayload>) =>
+    apiPatch<CategoryResponse>(`/categories/${id}`, data),
+
+  reorder: (orders: Array<{ id: string; sortOrder: number }>) =>
+    apiPatch<{ updated: number }>('/categories/reorder', { orders }),
+
+  delete: (id: string) =>
+    apiDelete<{ id: string; deletedAt: string }>(`/categories/${id}`),
 };
 
 // ============================================================

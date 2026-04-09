@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ProductCard } from '@/client/components/product-card';
+import { useCategories } from '@/client/hooks/use-queries';
 import {
   MOCK_PRODUCTS,
   CROP_TYPE_OPTIONS,
@@ -37,12 +38,15 @@ export default function ProductsPage() {
   const [gridCols, setGridCols] = useState<2 | 3 | 4>(4);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
+  const { data: categoriesData } = useCategories({ limit: 100 });
+
   // Read filters from URL
   const filters = {
     search: searchParams.get('search') || '',
     cropType: searchParams.get('cropType') || '',
     grade: searchParams.get('grade') || '',
     priceRange: searchParams.get('priceRange') || '',
+    categoryId: searchParams.get('categoryId') || '',
     sortBy: searchParams.get('sortBy') || 'newest',
     page: parseInt(searchParams.get('page') || '1'),
   };
@@ -108,7 +112,7 @@ export default function ProductsPage() {
   );
 
   // Active filters count
-  const activeFiltersCount = [filters.cropType, filters.grade, filters.priceRange].filter(
+  const activeFiltersCount = [filters.cropType, filters.grade, filters.priceRange, filters.categoryId].filter(
     Boolean,
   ).length;
 
@@ -141,6 +145,44 @@ export default function ProductsPage() {
             onChange={(e) => updateFilter('search', e.target.value)}
             className="pl-10"
           />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Category */}
+      <div className="space-y-3">
+        <label className="text-sm font-medium">Danh mục</label>
+        <div className="space-y-2">
+          {categoriesData?.data.map((cat) => (
+            <label
+              key={cat.id}
+              className="flex items-center gap-2 cursor-pointer group"
+            >
+              <input
+                type="radio"
+                name="categoryId"
+                value={cat.id}
+                checked={filters.categoryId === cat.id}
+                onChange={() => updateFilter('categoryId', cat.id)}
+                className="accent-primary"
+              />
+              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors flex-1">
+                {cat.name}
+              </span>
+              {cat.productCount !== undefined && (
+                <span className="text-xs text-muted-foreground">({cat.productCount})</span>
+              )}
+            </label>
+          ))}
+          {filters.categoryId && (
+            <button
+              onClick={() => updateFilter('categoryId', '')}
+              className="text-xs text-primary hover:underline"
+            >
+              Bỏ chọn
+            </button>
+          )}
         </div>
       </div>
 
@@ -278,6 +320,15 @@ export default function ProductsPage() {
 
           {/* Active Filter Tags */}
           <div className="hidden lg:flex items-center gap-2 flex-1">
+            {filters.categoryId && (
+              <Badge variant="secondary" className="gap-1 rounded-lg">
+                {categoriesData?.data.find((c) => c.id === filters.categoryId)?.name}
+                <X
+                  className="h-3 w-3 cursor-pointer"
+                  onClick={() => updateFilter('categoryId', '')}
+                />
+              </Badge>
+            )}
             {filters.cropType && (
               <Badge variant="secondary" className="gap-1 rounded-lg">
                 {CROP_TYPE_OPTIONS.find((o) => o.value === filters.cropType)?.label}

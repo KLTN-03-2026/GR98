@@ -19,6 +19,7 @@ import CategoriesPage from '@/pages/categories';
 import OrdersPage from '@/pages/orders';
 import ReviewsPage from '@/pages/reviews';
 import ComponentsPage from '@/pages/components';
+import PriceBoardsPage from '@/pages/price-boards';
 import RouteErrorPage from '@/pages/errors/route-error.page';
 import NotFoundPage from '@/pages/errors/not-found.page';
 import { clientRoutes } from '@/client/router/client-routes';
@@ -196,6 +197,10 @@ const adminDashboard: RouteObject = {
       element: <ReviewsPage />,
     },
     {
+      path: 'price-boards',
+      element: <PriceBoardsPage />,
+    },
+    {
       path: 'components',
       element: <ComponentsPage />,
     },
@@ -227,6 +232,10 @@ const supervisorDashboard: RouteObject = {
     {
       path: 'plots',
       element: <PlotsPage />,
+    },
+    {
+      path: 'price-boards',
+      element: <PriceBoardsPage />,
     },
     {
       path: 'contracts',

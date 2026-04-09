@@ -7,10 +7,11 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { ProfileModule } from './profile/profile.module';
 import { MailModule } from './mail/mail.module';
+import { PriceBoardModule } from './price-board/price-board.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UserModule, ProfileModule, MailModule],
+  imports: [PrismaModule, AuthModule, UserModule, ProfileModule, MailModule, PriceBoardModule],
   controllers: [AppController],
   providers: [AppService],
 })

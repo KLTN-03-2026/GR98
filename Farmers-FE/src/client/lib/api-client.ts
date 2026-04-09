@@ -438,6 +438,73 @@ export const userApi = {
 };
 
 // ============================================================
+// PRICE BOARD API ENDPOINTS
+// ============================================================
+export interface PriceBoardResponse {
+  id: string;
+  cropType: string;
+  grade: 'A' | 'B' | 'C' | 'REJECT';
+  buyPrice: number;
+  sellPrice: number;
+  effectiveDate: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  admin?: {
+    id: string;
+    businessName: string;
+    province: string;
+  };
+}
+
+export interface PaginatedPriceBoardsResponse {
+  data: PriceBoardResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const priceBoardApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    cropType?: string;
+    grade?: string;
+    isActive?: string;
+  }) => apiGet<PaginatedPriceBoardsResponse>('/price-boards', { params }),
+
+  getById: (id: string) =>
+    apiGet<PriceBoardResponse>(`/price-boards/${id}`),
+
+  create: (data: {
+    cropType: string;
+    grade: PriceBoardResponse['grade'];
+    buyPrice: number;
+    sellPrice: number;
+    effectiveDate?: string;
+  }) => apiPost<PriceBoardResponse>('/price-boards', data),
+
+  update: (
+    id: string,
+    data: Partial<{
+      cropType: string;
+      grade: PriceBoardResponse['grade'];
+      buyPrice: number;
+      sellPrice: number;
+      effectiveDate: string;
+      isActive: boolean;
+    }>,
+  ) => apiPatch<PriceBoardResponse>(`/price-boards/${id}`, data),
+
+  toggleActive: (id: string) =>
+    apiPatch<PriceBoardResponse>(`/price-boards/${id}/toggle-active`, {}),
+
+  delete: (id: string) =>
+    apiDelete<{ id: string; deletedAt: string }>(`/price-boards/${id}`),
+};
+
+// ============================================================
 // HELPER: Extract data từ wrapped response
 // BE interceptor wrap: { success: true, data: T }
 // Axios unwrap HTTP: response.data = { success: true, data: T }

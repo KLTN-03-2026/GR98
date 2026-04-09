@@ -157,7 +157,6 @@ async function main() {
         userId: clientUser.id,
         adminId,
         province: 'Hà Nội',
-        defaultAddress: null,
       },
     });
 
@@ -492,15 +491,12 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
   // 10. CATEGORY — thêm 3 record
   // ─────────────────────────────────────────────────────────────────────────
-  const existingCategoryCount = await prisma.category.count({
-    where: { adminId },
-  });
+  const existingCategoryCount = await prisma.category.count();
 
   if (existingCategoryCount === 0) {
     await Promise.all([
       prisma.category.create({
         data: {
-          adminId,
           name: 'Rau ăn lá',
           slug: 'rau-an-la',
           sortOrder: 1,
@@ -508,7 +504,6 @@ async function main() {
       }),
       prisma.category.create({
         data: {
-          adminId,
           name: 'Rau ăn củ',
           slug: 'rau-an-cu',
           sortOrder: 2,
@@ -516,7 +511,6 @@ async function main() {
       }),
       prisma.category.create({
         data: {
-          adminId,
           name: 'Rau gia vị',
           slug: 'rau-gia-vi',
           sortOrder: 3,
@@ -610,6 +604,7 @@ async function main() {
           plotId: plotIds[0],
           name: 'Rau muống tươi A',
           slug: 'rau-muong-tuoi-a',
+          sku: 'SKU-RM-001',
           description: 'Rau muống tươi loại A, không thuốc trừ sâu',
           cropType: 'Rau muống',
           grade: QualityGrade.A,
@@ -629,6 +624,7 @@ async function main() {
           plotId: plotIds[1],
           name: 'Cải xanh tươi A',
           slug: 'cai-xanh-tuoi-a',
+          sku: 'SKU-CX-001',
           description: 'Cải xanh tươi loại A, trồng hữu cơ',
           cropType: 'Cải xanh',
           grade: QualityGrade.A,
@@ -648,6 +644,7 @@ async function main() {
           plotId: plotIds[2],
           name: 'Xà lách tươi B',
           slug: 'xa-lach-tuoi-b',
+          sku: 'SKU-XL-001',
           description: 'Xà lách tươi loại B, giòn ngon',
           cropType: 'Xà lách',
           grade: QualityGrade.B,
@@ -672,7 +669,7 @@ async function main() {
   const existingPCCount = await prisma.productCategory.count();
 
   const products = await prisma.product.findMany({ where: { adminId } });
-  const categories = await prisma.category.findMany({ where: { adminId } });
+  const categories = await prisma.category.findMany();
 
   if (existingPCCount === 0 && products.length > 0 && categories.length > 0) {
     await Promise.all([
@@ -717,6 +714,7 @@ async function main() {
           clientId,
           adminId,
           orderNo: 'ORD-2026-001',
+          orderCode: 'ĐH-20260409-001',
           subtotal: 80000,
           shippingFee: 15000,
           discount: 0,
@@ -724,7 +722,8 @@ async function main() {
           paymentMethod: PaymentMethod.COD,
           paymentStatus: PaymentStatus.PAID,
           fulfillStatus: FulfillStatus.DELIVERED,
-          shippingAddr: { address: '123 Nguyễn Trãi, Thanh Xuân, Hà Nội', phone: '0987654321' },
+          shippingAddr: { fullName: 'Khách Hàng', phone: '0987654321', addressLine: '123 Nguyễn Trãi', district: 'Thanh Xuân', province: 'Hà Nội' },
+          shippingAddrText: '123 Nguyễn Trãi, Thanh Xuân, Hà Nội',
           trackingCode: 'TRACK001',
           paidAt: new Date(),
         },
@@ -734,6 +733,7 @@ async function main() {
           clientId,
           adminId,
           orderNo: 'ORD-2026-002',
+          orderCode: 'ĐH-20260409-002',
           subtotal: 150000,
           shippingFee: 20000,
           discount: 10000,
@@ -741,7 +741,8 @@ async function main() {
           paymentMethod: PaymentMethod.VNPAY,
           paymentStatus: PaymentStatus.PENDING,
           fulfillStatus: FulfillStatus.PACKING,
-          shippingAddr: { address: '456 Láng Hạ, Đống Đa, Hà Nội', phone: '0987654321' },
+          shippingAddr: { fullName: 'Khách Hàng', phone: '0987654321', addressLine: '456 Láng Hạ', district: 'Đống Đa', province: 'Hà Nội' },
+          shippingAddrText: '456 Láng Hạ, Đống Đa, Hà Nội',
         },
       }),
       prisma.order.create({
@@ -749,6 +750,7 @@ async function main() {
           clientId,
           adminId,
           orderNo: 'ORD-2026-003',
+          orderCode: 'ĐH-20260409-003',
           subtotal: 50000,
           shippingFee: 10000,
           discount: 0,
@@ -756,7 +758,8 @@ async function main() {
           paymentMethod: PaymentMethod.MOMO,
           paymentStatus: PaymentStatus.PENDING,
           fulfillStatus: FulfillStatus.PENDING,
-          shippingAddr: { address: '789 Kim Mã, Ba Đình, Hà Nội', phone: '0987654321' },
+          shippingAddr: { fullName: 'Khách Hàng', phone: '0987654321', addressLine: '789 Kim Mã', district: 'Ba Đình', province: 'Hà Nội' },
+          shippingAddrText: '789 Kim Mã, Ba Đình, Hà Nội',
         },
       }),
     ]);

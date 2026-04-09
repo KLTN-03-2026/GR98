@@ -1,8 +1,9 @@
 // =============================================================================
 // schema.prisma — Agri-Integrator
-// Stack : Prisma + PostgreSQL (pgvector for RAG)
-// Roles : ADMIN | SUPERVISOR | CLIENT
-// Auth  : JWT stateless — role + adminId stored in token, no Permission table
+// Nguồn: db.md (2026) + giữ các model đang dùng cho chức năng hiện tại
+//
+// Stack : Prisma + PostgreSQL
+// Auth  : JWT stateless — role + adminId stored in token
 // =============================================================================
 
 generator client {
@@ -37,10 +38,10 @@ enum FarmerStatus {
 }
 
 enum PlotStatus {
-  ACTIVE // dang trong cay
-  HARVESTED // da thu hoach
-  IDLE // chua trong
-  SUSPENDED // tam ngung
+  ACTIVE   // đang trồng
+  HARVESTED
+  IDLE
+  SUSPENDED
 }
 
 enum AssignStatus {
@@ -51,13 +52,13 @@ enum AssignStatus {
 }
 
 enum ReportType {
-  ROUTINE // bao cao hang ngay thuong
-  INCIDENT // su co bat thuong can xu ly
+  ROUTINE
+  INCIDENT
 }
 
 enum ContractStatus {
   DRAFT
-  SIGNED // trigger tao Product tren E-com
+  SIGNED
   COMPLETED
   CANCELLED
 }
@@ -103,6 +104,10 @@ enum ReviewStatus {
   REJECTED
 }
 
+// =============================================================================
+// DOMAIN 0 — AUTH & TOKEN
+// =============================================================================
+
 model RefreshToken {
   id        String   @id @default(cuid())
   userId    String   @unique
@@ -115,7 +120,6 @@ model RefreshToken {
   @@map("RefreshTokens")
 }
 
-// Password reset request store
 model PasswordReset {
   id        String    @id @default(cuid())
   userId    String
@@ -129,8 +133,8 @@ model PasswordReset {
   @@map("PasswordResets")
 }
 
-// Nguon duy nhat cho authentication
-// Role duoc luu trong JWT — khong co Permission table
+// Nguồn duy nhất cho authentication (Admin/Supervisor/Client)
+// Role được lưu trong JWT — không có Permission table
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
@@ -152,8 +156,12 @@ model User {
   @@map("users")
 }
 
-// Profile mo rong cho ADMIN
-// adminId = User.id cua chinh ho — dung lam tenant key tren tat ca bang khac
+// =============================================================================
+// DOMAIN 1 — USER PROFILES
+// =============================================================================
+
+// Profile mở rộng cho ADMIN
+// adminId = User.id — dùng làm tenant key trên tất cả bảng khác
 model AdminProfile {
   id           String  @id @default(cuid())
   userId       String  @unique
@@ -164,7 +172,6 @@ model AdminProfile {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Relations — tat ca data cua Admin nay
   zones       Zone[]
   supervisors SupervisorProfile[]
   farmers     Farmer[]
@@ -174,13 +181,13 @@ model AdminProfile {
   products    Product[]
   orders      Order[]
   assignments Assignment[]
-  categories  Category[]
+  warehouses  Warehouse[]
 
   @@map("AdminProfiles")
 }
 
-// Profile mo rong cho SUPERVISOR
-// adminId -> biet Supervisor nay thuoc Admin nao (tenant isolation)
+// Profile mở rộng cho SUPERVISOR
+// adminId -> biết Supervisor thuộc Admin nào (tenant isolation)
 model SupervisorProfile {
   id           String    @id @default(cuid())
   userId       String    @unique
@@ -188,7 +195,7 @@ model SupervisorProfile {
   zoneId       String?
   employeeCode String    @unique
   hiredAt      DateTime  @default(now())
-  lat          Float? // GPS hien tai, cap nhat qua /supervisor/location
+  lat          Float? // GPS hiện tại
   lng          Float?
   lastSeenAt   DateTime?
 
@@ -202,28 +209,46 @@ model SupervisorProfile {
   @@map("SupervisorProfiles")
 }
 
-// Profile mo rong cho CLIENT
-// adminId optional — cho phep Client mua hang tu nhieu tenant (theo Order.adminId)
+// Profile mở rộng cho CLIENT
 model ClientProfile {
   id             String   @id @default(cuid())
   userId         String   @unique
-  adminId        String? // TENANT KEY (optional — multi-tenant buyer)
-  defaultAddress String?
+  adminId        String? // TENANT KEY — multi-tenant buyer
   province       String?
   createdAt      DateTime @default(now())
 
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders  Order[]
-  reviews Review[]
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders            Order[]
+  reviews           Review[]
+  shippingAddresses ClientShippingAddress[]
 
   @@map("ClientProfiles")
 }
 
+// Địa chỉ giao hàng của CLIENT (db.md: clients.shipping_address mở rộng)
+model ClientShippingAddress {
+  id              String   @id @default(cuid())
+  clientProfileId String
+  fullName        String
+  phone           String
+  addressLine     String
+  district        String?
+  province        String
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  clientProfile ClientProfile @relation(fields: [clientProfileId], references: [id], onDelete: Cascade)
+
+  @@index([clientProfileId])
+  @@map("ClientShippingAddresses")
+}
+
 // =============================================================================
-// DOMAIN 2 — HRM & BUSINESS AREA
+// DOMAIN 2 — HRM & BUSINESS AREA (giữ nguyên từ schema cũ)
 // =============================================================================
 
-// Khu vuc san xuat — "Business Area" cua Admin
+// Khu vực sản xuất — "Business Area" của Admin
 model Zone {
   id          String @id @default(cuid())
   adminId     String // TENANT KEY
@@ -234,21 +259,20 @@ model Zone {
   centerLng   Float?
   totalAreaHa Float  @default(0)
 
-  admin AdminProfile @relation(fields: [adminId], references: [id])
-
+  admin       AdminProfile @relation(fields: [adminId], references: [id])
   supervisors SupervisorProfile[]
   plots       Plot[]
 
   @@map("Zones")
 }
 
-// Nong dan ky hop dong bao tieu
+// Nông dân ký hợp đồng bao tiêu
 model Farmer {
   id          String       @id @default(cuid())
   adminId     String // TENANT KEY
   fullName    String
   phone       String
-  cccd        String       @unique // So CCCD, unique toan he thong
+  cccd        String       @unique // Số CCCD
   bankAccount String?
   address     String?
   province    String?
@@ -262,7 +286,7 @@ model Farmer {
   @@map("Farmers")
 }
 
-// Lo dat
+// Lô đất
 model Plot {
   id               String     @id @default(cuid())
   farmerId         String
@@ -291,7 +315,7 @@ model Plot {
   @@map("Plots")
 }
 
-// Giao viec
+// Giao việc cho Supervisor
 model Assignment {
   id           String       @id @default(cuid())
   supervisorId String
@@ -309,6 +333,7 @@ model Assignment {
   @@map("Assignments")
 }
 
+// Báo cáo hàng ngày
 model DailyReport {
   id           String     @id @default(cuid())
   supervisorId String
@@ -327,6 +352,7 @@ model DailyReport {
   @@map("DailyReports")
 }
 
+// Bảng giá
 model PriceBoard {
   id            String       @id @default(cuid())
   adminId       String // TENANT KEY
@@ -344,7 +370,7 @@ model PriceBoard {
 }
 
 // =============================================================================
-// DOMAIN 3 — CONTRACT & E-COM
+// DOMAIN 3 — CONTRACT & PRODUCT
 // =============================================================================
 
 model Contract {
@@ -358,7 +384,7 @@ model Contract {
   quantityKg   Float
   pricePerKg   Float
   totalAmount  Float
-  grade        QualityGrade
+  grade       QualityGrade
   status       ContractStatus @default(DRAFT)
   signedAt     DateTime?
   harvestDue   DateTime?
@@ -381,18 +407,22 @@ model Product {
   contractId        String?       @unique
   name              String
   slug              String        @unique
+  sku               String        @unique
   description       String?
   cropType          String
   grade             QualityGrade
   pricePerKg        Float
   stockKg           Float         @default(0)
   minOrderKg        Float         @default(1)
+  unit              String        @default("kg")
   qrCode            String        @unique
   imageUrls         String[]
+  thumbnailUrl       String?
   status            ProductStatus @default(DRAFT)
   harvestDate       DateTime?
   aiConfidenceScore Float?
   createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   admin      AdminProfile      @relation(fields: [adminId], references: [id])
   plot       Plot?             @relation(fields: [plotId], references: [id])
@@ -400,19 +430,23 @@ model Product {
   categories ProductCategory[]
   orderItems OrderItem[]
   reviews    Review[]
+  transactions WarehouseTransaction[]
+  inventoryLots InventoryLot[]
 
   @@map("Products")
 }
 
+// Danh mục sản phẩm — SHARED (không phân tenant)
 model Category {
-  id        String  @id @default(cuid())
-  adminId   String // TENANT KEY
-  name      String
-  slug      String  @unique
-  imageUrl  String?
-  sortOrder Int     @default(0)
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String? @db.Text
+  imageUrl    String?
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+  createdAt   DateTime @default(now())
 
-  admin    AdminProfile      @relation(fields: [adminId], references: [id])
   products ProductCategory[]
 
   @@map("Categories")
@@ -429,27 +463,34 @@ model ProductCategory {
   @@map("ProductCategories")
 }
 
-model Order {
-  id            String        @id @default(cuid())
-  clientId      String
-  adminId       String // TENANT KEY
-  orderNo       String        @unique
-  subtotal      Float
-  shippingFee   Float         @default(0)
-  discount      Float         @default(0)
-  total         Float
-  paymentMethod PaymentMethod
-  paymentRef    String?
-  paymentStatus PaymentStatus @default(PENDING)
-  fulfillStatus FulfillStatus @default(PENDING)
-  shippingAddr  Json
-  trackingCode  String?
-  note          String?
-  orderedAt     DateTime      @default(now())
-  paidAt        DateTime?
+// =============================================================================
+// DOMAIN 4 — E-COMMERCE (CLIENT)
+// =============================================================================
 
-  client     ClientProfile @relation(fields: [clientId], references: [id])
-  admin      AdminProfile  @relation(fields: [adminId], references: [id])
+// Order dùng ClientProfile (User+ClientProfile) — không cần bảng Client riêng
+model Order {
+  id              String        @id @default(cuid())
+  clientId        String
+  adminId         String // TENANT KEY
+  orderNo         String        @unique
+  orderCode       String        @unique // mã hiển thị: ĐH-20260409-001
+  subtotal        Float
+  shippingFee     Float         @default(0)
+  discount        Float         @default(0)
+  total           Float
+  paymentMethod   PaymentMethod
+  paymentRef      String?
+  paymentStatus   PaymentStatus @default(PENDING)
+  fulfillStatus   FulfillStatus @default(PENDING)
+  shippingAddr    Json // { fullName, phone, addressLine, district, province }
+  shippingAddrText String?      @db.Text // địa chỉ dạng text đơn giản
+  trackingCode    String?
+  note            String?
+  orderedAt       DateTime      @default(now())
+  paidAt          DateTime?
+
+  client ClientProfile @relation(fields: [clientId], references: [id])
+  admin  AdminProfile  @relation(fields: [adminId], references: [id])
   orderItems OrderItem[]
 
   @@map("Orders")
@@ -475,7 +516,7 @@ model Review {
   productId        String
   clientId         String
   rating           Int
-  comment          String?
+  comment          String?      @db.Text
   imageUrls        String[]
   verifiedPurchase Boolean      @default(false)
   status           ReviewStatus @default(PENDING)
@@ -485,4 +526,63 @@ model Review {
   client  ClientProfile @relation(fields: [clientId], references: [id])
 
   @@map("Reviews")
+}
+
+// =============================================================================
+// DOMAIN 5 — WAREHOUSE & INVENTORY (từ db.md)
+// =============================================================================
+
+// Kho hàng
+model Warehouse {
+  id             String  @id @default(cuid())
+  name           String
+  locationAddress String? @db.Text
+  isActive       Boolean @default(true)
+  createdAt      DateTime @default(now())
+
+  managedBy String
+  admin     AdminProfile        @relation(fields: [managedBy], references: [id])
+  inventoryLots InventoryLot[]
+  transactions  WarehouseTransaction[]
+
+  @@map("warehouses")
+}
+
+// Lô hàng nhập kho
+model InventoryLot {
+  id              String   @id @default(cuid())
+  warehouseId     String
+  productId       String
+  contractId      String? // nguồn truy xuất nếu có
+  quantityKg      Float
+  harvestDate     DateTime?
+  expiryDate      DateTime?
+  qualityGrade    QualityGrade
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  warehouse     Warehouse             @relation(fields: [warehouseId], references: [id])
+  product       Product               @relation(fields: [productId], references: [id])
+  transactions  WarehouseTransaction[]
+
+  @@map("inventory_lots")
+}
+
+// Log xuất/nhập/điều chỉnh kho (append-only)
+model WarehouseTransaction {
+  id              String   @id @default(cuid())
+  warehouseId     String
+  productId       String
+  inventoryLotId  String
+  type            String   // inbound | outbound | adjustment
+  quantityKg      Float
+  note            String?  @db.Text
+  createdBy       String
+  createdAt       DateTime @default(now())
+
+  warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
+  product      Product      @relation(fields: [productId], references: [id])
+  inventoryLot InventoryLot @relation(fields: [inventoryLotId], references: [id])
+
+  @@map("warehouse_transactions")
 }

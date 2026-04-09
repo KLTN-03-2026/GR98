@@ -19,8 +19,8 @@ import {
   useOrder,
   useCancelOrder,
 } from '@/client/hooks/use-queries';
+import { formatPrice } from '@/client/data/mock-data';
 import {
-  formatPrice,
   PAYMENT_STATUS_LABELS,
   FULFILL_STATUS_LABELS,
   type Order,

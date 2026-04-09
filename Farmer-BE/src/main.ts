@@ -1,3 +1,9 @@
+import { config as loadEnv } from 'dotenv';
+import { resolve } from 'path';
+
+// Load .env from project root (reliable when cwd varies)
+loadEnv({ path: resolve(process.cwd(), '.env') });
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';

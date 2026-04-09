@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Body,
+  Query,
   UseGuards,
   Request,
   HttpCode,
@@ -14,10 +15,13 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
+  ApiFoundResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 
 @ApiTags('auth')
@@ -54,5 +58,23 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Gửi email đặt lại mật khẩu' })
+  @ApiResponse({ status: 200, description: 'Email đã được gửi (luôn return success)' })
+  @ApiResponse({ status: 400, description: 'Email không hợp lệ' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đặt lại mật khẩu với token' })
+  @ApiResponse({ status: 200, description: 'Mật khẩu đã được cập nhật' })
+  @ApiResponse({ status: 400, description: 'Token không hợp lệ hoặc đã hết hạn' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 }

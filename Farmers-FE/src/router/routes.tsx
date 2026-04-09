@@ -6,6 +6,8 @@ import SupervisorAuthLayout from '@/layouts/supervisor-auth.layout';
 import UsersManagementPage from '@/pages/users';
 import LoginPage from '@/pages/auth/login.page';
 import RegisterPage from '@/pages/auth/register.page';
+import ForgotPasswordPage from '@/pages/auth/forgot-password.page';
+import ResetPasswordPage from '@/pages/auth/reset-password.page';
 import OverviewPage from '@/pages/overview';
 import ZonesPage from '@/pages/zones';
 import FarmersPage from '@/pages/farmers';
@@ -67,6 +69,22 @@ const rootLayout: RouteObject = {
       element: (
         <GuestRoute>
           <RegisterPage />
+        </GuestRoute>
+      ),
+    },
+    {
+      path: 'auth/forgot-password',
+      element: (
+        <GuestRoute>
+          <ForgotPasswordPage />
+        </GuestRoute>
+      ),
+    },
+    {
+      path: 'auth/reset-password',
+      element: (
+        <GuestRoute>
+          <ResetPasswordPage />
         </GuestRoute>
       ),
     },

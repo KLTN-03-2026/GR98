@@ -6,10 +6,11 @@ import { AuthModule } from './auth/auth.module';
 // import { BranchModule } from './branch/branch.module';
 import { UserModule } from './user/user.module';
 import { ProfileModule } from './profile/profile.module';
+import { MailModule } from './mail/mail.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UserModule, ProfileModule],
+  imports: [PrismaModule, AuthModule, UserModule, ProfileModule, MailModule],
   controllers: [AppController],
   providers: [AppService],
 })

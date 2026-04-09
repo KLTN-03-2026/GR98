@@ -9,14 +9,19 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcryptjs';
 import { Role } from '@prisma/client';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async getMe(userId: string) {
@@ -303,5 +308,93 @@ export class AuthService {
     }
 
     return { ...user, adminId };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    // Luôn return success để không leak email tồn tại
+    if (!user) {
+      return { message: 'Link đặt lại mật khẩu đã được gửi đến email' };
+    }
+
+    // Tạo token bảo mật
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 giờ
+
+    // Xóa các token cũ của user
+    await this.prisma.passwordReset.deleteMany({
+      where: { userId: user.id },
+    });
+
+    // Tạo record PasswordReset mới
+    await this.prisma.passwordReset.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt,
+      },
+    });
+
+    // Build reset link
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetLink = `${frontendUrl}/auth/reset-password?token=${token}`;
+
+    // Gửi email
+    try {
+      await this.mailService.sendPasswordResetEmail(user.email, resetLink, user.fullName);
+    } catch (error) {
+      console.error('Failed to send reset email:', error);
+      // Vẫn return thành công để không leak thông tin
+    }
+
+    return { message: 'Link đặt lại mật khẩu đã được gửi đến email' };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const passwordReset = await this.prisma.passwordReset.findUnique({
+      where: { token: dto.token },
+    });
+
+    if (!passwordReset) {
+      throw new BadRequestException('Token không hợp lệ hoặc đã hết hạn');
+    }
+
+    // Check if token is expired
+    if (new Date() > passwordReset.expiresAt) {
+      throw new BadRequestException('Token không hợp lệ hoặc đã hết hạn');
+    }
+
+    // Check if token was already used
+    if (passwordReset.usedAt) {
+      throw new BadRequestException('Token không hợp lệ hoặc đã hết hạn');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    // Update password and mark token as used in transaction
+    await this.prisma.$transaction(async (tx) => {
+      // Update user password
+      await tx.user.update({
+        where: { id: passwordReset.userId },
+        data: { passwordHash: hashedPassword },
+      });
+
+      // Mark token as used
+      await tx.passwordReset.update({
+        where: { id: passwordReset.id },
+        data: { usedAt: new Date() },
+      });
+
+      // Invalidate all refresh tokens of this user
+      await tx.refreshToken.deleteMany({
+        where: { userId: passwordReset.userId },
+      });
+    });
+
+    return { message: 'Mật khẩu đã được cập nhật' };
   }
 }

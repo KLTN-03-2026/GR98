@@ -341,18 +341,114 @@ export const cartApi = {
 // ============================================================
 // ORDER API ENDPOINTS
 // ============================================================
+export interface OrderItemResponse {
+  id: string;
+  productId: string;
+  nameSnapshot: string;
+  priceSnapshot: number;
+  quantityKg: number;
+  subtotal: number;
+  product?: { id: string; imageUrls: string[]; thumbnailUrl: string | null };
+}
+
+export interface ShippingAddrResponse {
+  fullName: string;
+  phone: string;
+  addressLine: string;
+  district: string | null;
+  province: string;
+}
+
+export interface ClientInfo {
+  id: string;
+  user: { fullName: string; email: string; phone: string | null };
+}
+
+export interface AdminInfo {
+  id: string;
+  businessName: string;
+}
+
+export interface OrderResponse {
+  id: string;
+  orderNo: string;
+  orderCode: string;
+  subtotal: number;
+  shippingFee: number;
+  discount: number;
+  total: number;
+  paymentMethod: 'COD' | 'VNPAY' | 'MOMO';
+  paymentRef: string | null;
+  paymentStatus: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+  fulfillStatus: 'PENDING' | 'PACKING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  shippingAddr: ShippingAddrResponse;
+  shippingAddrText: string | null;
+  trackingCode: string | null;
+  note: string | null;
+  orderedAt: string;
+  paidAt: string | null;
+  orderItems: OrderItemResponse[];
+  client?: ClientInfo;
+  admin?: AdminInfo;
+}
+
+export interface PaginatedOrdersResponse {
+  data: OrderResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CreateOrderPayload {
+  items: Array<{ productId: string; quantityKg: number }>;
+  shippingAddr: {
+    fullName: string;
+    phone: string;
+    addressLine: string;
+    district?: string;
+    province: string;
+  };
+  paymentMethod: 'COD' | 'VNPAY' | 'MOMO';
+  note?: string;
+  savedAddressId?: string;
+}
+
+export interface UpdateOrderPayload {
+  paymentStatus?: OrderResponse['paymentStatus'];
+  fulfillStatus?: OrderResponse['fulfillStatus'];
+  trackingCode?: string;
+  note?: string;
+}
+
+export interface CancelOrderPayload {
+  reason?: string;
+}
+
 export const orderApi = {
-  list: (params?: { page?: number; limit?: number }) =>
-    apiGet<unknown>('/orders', { params }),
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    paymentStatus?: string;
+    fulfillStatus?: string;
+    paymentMethod?: string;
+    myOrders?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) => apiGet<PaginatedOrdersResponse>('/orders', { params }),
 
   getById: (orderId: string) =>
-    apiGet<unknown>(`/orders/${orderId}`),
+    apiGet<OrderResponse>(`/orders/${orderId}`),
 
-  create: (data: unknown) =>
-    apiPost<unknown>('/orders', data),
+  create: (data: CreateOrderPayload) =>
+    apiPost<OrderResponse>('/orders', data),
 
-  cancel: (orderId: string) =>
-    apiPatch<unknown>(`/orders/${orderId}/cancel`),
+  update: (orderId: string, data: UpdateOrderPayload) =>
+    apiPatch<OrderResponse>(`/orders/${orderId}`, data),
+
+  cancel: (orderId: string, data?: CancelOrderPayload) =>
+    apiPost<OrderResponse>(`/orders/${orderId}/cancel`, data ?? {}),
 };
 
 // ============================================================

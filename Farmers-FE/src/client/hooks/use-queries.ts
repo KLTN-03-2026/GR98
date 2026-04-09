@@ -319,19 +319,30 @@ export function useCategories() {
 // ============================================================
 // ORDER HOOKS
 // ============================================================
-export function useOrders(params?: { page?: number; limit?: number }) {
+export function useOrders(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  paymentStatus?: string;
+  fulfillStatus?: string;
+  paymentMethod?: string;
+  myOrders?: string;
+  fromDate?: string;
+  toDate?: string;
+}) {
   return useQuery({
     queryKey: ['orders', params],
     queryFn: async () => {
       const response = await orderApi.list(params);
       return extractData<{
-        items: Order[];
+        data: Order[];
         total: number;
         page: number;
         limit: number;
         totalPages: number;
       }>(response);
     },
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -349,7 +360,7 @@ export function useOrder(orderId: string) {
 export function useCreateOrder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: CreateOrderRequest) => {
+    mutationFn: async (data: import('@/client/lib/api-client').CreateOrderPayload) => {
       const response = await orderApi.create(data);
       return extractData<Order>(response);
     },
@@ -358,8 +369,31 @@ export function useCreateOrder() {
       toast.success(`Đặt hàng thành công! Mã đơn: ${data.orderNo}`);
       return data;
     },
-    onError: (error: { message: string }) => {
+    onError: (error: { message?: string }) => {
       toast.error(error.message || 'Đặt hàng thất bại');
+    },
+  });
+}
+
+export function useUpdateOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      data,
+    }: {
+      orderId: string;
+      data: import('@/client/lib/api-client').UpdateOrderPayload;
+    }) => {
+      const response = await orderApi.update(orderId, data);
+      return extractData<Order>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('Cập nhật đơn hàng thành công');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Cập nhật thất bại');
     },
   });
 }
@@ -367,15 +401,21 @@ export function useCreateOrder() {
 export function useCancelOrder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (orderId: string) => {
-      const response = await orderApi.cancel(orderId);
+    mutationFn: async ({
+      orderId,
+      reason,
+    }: {
+      orderId: string;
+      reason?: string;
+    }) => {
+      const response = await orderApi.cancel(orderId, reason ? { reason } : undefined);
       return extractData<Order>(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       toast.success('Đơn hàng đã được hủy');
     },
-    onError: (error: { message: string }) => {
+    onError: (error: { message?: string }) => {
       toast.error(error.message || 'Hủy đơn thất bại');
     },
   });

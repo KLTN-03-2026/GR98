@@ -13,11 +13,9 @@ export type QualityGrade = 'A' | 'B' | 'C' | 'REJECT';
 export interface ShippingAddress {
   fullName: string;
   phone: string;
-  address: string;
+  addressLine: string;
   province: string;
-  district: string;
-  ward?: string;
-  isDefault?: boolean;
+  district?: string | null;
 }
 
 // ============================================================
@@ -172,25 +170,33 @@ export interface OrderItem {
   quantityKg: number;
   subtotal: number;
   productImage?: string;
+  product?: { id: string; imageUrls: string[]; thumbnailUrl: string | null };
 }
 
 export interface Order {
   id: string;
   orderNo: string;
+  orderCode?: string;
   subtotal: number;
   shippingFee: number;
   discount: number;
   total: number;
   paymentMethod: PaymentMethod;
-  paymentRef?: string;
+  paymentRef?: string | null;
   paymentStatus: PaymentStatus;
   fulfillStatus: FulfillStatus;
   shippingAddr: ShippingAddress;
-  trackingCode?: string;
-  note?: string;
+  shippingAddrText?: string | null;
+  trackingCode?: string | null;
+  note?: string | null;
   orderedAt: string;
-  paidAt?: string;
+  paidAt?: string | null;
   orderItems: OrderItem[];
+  client?: {
+    id: string;
+    user: { fullName: string; email: string; phone: string | null };
+  };
+  admin?: { id: string; businessName: string };
 }
 
 export interface CreateOrderRequest {

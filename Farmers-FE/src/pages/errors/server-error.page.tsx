@@ -13,10 +13,11 @@ export default function ServerErrorPage({ message }: ServerErrorPageProps) {
           <AppLogo height={48} alt="Agri Integration" />
         </div>
 
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-(--secondary-600)">Error 500</p>
-        <h1 className="mt-3 text-4xl font-bold text-(--secondary-800)">Loi he thong tam thoi</h1>
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-(--secondary-600)">Lỗi 500</p>
+        <h1 className="mt-3 text-4xl font-bold text-(--secondary-800)">Lỗi hệ thống tạm thời</h1>
         <p className="mt-4 max-w-xl text-sm leading-6 text-(--neutral-700)">
-          {message ?? 'Da xay ra loi khi xu ly yeu cau. Vui long thu tai lai trang hoac quay lai sau it phut.'}
+          {message ??
+            'Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng tải lại trang hoặc thử lại sau ít phút.'}
         </p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -25,13 +26,13 @@ export default function ServerErrorPage({ message }: ServerErrorPageProps) {
             onClick={() => window.location.reload()}
             className="inline-flex items-center rounded-lg bg-(--secondary-500) px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-(--secondary-600)"
           >
-            Tai lai trang
+            Tải lại trang
           </button>
           <Link
             to="/"
             className="inline-flex items-center rounded-lg border border-(--primary-400) bg-background px-5 py-3 text-sm font-semibold text-(--secondary-700) transition hover:bg-(--primary-50)"
           >
-            Ve trang chu
+            Về trang chủ
           </Link>
         </div>
       </div>

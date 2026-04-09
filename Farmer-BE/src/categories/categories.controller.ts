@@ -81,6 +81,19 @@ export class CategoriesController {
     return this.categoriesService.create(dto);
   }
 
+  // ─── ADMIN: Sắp xếp lại (đặt TRƯỚC @Patch(':id') — nếu không, "reorder" bị coi là id) ─
+
+  @Patch('reorder')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Sắp xếp thứ tự danh mục (Admin)' })
+  @ApiResponse({ status: 200, description: 'Đã cập nhật sortOrder' })
+  reorder(@Body() dto: ReorderCategoryDto) {
+    return this.categoriesService.reorder(dto);
+  }
+
   // ─── ADMIN: Cập nhật ────────────────────────────────────────────────────
 
   @Patch(':id')
@@ -93,19 +106,6 @@ export class CategoriesController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy' })
   update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     return this.categoriesService.update(id, dto);
-  }
-
-  // ─── ADMIN: Sắp xếp lại ─────────────────────────────────────────────────
-
-  @Patch('reorder')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Sắp xếp thứ tự danh mục (Admin)' })
-  @ApiResponse({ status: 200, description: 'Đã cập nhật sortOrder' })
-  reorder(@Body() dto: ReorderCategoryDto) {
-    return this.categoriesService.reorder(dto);
   }
 
   // ─── ADMIN: Xóa ──────────────────────────────────────────────────────────

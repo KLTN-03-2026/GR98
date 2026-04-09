@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import {
   Search,
   Plus,
@@ -6,8 +6,6 @@ import {
   Trash2,
   Image as ImageIcon,
   GripVertical,
-  CheckCircle2,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -40,7 +38,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { CategoryResponse } from '@/client/lib/api-client';
 
@@ -352,17 +349,29 @@ export default function CategoriesAdminPage() {
 
   // ── Drag & Drop ───────────────────────────────────────────────────────────
 
-  const handleDragStart = (id: string) => setDragId(id);
-  const handleDragEnd = async () => {
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDragId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+  const handleDragEnd = () => {
     setDragId(null);
   };
 
-  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+  /** Bắt buộc preventDefault thì trình duyệt mới cho phép thả (drop). */
+  const handleDragOverRow = (e: React.DragEvent) => {
     e.preventDefault();
-    if (!dragId || dragId === targetId) return;
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  /** Gọi API reorder một lần khi thả — không dùng await trong hàm không async. */
+  const handleDropOnRow = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const sourceId = dragId;
+    if (!sourceId || sourceId === targetId) return;
 
     const sorted = [...categories].sort((a, b) => a.sortOrder - b.sortOrder);
-    const fromIndex = sorted.findIndex((c) => c.id === dragId);
+    const fromIndex = sorted.findIndex((c) => c.id === sourceId);
     const toIndex = sorted.findIndex((c) => c.id === targetId);
     if (fromIndex === -1 || toIndex === -1) return;
 
@@ -472,9 +481,10 @@ export default function CategoriesAdminPage() {
                   <tr
                     key={cat.id}
                     draggable
-                    onDragStart={() => handleDragStart(cat.id)}
+                    onDragStart={(e) => handleDragStart(e, cat.id)}
                     onDragEnd={handleDragEnd}
-                    onDragOver={(e) => handleDragOver(e, cat.id)}
+                    onDragOver={handleDragOverRow}
+                    onDrop={(e) => void handleDropOnRow(e, cat.id)}
                     className={cn(
                       'border-b last:border-0 transition-all',
                       dragId === cat.id && 'opacity-50 bg-muted/50',

@@ -1,6 +1,24 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsNumber,
+  Min,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+
+export class ReorderCategoryItemDto {
+  @IsString()
+  @IsNotEmpty()
+  id: string;
+
+  @IsNumber()
+  @Min(0)
+  sortOrder: number;
+}
 
 export class CreateCategoryDto {
   @ApiProperty({ example: 'Trái cây nhiệt đới', description: 'Tên danh mục' })
@@ -55,10 +73,12 @@ export class CategoryQueryDto {
 
 export class ReorderCategoryDto {
   @ApiProperty({
-    type: [Number],
-    example: [{ id: 'xxx', sortOrder: 1 }, { id: 'yyy', sortOrder: 2 }],
+    type: [ReorderCategoryItemDto],
+    example: [{ id: 'xxx', sortOrder: 0 }, { id: 'yyy', sortOrder: 1 }],
     description: 'Danh sách id và sortOrder mới',
   })
-  @IsNumber()
-  orders: Array<{ id: string; sortOrder: number }>;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReorderCategoryItemDto)
+  orders: ReorderCategoryItemDto[];
 }

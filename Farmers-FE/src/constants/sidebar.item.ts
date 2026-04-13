@@ -59,6 +59,7 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
             { icon: Handshake, label: 'Quản lý Hợp đồng', category: 'system', path: `${basePath}/contracts` },
             { icon: Warehouse, label: 'Giám sát Kho hàng', category: 'system', path: `${basePath}/warehouses` },
             { icon: ReceiptText, label: 'Giám sát Đơn hàng', category: 'system', path: `${basePath}/orders` },
+            { icon: Star, label: 'Quản lý Đánh giá', category: 'system', path: `${basePath}/reviews` },
         ];
     }
 

@@ -17,6 +17,7 @@ import AdminSupervisorsPage from '@/pages/admin/supervisors';
 import AdminInventoryStaffPage from '@/pages/admin/inventory-staff';
 import AdminClientsPage from '@/pages/admin/clients';
 import AdminWarehousesPage from '@/pages/admin/warehouses';
+import AdminReviewsPage from '@/pages/admin/reviews';
 
 import SupervisorOverviewPage from '@/pages/supervisor/overview';
 import SupervisorFarmersPage from '@/pages/supervisor/farmers';
@@ -210,6 +211,10 @@ const adminDashboard: RouteObject = {
     {
       path: 'orders',
       element: <AdminOrdersPage />,
+    },
+    {
+      path: 'reviews',
+      element: <AdminReviewsPage />,
     },
   ],
 };

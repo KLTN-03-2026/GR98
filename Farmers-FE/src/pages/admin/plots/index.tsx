@@ -120,6 +120,10 @@ const INITIAL_PLOTS: PlotItem[] = [
 
 const getCropLabel = (crop: CropType) =>
   crop === "sau-rieng" ? "Sầu riêng" : "Cà phê";
+const getCropBadgeClass = (crop: CropType) =>
+  crop === "ca-phe"
+    ? "border-amber-300 bg-amber-50 text-amber-800"
+    : "border-lime-300 bg-lime-50 text-lime-800";
 
 export default function PlotsPage() {
   const [plots, setPlots] = useState<PlotItem[]>(INITIAL_PLOTS);
@@ -355,7 +359,12 @@ export default function PlotsPage() {
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dashed border-primary/30 pt-3">
-              <Badge variant="outline">{getCropLabel(plot.cropType)}</Badge>
+              <Badge
+                variant="outline"
+                className={getCropBadgeClass(plot.cropType)}
+              >
+                {getCropLabel(plot.cropType)}
+              </Badge>
               <Badge
                 variant="secondary"
                 className="bg-slate-100 text-slate-700"
@@ -481,7 +490,7 @@ export default function PlotsPage() {
                 </Badge>
                 <Badge
                   variant="secondary"
-                  className="bg-emerald-100 text-emerald-700"
+                  className={getCropBadgeClass(editingPlot.cropType)}
                 >
                   {getCropLabel(editingPlot.cropType)}
                 </Badge>

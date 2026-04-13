@@ -1,4 +1,4 @@
-import { FileSpreadsheet, Construction } from 'lucide-react';
+import { BarChart3, Construction } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -7,20 +7,21 @@ export default function SupervisorDailyReportsPage() {
     <div className="h-full flex items-center justify-center p-6">
       <Card className="max-w-md w-full border-dashed border-2">
         <CardContent className="flex flex-col items-center pt-10 pb-10 text-center space-y-4">
-          <div className="p-4 bg-sky-500/10 rounded-full">
-            <FileSpreadsheet className="h-10 w-10 text-sky-600" />
+          <div className="p-4 bg-emerald-500/10 rounded-full">
+            <BarChart3 className="h-10 w-10 text-emerald-600" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight">Báo cáo hàng ngày</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Báo cáo Hằng ngày</h1>
             <p className="text-muted-foreground text-sm">
-              Gửi và quản lý các báo cáo thực địa trong ngày. Tính năng tải ảnh và phân loại sự cố đang được hoàn thiện.
+              Tạo và gửi báo cáo hàng ngày cho từng lô đất, ghi nhận tiến độ và các sự cố thực địa. Đang trong quá trình hoàn thiện.
             </p>
           </div>
           <div className="flex items-center gap-2 pt-2">
-            <Badge variant="secondary" className="bg-sky-100 text-sky-700 flex gap-1 items-center hover:bg-sky-100 border-none">
+            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 flex gap-1 items-center hover:bg-emerald-100 border-none">
               <Construction className="h-3 w-3" />
               Coming Soon
             </Badge>
+            <Badge variant="outline">Sprint 3</Badge>
           </div>
         </CardContent>
       </Card>

@@ -7,21 +7,21 @@ export default function InventoryOverviewPage() {
     <div className="h-full flex items-center justify-center p-6">
       <Card className="max-w-md w-full border-dashed border-2">
         <CardContent className="flex flex-col items-center pt-10 pb-10 text-center space-y-4">
-          <div className="p-4 bg-primary/10 rounded-full">
-            <LayoutDashboard className="h-10 w-10 text-primary" />
+          <div className="p-4 bg-orange-500/10 rounded-full">
+            <LayoutDashboard className="h-10 w-10 text-orange-600" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight">Tổng quan Kho hàng</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Tổng quan Kho</h1>
             <p className="text-muted-foreground text-sm">
-              Trang tổng quan dành cho Nhân viên kho. Hiển thị các chỉ số xuất nhập tồn, đơn hàng thương mại điện tử cần xử lý.
+              Tổng quan tình hình kho bãi, luân chuyển hàng hóa và các đơn hàng ECM chờ xử lý. Đang trong quá trình hoàn thiện.
             </p>
           </div>
           <div className="flex items-center gap-2 pt-2">
-            <Badge variant="secondary" className="flex gap-1 items-center">
+            <Badge variant="secondary" className="bg-orange-100 text-orange-700 flex gap-1 items-center hover:bg-orange-100 border-none">
               <Construction className="h-3 w-3" />
               Coming Soon
             </Badge>
-            <Badge variant="outline">Sprint 2</Badge>
+            <Badge variant="outline">Sprint 3</Badge>
           </div>
         </CardContent>
       </Card>

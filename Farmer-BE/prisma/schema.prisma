@@ -23,6 +23,7 @@ datasource db {
 enum Role {
   ADMIN
   SUPERVISOR
+  INVENTORY
   CLIENT
 }
 
@@ -38,10 +39,12 @@ enum FarmerStatus {
 }
 
 enum PlotStatus {
-  ACTIVE   // đang trồng
+  ACTIVE // đang trồng
   HARVESTED
   IDLE
   SUSPENDED
+  AVAILABLE  // Sẵn sàng để ký HĐ
+  CONTRACTED // Đã có hợp đồng
 }
 
 enum AssignStatus {
@@ -59,8 +62,11 @@ enum ReportType {
 enum ContractStatus {
   DRAFT
   SIGNED
+  ACTIVE
   COMPLETED
   CANCELLED
+  SETTLED
+  TERMINATED
 }
 
 enum QualityGrade {
@@ -102,6 +108,12 @@ enum ReviewStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
 }
 
 // =============================================================================
@@ -149,6 +161,7 @@ model User {
 
   adminProfile      AdminProfile?
   supervisorProfile SupervisorProfile?
+  inventoryProfile  InventoryProfile?
   clientProfile     ClientProfile?
   refreshToken      RefreshToken?
   passwordResets    PasswordReset[]
@@ -172,18 +185,35 @@ model AdminProfile {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  zones       Zone[]
-  supervisors SupervisorProfile[]
-  farmers     Farmer[]
-  plots       Plot[]
-  contracts   Contract[]
-  priceBoards PriceBoard[]
-  products    Product[]
-  orders      Order[]
-  assignments Assignment[]
-  warehouses  Warehouse[]
+  zones          Zone[]
+  supervisors    SupervisorProfile[]
+  inventoryStaff InventoryProfile[]
+  farmers        Farmer[]
+  plots          Plot[]
+  contracts      Contract[]
+  priceBoards    PriceBoard[]
+  products       Product[]
+  orders         Order[]
+  assignments    Assignment[]
+  warehouses     Warehouse[]
 
   @@map("AdminProfiles")
+}
+
+// Profile mở rộng cho INVENTORY STAFF
+model InventoryProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  adminId      String // TENANT KEY
+  employeeCode String   @unique
+  hiredAt      DateTime @default(now())
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin AdminProfile @relation(fields: [adminId], references: [id])
+
+  warehouses Warehouse[]
+
+  @@map("InventoryProfiles")
 }
 
 // Profile mở rộng cho SUPERVISOR
@@ -205,19 +235,20 @@ model SupervisorProfile {
 
   assignments  Assignment[]
   dailyReports DailyReport[]
+  farmers      Farmer[]
 
   @@map("SupervisorProfiles")
 }
 
 // Profile mở rộng cho CLIENT
 model ClientProfile {
-  id             String   @id @default(cuid())
-  userId         String   @unique
-  adminId        String? // TENANT KEY — multi-tenant buyer
-  province       String?
-  createdAt      DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  adminId   String? // TENANT KEY — multi-tenant buyer
+  province  String?
+  createdAt DateTime @default(now())
 
-  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders            Order[]
   reviews           Review[]
   shippingAddresses ClientShippingAddress[]
@@ -259,7 +290,7 @@ model Zone {
   centerLng   Float?
   totalAreaHa Float  @default(0)
 
-  admin       AdminProfile @relation(fields: [adminId], references: [id])
+  admin       AdminProfile        @relation(fields: [adminId], references: [id])
   supervisors SupervisorProfile[]
   plots       Plot[]
 
@@ -276,12 +307,14 @@ model Farmer {
   bankAccount String?
   address     String?
   province    String?
-  status      FarmerStatus @default(ACTIVE)
-  createdAt   DateTime     @default(now())
+  status       FarmerStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now())
+  supervisorId String?
 
-  admin     AdminProfile @relation(fields: [adminId], references: [id])
-  plots     Plot[]
-  contracts Contract[]
+  admin      AdminProfile       @relation(fields: [adminId], references: [id])
+  supervisor SupervisorProfile? @relation(fields: [supervisorId], references: [id])
+  plots      Plot[]
+  contracts  Contract[]
 
   @@map("Farmers")
 }
@@ -343,8 +376,11 @@ model DailyReport {
   content      String
   imageUrls    String[]
   isSynced     Boolean    @default(false)
-  reportedAt   DateTime   @default(now())
-  syncedAt     DateTime?
+  reportedAt       DateTime     @default(now())
+  syncedAt         DateTime?
+  status           ReportStatus @default(DRAFT)
+  aiVisionResult   Json?
+  yieldEstimateKg  Float?
 
   supervisor SupervisorProfile @relation(fields: [supervisorId], references: [id])
   plot       Plot              @relation(fields: [plotId], references: [id])
@@ -384,7 +420,7 @@ model Contract {
   quantityKg   Float
   pricePerKg   Float
   totalAmount  Float
-  grade       QualityGrade
+  grade        QualityGrade
   status       ContractStatus @default(DRAFT)
   signedAt     DateTime?
   harvestDue   DateTime?
@@ -417,20 +453,20 @@ model Product {
   unit              String        @default("kg")
   qrCode            String        @unique
   imageUrls         String[]
-  thumbnailUrl       String?
+  thumbnailUrl      String?
   status            ProductStatus @default(DRAFT)
   harvestDate       DateTime?
   aiConfidenceScore Float?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  admin      AdminProfile      @relation(fields: [adminId], references: [id])
-  plot       Plot?             @relation(fields: [plotId], references: [id])
-  contract   Contract?         @relation(fields: [contractId], references: [id])
-  categories ProductCategory[]
-  orderItems OrderItem[]
-  reviews    Review[]
-  transactions WarehouseTransaction[]
+  admin         AdminProfile           @relation(fields: [adminId], references: [id])
+  plot          Plot?                  @relation(fields: [plotId], references: [id])
+  contract      Contract?              @relation(fields: [contractId], references: [id])
+  categories    ProductCategory[]
+  orderItems    OrderItem[]
+  reviews       Review[]
+  transactions  WarehouseTransaction[]
   inventoryLots InventoryLot[]
 
   @@map("Products")
@@ -438,13 +474,13 @@ model Product {
 
 // Danh mục sản phẩm — SHARED (không phân tenant)
 model Category {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
-  slug        String  @unique
-  description String? @db.Text
+  slug        String   @unique
+  description String?  @db.Text
   imageUrl    String?
-  isActive    Boolean @default(true)
-  sortOrder   Int     @default(0)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
 
   products ProductCategory[]
@@ -469,28 +505,28 @@ model ProductCategory {
 
 // Order dùng ClientProfile (User+ClientProfile) — không cần bảng Client riêng
 model Order {
-  id              String        @id @default(cuid())
-  clientId        String
-  adminId         String // TENANT KEY
-  orderNo         String        @unique
-  orderCode       String        @unique // mã hiển thị: ĐH-20260409-001
-  subtotal        Float
-  shippingFee     Float         @default(0)
-  discount        Float         @default(0)
-  total           Float
-  paymentMethod   PaymentMethod
-  paymentRef      String?
-  paymentStatus   PaymentStatus @default(PENDING)
-  fulfillStatus   FulfillStatus @default(PENDING)
-  shippingAddr    Json // { fullName, phone, addressLine, district, province }
-  shippingAddrText String?      @db.Text // địa chỉ dạng text đơn giản
-  trackingCode    String?
-  note            String?
-  orderedAt       DateTime      @default(now())
-  paidAt          DateTime?
+  id               String        @id @default(cuid())
+  clientId         String
+  adminId          String // TENANT KEY
+  orderNo          String        @unique
+  orderCode        String        @unique // mã hiển thị: ĐH-20260409-001
+  subtotal         Float
+  shippingFee      Float         @default(0)
+  discount         Float         @default(0)
+  total            Float
+  paymentMethod    PaymentMethod
+  paymentRef       String?
+  paymentStatus    PaymentStatus @default(PENDING)
+  fulfillStatus    FulfillStatus @default(PENDING)
+  shippingAddr     Json // { fullName, phone, addressLine, district, province }
+  shippingAddrText String?       @db.Text // địa chỉ dạng text đơn giản
+  trackingCode     String?
+  note             String?
+  orderedAt        DateTime      @default(now())
+  paidAt           DateTime?
 
-  client ClientProfile @relation(fields: [clientId], references: [id])
-  admin  AdminProfile  @relation(fields: [adminId], references: [id])
+  client     ClientProfile @relation(fields: [clientId], references: [id])
+  admin      AdminProfile  @relation(fields: [adminId], references: [id])
   orderItems OrderItem[]
 
   @@map("Orders")
@@ -534,14 +570,18 @@ model Review {
 
 // Kho hàng
 model Warehouse {
-  id             String  @id @default(cuid())
-  name           String
-  locationAddress String? @db.Text
-  isActive       Boolean @default(true)
-  createdAt      DateTime @default(now())
+  id              String   @id @default(cuid())
+  name            String
+  locationAddress String?  @db.Text
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
 
-  managedBy String
-  admin     AdminProfile        @relation(fields: [managedBy], references: [id])
+  managedBy String?
+  adminId   String
+
+  admin     AdminProfile      @relation(fields: [adminId], references: [id])
+  inventory InventoryProfile? @relation(fields: [managedBy], references: [id])
+
   inventoryLots InventoryLot[]
   transactions  WarehouseTransaction[]
 
@@ -550,35 +590,35 @@ model Warehouse {
 
 // Lô hàng nhập kho
 model InventoryLot {
-  id              String   @id @default(cuid())
-  warehouseId     String
-  productId       String
-  contractId      String? // nguồn truy xuất nếu có
-  quantityKg      Float
-  harvestDate     DateTime?
-  expiryDate      DateTime?
-  qualityGrade    QualityGrade
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String       @id @default(cuid())
+  warehouseId  String
+  productId    String
+  contractId   String? // nguồn truy xuất nếu có
+  quantityKg   Float
+  harvestDate  DateTime?
+  expiryDate   DateTime?
+  qualityGrade QualityGrade
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  warehouse     Warehouse             @relation(fields: [warehouseId], references: [id])
-  product       Product               @relation(fields: [productId], references: [id])
-  transactions  WarehouseTransaction[]
+  warehouse    Warehouse              @relation(fields: [warehouseId], references: [id])
+  product      Product                @relation(fields: [productId], references: [id])
+  transactions WarehouseTransaction[]
 
   @@map("inventory_lots")
 }
 
 // Log xuất/nhập/điều chỉnh kho (append-only)
 model WarehouseTransaction {
-  id              String   @id @default(cuid())
-  warehouseId     String
-  productId       String
-  inventoryLotId  String
-  type            String   // inbound | outbound | adjustment
-  quantityKg      Float
-  note            String?  @db.Text
-  createdBy       String
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  warehouseId    String
+  productId      String
+  inventoryLotId String
+  type           String // inbound | outbound | adjustment
+  quantityKg     Float
+  note           String?  @db.Text
+  createdBy      String
+  createdAt      DateTime @default(now())
 
   warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
   product      Product      @relation(fields: [productId], references: [id])

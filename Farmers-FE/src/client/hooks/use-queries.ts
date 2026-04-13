@@ -32,6 +32,7 @@ import {
   warehouseTransactionApi,
   type WarehouseTransactionResponse,
   type PaginatedTransactionsResponse,
+  type TodayTransactionStatsResponse,
 } from '@/client/lib/api-client';
 import { useAuthStore } from '@/client/store';
 import {
@@ -837,6 +838,16 @@ export function useRecentTransactions() {
     queryFn: async () => {
       const response = await warehouseTransactionApi.getRecent();
       return extractData<WarehouseTransactionResponse[]>(response);
+    },
+  });
+}
+
+export function useTodayTransactionStats() {
+  return useQuery({
+    queryKey: ['warehouseTransactions', 'today-stats'],
+    queryFn: async () => {
+      const response = await warehouseTransactionApi.getTodayStats();
+      return extractData<TodayTransactionStatsResponse>(response);
     },
   });
 }

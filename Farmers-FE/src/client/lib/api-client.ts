@@ -791,6 +791,13 @@ export interface PaginatedTransactionsResponse {
   totalPages: number;
 }
 
+export interface TodayTransactionStatsResponse {
+  total: number;
+  inbound: number;
+  outbound: number;
+  adjustment: number;
+}
+
 export const warehouseTransactionApi = {
   list: (params?: {
     page?: number;
@@ -803,6 +810,9 @@ export const warehouseTransactionApi = {
 
   getRecent: () =>
     apiGet<WarehouseTransactionResponse[]>('/warehouse-transactions/recent'),
+
+  getTodayStats: () =>
+    apiGet<TodayTransactionStatsResponse>('/warehouse-transactions/today-stats'),
 
   create: (data: {
     warehouseId: string;

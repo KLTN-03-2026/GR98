@@ -52,11 +52,10 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
             // HRM & Business Area
             { icon: MapPinned, label: 'Quản lý Vùng trồng', category: 'management', path: `${basePath}/zones` },
             { icon: Sprout, label: 'Quản lý Lô đất', category: 'management', path: `${basePath}/plots` },
-            { icon: ClipboardList, label: 'Phân công nhiệm vụ', category: 'management', path: `${basePath}/assignments` },
+            { icon: ClipboardList, label: 'Quản lý hợp đồng', category: 'management', path: `${basePath}/contracts` },
             { icon: FileSpreadsheet, label: 'Báo cáo hằng ngày', category: 'management', path: `${basePath}/daily-reports` },
 
             // Contract & Monitoring
-            { icon: Handshake, label: 'Quản lý Hợp đồng', category: 'system', path: `${basePath}/contracts` },
             { icon: Warehouse, label: 'Giám sát Kho hàng', category: 'system', path: `${basePath}/warehouses` },
             { icon: ReceiptText, label: 'Giám sát Đơn hàng', category: 'system', path: `${basePath}/orders` },
         ];

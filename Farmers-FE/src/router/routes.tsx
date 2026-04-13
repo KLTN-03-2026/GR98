@@ -12,7 +12,6 @@ import AdminPlotsPage from '@/pages/admin/plots';
 import AdminContractsPage from '@/pages/admin/contracts';
 import AdminDailyReportsPage from '@/pages/admin/daily-reports';
 import AdminOrdersPage from '@/pages/admin/orders';
-import AdminAssignmentsPage from '@/pages/admin/assignments';
 import AdminSupervisorsPage from '@/pages/admin/supervisors';
 import AdminInventoryStaffPage from '@/pages/admin/inventory-staff';
 import AdminClientsPage from '@/pages/admin/clients';
@@ -191,10 +190,6 @@ const adminDashboard: RouteObject = {
     {
       path: 'contracts',
       element: <AdminContractsPage />,
-    },
-    {
-      path: 'assignments',
-      element: <AdminAssignmentsPage />,
     },
     {
       path: 'daily-reports',

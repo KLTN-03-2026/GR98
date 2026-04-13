@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateWarehouseTransactionDto, WarehouseTransactionQueryDto } from './dto/create-warehouse-transaction.dto';
+import { CreateWarehouseTransactionDto, WarehouseTransactionQueryDto, TodayTransactionStatsResponse } from './dto/create-warehouse-transaction.dto';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
 import { Role } from '@prisma/client';
 
@@ -157,5 +157,29 @@ export class WarehouseTransactionService {
         product: { select: { name: true } },
       },
     });
+  }
+
+  async getTodayStats(userId: string) {
+    const adminId = await this.resolveAdminId(userId);
+    if (!adminId) throw new BadRequestException('Không có quyền xem');
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const where = {
+      warehouse: { adminId },
+      createdAt: { gte: today, lt: tomorrow },
+    };
+
+    const [total, inbound, outbound, adjustment] = await Promise.all([
+      this.prisma.warehouseTransaction.count({ where }),
+      this.prisma.warehouseTransaction.count({ where: { ...where, type: 'inbound' } }),
+      this.prisma.warehouseTransaction.count({ where: { ...where, type: 'outbound' } }),
+      this.prisma.warehouseTransaction.count({ where: { ...where, type: 'adjustment' } }),
+    ]);
+
+    return { total, inbound, outbound, adjustment } as TodayTransactionStatsResponse;
   }
 }

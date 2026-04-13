@@ -59,3 +59,14 @@ export class WarehouseTransactionQueryDto {
   @IsOptional()
   date?: string;
 }
+
+export class TodayTransactionStatsResponse {
+  @ApiProperty()
+  total: number;
+  @ApiProperty()
+  inbound: number;
+  @ApiProperty()
+  outbound: number;
+  @ApiProperty()
+  adjustment: number;
+}

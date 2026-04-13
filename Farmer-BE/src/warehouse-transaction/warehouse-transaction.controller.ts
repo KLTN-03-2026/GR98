@@ -52,4 +52,11 @@ export class WarehouseTransactionController {
   getRecent(@Request() req: any) {
     return this.transactionService.getRecent(req.user.id);
   }
+
+  @Get('today-stats')
+  @Roles(Role.INVENTORY, Role.ADMIN)
+  @ApiOperation({ summary: 'Thống kê giao dịch hôm nay' })
+  getTodayStats(@Request() req: any) {
+    return this.transactionService.getTodayStats(req.user.id);
+  }
 }

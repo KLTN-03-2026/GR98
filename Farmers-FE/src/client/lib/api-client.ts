@@ -651,6 +651,179 @@ export const priceBoardApi = {
 };
 
 // ============================================================
+// WAREHOUSE API ENDPOINTS
+// ============================================================
+export interface WarehouseResponse {
+  id: string;
+  name: string;
+  locationAddress: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  managedBy: string | null;
+  adminId: string;
+  inventory?: { id: string; employeeCode: string; user: { fullName: string } };
+  _count?: { inventoryLots: number; transactions: number };
+}
+
+export interface InventoryStatsResponse {
+  totalWarehouses: number;
+  totalProducts: number;
+  inboundToday: number;
+  outboundToday: number;
+  lowStockAlerts: number;
+  expiringAlerts: number;
+}
+
+export interface PaginatedWarehousesResponse {
+  data: WarehouseResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const warehouseApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    isActive?: string;
+    managedBy?: string;
+  }) => apiGet<PaginatedWarehousesResponse>('/warehouses', { params }),
+
+  getById: (id: string) =>
+    apiGet<WarehouseResponse>(`/warehouses/${id}`),
+
+  getStats: () =>
+    apiGet<InventoryStatsResponse>('/warehouses/stats'),
+
+  create: (data: {
+    name: string;
+    locationAddress?: string;
+    managedBy?: string;
+    isActive?: boolean;
+  }) => apiPost<WarehouseResponse>('/warehouses', data),
+
+  update: (
+    id: string,
+    data: Partial<{
+      name: string;
+      locationAddress?: string;
+      managedBy?: string;
+      isActive?: boolean;
+    }>,
+  ) => apiPatch<WarehouseResponse>(`/warehouses/${id}`, data),
+};
+
+// ============================================================
+// INVENTORY LOT API ENDPOINTS
+// ============================================================
+export interface InventoryLotResponse {
+  id: string;
+  warehouseId: string;
+  productId: string;
+  contractId: string | null;
+  quantityKg: number;
+  harvestDate: string | null;
+  expiryDate: string | null;
+  qualityGrade: 'A' | 'B' | 'C' | 'REJECT';
+  createdAt: string;
+  updatedAt: string;
+  warehouse: { id: string; name: string };
+  product: { id: string; name: string; sku: string };
+}
+
+export interface PaginatedInventoryLotsResponse {
+  data: InventoryLotResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const inventoryLotApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    warehouseId?: string;
+    productId?: string;
+    qualityGrade?: string;
+    alert?: 'low-stock' | 'expiring';
+  }) => apiGet<PaginatedInventoryLotsResponse>('/inventory-lots', { params }),
+
+  getById: (id: string) =>
+    apiGet<InventoryLotResponse>(`/inventory-lots/${id}`),
+
+  create: (data: {
+    warehouseId: string;
+    productId: string;
+    contractId?: string;
+    quantityKg: number;
+    harvestDate?: string;
+    expiryDate?: string;
+    qualityGrade: 'A' | 'B' | 'C' | 'REJECT';
+    note?: string;
+  }) => apiPost<InventoryLotResponse>('/inventory-lots', data),
+};
+
+// ============================================================
+// WAREHOUSE TRANSACTION API ENDPOINTS
+// ============================================================
+export interface WarehouseTransactionResponse {
+  id: string;
+  warehouseId: string;
+  productId: string;
+  inventoryLotId: string;
+  type: 'inbound' | 'outbound' | 'adjustment';
+  quantityKg: number;
+  note: string | null;
+  createdBy: string;
+  createdAt: string;
+  warehouse: { id: string; name: string };
+  product: { id: string; name: string; sku: string };
+}
+
+export interface PaginatedTransactionsResponse {
+  data: WarehouseTransactionResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface TodayTransactionStatsResponse {
+  total: number;
+  inbound: number;
+  outbound: number;
+  adjustment: number;
+}
+
+export const warehouseTransactionApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    warehouseId?: string;
+    productId?: string;
+    type?: 'inbound' | 'outbound' | 'adjustment';
+    date?: 'today' | 'week' | 'month';
+  }) => apiGet<PaginatedTransactionsResponse>('/warehouse-transactions', { params }),
+
+  getRecent: () =>
+    apiGet<WarehouseTransactionResponse[]>('/warehouse-transactions/recent'),
+
+  getTodayStats: () =>
+    apiGet<TodayTransactionStatsResponse>('/warehouse-transactions/today-stats'),
+
+  create: (data: {
+    warehouseId: string;
+    inventoryLotId: string;
+    type: 'outbound' | 'adjustment';
+    quantityKg: number;
+    note?: string;
+  }) => apiPost<WarehouseTransactionResponse>('/warehouse-transactions', data),
+};
+
+// ============================================================
 // HELPER: Extract data từ wrapped response
 // BE interceptor wrap: { success: true, data: T }
 // Axios unwrap HTTP: response.data = { success: true, data: T }

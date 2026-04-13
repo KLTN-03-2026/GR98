@@ -43,7 +43,7 @@ enum PlotStatus {
   HARVESTED
   IDLE
   SUSPENDED
-  AVAILABLE  // Sẵn sàng để ký HĐ
+  AVAILABLE // Sẵn sàng để ký HĐ
   CONTRACTED // Đã có hợp đồng
 }
 
@@ -299,14 +299,14 @@ model Zone {
 
 // Nông dân ký hợp đồng bao tiêu
 model Farmer {
-  id          String       @id @default(cuid())
-  adminId     String // TENANT KEY
-  fullName    String
-  phone       String
-  cccd        String       @unique // Số CCCD
-  bankAccount String?
-  address     String?
-  province    String?
+  id           String       @id @default(cuid())
+  adminId      String // TENANT KEY
+  fullName     String
+  phone        String
+  cccd         String       @unique // Số CCCD
+  bankAccount  String?
+  address      String?
+  province     String?
   status       FarmerStatus @default(ACTIVE)
   createdAt    DateTime     @default(now())
   supervisorId String?
@@ -368,19 +368,19 @@ model Assignment {
 
 // Báo cáo hàng ngày
 model DailyReport {
-  id           String     @id @default(cuid())
-  supervisorId String
-  plotId       String
-  adminId      String // TENANT KEY
-  type         ReportType @default(ROUTINE)
-  content      String
-  imageUrls    String[]
-  isSynced     Boolean    @default(false)
-  reportedAt       DateTime     @default(now())
-  syncedAt         DateTime?
-  status           ReportStatus @default(DRAFT)
-  aiVisionResult   Json?
-  yieldEstimateKg  Float?
+  id              String       @id @default(cuid())
+  supervisorId    String
+  plotId          String
+  adminId         String // TENANT KEY
+  type            ReportType   @default(ROUTINE)
+  content         String
+  imageUrls       String[]
+  isSynced        Boolean      @default(false)
+  reportedAt      DateTime     @default(now())
+  syncedAt        DateTime?
+  status          ReportStatus @default(DRAFT)
+  aiVisionResult  Json?
+  yieldEstimateKg Float?
 
   supervisor SupervisorProfile @relation(fields: [supervisorId], references: [id])
   plot       Plot              @relation(fields: [plotId], references: [id])

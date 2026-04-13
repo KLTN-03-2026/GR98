@@ -11,9 +11,24 @@ import { PriceBoardModule } from './price-board/price-board.module';
 import { OrderModule } from './order/order.module';
 import { CategoriesModule } from './categories/categories.module';
 // import { BorrowModule } from './borrow/borrow.module';
+import { WarehouseModule } from './warehouse/warehouse.module';
+import { InventoryLotModule } from './inventory-lot/inventory-lot.module';
+import { WarehouseTransactionModule } from './warehouse-transaction/warehouse-transaction.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UserModule, ProfileModule, MailModule, PriceBoardModule, OrderModule, CategoriesModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    UserModule,
+    ProfileModule,
+    MailModule,
+    PriceBoardModule,
+    OrderModule,
+    CategoriesModule,
+    WarehouseModule,
+    InventoryLotModule,
+    WarehouseTransactionModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -1,7 +1,7 @@
 // ============================================================
 // AUTH TYPES
 // ============================================================
-export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'CLIENT';
+export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 export type PaymentMethod = 'COD' | 'VNPAY' | 'MOMO';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
@@ -58,6 +58,7 @@ export interface AuthUser extends User {
   refreshToken?: string;
   adminId?: string;
   supervisorId?: string;
+  inventoryId?: string;
 }
 
 export interface LoginRequest {

@@ -523,7 +523,6 @@ export default function PriceBoardsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              title={item.isActive ? 'Tạm dừng' : 'Kích hoạt'}
                               onClick={() => handleToggle(item)}
                               disabled={toggleMutation.isPending}
                               className={cn(

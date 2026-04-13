@@ -85,7 +85,8 @@ function SidebarGroup({
 export function Sidebar({ collapsed, isMobile }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const roleBasePath: "/dashboard" | "/supervisor" =
+  const roleBasePath: "/dashboard" | "/supervisor" | "/inventory" =
+    location.pathname.startsWith("/inventory") ? "/inventory" :
     location.pathname.startsWith("/supervisor") ? "/supervisor" : "/dashboard";
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -101,6 +102,9 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
   const filteredManagementItems = menuItems.filter(
     (item) => item.category === "management",
   );
+  const filteredPeopleItems = menuItems.filter(
+    (item) => item.category === "people",
+  );
   const filteredSystemItems = menuItems.filter(
     (item) => item.category === "system",
   );
@@ -114,7 +118,9 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
     clearAllAuthCookies();
     logout();
     localStorage.removeItem("ec_cart");
-    const loginPath = location.pathname.startsWith("/supervisor")
+    const loginPath = location.pathname.startsWith("/inventory")
+      ? "/inventory/login"
+      : location.pathname.startsWith("/supervisor")
       ? "/supervisor/login"
       : "/admin/login";
     navigate(loginPath, { replace: true });
@@ -280,11 +286,12 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
 
           {filteredMainItems.length > 0 &&
             (filteredManagementItems.length > 0 ||
+              filteredPeopleItems.length > 0 ||
               filteredSystemItems.length > 0) && <Separator className="mx-3" />}
 
           {filteredManagementItems.length > 0 && (
             <SidebarGroup
-              title="Manager"
+              title="Vận hành"
               items={filteredManagementItems}
               collapsed={collapsed}
               isMobile={isMobile}
@@ -295,6 +302,21 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
             />
           )}
           {filteredManagementItems.length > 0 &&
+            (filteredPeopleItems.length > 0 || filteredSystemItems.length > 0) && <Separator className="mx-3" />}
+
+          {filteredPeopleItems.length > 0 && (
+            <SidebarGroup
+              title="Nhân sự"
+              items={filteredPeopleItems}
+              collapsed={collapsed}
+              isMobile={isMobile}
+              renderMenuItem={renderMenuItem}
+              isExpanded={isGroupOpen}
+              onToggleExpanded={() => undefined}
+              isCollapsible={false}
+            />
+          )}
+          {filteredPeopleItems.length > 0 &&
             filteredSystemItems.length > 0 && <Separator className="mx-3" />}
 
           {filteredSystemItems.length > 0 && (

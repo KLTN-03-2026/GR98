@@ -105,6 +105,8 @@ export default function LoginPage() {
         navigate("/dashboard");
       } else if (user.role === "SUPERVISOR") {
         navigate("/supervisor");
+      } else if (user.role === "INVENTORY") {
+        navigate("/inventory");
       } else {
         navigate("/");
       }

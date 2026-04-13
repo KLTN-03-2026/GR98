@@ -1,4 +1,4 @@
-import { PrismaClient, Role, FarmerStatus, PlotStatus, AssignStatus, ReportType, ContractStatus, QualityGrade, ProductStatus, PaymentMethod, PaymentStatus, FulfillStatus, ReviewStatus } from '@prisma/client';
+import { PrismaClient, Role, FarmerStatus, PlotStatus, AssignStatus, ReportType, ContractStatus, QualityGrade, ProductStatus, PaymentMethod, PaymentStatus, FulfillStatus, ReviewStatus, ReportStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -167,6 +167,56 @@ async function main() {
   } else {
     console.log(
       `[SEED] CLIENT already exists — skipping (id: ${existingClient.id})`,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 3.5. INVENTORY MANAGER (phone: 0944555666 / password: 123123)
+  // ─────────────────────────────────────────────────────────────────────────
+  const inventoryEmail = 'inventory@farmers.com';
+  const inventoryPhone = '0944555666';
+  const inventoryPassword = '123123';
+
+  const existingInventory = await prisma.user.findUnique({
+    where: { email: inventoryEmail },
+  });
+
+  let inventoryProfileId: string;
+
+  if (!existingInventory) {
+    const hashedPassword = await bcrypt.hash(inventoryPassword, 10);
+
+    const inventoryUser = await prisma.user.create({
+      data: {
+        email: inventoryEmail,
+        passwordHash: hashedPassword,
+        fullName: 'Quản Lý Kho',
+        phone: inventoryPhone,
+        role: Role.INVENTORY,
+      },
+    });
+
+    const invProfile = await prisma.inventoryProfile.create({
+      data: {
+        userId: inventoryUser.id,
+        adminId,
+        employeeCode: 'INV-000001',
+      },
+    });
+    inventoryProfileId = invProfile.id;
+
+    console.log(`[SEED] INVENTORY created`);
+    console.log(`       email        : ${inventoryEmail}`);
+    console.log(`       phone        : ${inventoryPhone}`);
+    console.log(`       password     : ${inventoryPassword}`);
+    console.log(`       employeeCode : INV-000001`);
+  } else {
+    const invProfile = await prisma.inventoryProfile.findUnique({
+      where: { userId: existingInventory.id },
+    });
+    inventoryProfileId = invProfile?.id ?? '';
+    console.log(
+      `[SEED] INVENTORY already exists — skipping (id: ${existingInventory.id})`,
     );
   }
 
@@ -457,6 +507,8 @@ async function main() {
           imageUrls: [],
           isSynced: true,
           syncedAt: new Date(),
+          status: ReportStatus.SUBMITTED,
+          yieldEstimateKg: 5000,
         },
       }),
       prisma.dailyReport.create({
@@ -469,6 +521,8 @@ async function main() {
           imageUrls: [],
           isSynced: true,
           syncedAt: new Date(),
+          status: ReportStatus.REVIEWED,
+          yieldEstimateKg: 3500,
         },
       }),
       prisma.dailyReport.create({
@@ -480,12 +534,41 @@ async function main() {
           content: 'Khu đất đã được cày bừa, chuẩn bị gieo hạt xà lách trong tuần này.',
           imageUrls: [],
           isSynced: false,
+          status: ReportStatus.DRAFT,
+          yieldEstimateKg: 1500,
         },
       }),
     ]);
     console.log(`[SEED] 3 DailyReports created`);
   } else {
     console.log(`[SEED] DailyReports already exist — skipping`);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 9.5. CLIENT SHIPPING ADDRESS
+  // ─────────────────────────────────────────────────────────────────────────
+  const clientUser = await prisma.user.findUnique({ where: { email: clientEmail } });
+  const clientProfile = await prisma.clientProfile.findUnique({ where: { userId: clientUser?.id } });
+
+  if (clientProfile) {
+    const existingAddress = await prisma.clientShippingAddress.findFirst({
+      where: { clientProfileId: clientProfile.id },
+    });
+
+    if (!existingAddress) {
+      await prisma.clientShippingAddress.create({
+        data: {
+          clientProfileId: clientProfile.id,
+          fullName: 'Khách Hàng',
+          phone: clientPhone,
+          addressLine: '123 Nguyễn Trãi',
+          district: 'Thanh Xuân',
+          province: 'Hà Nội',
+          isDefault: true,
+        },
+      });
+      console.log(`[SEED] ClientShippingAddress created`);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -857,6 +940,102 @@ async function main() {
     console.log(`[SEED] 3 Reviews created`);
   } else {
     console.log(`[SEED] Reviews already exist — skipping`);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 17. WAREHOUSE — thêm 2 record
+  // ─────────────────────────────────────────────────────────────────────────
+  const existingWHCount = await prisma.warehouse.count({ where: { adminId } });
+  let warehouseIds: string[] = [];
+
+  if (existingWHCount === 0 && inventoryProfileId) {
+    const warehouses = await Promise.all([
+      prisma.warehouse.create({
+        data: {
+          name: 'Kho Tổng Miền Bắc',
+          locationAddress: 'Cảng Hà Nội, Hai Bà Trưng, Hà Nội',
+          adminId,
+          managedBy: inventoryProfileId,
+          isActive: true,
+        },
+      }),
+      prisma.warehouse.create({
+        data: {
+          name: 'Kho Phân Phối Hà Nội 1',
+          locationAddress: 'KCN Từ Liêm, Hà Nội',
+          adminId,
+          managedBy: inventoryProfileId,
+          isActive: true,
+        },
+      }),
+    ]);
+    warehouseIds = warehouses.map((w) => w.id);
+    console.log(`[SEED] 2 Warehouses created (Managed by INV-000001)`);
+  } else {
+    warehouseIds = (await prisma.warehouse.findMany({ where: { adminId } })).map((w) => w.id);
+    console.log(`[SEED] Warehouses already exist — skipping`);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 18. INVENTORY LOT & TRANSACTION — thêm 3 record
+  // ─────────────────────────────────────────────────────────────────────────
+  const existingLotCount = await prisma.inventoryLot.count();
+  const productsList = await prisma.product.findMany({ where: { adminId } });
+  const contractsList = await prisma.contract.findMany({ where: { adminId } });
+
+  if (existingLotCount === 0 && warehouseIds.length > 0 && productsList.length > 0) {
+    await prisma.$transaction(async (tx) => {
+      // Lot 1
+      const lot1 = await tx.inventoryLot.create({
+        data: {
+          warehouseId: warehouseIds[0],
+          productId: productsList[0].id,
+          contractId: contractsList[0]?.id,
+          quantityKg: 1000,
+          qualityGrade: QualityGrade.A,
+          harvestDate: new Date('2026-03-20'),
+        },
+      });
+
+      await tx.warehouseTransaction.create({
+        data: {
+          warehouseId: warehouseIds[0],
+          productId: productsList[0].id,
+          inventoryLotId: lot1.id,
+          type: 'inbound',
+          quantityKg: 1000,
+          note: 'Nhập kho từ hợp đồng HD-2026-001',
+          createdBy: inventoryProfileId,
+        },
+      });
+
+      // Lot 2
+      const lot2 = await tx.inventoryLot.create({
+        data: {
+          warehouseId: warehouseIds[1],
+          productId: productsList[1].id,
+          contractId: contractsList[1]?.id,
+          quantityKg: 500,
+          qualityGrade: QualityGrade.A,
+          harvestDate: new Date('2026-03-25'),
+        },
+      });
+
+      await tx.warehouseTransaction.create({
+        data: {
+          warehouseId: warehouseIds[1],
+          productId: productsList[1].id,
+          inventoryLotId: lot2.id,
+          type: 'inbound',
+          quantityKg: 500,
+          note: 'Nhập kho cải xanh',
+          createdBy: inventoryProfileId,
+        },
+      });
+    });
+    console.log(`[SEED] 2 InventoryLots & Transactions created`);
+  } else {
+    console.log(`[SEED] Inventory entries already exist — skipping`);
   }
 
   console.log('\n========================================');

@@ -208,7 +208,7 @@ export interface AuthUserResponse {
   email: string;
   fullName: string;
   phone: string | null;
-  role: 'ADMIN' | 'SUPERVISOR' | 'CLIENT';
+  role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
   profileId: string | null;
   adminId: string | null;
 }
@@ -220,7 +220,7 @@ export interface MeResponse {
   fullName: string;
   phone: string | null;
   avatar: string | null;
-  role: 'ADMIN' | 'SUPERVISOR' | 'CLIENT';
+  role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
   createdAt: string;
   adminProfile: {
     id: string;
@@ -250,6 +250,11 @@ export interface MeResponse {
       createdAt: string;
       updatedAt: string;
     }>;
+  } | null;
+  inventoryProfile: {
+    id: string;
+    employeeCode: string;
+    adminId: string;
   } | null;
 }
 

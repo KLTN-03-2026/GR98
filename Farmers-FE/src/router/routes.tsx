@@ -3,6 +3,7 @@ import RootLayout from '@/layouts/RootLayout';
 import DashboardLayout from '@/layouts/dashboard.layout';
 import AdminAuthLayout from '@/layouts/admin-auth.layout';
 import SupervisorAuthLayout from '@/layouts/supervisor-auth.layout';
+import InventoryAuthLayout from '@/layouts/inventory-auth.layout';
 import UsersManagementPage from '@/pages/users';
 import LoginPage from '@/pages/auth/login.page';
 import RegisterPage from '@/pages/auth/register.page';
@@ -119,24 +120,7 @@ const adminAuthLayout: RouteObject = {
   ],
 };
 
-// ============================================================
-// SUPERVISOR AUTH — Layout riêng (không Header/Footer)
-// ============================================================
-const supervisorAuthLayout: RouteObject = {
-  path: 'supervisor',
-  element: <SupervisorAuthLayout />,
-  errorElement: <RouteErrorPage />,
-  children: [
-    {
-      path: 'login',
-      element: (
-        <GuestRoute>
-          <LoginPage />
-        </GuestRoute>
-      ),
-    },
-  ],
-};
+// Supervisor and Inventory are grouped at the bottom
 
 // ============================================================
 // ADMIN DASHBOARD — ADMIN only
@@ -165,6 +149,14 @@ const adminDashboard: RouteObject = {
       element: <UsersManagementPage />,
     },
     {
+      path: 'supervisors',
+      element: <div className="p-4">Quản lý Giám sát viên Placeholder</div>,
+    },
+    {
+      path: 'inventory-staff',
+      element: <div className="p-4">Quản lý Nhân viên kho Placeholder</div>,
+    },
+    {
       path: 'zones',
       element: <ZonesPage />,
     },
@@ -181,28 +173,40 @@ const adminDashboard: RouteObject = {
       element: <ContractsPage />,
     },
     {
-      path: 'products',
-      element: <ProductsPage />,
+      path: 'daily-reports',
+      element: <DailyReportsPage />,
     },
     {
-      path: 'categories',
-      element: <CategoriesPage />,
+      path: 'clients',
+      element: <div className="p-4">Quản lý Khách hàng Placeholder</div>,
+    },
+    {
+      path: 'warehouses',
+      element: <div className="p-4">Giám sát Kho hàng Placeholder</div>,
     },
     {
       path: 'orders',
       element: <OrdersPage />,
     },
+  ],
+};
+
+
+// ============================================================
+// SUPERVISOR AUTH — Layout riêng (không Header/Footer)
+// ============================================================
+const supervisorAuthLayout: RouteObject = {
+  path: 'supervisor',
+  element: <SupervisorAuthLayout />,
+  errorElement: <RouteErrorPage />,
+  children: [
     {
-      path: 'reviews',
-      element: <ReviewsPage />,
-    },
-    {
-      path: 'price-boards',
-      element: <PriceBoardsPage />,
-    },
-    {
-      path: 'components',
-      element: <ComponentsPage />,
+      path: 'login',
+      element: (
+        <GuestRoute>
+          <LoginPage />
+        </GuestRoute>
+      ),
     },
   ],
 };
@@ -234,10 +238,6 @@ const supervisorDashboard: RouteObject = {
       element: <PlotsPage />,
     },
     {
-      path: 'price-boards',
-      element: <PriceBoardsPage />,
-    },
-    {
       path: 'contracts',
       element: <ContractsPage />,
     },
@@ -249,14 +249,93 @@ const supervisorDashboard: RouteObject = {
 };
 
 // ============================================================
+// INVENTORY AUTH — Layout riêng (không Header/Footer)
+// ============================================================
+const inventoryAuthLayout: RouteObject = {
+  path: 'inventory',
+  element: <InventoryAuthLayout />,
+  errorElement: <RouteErrorPage />,
+  children: [
+    {
+      path: 'login',
+      element: (
+        <GuestRoute>
+          <LoginPage />
+        </GuestRoute>
+      ),
+    },
+  ],
+};
+
+// ============================================================
+// INVENTORY DASHBOARD — INVENTORY only
+// ============================================================
+const inventoryDashboard: RouteObject = {
+  path: 'inventory',
+  element: (
+    <ProtectedRoute>
+      <RoleRoute allowedRoles={['INVENTORY']}>
+        <DashboardLayout />
+      </RoleRoute>
+    </ProtectedRoute>
+  ),
+  errorElement: <RouteErrorPage />,
+  children: [
+    {
+      index: true,
+      element: <div className="p-4">Quản lý Kho (Warehouse) Placeholder</div>,
+    },
+    {
+      path: 'warehouses',
+      element: <div className="p-4">Quản lý Kho (Warehouse) Placeholder</div>,
+    },
+    {
+      path: 'lots',
+      element: <div className="p-4">Quản lý Lô hàng (Inventory Lot) Placeholder</div>,
+    },
+    {
+      path: 'transactions',
+      element: <div className="p-4">Ghi nhận Xuất / Nhập kho Placeholder</div>,
+    },
+    {
+      path: 'supply-demand',
+      element: <div className="p-4">Quản lý Cung cầu Placeholder</div>,
+    },
+    {
+      path: 'logistics',
+      element: <div className="p-4">Quản lý Logistics (cơ bản) Placeholder</div>,
+    },
+    {
+      path: 'products',
+      element: <ProductsPage />,
+    },
+    {
+      path: 'categories',
+      element: <CategoriesPage />,
+    },
+    {
+      path: 'orders',
+      element: <OrdersPage />,
+    },
+    {
+      path: 'price-boards',
+      element: <PriceBoardsPage />,
+    },
+  ],
+};
+
+
+// ============================================================
 // EXPORT
 // ============================================================
 export const routes: RouteObject[] = [
   rootLayout,
   adminAuthLayout,
   supervisorAuthLayout,
+  inventoryAuthLayout,
   adminDashboard,
   supervisorDashboard,
+  inventoryDashboard,
   {
     path: '*',
     element: <NotFoundPage />,
@@ -264,3 +343,4 @@ export const routes: RouteObject[] = [
 ];
 
 export default routes;
+

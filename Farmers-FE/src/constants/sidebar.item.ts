@@ -2,6 +2,7 @@ import {
     BookOpenCheck,
     Boxes,
     ClipboardList,
+    Contact,
     FileSpreadsheet,
     Handshake,
     LayoutGrid,
@@ -14,10 +15,15 @@ import {
     Sprout,
     Star,
     Users,
+    Warehouse,
+    Layers,
+    ArrowRightLeft,
+    PieChart,
+    Truck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type SidebarCategory = 'main' | 'management' | 'system';
+export type SidebarCategory = 'main' | 'people' | 'management' | 'system';
 
 export type SidebarItem = {
     icon: LucideIcon;
@@ -26,41 +32,56 @@ export type SidebarItem = {
     path: string;
 };
 
-export const getSidebarItems = (basePath: '/dashboard' | '/supervisor'): SidebarItem[] => {
+export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inventory'): SidebarItem[] => {
     const commonMainItems: SidebarItem[] = [
-        { icon: ShoppingBag, label: 'Cửa hàng', category: 'main', path: '/' },
-        { icon: LayoutDashboard, label: 'Dashboard', category: 'management', path: `${basePath}/overview` },
+        { icon: LayoutDashboard, label: 'Tổng quan', category: 'management', path: `${basePath}/overview` },
     ];
 
     if (basePath === '/dashboard') {
         return [
             ...commonMainItems,
 
-            // Identity & Access
-            { icon: ShieldCheck, label: 'Users & Roles', category: 'management', path: `${basePath}/users` },
+            // Identity & Access (People Management)
+            { icon: ShieldCheck, label: 'Quản lý Tài khoản', category: 'people', path: `${basePath}/users` },
+            { icon: Users, label: 'Giám sát viên', category: 'people', path: `${basePath}/supervisors` },
+            { icon: Warehouse, label: 'Nhân viên kho', category: 'people', path: `${basePath}/inventory-staff` },
+            { icon: Contact, label: 'Khách hàng', category: 'people', path: `${basePath}/clients` },
+            { icon: Users, label: 'Quản lý Nông dân', category: 'people', path: `${basePath}/farmers` },
 
             // HRM & Business Area
-            { icon: MapPinned, label: 'Zones', category: 'management', path: `${basePath}/zones` },
-            { icon: Users, label: 'Farmers', category: 'management', path: `${basePath}/farmers` },
-            { icon: Sprout, label: 'Plots', category: 'management', path: `${basePath}/plots` },
-            { icon: ClipboardList, label: 'Assignments', category: 'management', path: `${basePath}/assignments` },
-            { icon: FileSpreadsheet, label: 'Daily Reports', category: 'management', path: `${basePath}/daily-reports` },
-            { icon: BookOpenCheck, label: 'Price Boards', category: 'management', path: `${basePath}/price-boards` },
+            { icon: MapPinned, label: 'Quản lý Vùng trồng', category: 'management', path: `${basePath}/zones` },
+            { icon: Sprout, label: 'Quản lý Lô đất', category: 'management', path: `${basePath}/plots` },
+            { icon: ClipboardList, label: 'Phân công nhiệm vụ', category: 'management', path: `${basePath}/assignments` },
+            { icon: FileSpreadsheet, label: 'Báo cáo hằng ngày', category: 'management', path: `${basePath}/daily-reports` },
 
-            // Contract & E-commerce
-            { icon: Handshake, label: 'Contracts', category: 'system', path: `${basePath}/contracts` },
-            { icon: Package, label: 'Products', category: 'system', path: `${basePath}/products` },
-            { icon: Boxes, label: 'Categories', category: 'system', path: `${basePath}/categories` },
-            { icon: ReceiptText, label: 'Orders', category: 'system', path: `${basePath}/orders` },
-            { icon: Star, label: 'Reviews', category: 'system', path: `${basePath}/reviews` },
-            { icon: LayoutGrid, label: 'Components', category: 'system', path: `${basePath}/components` },
+            // Contract & Monitoring
+            { icon: Handshake, label: 'Quản lý Hợp đồng', category: 'system', path: `${basePath}/contracts` },
+            { icon: Warehouse, label: 'Giám sát Kho hàng', category: 'system', path: `${basePath}/warehouses` },
+            { icon: ReceiptText, label: 'Giám sát Đơn hàng', category: 'system', path: `${basePath}/orders` },
         ];
     }
 
+    if (basePath === '/supervisor') {
+        return [
+            ...commonMainItems,
+            { icon: Sprout, label: 'Quản lý Lô đất', category: 'management', path: `${basePath}/plots` },
+            { icon: Handshake, label: 'Quản lý Hợp đồng', category: 'management', path: `${basePath}/contracts` },
+            { icon: FileSpreadsheet, label: 'Báo cáo hằng ngày', category: 'management', path: `${basePath}/daily-reports` },
+        ];
+    }
+
+    // Inventory Manager items
     return [
         ...commonMainItems,
-        { icon: Sprout, label: 'Plots', category: 'management', path: `${basePath}/plots` },
-        { icon: Handshake, label: 'Contracts', category: 'management', path: `${basePath}/contracts` },
-        { icon: FileSpreadsheet, label: 'Daily Reports', category: 'management', path: `${basePath}/daily-reports` },
+        { icon: Warehouse, label: 'Quản lý Kho', category: 'management', path: `${basePath}/warehouses` },
+        { icon: Layers, label: 'Quản lý Lô hàng', category: 'management', path: `${basePath}/lots` },
+        { icon: ArrowRightLeft, label: 'Ghi nhận Xuất/Nhập', category: 'management', path: `${basePath}/transactions` },
+        { icon: PieChart, label: 'Quản lý Cung cầu', category: 'management', path: `${basePath}/supply-demand` },
+
+        { icon: Package, label: 'Sản phẩm (ECM)', category: 'system', path: `${basePath}/products` },
+        { icon: Boxes, label: 'Danh mục', category: 'system', path: `${basePath}/categories` },
+        { icon: ReceiptText, label: 'Đơn hàng (ECM)', category: 'system', path: `${basePath}/orders` },
+        { icon: BookOpenCheck, label: 'Bảng giá', category: 'system', path: `${basePath}/price-boards` },
+        { icon: Truck, label: 'Quản lý Logistics', category: 'system', path: `${basePath}/logistics` },
     ];
 };

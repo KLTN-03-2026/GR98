@@ -14,6 +14,8 @@ export function getRoleHomePage(role: UserRole): string {
       return '/dashboard';
     case 'SUPERVISOR':
       return '/supervisor';
+    case 'INVENTORY':
+      return '/inventory';
     case 'CLIENT':
     default:
       return '/';

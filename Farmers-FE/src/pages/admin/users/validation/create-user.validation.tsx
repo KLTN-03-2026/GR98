@@ -23,17 +23,14 @@ export const userCreateFormSchema = z
 
     password: z
       .string()
-      .optional()
+      .min(1, { message: 'Mật khẩu là bắt buộc' })
+      .min(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' })
       .refine(
-        (val) => !val || (val.length >= 6),
-        { message: 'Mật khẩu phải có ít nhất 6 ký tự' },
-      )
-      .refine(
-        (val) => !val || /^[A-Z]/.test(val),
+        (val) => /^[A-Z]/.test(val),
         { message: 'Ký tự đầu tiên phải là chữ cái in hoa' },
       )
       .refine(
-        (val) => !val || /[^A-Za-z0-9]/.test(val),
+        (val) => /[^A-Za-z0-9]/.test(val),
         { message: 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt' },
       ),
 

@@ -4,23 +4,42 @@ import DashboardLayout from '@/layouts/dashboard.layout';
 import AdminAuthLayout from '@/layouts/admin-auth.layout';
 import SupervisorAuthLayout from '@/layouts/supervisor-auth.layout';
 import InventoryAuthLayout from '@/layouts/inventory-auth.layout';
-import UsersManagementPage from '@/pages/users';
+import AdminUsersManagementPage from '@/pages/admin/users';
+import AdminOverviewPage from '@/pages/admin/overview';
+import AdminZonesPage from '@/pages/admin/zones';
+import AdminFarmersPage from '@/pages/admin/farmers';
+import AdminPlotsPage from '@/pages/admin/plots';
+import AdminContractsPage from '@/pages/admin/contracts';
+import AdminDailyReportsPage from '@/pages/admin/daily-reports';
+import AdminOrdersPage from '@/pages/admin/orders';
+import AdminAssignmentsPage from '@/pages/admin/assignments';
+import AdminSupervisorsPage from '@/pages/admin/supervisors';
+import AdminInventoryStaffPage from '@/pages/admin/inventory-staff';
+import AdminClientsPage from '@/pages/admin/clients';
+import AdminWarehousesPage from '@/pages/admin/warehouses';
+
+import SupervisorOverviewPage from '@/pages/supervisor/overview';
+import SupervisorFarmersPage from '@/pages/supervisor/farmers';
+import SupervisorPlotsPage from '@/pages/supervisor/plots';
+import SupervisorContractsPage from '@/pages/supervisor/contracts';
+import SupervisorDailyReportsPage from '@/pages/supervisor/daily-reports';
+
+import InventoryOrdersPage from '@/pages/inventory/orders';
+import InventoryProductsPage from '@/pages/inventory/products';
+import InventoryCategoriesPage from '@/pages/inventory/categories';
+import InventoryPriceBoardsPage from '@/pages/inventory/price-boards';
+import InventoryOverviewPage from '@/pages/inventory/overview';
+import InventoryWarehousesPage from '@/pages/inventory/warehouses';
+import InventoryLotsPage from '@/pages/inventory/lots';
+import InventoryTransactionsPage from '@/pages/inventory/transactions';
+import InventorySupplyDemandPage from '@/pages/inventory/supply-demand';
+import InventoryLogisticsPage from '@/pages/inventory/logistics';
+
 import LoginPage from '@/pages/auth/login.page';
 import RegisterPage from '@/pages/auth/register.page';
 import ForgotPasswordPage from '@/pages/auth/forgot-password.page';
 import ResetPasswordPage from '@/pages/auth/reset-password.page';
-import OverviewPage from '@/pages/overview';
-import ZonesPage from '@/pages/zones';
-import FarmersPage from '@/pages/farmers';
-import PlotsPage from '@/pages/plots';
-import ContractsPage from '@/pages/contracts';
-import DailyReportsPage from '@/pages/daily-reports';
-import ProductsPage from '@/pages/products';
-import CategoriesPage from '@/pages/categories';
-import OrdersPage from '@/pages/orders';
-import ReviewsPage from '@/pages/reviews';
-import ComponentsPage from '@/pages/components';
-import PriceBoardsPage from '@/pages/price-boards';
+
 import RouteErrorPage from '@/pages/errors/route-error.page';
 import NotFoundPage from '@/pages/errors/not-found.page';
 import { clientRoutes } from '@/client/router/client-routes';
@@ -138,55 +157,59 @@ const adminDashboard: RouteObject = {
   children: [
     {
       index: true,
-      element: <UsersManagementPage />,
+      element: <AdminUsersManagementPage />,
     },
     {
       path: 'overview',
-      element: <OverviewPage />,
+      element: <AdminOverviewPage />,
     },
     {
       path: 'users',
-      element: <UsersManagementPage />,
+      element: <AdminUsersManagementPage />,
     },
     {
       path: 'supervisors',
-      element: <div className="p-4">Quản lý Giám sát viên Placeholder</div>,
+      element: <AdminSupervisorsPage />,
     },
     {
       path: 'inventory-staff',
-      element: <div className="p-4">Quản lý Nhân viên kho Placeholder</div>,
+      element: <AdminInventoryStaffPage />,
     },
     {
       path: 'zones',
-      element: <ZonesPage />,
+      element: <AdminZonesPage />,
     },
     {
       path: 'farmers',
-      element: <FarmersPage />,
+      element: <AdminFarmersPage />,
     },
     {
       path: 'plots',
-      element: <PlotsPage />,
+      element: <AdminPlotsPage />,
     },
     {
       path: 'contracts',
-      element: <ContractsPage />,
+      element: <AdminContractsPage />,
+    },
+    {
+      path: 'assignments',
+      element: <AdminAssignmentsPage />,
     },
     {
       path: 'daily-reports',
-      element: <DailyReportsPage />,
+      element: <AdminDailyReportsPage />,
     },
     {
       path: 'clients',
-      element: <div className="p-4">Quản lý Khách hàng Placeholder</div>,
+      element: <AdminClientsPage />,
     },
     {
       path: 'warehouses',
-      element: <div className="p-4">Giám sát Kho hàng Placeholder</div>,
+      element: <AdminWarehousesPage />,
     },
     {
       path: 'orders',
-      element: <OrdersPage />,
+      element: <AdminOrdersPage />,
     },
   ],
 };
@@ -227,23 +250,31 @@ const supervisorDashboard: RouteObject = {
   children: [
     {
       index: true,
-      element: <OverviewPage />,
+      element: <SupervisorOverviewPage />,
     },
     {
       path: 'overview',
-      element: <OverviewPage />,
+      element: <SupervisorOverviewPage />,
+    },
+    {
+      path: 'farmers',
+      element: <SupervisorFarmersPage />,
     },
     {
       path: 'plots',
-      element: <PlotsPage />,
+      element: <SupervisorPlotsPage />,
     },
     {
       path: 'contracts',
-      element: <ContractsPage />,
+      element: <SupervisorContractsPage />,
     },
     {
       path: 'daily-reports',
-      element: <DailyReportsPage />,
+      element: <SupervisorDailyReportsPage />,
+    },
+    {
+      path: 'ai-analysis',
+      element: <div className="p-4">Phân tích cây trồng AI Placeholder</div>,
     },
   ],
 };
@@ -283,43 +314,47 @@ const inventoryDashboard: RouteObject = {
   children: [
     {
       index: true,
-      element: <div className="p-4">Quản lý Kho (Warehouse) Placeholder</div>,
+      element: <InventoryOverviewPage />,
+    },
+    {
+      path: 'overview',
+      element: <InventoryOverviewPage />,
     },
     {
       path: 'warehouses',
-      element: <div className="p-4">Quản lý Kho (Warehouse) Placeholder</div>,
+      element: <InventoryWarehousesPage />,
     },
     {
       path: 'lots',
-      element: <div className="p-4">Quản lý Lô hàng (Inventory Lot) Placeholder</div>,
+      element: <InventoryLotsPage />,
     },
     {
       path: 'transactions',
-      element: <div className="p-4">Ghi nhận Xuất / Nhập kho Placeholder</div>,
+      element: <InventoryTransactionsPage />,
     },
     {
       path: 'supply-demand',
-      element: <div className="p-4">Quản lý Cung cầu Placeholder</div>,
+      element: <InventorySupplyDemandPage />,
     },
     {
       path: 'logistics',
-      element: <div className="p-4">Quản lý Logistics (cơ bản) Placeholder</div>,
+      element: <InventoryLogisticsPage />,
     },
     {
       path: 'products',
-      element: <ProductsPage />,
+      element: <InventoryProductsPage />,
     },
     {
       path: 'categories',
-      element: <CategoriesPage />,
+      element: <InventoryCategoriesPage />,
     },
     {
       path: 'orders',
-      element: <OrdersPage />,
+      element: <InventoryOrdersPage />,
     },
     {
       path: 'price-boards',
-      element: <PriceBoardsPage />,
+      element: <InventoryPriceBoardsPage />,
     },
   ],
 };

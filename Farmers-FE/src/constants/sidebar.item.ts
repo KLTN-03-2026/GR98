@@ -10,6 +10,7 @@ import {
     MapPinned,
     Package,
     ReceiptText,
+    ScanSearch,
     ShieldCheck,
     ShoppingBag,
     Sprout,
@@ -64,9 +65,17 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
     if (basePath === '/supervisor') {
         return [
             ...commonMainItems,
-            { icon: Sprout, label: 'Quản lý Lô đất', category: 'management', path: `${basePath}/plots` },
-            { icon: Handshake, label: 'Quản lý Hợp đồng', category: 'management', path: `${basePath}/contracts` },
-            { icon: FileSpreadsheet, label: 'Báo cáo hằng ngày', category: 'management', path: `${basePath}/daily-reports` },
+            
+            // People
+            { icon: Users, label: 'Nông dân', category: 'people', path: `${basePath}/farmers` },
+
+            // Management
+            { icon: Sprout, label: 'Lô đất phụ trách', category: 'management', path: `${basePath}/plots` },
+            { icon: FileSpreadsheet, label: 'Báo cáo hàng ngày', category: 'management', path: `${basePath}/daily-reports` },
+            { icon: ScanSearch, label: 'Phân tích cây trồng AI', category: 'management', path: `${basePath}/ai-analysis` },
+            
+            // Contracts (System)
+            { icon: Handshake, label: 'Hợp đồng liên kết', category: 'system', path: `${basePath}/contracts` },
         ];
     }
 

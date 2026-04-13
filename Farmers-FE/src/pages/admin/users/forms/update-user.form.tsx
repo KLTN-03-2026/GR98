@@ -50,7 +50,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { userApi, type UserResponse } from '@/client/lib/api-client';
-import { userCreateFormSchema, type UserCreateFormInput } from '@/pages/users/validation/create-user.validation';
+import { userCreateFormSchema, type UserCreateFormInput } from '@/pages/admin/users/validation/create-user.validation';
 import FileUpload from '@/components/custom/file-upload';
 
 async function fileToBase64(file: File): Promise<string> {

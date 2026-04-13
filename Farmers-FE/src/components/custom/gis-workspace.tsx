@@ -524,8 +524,8 @@ export default function GISWorkspace({ title, roleLabel, description }: GISWorks
         <div className="relative isolate h-full min-h-[740px] overflow-hidden rounded-2xl border border-emerald-200 shadow-sm">
           <div ref={mapContainerRef} className="h-full w-full" />
 
-          <div className="absolute left-4 right-4 top-4 z-1100 flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-100 bg-white/90 p-2 shadow-sm backdrop-blur-sm">
-            <div className="relative min-w-60 flex-1 rounded-xl border border-emerald-100 bg-white p-1 shadow-xs">
+          <div className="absolute left-18 right-4 top-4 z-1100">
+            <div className="relative w-full max-w-136 rounded-xl border border-emerald-100 bg-white p-1 shadow-xs">
               <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={keyword}
@@ -580,20 +580,9 @@ export default function GISWorkspace({ title, roleLabel, description }: GISWorks
                 </div>
               )}
             </div>
+          </div>
 
-            <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white px-2 py-1.5 shadow-xs">
-              <Filter className="h-4 w-4 text-emerald-700" />
-              <Button size="sm" variant={tab === 'all' ? 'primary' : 'ghost'} onClick={() => setTab('all')}>
-                Tất cả
-              </Button>
-              <Button size="sm" variant={tab === 'sau-rieng' ? 'primary' : 'ghost'} onClick={() => setTab('sau-rieng')}>
-                Sầu riêng
-              </Button>
-              <Button size="sm" variant={tab === 'ca-phe' ? 'primary' : 'ghost'} onClick={() => setTab('ca-phe')}>
-                Cà phê
-              </Button>
-            </div>
-
+          <div className="absolute right-4 top-4 z-1100 flex flex-wrap items-center justify-end gap-2">
             <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white px-2 py-1.5 shadow-xs">
               <Layers className="h-4 w-4 text-emerald-700" />
               <Button size="sm" variant={activeLayer === 'street' ? 'primary' : 'ghost'} onClick={() => setActiveLayer('street')}>
@@ -608,6 +597,19 @@ export default function GISWorkspace({ title, roleLabel, description }: GISWorks
               </Button>
               <Button size="sm" variant="outline" disabled={!hasPolygon} onClick={() => setSheetOpen(true)}>
                 Mở Sheet
+              </Button>
+            </div>
+
+            <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white px-2 py-1.5 shadow-xs">
+              <Filter className="h-4 w-4 text-emerald-700" />
+              <Button size="sm" variant={tab === 'all' ? 'primary' : 'ghost'} onClick={() => setTab('all')}>
+                Tất cả
+              </Button>
+              <Button size="sm" variant={tab === 'sau-rieng' ? 'primary' : 'ghost'} onClick={() => setTab('sau-rieng')}>
+                Sầu riêng
+              </Button>
+              <Button size="sm" variant={tab === 'ca-phe' ? 'primary' : 'ghost'} onClick={() => setTab('ca-phe')}>
+                Cà phê
               </Button>
             </div>
           </div>

@@ -22,6 +22,7 @@ import SupervisorOverviewPage from '@/pages/supervisor/overview';
 import SupervisorFarmersPage from '@/pages/supervisor/farmers';
 import SupervisorPlotsPage from '@/pages/supervisor/plots';
 import SupervisorContractsPage from '@/pages/supervisor/contracts';
+import SupervisorAIAnalysisPage from '@/pages/supervisor/ai-analysis';
 import SupervisorDailyReportsPage from '@/pages/supervisor/daily-reports';
 
 import InventoryOrdersPage from '@/pages/inventory/orders';
@@ -274,7 +275,7 @@ const supervisorDashboard: RouteObject = {
     },
     {
       path: 'ai-analysis',
-      element: <div className="p-4">Phân tích cây trồng AI Placeholder</div>,
+      element: <SupervisorAIAnalysisPage />,
     },
   ],
 };

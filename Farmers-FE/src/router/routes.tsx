@@ -12,11 +12,11 @@ import AdminPlotsPage from '@/pages/admin/plots';
 import AdminContractsPage from '@/pages/admin/contracts';
 import AdminDailyReportsPage from '@/pages/admin/daily-reports';
 import AdminOrdersPage from '@/pages/admin/orders';
-import AdminAssignmentsPage from '@/pages/admin/assignments';
 import AdminSupervisorsPage from '@/pages/admin/supervisors';
 import AdminInventoryStaffPage from '@/pages/admin/inventory-staff';
 import AdminClientsPage from '@/pages/admin/clients';
 import AdminWarehousesPage from '@/pages/admin/warehouses';
+import AdminReviewsPage from '@/pages/admin/reviews';
 
 import SupervisorOverviewPage from '@/pages/supervisor/overview';
 import SupervisorFarmersPage from '@/pages/supervisor/farmers';
@@ -192,10 +192,6 @@ const adminDashboard: RouteObject = {
       element: <AdminContractsPage />,
     },
     {
-      path: 'assignments',
-      element: <AdminAssignmentsPage />,
-    },
-    {
       path: 'daily-reports',
       element: <AdminDailyReportsPage />,
     },
@@ -210,6 +206,10 @@ const adminDashboard: RouteObject = {
     {
       path: 'orders',
       element: <AdminOrdersPage />,
+    },
+    {
+      path: 'reviews',
+      element: <AdminReviewsPage />,
     },
   ],
 };

@@ -67,6 +67,7 @@ interface CreateUserFormProps {
 
 export default function CreateUserForm({ open, onOpenChange, onSuccess }: CreateUserFormProps) {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [shouldRestoreSheet, setShouldRestoreSheet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | undefined>(undefined);
 
@@ -87,6 +88,7 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
 
   useEffect(() => {
     if (open) {
+      setShouldRestoreSheet(false);
       form.reset();
       form.clearErrors();
       setSelectedRole(undefined);
@@ -109,10 +111,6 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
         phone: values.phone || undefined,
         role: values.role as 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT',
         ...(avatarBase64 && { avatar: avatarBase64 }),
-        ...(values.role === 'ADMIN' && {
-          businessName: values.businessName || undefined,
-          province: values.province || undefined,
-        }),
         ...(values.role === 'CLIENT' && {
           province: values.province || undefined,
           defaultAddress: values.defaultAddress || undefined,
@@ -122,6 +120,7 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
       await userApi.create(payload);
       toast.success('Tạo người dùng thành công!');
       onSuccess?.();
+      setShouldRestoreSheet(false);
       onOpenChange(false);
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ error?: { message?: string }; message?: string }>;
@@ -137,8 +136,13 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
 
   function handleOpenChange(newOpen: boolean) {
     if (!newOpen && open && form.formState.isDirty) {
+      setShouldRestoreSheet(true);
+      onOpenChange(false);
       setShowConfirmDialog(true);
     } else {
+      if (!newOpen) {
+        setShouldRestoreSheet(false);
+      }
       onOpenChange(newOpen);
     }
   }
@@ -288,38 +292,6 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
                     )}
                   />
 
-                  {selectedRole === 'ADMIN' && (
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="businessName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tên doanh nghiệp</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Công ty TNHH Nông Sản Xanh" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="province"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tỉnh / Thành phố</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Hà Nội" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
-
                   {/* ── CLIENT-only fields ─────────────────────────────────────── */}
                   {selectedRole === 'CLIENT' && (
                     <>
@@ -397,7 +369,16 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={showConfirmDialog} onOpenChange={(d) => !d && setShowConfirmDialog(false)}>
+      <AlertDialog
+        open={showConfirmDialog}
+        onOpenChange={(dialogOpen) => {
+          setShowConfirmDialog(dialogOpen);
+          if (!dialogOpen && shouldRestoreSheet) {
+            onOpenChange(true);
+            setShouldRestoreSheet(false);
+          }
+        }}
+      >
         <AlertDialogContent variant="error">
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận đóng biểu mẫu</AlertDialogTitle>
@@ -406,12 +387,17 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowConfirmDialog(false)}>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowConfirmDialog(false);
+              }}
+            >
               Hủy
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setShowConfirmDialog(false);
+                setShouldRestoreSheet(false);
                 form.reset();
                 onOpenChange(false);
               }}

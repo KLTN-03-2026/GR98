@@ -63,5 +63,25 @@ export const userCreateFormSchema = z
       .optional(),
   });
 
+export const userUpdateFormSchema = userCreateFormSchema.extend({
+  password: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || val.length >= 6,
+      { message: 'Mật khẩu phải có ít nhất 6 ký tự' },
+    )
+    .refine(
+      (val) => !val || /^[A-Z]/.test(val),
+      { message: 'Ký tự đầu tiên phải là chữ cái in hoa' },
+    )
+    .refine(
+      (val) => !val || /[^A-Za-z0-9]/.test(val),
+      { message: 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt' },
+    ),
+});
+
 export type UserCreateFormInput = z.input<typeof userCreateFormSchema>;
 export type UserCreateFormOutput = z.output<typeof userCreateFormSchema>;
+export type UserUpdateFormInput = z.input<typeof userUpdateFormSchema>;
+export type UserUpdateFormOutput = z.output<typeof userUpdateFormSchema>;

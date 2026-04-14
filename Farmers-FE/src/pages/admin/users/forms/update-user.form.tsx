@@ -8,8 +8,6 @@ import {
   VoicemailIcon,
   UserIcon,
   ShieldCheckIcon,
-  MapPinIcon,
-  Building2Icon,
   MapIcon,
   ToggleLeftIcon,
 } from 'lucide-react';
@@ -50,7 +48,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { userApi, type UserResponse } from '@/client/lib/api-client';
-import { userCreateFormSchema, type UserCreateFormInput } from '@/pages/admin/users/validation/create-user.validation';
+import { userUpdateFormSchema, type UserUpdateFormInput } from '@/pages/admin/users/validation/create-user.validation';
 import FileUpload from '@/components/custom/file-upload';
 
 async function fileToBase64(file: File): Promise<string> {
@@ -76,11 +74,12 @@ export default function UpdateUserForm({
   onSuccess,
 }: UpdateUserFormProps) {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [shouldRestoreSheet, setShouldRestoreSheet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | undefined>(undefined);
 
-  const form = useForm<UserCreateFormInput>({
-    resolver: zodResolver(userCreateFormSchema),
+  const form = useForm<UserUpdateFormInput>({
+    resolver: zodResolver(userUpdateFormSchema),
     defaultValues: {
       fullName: '',
       email: '',
@@ -89,7 +88,6 @@ export default function UpdateUserForm({
       role: undefined,
       status: undefined,
       province: '',
-      businessName: '',
       defaultAddress: '',
       avatar: undefined,
     },
@@ -98,14 +96,14 @@ export default function UpdateUserForm({
   // Populate form when user changes
   useEffect(() => {
     if (open && user) {
+      setShouldRestoreSheet(false);
       form.reset({
         fullName: user.fullName,
         email: user.email,
         phone: user.phone ?? '',
         role: user.role,
         password: '',
-        province: user.adminProfile?.province ?? '',
-        businessName: user.adminProfile?.businessName ?? '',
+        province: user.clientProfile?.province ?? '',
         defaultAddress: user.clientProfile?.defaultAddress ?? '',
         avatar: undefined,
       });
@@ -113,7 +111,7 @@ export default function UpdateUserForm({
     }
   }, [open, user, form]);
 
-  async function onSubmit(values: UserCreateFormInput) {
+  async function onSubmit(values: UserUpdateFormInput) {
     if (!user) return;
     setIsSubmitting(true);
     try {
@@ -134,13 +132,6 @@ export default function UpdateUserForm({
         payload.clearAvatar = true;
       }
 
-      if (values.role === 'ADMIN') {
-        if (values.businessName !== (user.adminProfile?.businessName ?? ''))
-          payload.businessName = values.businessName;
-        if (values.province !== (user.adminProfile?.province ?? ''))
-          payload.province = values.province;
-      }
-
       if (values.role === 'CLIENT') {
         if (values.defaultAddress !== (user.clientProfile?.defaultAddress ?? ''))
           payload.defaultAddress = values.defaultAddress;
@@ -150,6 +141,7 @@ export default function UpdateUserForm({
 
       if (Object.keys(payload).length === 0) {
         toast.info('Không có thay đổi nào để lưu');
+        setShouldRestoreSheet(false);
         onOpenChange(false);
         return;
       }
@@ -157,6 +149,7 @@ export default function UpdateUserForm({
       await userApi.update(user.id, payload);
       toast.success('Cập nhật người dùng thành công!');
       onSuccess?.();
+      setShouldRestoreSheet(false);
       onOpenChange(false);
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ error?: { message?: string }; message?: string }>;
@@ -172,8 +165,13 @@ export default function UpdateUserForm({
 
   function handleOpenChange(newOpen: boolean) {
     if (!newOpen && open && form.formState.isDirty) {
+      setShouldRestoreSheet(true);
+      onOpenChange(false);
       setShowConfirmDialog(true);
     } else {
+      if (!newOpen) {
+        setShouldRestoreSheet(false);
+      }
       onOpenChange(newOpen);
     }
   }
@@ -364,45 +362,6 @@ export default function UpdateUserForm({
                     )}
                   />
 
-                  {/* ── ADMIN-only fields ─────────────────────────────────────── */}
-                  {selectedRole === 'ADMIN' && (
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="businessName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-1.5">
-                              <Building2Icon className="size-3.5" />
-                              Tên doanh nghiệp
-                            </FormLabel>
-                            <FormControl>
-                              <Input placeholder="Công ty TNHH Nông Sản Xanh" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="province"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-1.5">
-                              <MapPinIcon className="size-3.5" />
-                              Tỉnh / Thành phố
-                            </FormLabel>
-                            <FormControl>
-                              <Input placeholder="Hà Nội" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
-
                   {/* ── CLIENT-only fields ─────────────────────────────────────── */}
                   {selectedRole === 'CLIENT' && (
                     <>
@@ -445,7 +404,7 @@ export default function UpdateUserForm({
                 </div>
               </div>
 
-              <SheetFooter className="border-t px-1 pt-4 flex-shrink-0">
+              <SheetFooter className="border-t px-1 pt-4 shrink-0">
                 <Button
                   type="submit"
                   variant="primary"
@@ -460,7 +419,16 @@ export default function UpdateUserForm({
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={showConfirmDialog} onOpenChange={(d) => !d && setShowConfirmDialog(false)}>
+      <AlertDialog
+        open={showConfirmDialog}
+        onOpenChange={(dialogOpen) => {
+          setShowConfirmDialog(dialogOpen);
+          if (!dialogOpen && shouldRestoreSheet) {
+            onOpenChange(true);
+            setShouldRestoreSheet(false);
+          }
+        }}
+      >
         <AlertDialogContent variant="error">
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận đóng biểu mẫu</AlertDialogTitle>
@@ -469,12 +437,17 @@ export default function UpdateUserForm({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowConfirmDialog(false)}>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowConfirmDialog(false);
+              }}
+            >
               Hủy
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setShowConfirmDialog(false);
+                setShouldRestoreSheet(false);
                 form.reset();
                 onOpenChange(false);
               }}

@@ -90,6 +90,8 @@ export default function PlotsPage() {
     () => plots.reduce((sum, item) => sum + item.areaHa, 0),
     [plots],
   );
+  const pageFrom = total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const pageTo = Math.min(currentPage * itemsPerPage, total);
 
   const goFirstPage = () => setCurrentPage(1);
   const goPrevPage = () => setCurrentPage((prev) => Math.max(1, prev - 1));
@@ -223,7 +225,7 @@ export default function PlotsPage() {
   const editingPlot = plots.find((item) => item.id === editingId) ?? null;
 
   return (
-    <div className="h-full space-y-6 overflow-y-auto p-4 sm:p-6">
+    <div className="h-full min-h-0 flex flex-col gap-6 p-4 sm:p-6">
       <Card className="border-dashed border-primary/40">
         <CardContent className="space-y-3 p-4 sm:p-5">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -285,160 +287,158 @@ export default function PlotsPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Đang tải dữ liệu lô đất...
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {plots.map((plot) => (
-            <button
-              key={plot.id}
-              type="button"
-              onClick={() => openSheet(plot)}
-              className={cn(
-                "group rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md",
-                editingId === plot.id &&
-                  "border-emerald-500 ring-2 ring-emerald-200",
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-base font-semibold text-slate-900 group-hover:text-emerald-900">
-                    {plot.plotName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
-                </div>
+      <div className="min-h-0 flex flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          {isLoading ? (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                Đang tải dữ liệu lô đất...
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {plots.map((plot) => (
+                <button
+                  key={plot.id}
+                  type="button"
+                  onClick={() => openSheet(plot)}
+                  className={cn(
+                    "group rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md",
+                    editingId === plot.id &&
+                      "border-emerald-500 ring-2 ring-emerald-200",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-base font-semibold text-slate-900 group-hover:text-emerald-900">
+                        {plot.plotName}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 rounded-full"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openSheet(plot);
+                        }}
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDeleteTarget(plot);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
+                    <p className="inline-flex items-center gap-2">
+                      <UserRound className="h-4 w-4" />
+                      {plot.farmerName}
+                    </p>
+                    <p className="inline-flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      {plot.district}, {plot.province}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dashed border-primary/30 pt-3">
+                    <Badge
+                      variant="outline"
+                      className={getCropBadgeClass(plot.cropType)}
+                    >
+                      {getCropLabel(plot.cropType)}
+                    </Badge>
+                    <Badge
+                      variant="secondary"
+                      className="bg-slate-100 text-slate-700"
+                    >
+                      {plot.areaHa} ha
+                    </Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!isLoading && !plots.length && (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {!isLoading && total > 0 && (
+          <div className="mt-3 border-t bg-background pt-3">
+            <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-muted-foreground">
+                Hiển thị {pageFrom}-{pageTo} / {total} lô đất
+              </div>
+
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Trang {currentPage} / {totalPages}
+                </span>
+                <div className="h-3 w-px bg-border" />
                 <div className="flex items-center gap-1">
                   <Button
-                    size="icon"
                     variant="ghost"
-                    className="h-8 w-8 rounded-full"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      openSheet(plot);
-                    }}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={goFirstPage}
+                    disabled={currentPage === 1}
                   >
-                    <Edit3 className="h-4 w-4" />
+                    <ChevronsLeft className="h-3.5 w-3.5" />
+                    <span className="ml-1 hidden sm:inline">Đầu</span>
                   </Button>
                   <Button
-                    size="icon"
                     variant="ghost"
-                    className="h-8 w-8 rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setDeleteTarget(plot);
-                    }}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={goPrevPage}
+                    disabled={currentPage === 1}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    <span className="ml-1 hidden sm:inline">Trước</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={goNextPage}
+                    disabled={currentPage === totalPages}
+                  >
+                    <span className="mr-1 hidden sm:inline">Sau</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={goLastPage}
+                    disabled={currentPage === totalPages}
+                  >
+                    <span className="mr-1 hidden sm:inline">Cuối</span>
+                    <ChevronsRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-              </div>
-
-              <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
-                <p className="inline-flex items-center gap-2">
-                  <UserRound className="h-4 w-4" />
-                  {plot.farmerName}
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  {plot.district}, {plot.province}
-                </p>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dashed border-primary/30 pt-3">
-                <Badge
-                  variant="outline"
-                  className={getCropBadgeClass(plot.cropType)}
-                >
-                  {getCropLabel(plot.cropType)}
-                </Badge>
-                <Badge
-                  variant="secondary"
-                  className="bg-slate-100 text-slate-700"
-                >
-                  {plot.areaHa} ha
-                </Badge>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!isLoading && !plots.length && (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && total > 0 && (
-        <div className="mt-1">
-          <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center justify-center gap-1.5 sm:justify-start">
-              <span className="text-xs text-muted-foreground">Hiển thị</span>
-              <span className="inline-flex h-7 w-16 items-center justify-center rounded-md border bg-muted/20 px-2 text-xs font-medium">
-                6
-              </span>
-              <span className="text-xs text-muted-foreground">
-                / {total} lô đất
-              </span>
-            </div>
-
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                Trang {currentPage} / {totalPages}
-              </span>
-              <div className="h-3 w-px bg-border" />
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={goFirstPage}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronsLeft className="h-3.5 w-3.5" />
-                  <span className="ml-1 hidden sm:inline">Đầu</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={goPrevPage}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  <span className="ml-1 hidden sm:inline">Trước</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={goNextPage}
-                  disabled={currentPage === totalPages}
-                >
-                  <span className="mr-1 hidden sm:inline">Sau</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={goLastPage}
-                  disabled={currentPage === totalPages}
-                >
-                  <span className="mr-1 hidden sm:inline">Cuối</span>
-                  <ChevronsRight className="h-3.5 w-3.5" />
-                </Button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent

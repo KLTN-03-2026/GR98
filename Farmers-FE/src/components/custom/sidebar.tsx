@@ -19,6 +19,7 @@ import { ChevronDown, LogOut } from "lucide-react";
 import { AppLogo } from "@/components/global/app-logo";
 import { useAuthStore } from "@/client/store";
 import { clearAllAuthCookies } from "@/lib/cookie-utils";
+import { toast } from "sonner";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -118,6 +119,7 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
     clearAllAuthCookies();
     logout();
     localStorage.removeItem("ec_cart");
+    toast.success("Đăng xuất thành công!");
     const loginPath = location.pathname.startsWith("/inventory")
       ? "/inventory/login"
       : location.pathname.startsWith("/supervisor")

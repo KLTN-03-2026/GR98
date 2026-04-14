@@ -80,7 +80,7 @@ export function Navbar({
     clearAllAuthCookies();
     logout();
     localStorage.removeItem("ec_cart");
-    toast.success("Đã đăng xuất");
+    toast.success("Đăng xuất thành công!");
     const loginPath = location.pathname.startsWith("/supervisor")
       ? "/supervisor/login"
       : location.pathname.startsWith("/dashboard")
@@ -157,7 +157,7 @@ export function Navbar({
       initial={false}
       style={isMobile ? { width: "100%", left: 0 } : undefined}
     >
-      <div className="flex items-center justify-between px-3 md:px-6 h-14">
+      <div className="flex items-center justify-between px-3 md:px-6 h-16">
         {/* Left Side */}
         <div className="flex items-center space-x-3">
           <AnimatePresence mode="wait">

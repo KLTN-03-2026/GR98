@@ -6,6 +6,8 @@ import { router } from './router'
 import { PreloaderProvider } from './contexts/PreloaderContext'
 import { Toaster } from "@/components/custom/sonner"
 
+import { ThemeProvider } from '@/providers/theme-provider'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -15,10 +17,12 @@ const queryClient = new QueryClient({
   },
 })
 const AppWithRouter = () => (
-  <PreloaderProvider>
-    <RouterProvider router={router} />
-    <Toaster position="top-right" />
-  </PreloaderProvider>
+  <ThemeProvider defaultTheme="light" storageKey="farmers_app_theme">
+    <PreloaderProvider>
+      <RouterProvider router={router} />
+      <Toaster position="bottom-right" />
+    </PreloaderProvider>
+  </ThemeProvider>
 );
 
 createRoot(document.getElementById('root')!).render(

@@ -4,10 +4,12 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
 import { Filter, Layers, Search, Sprout } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { plotApi, type PlotResponse } from "@/client/lib/api-client";
 import {
   Sheet,
   SheetContent,
@@ -20,21 +22,7 @@ import {
 type CropType = "sau-rieng" | "ca-phe";
 type GISTab = "all" | CropType;
 
-interface LotPoint {
-  id: string;
-  lotCode: string;
-  plotName: string;
-  farmerName: string;
-  contractId: string;
-  province: string;
-  district: string;
-  areaHa: number;
-  cropType: CropType;
-  progress: "on-track" | "attention";
-  lat: number;
-  lng: number;
-  updatedAt: string;
-}
+type LotPoint = PlotResponse;
 
 interface Place {
   label: string;
@@ -58,68 +46,23 @@ interface ProvinceHashValue {
   districts?: Record<string, string>;
 }
 
-const LOTS: LotPoint[] = [
-  {
-    id: "lot-001",
-    lotCode: "VT-L001",
-    plotName: "Lô Khe Mây",
-    farmerName: "Nguyen Van Son",
-    contractId: "CT-2026-101",
-    province: "Son La",
-    district: "Moc Chau",
-    areaHa: 2.8,
-    cropType: "ca-phe",
-    progress: "on-track",
-    lat: 20.84,
-    lng: 104.74,
-    updatedAt: "13/04/2026 09:30",
-  },
-  {
-    id: "lot-002",
-    lotCode: "VT-L002",
-    plotName: "Lô Suối Đá",
-    farmerName: "Tran Thi Hoa",
-    contractId: "CT-2026-108",
-    province: "Dak Lak",
-    district: "Cu Mgar",
-    areaHa: 3.2,
-    cropType: "sau-rieng",
-    progress: "attention",
-    lat: 12.81,
-    lng: 108.07,
-    updatedAt: "13/04/2026 10:05",
-  },
-  {
-    id: "lot-003",
-    lotCode: "VT-L003",
-    plotName: "Lô Đồi Gió",
-    farmerName: "Le Van Nam",
-    contractId: "CT-2026-115",
-    province: "Lam Dong",
-    district: "Bao Loc",
-    areaHa: 1.9,
-    cropType: "ca-phe",
-    progress: "on-track",
-    lat: 11.55,
-    lng: 107.8,
-    updatedAt: "13/04/2026 11:12",
-  },
-  {
-    id: "lot-004",
-    lotCode: "VT-L004",
-    plotName: "Lô Bến Hồ",
-    farmerName: "Pham Quoc Viet",
-    contractId: "CT-2026-121",
-    province: "Tien Giang",
-    district: "Cai Lay",
-    areaHa: 2.1,
-    cropType: "sau-rieng",
-    progress: "on-track",
-    lat: 10.4,
-    lng: 106.12,
-    updatedAt: "13/04/2026 08:40",
-  },
-];
+const EMPTY_LOT: LotPoint = {
+  id: "empty",
+  lotCode: "N/A",
+  plotName: "Lô mới",
+  farmerName: "Chưa gán",
+  farmerPhone: "",
+  farmerCccd: "",
+  contractId: "Chưa có hợp đồng",
+  province: "N/A",
+  district: "N/A",
+  areaHa: 0,
+  cropType: "ca-phe",
+  progress: "on-track",
+  lat: 16.2,
+  lng: 106.2,
+  updatedAt: "-",
+};
 
 interface GISWorkspaceProps {
   title: string;
@@ -129,8 +72,41 @@ interface GISWorkspaceProps {
 
 const DEFAULT_POLYGON_META =
   "Chưa có polygon. Dùng công cụ vẽ trên map để mở Sheet chỉnh sửa.";
+const LOCAL_POLYGON_KEY = "gis_plot_polygons_v1";
+const LOCAL_PLOT_OVERRIDES_KEY = "gis_plot_overrides_v1";
+
+type PlotFieldOverride = {
+  plotName?: string;
+  farmerName?: string;
+  farmerPhone?: string;
+  farmerCccd?: string;
+  contractId?: string;
+};
+
 const getCropLabel = (crop: CropType) =>
   crop === "sau-rieng" ? "Sầu riêng" : "Cà phê";
+
+const isValidPolygon = (value: unknown): value is Array<[number, number]> => {
+  if (!Array.isArray(value) || value.length < 3) {
+    return false;
+  }
+
+  return value.every(
+    (point) =>
+      Array.isArray(point) &&
+      point.length === 2 &&
+      Number.isFinite(Number(point[0])) &&
+      Number.isFinite(Number(point[1])),
+  );
+};
+
+const polygonCenter = (polygon: Array<[number, number]>): [number, number] => {
+  const sum = polygon.reduce(
+    (acc, [lat, lng]) => ({ lat: acc.lat + lat, lng: acc.lng + lng }),
+    { lat: 0, lng: 0 },
+  );
+  return [sum.lat / polygon.length, sum.lng / polygon.length];
+};
 
 export default function GISWorkspace({
   title,
@@ -143,34 +119,121 @@ export default function GISWorkspace({
 
   const [tab, setTab] = useState<GISTab>("all");
   const [keyword, setKeyword] = useState("");
-  const [selectedLotId, setSelectedLotId] = useState<string>(LOTS[0].id);
+  const [lots, setLots] = useState<LotPoint[]>([]);
+  const [selectedLotId, setSelectedLotId] = useState<string>("");
   const [activeLayer, setActiveLayer] = useState<"street" | "satellite">(
     "street",
   );
   const [sheetOpen, setSheetOpen] = useState(false);
   const [polygonMeta, setPolygonMeta] = useState(DEFAULT_POLYGON_META);
+  const [polygonAreaHa, setPolygonAreaHa] = useState<number | null>(null);
+  const [polygonCoords, setPolygonCoords] = useState<Array<[number, number]>>([]);
+  const [isSaving, setIsSaving] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({
     lat: 16.2,
     lng: 106.2,
   });
-  const [sheet, setSheet] = useState(() => ({
-    plotName: LOTS[0].plotName,
-    farmerName: LOTS[0].farmerName,
-    contractId: LOTS[0].contractId,
-    cropType: LOTS[0].cropType,
-  }));
+  const [sheet, setSheet] = useState({
+    plotName: "",
+    farmerName: "",
+    farmerPhone: "",
+    farmerCccd: "",
+    contractId: "",
+    cropType: "ca-phe" as CropType,
+  });
   const [allPlaces, setAllPlaces] = useState<Place[]>([]);
+  const [, setPlotPolygons] = useState<Record<string, Array<[number, number]>>>(
+    {},
+  );
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
+  const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
+  const previewPolygonRef = useRef<L.Polygon | null>(null);
   const searchMarkerRef = useRef<L.Marker | null>(null);
   const streetLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
 
+  const readLocalPolygons = () => {
+    try {
+      const raw = localStorage.getItem(LOCAL_POLYGON_KEY);
+      if (!raw) return {} as Record<string, Array<[number, number]>>;
+
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const normalized: Record<string, Array<[number, number]>> = {};
+      Object.entries(parsed || {}).forEach(([plotId, polygon]) => {
+        if (isValidPolygon(polygon)) {
+          normalized[plotId] = polygon;
+        }
+      });
+      return normalized;
+    } catch {
+      return {} as Record<string, Array<[number, number]>>;
+    }
+  };
+
+  const writeLocalPolygons = (value: Record<string, Array<[number, number]>>) => {
+    localStorage.setItem(LOCAL_POLYGON_KEY, JSON.stringify(value));
+  };
+
+  const readLocalOverrides = () => {
+    try {
+      const raw = localStorage.getItem(LOCAL_PLOT_OVERRIDES_KEY);
+      if (!raw) return {} as Record<string, PlotFieldOverride>;
+      const parsed = JSON.parse(raw) as Record<string, PlotFieldOverride>;
+      return parsed || {};
+    } catch {
+      return {} as Record<string, PlotFieldOverride>;
+    }
+  };
+
+  const writeLocalOverrides = (value: Record<string, PlotFieldOverride>) => {
+    localStorage.setItem(LOCAL_PLOT_OVERRIDES_KEY, JSON.stringify(value));
+  };
+
+  const showOnlyPolygon = (lot: LotPoint) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (previewPolygonRef.current) {
+      map.removeLayer(previewPolygonRef.current);
+      previewPolygonRef.current = null;
+    }
+
+    if (!isValidPolygon(lot.polygon)) {
+      return;
+    }
+
+    const polygonLayer = L.polygon(lot.polygon, {
+      color: "#059669",
+      weight: 3,
+      fillColor: "#10b981",
+      fillOpacity: 0.2,
+    }).addTo(map);
+
+    previewPolygonRef.current = polygonLayer;
+    map.fitBounds(polygonLayer.getBounds().pad(0.25), {
+      animate: true,
+      duration: 0.35,
+    });
+
+    polygonLayer.on("click", (event) => {
+      L.DomEvent.stopPropagation(event);
+    });
+  };
+
+  const hidePreviewPolygon = () => {
+    const map = mapRef.current;
+    if (!map || !previewPolygonRef.current) return;
+
+    map.removeLayer(previewPolygonRef.current);
+    previewPolygonRef.current = null;
+  };
+
   const visibleLots = useMemo(
-    () => LOTS.filter((lot) => tab === "all" || lot.cropType === tab),
-    [tab],
+    () => lots.filter((lot) => tab === "all" || lot.cropType === tab),
+    [lots, tab],
   );
 
   const searchResults = useMemo(() => {
@@ -206,15 +269,18 @@ export default function GISWorkspace({
     return (
       visibleLots.find((lot) => lot.id === selectedLotId) ??
       visibleLots[0] ??
-      LOTS[0]
+      lots[0] ??
+      EMPTY_LOT
     );
-  }, [visibleLots, selectedLotId]);
+  }, [visibleLots, selectedLotId, lots]);
 
   const focusLot = (lot: LotPoint) => {
     setSelectedLotId(lot.id);
     setSheet({
       plotName: lot.plotName,
       farmerName: lot.farmerName,
+      farmerPhone: lot.farmerPhone || "",
+      farmerCccd: lot.farmerCccd || "",
       contractId: lot.contractId,
       cropType: lot.cropType,
     });
@@ -231,6 +297,175 @@ export default function GISWorkspace({
     focusLot(lot);
     setKeyword("");
   };
+
+  const handleCreatePlot = async () => {
+    const plotName = sheet.plotName.trim();
+    const farmerName = sheet.farmerName.trim();
+    const farmerPhone = sheet.farmerPhone.trim();
+    const farmerCccd = sheet.farmerCccd.trim();
+    if (!plotName) {
+      toast.error("Vui lòng nhập tên lô đất");
+      return;
+    }
+
+    if (!farmerName || !farmerPhone || !farmerCccd) {
+      toast.error("Vui lòng nhập đủ tên nông dân, số điện thoại và CCCD");
+      return;
+    }
+
+    if (!/^\d{10,11}$/.test(farmerPhone)) {
+      toast.error("Số điện thoại nông dân không hợp lệ");
+      return;
+    }
+
+    if (!/^\d{12}$/.test(farmerCccd)) {
+      toast.error("CCCD phải gồm đúng 12 chữ số");
+      return;
+    }
+
+    if (!isValidPolygon(polygonCoords)) {
+      toast.error("Chỉ được lưu khi đã vẽ polygon hợp lệ");
+      return;
+    }
+
+    const areaHa = polygonAreaHa;
+    if (!areaHa || areaHa <= 0) {
+      toast.error("Diện tích polygon chưa hợp lệ, vui lòng vẽ lại");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await plotApi.create({
+        plotName,
+        farmerName,
+        farmerPhone,
+        farmerCccd,
+        contractId: sheet.contractId.trim() || undefined,
+        cropType: sheet.cropType,
+        areaHa,
+        lat: mapCenter.lat,
+        lng: mapCenter.lng,
+        province: selectedLot.province !== "N/A" ? selectedLot.province : undefined,
+        district: selectedLot.district !== "N/A" ? selectedLot.district : undefined,
+        polygon: polygonCoords,
+      });
+
+      const created = {
+        ...response.data.data,
+        polygon: polygonCoords,
+      };
+      const createdWithOverride = {
+        ...created,
+        plotName,
+        farmerName,
+        farmerPhone,
+        farmerCccd,
+        contractId: sheet.contractId.trim(),
+      };
+
+      const updatedOverrides = {
+        ...readLocalOverrides(),
+        [created.id]: {
+          plotName,
+          farmerName,
+          farmerPhone,
+          farmerCccd,
+          contractId: sheet.contractId.trim(),
+        },
+      };
+      writeLocalOverrides(updatedOverrides);
+
+      setPlotPolygons((prev) => {
+        const nextPolygons = {
+          ...prev,
+          [created.id]: polygonCoords,
+        };
+        writeLocalPolygons(nextPolygons);
+        return nextPolygons;
+      });
+
+      setLots((prev) => [createdWithOverride, ...prev]);
+      focusLot(createdWithOverride);
+      showOnlyPolygon(createdWithOverride);
+      drawnItemsRef.current?.clearLayers();
+      setSheetOpen(false);
+      void (async () => {
+        try {
+          const cachedPolygons = readLocalPolygons();
+          const overrides = readLocalOverrides();
+          const fresh = await plotApi.list({ page: 1, limit: 200 });
+          const rows = fresh.data.data.data.map((row) => ({
+            ...row,
+            polygon: isValidPolygon(row.polygon)
+              ? row.polygon
+              : (cachedPolygons[row.id] ?? []),
+            ...(overrides[row.id] || {}),
+          }));
+          setLots(rows);
+        } catch {
+          // Ignore refresh failure because local optimistic state is already shown.
+        }
+      })();
+      toast.success("Đã tạo lô đất mới từ GIS");
+    } catch (error) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        typeof (error as { message?: unknown }).message === "string"
+          ? ((error as { message?: string }).message ?? "")
+          : "Tạo lô đất thất bại";
+      toast.error(message || "Tạo lô đất thất bại");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadPlots = async () => {
+      try {
+        const cachedPolygons = readLocalPolygons();
+        const overrides = readLocalOverrides();
+        setPlotPolygons(cachedPolygons);
+
+        const response = await plotApi.list({ page: 1, limit: 200 });
+        const rows = response.data.data.data.map((row) => ({
+          ...row,
+          polygon: isValidPolygon(row.polygon)
+            ? row.polygon
+            : (cachedPolygons[row.id] ?? []),
+          ...(overrides[row.id] || {}),
+        }));
+        setLots(rows);
+
+        if (rows.length > 0) {
+          const first = rows[0];
+          setSelectedLotId((prev) => prev || first.id);
+          setSheet((prev) => ({
+            plotName: prev.plotName || first.plotName,
+            farmerName: prev.farmerName || first.farmerName,
+            farmerPhone: prev.farmerPhone || first.farmerPhone || "",
+            farmerCccd: prev.farmerCccd || first.farmerCccd || "",
+            contractId: prev.contractId || first.contractId,
+            cropType: prev.cropType || first.cropType,
+          }));
+        }
+      } catch (error) {
+        const message =
+          typeof error === "object" &&
+          error !== null &&
+          "message" in error &&
+          typeof (error as { message?: unknown }).message === "string"
+            ? ((error as { message?: string }).message ?? "")
+            : "Tải dữ liệu lô đất thất bại";
+        toast.error(message || "Tải dữ liệu lô đất thất bại");
+        setLots([]);
+      }
+    };
+
+    void loadPlots();
+  }, []);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
@@ -259,6 +494,7 @@ export default function GISWorkspace({
 
     const drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
+    drawnItemsRef.current = drawnItems;
 
     const drawControl = new L.Control.Draw({
       position: "topleft",
@@ -287,17 +523,29 @@ export default function GISWorkspace({
 
     const toAreaText = (layer: L.Layer) => {
       if (!(layer instanceof L.Polygon)) {
+        setPolygonAreaHa(null);
+        setPolygonCoords([]);
         return "Polygon đã tạo.";
       }
 
       const rings = layer.getLatLngs();
       const firstRing = (rings[0] ?? []) as L.LatLng[];
       if (!firstRing.length) {
+        setPolygonAreaHa(null);
+        setPolygonCoords([]);
         return "Polygon đã tạo.";
       }
 
+      setPolygonCoords(
+        firstRing.map((point) => [
+          Number(point.lat.toFixed(6)),
+          Number(point.lng.toFixed(6)),
+        ]),
+      );
+
       const area = L.GeometryUtil.geodesicArea(firstRing);
       const hectares = area / 10000;
+      setPolygonAreaHa(hectares);
       return `Polygon: ${area.toFixed(0)} m2 (${hectares.toFixed(2)} ha)`;
     };
 
@@ -305,6 +553,14 @@ export default function GISWorkspace({
       const drawEvent = event as L.DrawEvents.Created;
       drawnItems.clearLayers();
       drawnItems.addLayer(drawEvent.layer);
+      setSheet((prev) => ({
+        ...prev,
+        plotName: "",
+        farmerName: "",
+        farmerPhone: "",
+        farmerCccd: "",
+        contractId: "",
+      }));
       setPolygonMeta(toAreaText(drawEvent.layer));
       setSheetOpen(true);
     };
@@ -318,6 +574,8 @@ export default function GISWorkspace({
 
     const onDrawDeleted: L.LeafletEventHandlerFn = () => {
       setSheetOpen(false);
+      setPolygonAreaHa(null);
+      setPolygonCoords([]);
       setPolygonMeta(DEFAULT_POLYGON_META);
     };
 
@@ -326,10 +584,19 @@ export default function GISWorkspace({
       setMapCenter({ lat: center.lat, lng: center.lng });
     };
 
+    const onMapClick = () => {
+      hidePreviewPolygon();
+    };
+
+    drawnItems.on("click", (event: L.LeafletMouseEvent) => {
+      L.DomEvent.stopPropagation(event);
+    });
+
     map.on(L.Draw.Event.CREATED, onDrawCreated);
     map.on(L.Draw.Event.EDITED, onDrawEdited);
     map.on(L.Draw.Event.DELETED, onDrawDeleted);
     map.on("moveend", onMoveEnd);
+    map.on("click", onMapClick);
 
     const handleResize = () => map.invalidateSize();
     window.addEventListener("resize", handleResize);
@@ -341,12 +608,15 @@ export default function GISWorkspace({
       map.off(L.Draw.Event.EDITED, onDrawEdited);
       map.off(L.Draw.Event.DELETED, onDrawDeleted);
       map.off("moveend", onMoveEnd);
+      map.off("click", onMapClick);
       map.remove();
       mapRef.current = null;
       markerLayerRef.current = null;
       searchMarkerRef.current = null;
       streetLayerRef.current = null;
       satelliteLayerRef.current = null;
+      drawnItemsRef.current = null;
+      previewPolygonRef.current = null;
     };
   }, []);
 
@@ -420,28 +690,50 @@ export default function GISWorkspace({
 
     markerLayer.clearLayers();
 
-    visibleLots.forEach((lot) => {
-      const isSelected = lot.id === selectedLot.id;
-      const fillColor = isSelected
-        ? "#f59e0b"
-        : lot.cropType === "sau-rieng"
-          ? "#10b981"
-          : "#0ea5e9";
+    visibleLots
+      .filter((lot) => isValidPolygon(lot.polygon))
+      .forEach((lot) => {
+        const isSelected = lot.id === selectedLot.id;
+        const markerPos = polygonCenter(lot.polygon as Array<[number, number]>);
 
-      L.circleMarker([lot.lat, lot.lng], {
-        radius: isSelected ? 7 : 5,
-        color: "#ffffff",
-        weight: 2,
-        fillColor,
-        fillOpacity: 1,
-      })
-        .bindTooltip(`${lot.plotName} (${lot.lotCode})`, {
-          direction: "top",
-          offset: [0, -8],
-        })
-        .on("click", () => focusLot(lot))
-        .addTo(markerLayer);
-    });
+        const icon = L.divIcon({
+          className: "",
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
+          html: `<div style="
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: ${isSelected ? "#f59e0b" : "#059669"};
+            color: #fff;
+            border: 2px solid #fff;
+            box-shadow: 0 3px 10px rgba(0,0,0,.18);
+            font-size: 16px;
+            font-weight: 700;
+          ">⌂</div>`,
+        });
+
+        L.marker(markerPos, { icon })
+          .bindTooltip(`${lot.plotName} (${lot.lotCode})`, {
+            direction: "top",
+            offset: [0, -8],
+          })
+          .on("click", (event: L.LeafletMouseEvent) => {
+            L.DomEvent.stopPropagation(event);
+            focusLot(lot);
+            showOnlyPolygon(lot);
+          })
+          .on("dblclick", (event: L.LeafletMouseEvent) => {
+            L.DomEvent.stopPropagation(event);
+            focusLot(lot);
+            showOnlyPolygon(lot);
+            setSheetOpen(true);
+          })
+          .addTo(markerLayer);
+      });
   }, [visibleLots, selectedLot]);
 
   useEffect(() => {
@@ -472,12 +764,17 @@ export default function GISWorkspace({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !visibleLots.length) {
+    const lotsHasPolygon = visibleLots.filter((lot) =>
+      isValidPolygon(lot.polygon),
+    );
+    if (!map || !lotsHasPolygon.length) {
       return;
     }
 
     const bounds = L.latLngBounds(
-      visibleLots.map((lot) => [lot.lat, lot.lng] as [number, number]),
+      lotsHasPolygon.map((lot) =>
+        polygonCenter(lot.polygon as Array<[number, number]>),
+      ),
     );
     if (bounds.isValid()) {
       map.fitBounds(bounds.pad(0.28), { animate: true, duration: 0.35 });
@@ -701,7 +998,7 @@ export default function GISWorkspace({
                 Lot đang chọn
               </p>
               <p className="mt-1 text-lg font-bold text-emerald-950">
-                {sheet.plotName}
+                {selectedLot.plotName}
               </p>
               <p className="text-sm text-emerald-800">
                 {selectedLot.lotCode} • {selectedLot.district},{" "}
@@ -747,6 +1044,37 @@ export default function GISWorkspace({
                     farmerName: event.target.value,
                   }))
                 }
+                placeholder="Nhập tên nông dân"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sheet-farmer-phone">Số điện thoại nông dân</Label>
+              <Input
+                id="sheet-farmer-phone"
+                value={sheet.farmerPhone}
+                onChange={(event) =>
+                  setSheet((prev) => ({
+                    ...prev,
+                    farmerPhone: event.target.value,
+                  }))
+                }
+                placeholder="Nhập số điện thoại"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sheet-farmer-cccd">CCCD nông dân</Label>
+              <Input
+                id="sheet-farmer-cccd"
+                value={sheet.farmerCccd}
+                onChange={(event) =>
+                  setSheet((prev) => ({
+                    ...prev,
+                    farmerCccd: event.target.value,
+                  }))
+                }
+                placeholder="Nhập CCCD 12 chữ số"
               />
             </div>
 
@@ -761,6 +1089,7 @@ export default function GISWorkspace({
                     contractId: event.target.value,
                   }))
                 }
+                placeholder="Nhập mã hợp đồng"
               />
             </div>
 
@@ -805,9 +1134,13 @@ export default function GISWorkspace({
           </div>
 
           <SheetFooter>
-            <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
+            <Button
+              className="w-full bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => void handleCreatePlot()}
+              disabled={isSaving}
+            >
               <Sprout className="mr-2 h-4 w-4" />
-              Lưu cập nhật vào luồng GIS
+              {isSaving ? "Đang lưu..." : "Lưu cập nhật vào luồng GIS"}
             </Button>
           </SheetFooter>
         </SheetContent>

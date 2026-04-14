@@ -1,4 +1,4 @@
-import GISWorkspace from '../../../components/custom/gis-workspace';
+import GISWorkspace from "../../../components/custom/gis-workspace";
 
 export default function ZonesPage() {
   return (

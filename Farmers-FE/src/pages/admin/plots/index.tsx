@@ -21,13 +21,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -46,77 +39,20 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { plotApi, type PlotResponse } from "@/client/lib/api-client";
 
 type CropType = "sau-rieng" | "ca-phe";
 
-type PlotItem = {
-  id: string;
-  lotCode: string;
-  plotName: string;
-  farmerName: string;
-  contractId: string;
-  province: string;
-  district: string;
-  areaHa: number;
-  cropType: CropType;
-  progress: "on-track" | "attention";
-  updatedAt: string;
-};
+type PlotItem = PlotResponse;
+const LOCAL_PLOT_OVERRIDES_KEY = "gis_plot_overrides_v1";
 
-const INITIAL_PLOTS: PlotItem[] = [
-  {
-    id: "lot-001",
-    lotCode: "VT-L001",
-    plotName: "Lô Khe Mây",
-    farmerName: "Nguyen Van Son",
-    contractId: "CT-2026-101",
-    province: "Son La",
-    district: "Moc Chau",
-    areaHa: 2.8,
-    cropType: "ca-phe",
-    progress: "on-track",
-    updatedAt: "13/04/2026 09:30",
-  },
-  {
-    id: "lot-002",
-    lotCode: "VT-L002",
-    plotName: "Lô Suối Đá",
-    farmerName: "Tran Thi Hoa",
-    contractId: "CT-2026-108",
-    province: "Dak Lak",
-    district: "Cu Mgar",
-    areaHa: 3.2,
-    cropType: "sau-rieng",
-    progress: "attention",
-    updatedAt: "13/04/2026 10:05",
-  },
-  {
-    id: "lot-003",
-    lotCode: "VT-L003",
-    plotName: "Lô Đồi Gió",
-    farmerName: "Le Van Nam",
-    contractId: "CT-2026-115",
-    province: "Lam Dong",
-    district: "Bao Loc",
-    areaHa: 1.9,
-    cropType: "ca-phe",
-    progress: "on-track",
-    updatedAt: "13/04/2026 11:12",
-  },
-  {
-    id: "lot-004",
-    lotCode: "VT-L004",
-    plotName: "Lô Bến Hồ",
-    farmerName: "Pham Quoc Viet",
-    contractId: "CT-2026-121",
-    province: "Tien Giang",
-    district: "Cai Lay",
-    areaHa: 2.1,
-    cropType: "sau-rieng",
-    progress: "on-track",
-    updatedAt: "13/04/2026 08:40",
-  },
-];
+type PlotFieldOverride = {
+  plotName?: string;
+  farmerName?: string;
+  farmerPhone?: string;
+  farmerCccd?: string;
+  contractId?: string;
+};
 
 const getCropLabel = (crop: CropType) =>
   crop === "sau-rieng" ? "Sầu riêng" : "Cà phê";
@@ -126,11 +62,14 @@ const getCropBadgeClass = (crop: CropType) =>
     : "border-lime-300 bg-lime-50 text-lime-800";
 
 export default function PlotsPage() {
-  const [plots, setPlots] = useState<PlotItem[]>(INITIAL_PLOTS);
+  const [plots, setPlots] = useState<PlotItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [filter, setFilter] = useState<"all" | CropType>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(9);
+  const itemsPerPage = 6;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlotItem | null>(null);
@@ -147,39 +86,10 @@ export default function PlotsPage() {
     cropType: "ca-phe",
   });
 
-  const filteredPlots = useMemo(() => {
-    const normalized = keyword.trim().toLowerCase();
-    return plots.filter((plot) => {
-      const matchFilter = filter === "all" || plot.cropType === filter;
-      if (!matchFilter) return false;
-      if (!normalized) return true;
-      return (
-        plot.plotName.toLowerCase().includes(normalized) ||
-        plot.lotCode.toLowerCase().includes(normalized) ||
-        plot.farmerName.toLowerCase().includes(normalized) ||
-        plot.province.toLowerCase().includes(normalized) ||
-        plot.district.toLowerCase().includes(normalized)
-      );
-    });
-  }, [plots, keyword, filter]);
-
   const totalArea = useMemo(
     () => plots.reduce((sum, item) => sum + item.areaHa, 0),
     [plots],
   );
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(filteredPlots.length / itemsPerPage)),
-    [filteredPlots.length, itemsPerPage],
-  );
-  const paginatedPlots = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredPlots.slice(start, start + itemsPerPage);
-  }, [filteredPlots, currentPage, itemsPerPage]);
-
-  const handleItemsPerPageChange = (value: string) => {
-    setItemsPerPage(Number(value));
-    setCurrentPage(1);
-  };
 
   const goFirstPage = () => setCurrentPage(1);
   const goPrevPage = () => setCurrentPage((prev) => Math.max(1, prev - 1));
@@ -188,14 +98,70 @@ export default function PlotsPage() {
   const goLastPage = () => setCurrentPage(totalPages);
 
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  useEffect(() => {
     setCurrentPage(1);
   }, [keyword, filter]);
+
+  const readLocalOverrides = () => {
+    try {
+      const raw = localStorage.getItem(LOCAL_PLOT_OVERRIDES_KEY);
+      if (!raw) return {} as Record<string, PlotFieldOverride>;
+      const parsed = JSON.parse(raw) as Record<string, PlotFieldOverride>;
+      return parsed || {};
+    } catch {
+      return {} as Record<string, PlotFieldOverride>;
+    }
+  };
+
+  const writeLocalOverrides = (value: Record<string, PlotFieldOverride>) => {
+    localStorage.setItem(LOCAL_PLOT_OVERRIDES_KEY, JSON.stringify(value));
+  };
+
+  useEffect(() => {
+    const fetchPlots = async () => {
+      setIsLoading(true);
+      try {
+        const response = await plotApi.list({
+          page: currentPage,
+          limit: itemsPerPage,
+          search: keyword.trim() || undefined,
+          cropType: filter === "all" ? undefined : filter,
+        });
+
+        const payload = response.data.data;
+        const overrides = readLocalOverrides();
+        setPlots(
+          payload.data.map((row) => ({
+            ...row,
+            ...(overrides[row.id] || {}),
+          })),
+        );
+        setTotal(payload.total);
+        setTotalPages(Math.max(1, payload.totalPages));
+      } catch (error) {
+        const message =
+          typeof error === "object" &&
+          error !== null &&
+          "message" in error &&
+          typeof (error as { message?: unknown }).message === "string"
+            ? ((error as { message?: string }).message ?? "")
+            : "Tải danh sách lô đất thất bại";
+        toast.error(message || "Tải danh sách lô đất thất bại");
+        setPlots([]);
+        setTotal(0);
+        setTotalPages(1);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void fetchPlots();
+  }, [currentPage, keyword, filter]);
+
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages, isLoading]);
 
   const openSheet = (plot: PlotItem) => {
     setEditingId(plot.id);
@@ -211,6 +177,16 @@ export default function PlotsPage() {
 
   const handleSave = () => {
     if (!editingId) return;
+    const updatedOverrides = {
+      ...readLocalOverrides(),
+      [editingId]: {
+        plotName: sheet.plotName,
+        farmerName: sheet.farmerName,
+        contractId: sheet.contractId,
+      },
+    };
+    writeLocalOverrides(updatedOverrides);
+
     setPlots((prev) =>
       prev.map((item) =>
         item.id === editingId
@@ -228,7 +204,14 @@ export default function PlotsPage() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
+    const currentOverrides = readLocalOverrides();
+    if (deleteTarget.id in currentOverrides) {
+      delete currentOverrides[deleteTarget.id];
+      writeLocalOverrides(currentOverrides);
+    }
+
     setPlots((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+    setTotal((prev) => Math.max(0, prev - 1));
     toast.success(`Đã xóa ${deleteTarget.plotName}`);
     setDeleteTarget(null);
     if (editingId === deleteTarget.id) {
@@ -282,7 +265,7 @@ export default function PlotsPage() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Hiển thị {filteredPlots.length} / {plots.length} lô đất.
+            Hiển thị {plots.length} / {total} lô đất.
           </p>
         </CardContent>
       </Card>
@@ -292,7 +275,7 @@ export default function PlotsPage() {
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm text-sky-800">
             <Layers3 className="h-4 w-4" />
             <span className="font-medium">Tổng lô:</span>
-            <span className="font-semibold">{plots.length}</span>
+            <span className="font-semibold">{total}</span>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-800">
             <Sprout className="h-4 w-4" />
@@ -302,81 +285,89 @@ export default function PlotsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {paginatedPlots.map((plot) => (
-          <button
-            key={plot.id}
-            type="button"
-            onClick={() => openSheet(plot)}
-            className={cn(
-              "group rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md",
-              editingId === plot.id &&
-                "border-emerald-500 ring-2 ring-emerald-200",
-            )}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-base font-semibold text-slate-900 group-hover:text-emerald-900">
-                  {plot.plotName}
+      {isLoading ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            Đang tải dữ liệu lô đất...
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {plots.map((plot) => (
+            <button
+              key={plot.id}
+              type="button"
+              onClick={() => openSheet(plot)}
+              className={cn(
+                "group rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md",
+                editingId === plot.id &&
+                  "border-emerald-500 ring-2 ring-emerald-200",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-base font-semibold text-slate-900 group-hover:text-emerald-900">
+                    {plot.plotName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-full"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openSheet(plot);
+                    }}
+                  >
+                    <Edit3 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setDeleteTarget(plot);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
+                <p className="inline-flex items-center gap-2">
+                  <UserRound className="h-4 w-4" />
+                  {plot.farmerName}
                 </p>
-                <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
+                <p className="inline-flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  {plot.district}, {plot.province}
+                </p>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 rounded-full"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    openSheet(plot);
-                  }}
+
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dashed border-primary/30 pt-3">
+                <Badge
+                  variant="outline"
+                  className={getCropBadgeClass(plot.cropType)}
                 >
-                  <Edit3 className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setDeleteTarget(plot);
-                  }}
+                  {getCropLabel(plot.cropType)}
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="bg-slate-100 text-slate-700"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                  {plot.areaHa} ha
+                </Badge>
               </div>
-            </div>
+            </button>
+          ))}
+        </div>
+      )}
 
-            <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
-              <p className="inline-flex items-center gap-2">
-                <UserRound className="h-4 w-4" />
-                {plot.farmerName}
-              </p>
-              <p className="inline-flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                {plot.district}, {plot.province}
-              </p>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dashed border-primary/30 pt-3">
-              <Badge
-                variant="outline"
-                className={getCropBadgeClass(plot.cropType)}
-              >
-                {getCropLabel(plot.cropType)}
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="bg-slate-100 text-slate-700"
-              >
-                {plot.areaHa} ha
-              </Badge>
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {!filteredPlots.length && (
+      {!isLoading && !plots.length && (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
             Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.
@@ -384,26 +375,16 @@ export default function PlotsPage() {
         </Card>
       )}
 
-      {filteredPlots.length > 0 && (
+      {!isLoading && total > 0 && (
         <div className="mt-1">
           <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center justify-center gap-1.5 sm:justify-start">
               <span className="text-xs text-muted-foreground">Hiển thị</span>
-              <Select
-                value={itemsPerPage.toString()}
-                onValueChange={handleItemsPerPageChange}
-              >
-                <SelectTrigger size="sm" className="h-7 w-16 px-2 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="6">6</SelectItem>
-                  <SelectItem value="9">9</SelectItem>
-                  <SelectItem value="12">12</SelectItem>
-                </SelectContent>
-              </Select>
+              <span className="inline-flex h-7 w-16 items-center justify-center rounded-md border bg-muted/20 px-2 text-xs font-medium">
+                6
+              </span>
               <span className="text-xs text-muted-foreground">
-                / {filteredPlots.length} lô đất
+                / {total} lô đất
               </span>
             </div>
 

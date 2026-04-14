@@ -651,6 +651,71 @@ export const priceBoardApi = {
 };
 
 // ============================================================
+// PLOT API ENDPOINTS
+// ============================================================
+export type PlotCropType = 'ca-phe' | 'sau-rieng';
+
+export interface PlotResponse {
+  id: string;
+  lotCode: string;
+  plotName: string;
+  farmerName: string;
+  farmerPhone: string;
+  farmerCccd: string;
+  contractId: string;
+  province: string;
+  district: string;
+  areaHa: number;
+  cropType: PlotCropType;
+  progress: 'on-track' | 'attention';
+  lat: number;
+  lng: number;
+  updatedAt: string;
+  polygon?: Array<[number, number]>;
+}
+
+export interface PaginatedPlotsResponse {
+  data: PlotResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CreatePlotPayload {
+  plotName: string;
+  farmerId?: string;
+  farmerName?: string;
+  farmerPhone?: string;
+  farmerCccd?: string;
+  contractId?: string;
+  cropType: PlotCropType;
+  areaHa: number;
+  lat?: number;
+  lng?: number;
+  province?: string;
+  district?: string;
+  polygon?: Array<[number, number]>;
+}
+
+type ApiSuccessResponse<T> = {
+  success: boolean;
+  data: T;
+};
+
+export const plotApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    cropType?: PlotCropType;
+  }) => apiGet<ApiSuccessResponse<PaginatedPlotsResponse>>('/plots', { params }),
+
+  create: (data: CreatePlotPayload) =>
+    apiPost<ApiSuccessResponse<PlotResponse>>('/plots', data),
+};
+
+// ============================================================
 // HELPER: Extract data từ wrapped response
 // BE interceptor wrap: { success: true, data: T }
 // Axios unwrap HTTP: response.data = { success: true, data: T }

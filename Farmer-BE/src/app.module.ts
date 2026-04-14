@@ -10,10 +10,11 @@ import { MailModule } from './mail/mail.module';
 import { PriceBoardModule } from './price-board/price-board.module';
 import { OrderModule } from './order/order.module';
 import { CategoriesModule } from './categories/categories.module';
+import { PlotModule } from './plot/plot.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UserModule, ProfileModule, MailModule, PriceBoardModule, OrderModule, CategoriesModule],
+  imports: [PrismaModule, AuthModule, UserModule, ProfileModule, MailModule, PriceBoardModule, OrderModule, CategoriesModule, PlotModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -22,6 +22,17 @@ import {
   profileApi,
   reviewApi,
   type ShippingAddressApi,
+  warehouseApi,
+  type InventoryStatsResponse,
+  type WarehouseResponse,
+  type PaginatedWarehousesResponse,
+  inventoryLotApi,
+  type InventoryLotResponse,
+  type PaginatedInventoryLotsResponse,
+  warehouseTransactionApi,
+  type WarehouseTransactionResponse,
+  type PaginatedTransactionsResponse,
+  type TodayTransactionStatsResponse,
 } from '@/client/lib/api-client';
 import { useAuthStore } from '@/client/store';
 import {
@@ -656,6 +667,210 @@ export function useCreateReview(productId: string) {
     },
     onError: (error: { message?: string }) => {
       toast.error(error.message || 'Gửi đánh giá thất bại');
+    },
+  });
+}
+
+// ============================================================
+// INVENTORY HOOKS
+// ============================================================
+export function useInventoryStats() {
+  return useQuery({
+    queryKey: ['inventory', 'stats'],
+    queryFn: async () => {
+      const response = await warehouseApi.getStats();
+      return extractData<InventoryStatsResponse>(response);
+    },
+  });
+}
+
+export function useWarehouses(filters?: {
+  page?: number;
+  limit?: number;
+  isActive?: string;
+  managedBy?: string;
+}) {
+  return useQuery({
+    queryKey: ['warehouses', filters],
+    queryFn: async () => {
+      const response = await warehouseApi.list(filters);
+      return extractData<PaginatedWarehousesResponse>(response);
+    },
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useWarehouse(id: string) {
+  return useQuery({
+    queryKey: ['warehouse', id],
+    queryFn: async () => {
+      const response = await warehouseApi.getById(id);
+      return extractData<WarehouseResponse>(response);
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateWarehouse() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Parameters<typeof warehouseApi.create>[0]) => {
+      const response = await warehouseApi.create(data);
+      return extractData<WarehouseResponse>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+      toast.success('Đã tạo kho hàng mới');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không tạo được kho hàng');
+    },
+  });
+}
+
+export function useUpdateWarehouse() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Parameters<typeof warehouseApi.update>[1];
+    }) => {
+      const response = await warehouseApi.update(id, data);
+      return extractData<WarehouseResponse>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+      toast.success('Đã cập nhật kho hàng');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không cập nhật được kho hàng');
+    },
+  });
+}
+
+export function useInventoryLots(filters?: {
+  page?: number;
+  limit?: number;
+  warehouseId?: string;
+  productId?: string;
+  qualityGrade?: string;
+  alert?: 'low-stock' | 'expiring';
+}) {
+  return useQuery({
+    queryKey: ['inventoryLots', filters],
+    queryFn: async () => {
+      const response = await inventoryLotApi.list(filters);
+      return extractData<PaginatedInventoryLotsResponse>(response);
+    },
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useInventoryLot(id: string) {
+  return useQuery({
+    queryKey: ['inventoryLot', id],
+    queryFn: async () => {
+      const response = await inventoryLotApi.getById(id);
+      return extractData<InventoryLotResponse>(response);
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateInventoryLot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Parameters<typeof inventoryLotApi.create>[0]) => {
+      const response = await inventoryLotApi.create(data);
+      return extractData<InventoryLotResponse>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventoryLots'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'stats'] });
+      toast.success('Đã nhập kho thành công');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Nhập kho thất bại');
+    },
+  });
+}
+
+export function useLowStockAlerts() {
+  return useQuery({
+    queryKey: ['inventoryLots', 'low-stock'],
+    queryFn: async () => {
+      const response = await inventoryLotApi.list({ alert: 'low-stock', limit: 10 });
+      return extractData<PaginatedInventoryLotsResponse>(response);
+    },
+  });
+}
+
+export function useExpiringAlerts() {
+  return useQuery({
+    queryKey: ['inventoryLots', 'expiring'],
+    queryFn: async () => {
+      const response = await inventoryLotApi.list({ alert: 'expiring', limit: 10 });
+      return extractData<PaginatedInventoryLotsResponse>(response);
+    },
+  });
+}
+
+export function useWarehouseTransactions(filters?: {
+  page?: number;
+  limit?: number;
+  warehouseId?: string;
+  productId?: string;
+  type?: 'inbound' | 'outbound' | 'adjustment';
+  date?: 'today' | 'week' | 'month';
+}) {
+  return useQuery({
+    queryKey: ['warehouseTransactions', filters],
+    queryFn: async () => {
+      const response = await warehouseTransactionApi.list(filters);
+      return extractData<PaginatedTransactionsResponse>(response);
+    },
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useRecentTransactions() {
+  return useQuery({
+    queryKey: ['warehouseTransactions', 'recent'],
+    queryFn: async () => {
+      const response = await warehouseTransactionApi.getRecent();
+      return extractData<WarehouseTransactionResponse[]>(response);
+    },
+  });
+}
+
+export function useTodayTransactionStats() {
+  return useQuery({
+    queryKey: ['warehouseTransactions', 'today-stats'],
+    queryFn: async () => {
+      const response = await warehouseTransactionApi.getTodayStats();
+      return extractData<TodayTransactionStatsResponse>(response);
+    },
+  });
+}
+
+export function useCreateWarehouseTransaction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Parameters<typeof warehouseTransactionApi.create>[0]) => {
+      const response = await warehouseTransactionApi.create(data);
+      return extractData<WarehouseTransactionResponse>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['warehouseTransactions'] });
+      queryClient.invalidateQueries({ queryKey: ['inventoryLots'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'stats'] });
+      toast.success('Đã ghi nhận giao dịch');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Giao dịch thất bại');
     },
   });
 }

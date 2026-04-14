@@ -1,5 +1,5 @@
-# Cursor IDE (local only — do not commit)
-.cursor/
-
-# Local product spec / user stories (keep on disk, not in repo)
-32_User_Stories_Chi_Tiet.md
+# User Stories & Documentation
+36 US.md
+US phân theo role.md
+US phân theo sprint.md
+.cursor

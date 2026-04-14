@@ -528,6 +528,7 @@ model Order {
   client     ClientProfile @relation(fields: [clientId], references: [id])
   admin      AdminProfile  @relation(fields: [adminId], references: [id])
   orderItems OrderItem[]
+  reviews    Review[]
 
   @@map("Orders")
 }
@@ -551,16 +552,22 @@ model Review {
   id               String       @id @default(cuid())
   productId        String
   clientId         String
+  orderId          String? // Link to specific purchase
   rating           Int
   comment          String?      @db.Text
   imageUrls        String[]
   verifiedPurchase Boolean      @default(false)
   status           ReviewStatus @default(PENDING)
+  adminReply       String?      @db.Text
+  repliedAt        DateTime?
   createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   product Product       @relation(fields: [productId], references: [id])
   client  ClientProfile @relation(fields: [clientId], references: [id])
+  order   Order?        @relation(fields: [orderId], references: [id])
 
+  @@index([orderId])
   @@map("Reviews")
 }
 

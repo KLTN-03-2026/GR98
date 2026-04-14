@@ -108,7 +108,7 @@ function UpdateOrderDialog({ orderId }: { orderId: string }) {
   };
 
   const handleSubmit = async () => {
-    const data: Record<string, string> = {};
+    const data: Record<string, any> = {};
     if (order && fulfillStatus !== order.fulfillStatus) data.fulfillStatus = fulfillStatus;
     if (order && paymentStatus !== order.paymentStatus) data.paymentStatus = paymentStatus;
     if (trackingCode !== (order?.trackingCode ?? '')) data.trackingCode = trackingCode || undefined;

@@ -60,6 +60,7 @@ const USER_FILTER_OPTIONS = [
     values: [
       { value: 'ADMIN', label: 'Quản trị viên' },
       { value: 'SUPERVISOR', label: 'Giám sát viên' },
+      { value: 'INVENTORY', label: 'Nhân viên kho' },
       { value: 'CLIENT', label: 'Khách hàng' },
     ],
   },
@@ -69,9 +70,17 @@ function getRoleLabel(role: string) {
   const map: Record<string, string> = {
     ADMIN: 'Quản trị viên',
     SUPERVISOR: 'Giám sát viên',
+    INVENTORY: 'Nhân viên kho',
     CLIENT: 'Khách hàng',
   };
   return map[role] ?? role;
+}
+
+function getRoleBadgeVariant(role: string) {
+  if (role === 'ADMIN') return 'dashed';
+  if (role === 'SUPERVISOR') return 'dashed-warning';
+  if (role === 'INVENTORY') return 'dashed-info';
+  return 'dashed-success';
 }
 
 function getStatusLabel(status: string) {
@@ -164,7 +173,7 @@ export default function UsersManagementPage() {
     setFetchError(null);
     try {
       const activeStatus = filterList.find((f) => f.key === 'status')?.values[0] as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | undefined;
-      const activeRole = filterList.find((f) => f.key === 'role')?.values[0] as 'ADMIN' | 'SUPERVISOR' | 'CLIENT' | undefined;
+      const activeRole = filterList.find((f) => f.key === 'role')?.values[0] as 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT' | undefined;
 
       const response = await userApi.list({
         page: currentPage,
@@ -174,10 +183,20 @@ export default function UsersManagementPage() {
         role: activeRole,
       });
 
-      const payload = response.data.data;
-      setUsers(payload.data);
-      setTotal(payload.total);
-      setTotalPages(payload.totalPages);
+      const raw = response.data as unknown as {
+        data?: {
+          data?: UserResponse[];
+          total?: number;
+          totalPages?: number;
+        };
+        total?: number;
+        totalPages?: number;
+      };
+
+      const payload = raw.data && Array.isArray(raw.data.data) ? raw.data : raw;
+      setUsers(Array.isArray(payload.data) ? payload.data : []);
+      setTotal(payload.total ?? 0);
+      setTotalPages(payload.totalPages ?? 0);
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ error?: { message?: string }; message?: string }>;
       const message =
@@ -262,7 +281,9 @@ export default function UsersManagementPage() {
             {filterList.map((f) =>
               f.values.map((val) => (
                 <Badge key={`${f.key}-${val}`} variant="secondary" className="text-xs">
-                  {f.label}: {val}
+                  {USER_FILTER_OPTIONS.find((opt) => opt.key === f.key)?.label ?? f.key}: {USER_FILTER_OPTIONS
+                    .find((opt) => opt.key === f.key)
+                    ?.values.find((item) => item.value === val)?.label ?? val}
                 </Badge>
               )),
             )}
@@ -313,13 +334,7 @@ export default function UsersManagementPage() {
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <Badge
-                            variant={
-                              user.role === 'ADMIN'
-                                ? 'dashed'
-                                : user.role === 'SUPERVISOR'
-                                  ? 'dashed-warning'
-                                  : 'dashed-success'
-                            }
+                            variant={getRoleBadgeVariant(user.role)}
                             className="text-xs mb-1"
                           >
                             {getRoleLabel(user.role)}
@@ -372,13 +387,7 @@ export default function UsersManagementPage() {
                         <Separator orientation="vertical" className="mx-3 flex-shrink-0" />
                         <div className="flex-1 flex flex-col justify-center gap-2 min-w-0 py-5">
                           <Badge
-                            variant={
-                              user.role === 'ADMIN'
-                                ? 'dashed'
-                                : user.role === 'SUPERVISOR'
-                                  ? 'dashed-warning'
-                                  : 'dashed-success'
-                            }
+                            variant={getRoleBadgeVariant(user.role)}
                             className="text-xs w-fit"
                           >
                             {getRoleLabel(user.role)}

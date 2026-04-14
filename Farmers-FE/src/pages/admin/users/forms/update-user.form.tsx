@@ -123,6 +123,7 @@ export default function UpdateUserForm({
       if (values.email !== user.email) payload.email = values.email;
       if ((values.phone ?? '') !== (user.phone ?? '')) payload.phone = values.phone || undefined;
       if (values.password) payload.password = values.password;
+      if (values.role && values.role !== user.role) payload.role = values.role;
       if (values.status) payload.status = values.status;
 
       // Handle avatar
@@ -133,14 +134,14 @@ export default function UpdateUserForm({
         payload.clearAvatar = true;
       }
 
-      if (user.role === 'ADMIN') {
+      if (values.role === 'ADMIN') {
         if (values.businessName !== (user.adminProfile?.businessName ?? ''))
           payload.businessName = values.businessName;
         if (values.province !== (user.adminProfile?.province ?? ''))
           payload.province = values.province;
       }
 
-      if (user.role === 'CLIENT') {
+      if (values.role === 'CLIENT') {
         if (values.defaultAddress !== (user.clientProfile?.defaultAddress ?? ''))
           payload.defaultAddress = values.defaultAddress;
         if (values.province !== (user.clientProfile?.province ?? ''))
@@ -277,6 +278,40 @@ export default function UpdateUserForm({
                   {/* Status */}
                   <FormField
                     control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1.5">
+                          <ShieldCheckIcon className="size-3.5" />
+                          Vai trò
+                        </FormLabel>
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            setSelectedRole(val);
+                          }}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Chọn vai trò" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="ADMIN">Quản trị viên (Admin)</SelectItem>
+                            <SelectItem value="SUPERVISOR">Giám sát viên (Supervisor)</SelectItem>
+                            <SelectItem value="INVENTORY">Nhân viên kho (Inventory)</SelectItem>
+                            <SelectItem value="CLIENT">Khách hàng (Client)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Status */}
+                  <FormField
+                    control={form.control}
                     name="status"
                     render={({ field }) => (
                       <FormItem>
@@ -289,7 +324,7 @@ export default function UpdateUserForm({
                           value={field.value}
                         >
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Chọn trạng thái" />
                             </SelectTrigger>
                           </FormControl>

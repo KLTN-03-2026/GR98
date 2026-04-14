@@ -34,7 +34,7 @@ export const userCreateFormSchema = z
         { message: 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt' },
       ),
 
-    role: z.enum(['ADMIN', 'SUPERVISOR', 'CLIENT'], {
+    role: z.enum(['ADMIN', 'SUPERVISOR', 'INVENTORY', 'CLIENT'], {
       message: 'Vai trò là bắt buộc',
     }),
 

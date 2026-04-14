@@ -536,7 +536,7 @@ export interface UserResponse {
   fullName: string;
   phone: string | null;
   avatar: string | null;
-  role: 'ADMIN' | 'SUPERVISOR' | 'CLIENT';
+  role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   createdAt: string;
   updatedAt: string;
@@ -558,7 +558,7 @@ export const userApi = {
     page?: number;
     limit?: number;
     search?: string;
-    role?: 'ADMIN' | 'SUPERVISOR' | 'CLIENT';
+    role?: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
     status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   }) => apiGet<PaginatedUsersResponse>('/users', { params }),
 
@@ -570,7 +570,7 @@ export const userApi = {
     password: string;
     fullName: string;
     phone?: string;
-    role: 'ADMIN' | 'SUPERVISOR' | 'CLIENT';
+    role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
     avatar?: string;
     province?: string;
     businessName?: string;
@@ -584,7 +584,7 @@ export const userApi = {
       password: string;
       fullName: string;
       phone: string;
-      role: 'ADMIN' | 'SUPERVISOR' | 'CLIENT';
+      role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
       status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
       avatar: string;
       clearAvatar: boolean;

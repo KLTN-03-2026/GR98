@@ -107,10 +107,15 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
         password: values.password,
         fullName: values.fullName,
         phone: values.phone || undefined,
-        role: values.role as 'ADMIN' | 'SUPERVISOR' | 'CLIENT',
+        role: values.role as 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT',
         ...(avatarBase64 && { avatar: avatarBase64 }),
+        ...(values.role === 'ADMIN' && {
+          businessName: values.businessName || undefined,
+          province: values.province || undefined,
+        }),
         ...(values.role === 'CLIENT' && {
-          defaultAddress: values.defaultAddress,
+          province: values.province || undefined,
+          defaultAddress: values.defaultAddress || undefined,
         }),
       };
 
@@ -267,13 +272,14 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
                           value={field.value}
                         >
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Chọn vai trò" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="ADMIN">Quản trị viên (Admin)</SelectItem>
                             <SelectItem value="SUPERVISOR">Giám sát viên (Supervisor)</SelectItem>
+                            <SelectItem value="INVENTORY">Nhân viên kho (Inventory)</SelectItem>
                             <SelectItem value="CLIENT">Khách hàng (Client)</SelectItem>
                           </SelectContent>
                         </Select>
@@ -282,24 +288,72 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
                     )}
                   />
 
+                  {selectedRole === 'ADMIN' && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="businessName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tên doanh nghiệp</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Công ty TNHH Nông Sản Xanh" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="province"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tỉnh / Thành phố</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Hà Nội" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
+
                   {/* ── CLIENT-only fields ─────────────────────────────────────── */}
                   {selectedRole === 'CLIENT' && (
-                    <FormField
-                      control={form.control}
-                      name="defaultAddress"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-1.5">
-                            <MapIcon className="size-3.5" />
-                            Địa chỉ mặc định
-                          </FormLabel>
-                          <FormControl>
-                            <Input placeholder="123 Đường ABC, Quận 1, TP.HCM" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="province"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tỉnh / Thành phố</FormLabel>
+                            <FormControl>
+                              <Input placeholder="TP. Hồ Chí Minh" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="defaultAddress"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1.5">
+                              <MapIcon className="size-3.5" />
+                              Địa chỉ mặc định
+                            </FormLabel>
+                            <FormControl>
+                              <Input placeholder="123 Đường ABC, Quận 1, TP.HCM" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
                   )}
 
                   {/* Avatar */}

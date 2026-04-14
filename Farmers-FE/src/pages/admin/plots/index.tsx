@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Sprout,
   Trash2,
+  Users,
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -78,11 +79,13 @@ export default function PlotsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [filter, setFilter] = useState<"all" | CropType>("all");
+  const [supervisorFilterId, setSupervisorFilterId] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlotItem | null>(null);
+  const [reopenSheetPlotId, setReopenSheetPlotId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingSupervisors, setIsLoadingSupervisors] = useState(false);
   const [supervisors, setSupervisors] = useState<SupervisorOption[]>([]);
@@ -118,7 +121,7 @@ export default function PlotsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [keyword, filter]);
+  }, [keyword, filter, supervisorFilterId]);
 
   const readLocalOverrides = () => {
     try {
@@ -144,6 +147,8 @@ export default function PlotsPage() {
           limit: itemsPerPage,
           search: keyword.trim() || undefined,
           cropType: filter === "all" ? undefined : filter,
+          id_suppervisor:
+            supervisorFilterId === "all" ? undefined : supervisorFilterId,
         });
 
         const payload = response.data.data;
@@ -174,7 +179,7 @@ export default function PlotsPage() {
     };
 
     void fetchPlots();
-  }, [currentPage, keyword, filter]);
+  }, [currentPage, keyword, filter, supervisorFilterId]);
 
   useEffect(() => {
     if (!isLoading && currentPage > totalPages) {
@@ -248,6 +253,16 @@ export default function PlotsPage() {
     setFormErrors({});
     setSelectedSupervisorId(plot.id_suppervisor || "");
     setSheetOpen(true);
+  };
+
+  const requestDelete = (plot: PlotItem, fromSheet = false) => {
+    if (fromSheet && sheetOpen) {
+      setReopenSheetPlotId(plot.id);
+      setSheetOpen(false);
+    } else {
+      setReopenSheetPlotId(null);
+    }
+    setDeleteTarget(plot);
   };
 
   const validateSheetForm = () => {
@@ -339,6 +354,7 @@ export default function PlotsPage() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
+    setReopenSheetPlotId(null);
     const currentOverrides = readLocalOverrides();
     if (deleteTarget.id in currentOverrides) {
       delete currentOverrides[deleteTarget.id];
@@ -405,7 +421,28 @@ export default function PlotsPage() {
         </CardContent>
       </Card>
 
-      <div className="flex w-full justify-end">
+      <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="inline-flex w-full items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 md:w-auto">
+          <Users className="h-4 w-4 text-emerald-700" />
+          <span className="text-sm font-medium text-emerald-800">
+            Lọc theo giám sát viên
+          </span>
+          <select
+            value={supervisorFilterId}
+            onChange={(event) => setSupervisorFilterId(event.target.value)}
+            disabled={isLoadingSupervisors}
+            className="h-8 min-w-52 rounded-md border border-emerald-200 bg-white px-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <option value="all">Tất cả giám sát viên</option>
+            {supervisors.map((item) => (
+              <option key={`plot-filter-supervisor-${item.id}`} value={item.id}>
+                {item.name}
+                {item.employeeCode ? ` (${item.employeeCode})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm text-sky-800">
             <Layers3 className="h-4 w-4" />
@@ -431,12 +468,19 @@ export default function PlotsPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {plots.map((plot) => (
-                <button
+                <div
                   key={plot.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => openSheet(plot)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openSheet(plot);
+                    }
+                  }}
                   className={cn(
-                    "group overflow-hidden rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:border-emerald-300 hover:shadow-md",
+                    "group cursor-pointer overflow-hidden rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:border-emerald-300 hover:shadow-md",
                     editingId === plot.id &&
                       "border-emerald-500 ring-2 ring-emerald-200",
                   )}
@@ -466,7 +510,7 @@ export default function PlotsPage() {
                         className="h-8 w-8 rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setDeleteTarget(plot);
+                          requestDelete(plot);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -503,7 +547,7 @@ export default function PlotsPage() {
                       {plot.areaHa} ha
                     </Badge>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -779,7 +823,7 @@ export default function PlotsPage() {
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Button
                 variant="destructive"
-                onClick={() => editingPlot && setDeleteTarget(editingPlot)}
+                onClick={() => editingPlot && requestDelete(editingPlot, true)}
                 disabled={!editingPlot}
               >
                 <Trash2 className="h-4 w-4" />
@@ -804,7 +848,18 @@ export default function PlotsPage() {
 
       <AlertDialog
         open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setDeleteTarget(null);
+
+          if (reopenSheetPlotId) {
+            const plotToReopen = plots.find((item) => item.id === reopenSheetPlotId);
+            setReopenSheetPlotId(null);
+            if (plotToReopen) {
+              openSheet(plotToReopen);
+            }
+          }
+        }}
       >
         <AlertDialogContent variant="error">
           <AlertDialogHeader>

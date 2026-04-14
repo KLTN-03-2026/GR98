@@ -61,6 +61,7 @@ export class PlotController {
   @ApiQuery({ name: 'limit', required: false, type: String })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'cropType', required: false, type: String })
+  @ApiQuery({ name: 'id_suppervisor', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Danh sách phân trang' })
   findAll(@Query() query: PlotQueryDto, @Request() req: any) {
     return this.plotService.findAll(query, req.user.id);

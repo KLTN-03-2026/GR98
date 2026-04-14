@@ -569,6 +569,17 @@ export class PlotService {
       };
     }
 
+    if (query.id_suppervisor?.trim()) {
+      where.assignments = {
+        some: {
+          supervisorId: query.id_suppervisor.trim(),
+          status: {
+            in: [AssignStatus.PENDING, AssignStatus.ACTIVE],
+          },
+        },
+      };
+    }
+
     const [rows, total] = await Promise.all([
       this.prisma.plot.findMany({
         where,

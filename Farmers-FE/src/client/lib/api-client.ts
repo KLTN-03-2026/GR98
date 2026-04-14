@@ -733,6 +733,7 @@ export const plotApi = {
     limit?: number;
     search?: string;
     cropType?: PlotCropType;
+    id_suppervisor?: string;
   }) => apiGet<ApiSuccessResponse<PaginatedPlotsResponse>>('/plots', { params }),
 
   create: (data: CreatePlotPayload) =>

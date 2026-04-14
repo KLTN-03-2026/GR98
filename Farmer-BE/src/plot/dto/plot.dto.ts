@@ -147,6 +147,14 @@ export class PlotQueryDto {
   @IsOptional()
   @IsString()
   cropType?: string;
+
+  @ApiPropertyOptional({
+    example: 'cmabc123supervisor',
+    description: 'Lọc theo supervisor đang được assign cho lô',
+  })
+  @IsOptional()
+  @IsString()
+  id_suppervisor?: string;
 }
 
 export class UpdatePlotDto {

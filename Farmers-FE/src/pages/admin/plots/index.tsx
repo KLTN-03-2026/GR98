@@ -85,6 +85,9 @@ export default function PlotsPage() {
     areaHa: 0,
     cropType: "ca-phe",
   });
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<"plotName" | "farmerName" | "contractId" | "areaHa", string>>
+  >({});
 
   const totalArea = useMemo(
     () => plots.reduce((sum, item) => sum + item.areaHa, 0),
@@ -174,11 +177,37 @@ export default function PlotsPage() {
       areaHa: plot.areaHa,
       cropType: plot.cropType,
     });
+    setFormErrors({});
     setSheetOpen(true);
+  };
+
+  const validateSheetForm = () => {
+    const errors: Partial<
+      Record<"plotName" | "farmerName" | "contractId" | "areaHa", string>
+    > = {};
+
+    if (!sheet.plotName.trim()) {
+      errors.plotName = "Vui lòng nhập tên lô đất";
+    }
+
+    if (!sheet.farmerName.trim()) {
+      errors.farmerName = "Vui lòng nhập tên nông dân";
+    }
+
+    if (!Number.isFinite(sheet.areaHa) || sheet.areaHa <= 0) {
+      errors.areaHa = "Diện tích phải lớn hơn 0";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSave = () => {
     if (!editingId) return;
+    if (!validateSheetForm()) {
+      toast.error("Vui lòng kiểm tra lại thông tin lô đất");
+      return;
+    }
     const updatedOverrides = {
       ...readLocalOverrides(),
       [editingId]: {
@@ -508,6 +537,10 @@ export default function PlotsPage() {
                   <Input
                     id="plot-name"
                     value={sheet.plotName}
+                    className={cn(
+                      formErrors.plotName &&
+                        "border-destructive focus-visible:ring-destructive/20",
+                    )}
                     onChange={(event) =>
                       setSheet((prev) => ({
                         ...prev,
@@ -515,12 +548,19 @@ export default function PlotsPage() {
                       }))
                     }
                   />
+                  {formErrors.plotName && (
+                    <p className="text-xs text-destructive">{formErrors.plotName}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="plot-farmer">Nông dân phụ trách</Label>
                   <Input
                     id="plot-farmer"
                     value={sheet.farmerName}
+                    className={cn(
+                      formErrors.farmerName &&
+                        "border-destructive focus-visible:ring-destructive/20",
+                    )}
                     onChange={(event) =>
                       setSheet((prev) => ({
                         ...prev,
@@ -528,6 +568,9 @@ export default function PlotsPage() {
                       }))
                     }
                   />
+                  {formErrors.farmerName && (
+                    <p className="text-xs text-destructive">{formErrors.farmerName}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="plot-contract">Mã hợp đồng</Label>
@@ -550,6 +593,10 @@ export default function PlotsPage() {
                     min={0}
                     step="0.1"
                     value={sheet.areaHa}
+                    className={cn(
+                      formErrors.areaHa &&
+                        "border-destructive focus-visible:ring-destructive/20",
+                    )}
                     onChange={(event) =>
                       setSheet((prev) => ({
                         ...prev,
@@ -559,6 +606,9 @@ export default function PlotsPage() {
                       }))
                     }
                   />
+                  {formErrors.areaHa && (
+                    <p className="text-xs text-destructive">{formErrors.areaHa}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">

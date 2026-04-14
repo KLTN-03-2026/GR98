@@ -57,6 +57,8 @@ type SupervisorForm = {
 };
 
 const PAGE_LIMIT = 20;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^(\+84|0)[0-9]{9,10}$/;
 
 const defaultForm: SupervisorForm = {
   fullName: "",
@@ -110,6 +112,9 @@ export default function AdminSupervisorsPage() {
     null,
   );
   const [shouldRestoreSheet, setShouldRestoreSheet] = useState(false);
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof SupervisorForm, string>>
+  >({});
 
   const goFirstPage = () => setCurrentPage(1);
   const goPrevPage = () => setCurrentPage((prev) => Math.max(1, prev - 1));
@@ -181,6 +186,7 @@ export default function AdminSupervisorsPage() {
     setMode("create");
     setSelected(null);
     setForm(defaultForm);
+    setFormErrors({});
     setShouldRestoreSheet(false);
     setSheetOpen(true);
   };
@@ -196,8 +202,43 @@ export default function AdminSupervisorsPage() {
       zoneId: row.supervisorProfile?.zoneId ?? "",
       status: row.status,
     });
+    setFormErrors({});
     setShouldRestoreSheet(false);
     setSheetOpen(true);
+  };
+
+  const validateForm = () => {
+    const errors: Partial<Record<keyof SupervisorForm, string>> = {};
+
+    if (!form.fullName.trim()) {
+      errors.fullName = "Vui lòng nhập họ tên";
+    }
+
+    if (!form.email.trim()) {
+      errors.email = "Vui lòng nhập email";
+    } else if (!EMAIL_REGEX.test(form.email.trim())) {
+      errors.email = "Email không hợp lệ";
+    }
+
+    if (form.phone.trim() && !PHONE_REGEX.test(form.phone.trim())) {
+      errors.phone = "Số điện thoại không hợp lệ";
+    }
+
+    if (mode === "create") {
+      const password = form.password;
+      if (!password.trim()) {
+        errors.password = "Vui lòng nhập mật khẩu";
+      } else if (password.length < 6) {
+        errors.password = "Mật khẩu phải có ít nhất 6 ký tự";
+      } else if (!/^[A-Z]/.test(password)) {
+        errors.password = "Ký tự đầu tiên phải là chữ in hoa";
+      } else if (!/[^A-Za-z0-9]/.test(password)) {
+        errors.password = "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt";
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const openDeleteConfirm = () => {
@@ -208,13 +249,8 @@ export default function AdminSupervisorsPage() {
   };
 
   const submitForm = async () => {
-    if (!form.fullName.trim() || !form.email.trim()) {
-      toast.error("Vui lòng nhập họ tên và email");
-      return;
-    }
-
-    if (mode === "create" && !form.password.trim()) {
-      toast.error("Vui lòng nhập mật khẩu cho giám sát viên mới");
+    if (!validateForm()) {
+      toast.error("Vui lòng kiểm tra lại thông tin đã nhập");
       return;
     }
 
@@ -527,6 +563,10 @@ export default function AdminSupervisorsPage() {
                 <Input
                   id="sup-fullName"
                   value={form.fullName}
+                  className={cn(
+                    formErrors.fullName &&
+                      "border-destructive focus-visible:ring-destructive/20",
+                  )}
                   onChange={(event) =>
                     setForm((prev) => ({
                       ...prev,
@@ -534,6 +574,9 @@ export default function AdminSupervisorsPage() {
                     }))
                   }
                 />
+                {formErrors.fullName && (
+                  <p className="text-xs text-destructive">{formErrors.fullName}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -542,10 +585,17 @@ export default function AdminSupervisorsPage() {
                   id="sup-email"
                   type="email"
                   value={form.email}
+                  className={cn(
+                    formErrors.email &&
+                      "border-destructive focus-visible:ring-destructive/20",
+                  )}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, email: event.target.value }))
                   }
                 />
+                {formErrors.email && (
+                  <p className="text-xs text-destructive">{formErrors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -553,10 +603,17 @@ export default function AdminSupervisorsPage() {
                 <Input
                   id="sup-phone"
                   value={form.phone}
+                  className={cn(
+                    formErrors.phone &&
+                      "border-destructive focus-visible:ring-destructive/20",
+                  )}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, phone: event.target.value }))
                   }
                 />
+                {formErrors.phone && (
+                  <p className="text-xs text-destructive">{formErrors.phone}</p>
+                )}
               </div>
 
               {mode === "create" && (
@@ -566,6 +623,10 @@ export default function AdminSupervisorsPage() {
                     id="sup-password"
                     type="password"
                     value={form.password}
+                    className={cn(
+                      formErrors.password &&
+                        "border-destructive focus-visible:ring-destructive/20",
+                    )}
                     onChange={(event) =>
                       setForm((prev) => ({
                         ...prev,
@@ -574,6 +635,9 @@ export default function AdminSupervisorsPage() {
                     }
                     placeholder="Ví dụ: Abcdef@123"
                   />
+                  {formErrors.password && (
+                    <p className="text-xs text-destructive">{formErrors.password}</p>
+                  )}
                 </div>
               )}
 

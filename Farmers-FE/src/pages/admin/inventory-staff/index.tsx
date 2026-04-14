@@ -54,6 +54,8 @@ type InventoryForm = {
 };
 
 const PAGE_LIMIT = 20;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^(\+84|0)[0-9]{9,10}$/;
 
 const defaultForm: InventoryForm = {
   fullName: '',
@@ -102,6 +104,9 @@ export default function AdminInventoryStaffPage() {
   const [form, setForm] = useState<InventoryForm>(defaultForm);
   const [deleteTarget, setDeleteTarget] = useState<InventoryStaffResponse | null>(null);
   const [shouldRestoreSheet, setShouldRestoreSheet] = useState(false);
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof InventoryForm, string>>
+  >({});
 
   const activeCount = useMemo(
     () => staffs.filter((item) => item.status === 'ACTIVE').length,
@@ -172,6 +177,7 @@ export default function AdminInventoryStaffPage() {
     setMode('create');
     setSelected(null);
     setForm(defaultForm);
+    setFormErrors({});
     setShouldRestoreSheet(false);
     setSheetOpen(true);
   };
@@ -186,8 +192,43 @@ export default function AdminInventoryStaffPage() {
       password: '',
       status: row.status,
     });
+    setFormErrors({});
     setShouldRestoreSheet(false);
     setSheetOpen(true);
+  };
+
+  const validateForm = () => {
+    const errors: Partial<Record<keyof InventoryForm, string>> = {};
+
+    if (!form.fullName.trim()) {
+      errors.fullName = 'Vui lòng nhập họ tên';
+    }
+
+    if (!form.email.trim()) {
+      errors.email = 'Vui lòng nhập email';
+    } else if (!EMAIL_REGEX.test(form.email.trim())) {
+      errors.email = 'Email không hợp lệ';
+    }
+
+    if (form.phone.trim() && !PHONE_REGEX.test(form.phone.trim())) {
+      errors.phone = 'Số điện thoại không hợp lệ';
+    }
+
+    if (mode === 'create') {
+      const password = form.password;
+      if (!password.trim()) {
+        errors.password = 'Vui lòng nhập mật khẩu';
+      } else if (password.length < 6) {
+        errors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+      } else if (!/^[A-Z]/.test(password)) {
+        errors.password = 'Ký tự đầu tiên phải là chữ in hoa';
+      } else if (!/[^A-Za-z0-9]/.test(password)) {
+        errors.password = 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt';
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const openDeleteConfirm = () => {
@@ -198,13 +239,8 @@ export default function AdminInventoryStaffPage() {
   };
 
   const submitForm = async () => {
-    if (!form.fullName.trim() || !form.email.trim()) {
-      toast.error('Vui lòng nhập họ tên và email');
-      return;
-    }
-
-    if (mode === 'create' && !form.password.trim()) {
-      toast.error('Vui lòng nhập mật khẩu cho nhân viên kho mới');
+    if (!validateForm()) {
+      toast.error('Vui lòng kiểm tra lại thông tin đã nhập');
       return;
     }
 
@@ -504,10 +540,17 @@ export default function AdminInventoryStaffPage() {
                 <Input
                   id="inv-fullName"
                   value={form.fullName}
+                  className={cn(
+                    formErrors.fullName &&
+                      'border-destructive focus-visible:ring-destructive/20',
+                  )}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, fullName: event.target.value }))
                   }
                 />
+                {formErrors.fullName && (
+                  <p className="text-xs text-destructive">{formErrors.fullName}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -516,10 +559,17 @@ export default function AdminInventoryStaffPage() {
                   id="inv-email"
                   type="email"
                   value={form.email}
+                  className={cn(
+                    formErrors.email &&
+                      'border-destructive focus-visible:ring-destructive/20',
+                  )}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, email: event.target.value }))
                   }
                 />
+                {formErrors.email && (
+                  <p className="text-xs text-destructive">{formErrors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -527,10 +577,17 @@ export default function AdminInventoryStaffPage() {
                 <Input
                   id="inv-phone"
                   value={form.phone}
+                  className={cn(
+                    formErrors.phone &&
+                      'border-destructive focus-visible:ring-destructive/20',
+                  )}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, phone: event.target.value }))
                   }
                 />
+                {formErrors.phone && (
+                  <p className="text-xs text-destructive">{formErrors.phone}</p>
+                )}
               </div>
 
               {mode === 'create' && (
@@ -540,11 +597,18 @@ export default function AdminInventoryStaffPage() {
                     id="inv-password"
                     type="password"
                     value={form.password}
+                    className={cn(
+                      formErrors.password &&
+                        'border-destructive focus-visible:ring-destructive/20',
+                    )}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, password: event.target.value }))
                     }
                     placeholder="Ví dụ: Abcdef@123"
                   />
+                  {formErrors.password && (
+                    <p className="text-xs text-destructive">{formErrors.password}</p>
+                  )}
                 </div>
               )}
 

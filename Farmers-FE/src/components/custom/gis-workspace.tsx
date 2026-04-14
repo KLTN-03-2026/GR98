@@ -213,9 +213,10 @@ export default function GISWorkspace({
     }).addTo(map);
 
     previewPolygonRef.current = polygonLayer;
-    map.fitBounds(polygonLayer.getBounds().pad(0.25), {
+    map.fitBounds(polygonLayer.getBounds().pad(0.5), {
       animate: true,
       duration: 0.35,
+      maxZoom: 15,
     });
 
     polygonLayer.on("click", (event) => {
@@ -502,6 +503,14 @@ export default function GISWorkspace({
         polygon: {
           allowIntersection: true,
           showArea: true,
+          icon: new L.DivIcon({
+            iconSize: new L.Point(6, 6),
+            className: "leaflet-div-icon leaflet-editing-icon",
+          }),
+          touchIcon: new L.DivIcon({
+            iconSize: new L.Point(8, 8),
+            className: "leaflet-div-icon leaflet-editing-icon leaflet-touch-icon",
+          }),
         },
         polyline: false,
         rectangle: false,

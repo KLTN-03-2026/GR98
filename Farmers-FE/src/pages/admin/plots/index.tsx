@@ -436,7 +436,7 @@ export default function PlotsPage() {
                   type="button"
                   onClick={() => openSheet(plot)}
                   className={cn(
-                    "group rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md",
+                    "group overflow-hidden rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:border-emerald-300 hover:shadow-md",
                     editingId === plot.id &&
                       "border-emerald-500 ring-2 ring-emerald-200",
                   )}

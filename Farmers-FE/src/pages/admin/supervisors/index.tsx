@@ -96,8 +96,9 @@ export default function AdminSupervisorsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [debouncedKeyword, setDebouncedKeyword] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<"ALL" | SupervisorStatus>("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | SupervisorStatus>(
+    "ALL",
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -287,7 +288,7 @@ export default function AdminSupervisorsPage() {
   };
 
   return (
-    <div className="h-full space-y-5 overflow-y-auto p-4 sm:p-6">
+    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6">
       <Card className="border-dashed border-primary/40">
         <CardContent className="space-y-3 p-4 sm:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -345,119 +346,125 @@ export default function AdminSupervisorsPage() {
         </CardContent>
       </Card>
 
-      {isLoading ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Đang tải danh sách giám sát viên...
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {supervisors.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => openEditSheet(item)}
-              className={cn(
-                "rounded-2xl border border-l-4 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md",
-                selected?.id === item.id && "border-emerald-500 ring-2 ring-emerald-200",
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-slate-900">
-                    {item.fullName}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {item.supervisorProfile?.employeeCode ?? "Chưa có mã"}
-                  </p>
+      <div className="min-h-0 flex flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                {isLoading ? (
+                  <Card>
+                    <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                      Đang tải danh sách giám sát viên...
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {supervisors.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => openEditSheet(item)}
+                        className={cn(
+                          "rounded-2xl border border-l-4 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md",
+                          selected?.id === item.id &&
+                            "border-emerald-500 ring-2 ring-emerald-200",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-base font-semibold text-slate-900">
+                              {item.fullName}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-muted-foreground">
+                              {item.supervisorProfile?.employeeCode ?? "Chưa có mã"}
+                            </p>
+                          </div>
+                          <Badge variant={getStatusVariant(item.status)}>
+                            {getStatusLabel(item.status)}
+                          </Badge>
+                        </div>
+
+                        <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+                          <p className="inline-flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            <span className="truncate">{item.email}</span>
+                          </p>
+                          <p className="inline-flex items-center gap-2">
+                            <Phone className="h-4 w-4" />
+                            {item.phone || "Chưa cập nhật"}
+                          </p>
+                          <p className="inline-flex items-center gap-2">
+                            <MapPin className="h-4 w-4" />
+                            {item.supervisorProfile?.zone?.name ||
+                              "Chưa gán khu vực"}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!isLoading && supervisors.length === 0 && (
+                  <Card>
+                    <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                      Không có giám sát viên phù hợp với bộ lọc hiện tại.
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {!isLoading && total > 0 && (
+                <div className="mt-3 border-t bg-background pt-3">
+                  <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-xs text-muted-foreground">
+                      Hiển thị {pageFrom}-{pageTo} / {total} giám sát viên
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Trang {currentPage} / {totalPages}
+                      </span>
+                      <div className="h-3 w-px bg-border" />
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={goFirstPage}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronsLeft className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={goPrevPage}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={goNextPage}
+                          disabled={currentPage === totalPages}
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={goLastPage}
+                          disabled={currentPage === totalPages}
+                        >
+                          <ChevronsRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <Badge variant={getStatusVariant(item.status)}>
-                  {getStatusLabel(item.status)}
-                </Badge>
-              </div>
-
-              <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <p className="inline-flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <span className="truncate">{item.email}</span>
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  {item.phone || "Chưa cập nhật"}
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  {item.supervisorProfile?.zone?.name || "Chưa gán khu vực"}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!isLoading && supervisors.length === 0 && (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Không có giám sát viên phù hợp với bộ lọc hiện tại.
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && total > 0 && (
-        <div className="mt-1">
-          <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-muted-foreground">
-              Hiển thị {pageFrom}-{pageTo} / {total} giám sát viên
+              )}
             </div>
-
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                Trang {currentPage} / {totalPages}
-              </span>
-              <div className="h-3 w-px bg-border" />
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={goFirstPage}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronsLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={goPrevPage}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={goNextPage}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={goLastPage}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronsRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent
@@ -503,10 +510,12 @@ export default function AdminSupervisorsPage() {
                     Farmers: {selected.supervisorProfile?._count.farmers ?? 0}
                   </Badge>
                   <Badge variant="outline">
-                    Assignments: {selected.supervisorProfile?._count.assignments ?? 0}
+                    Assignments:{" "}
+                    {selected.supervisorProfile?._count.assignments ?? 0}
                   </Badge>
                   <Badge variant="outline">
-                    Reports: {selected.supervisorProfile?._count.dailyReports ?? 0}
+                    Reports:{" "}
+                    {selected.supervisorProfile?._count.dailyReports ?? 0}
                   </Badge>
                 </div>
               </div>
@@ -519,7 +528,10 @@ export default function AdminSupervisorsPage() {
                   id="sup-fullName"
                   value={form.fullName}
                   onChange={(event) =>
-                    setForm((prev) => ({ ...prev, fullName: event.target.value }))
+                    setForm((prev) => ({
+                      ...prev,
+                      fullName: event.target.value,
+                    }))
                   }
                 />
               </div>
@@ -555,7 +567,10 @@ export default function AdminSupervisorsPage() {
                     type="password"
                     value={form.password}
                     onChange={(event) =>
-                      setForm((prev) => ({ ...prev, password: event.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        password: event.target.value,
+                      }))
                     }
                     placeholder="Ví dụ: Abcdef@123"
                   />
@@ -589,7 +604,9 @@ export default function AdminSupervisorsPage() {
                     </Button>
                     <Button
                       type="button"
-                      variant={form.status === "INACTIVE" ? "primary" : "outline"}
+                      variant={
+                        form.status === "INACTIVE" ? "primary" : "outline"
+                      }
                       onClick={() =>
                         setForm((prev) => ({ ...prev, status: "INACTIVE" }))
                       }
@@ -598,7 +615,9 @@ export default function AdminSupervisorsPage() {
                     </Button>
                     <Button
                       type="button"
-                      variant={form.status === "SUSPENDED" ? "primary" : "outline"}
+                      variant={
+                        form.status === "SUSPENDED" ? "primary" : "outline"
+                      }
                       onClick={() =>
                         setForm((prev) => ({ ...prev, status: "SUSPENDED" }))
                       }
@@ -651,8 +670,8 @@ export default function AdminSupervisorsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa giám sát viên</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn chắc chắn muốn xóa <strong>{deleteTarget?.fullName}</strong>
-              ? Hành động này không thể hoàn tác.
+              Bạn chắc chắn muốn xóa <strong>{deleteTarget?.fullName}</strong>?
+              Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

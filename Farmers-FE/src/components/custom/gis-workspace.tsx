@@ -331,9 +331,7 @@ export default function GISWorkspace({
     const grouped = new Map<string, SupervisorZonePoint>();
 
     filteredLotsForMap
-      .filter(
-        (lot) => isValidPolygon(lot.polygon),
-      )
+      .filter((lot) => isValidPolygon(lot.polygon))
       .forEach((lot) => {
         const key = `${lot.district || "N/A"}|${lot.province || "N/A"}`;
         const existing = grouped.get(key);
@@ -937,6 +935,12 @@ export default function GISWorkspace({
       .forEach((lot) => {
         const isSelected = lot.id === selectedLot.id;
         const markerPos = polygonCenter(lot.polygon as Array<[number, number]>);
+        const isDurian = lot.cropType === "sau-rieng";
+
+        const baseBgColor = isDurian ? "#65a30d" : "#92400e";
+        const activeBgColor = isDurian ? "#84cc16" : "#b45309";
+        const cropIcon = isDurian ? "D" : "C";
+        const cropLabel = isDurian ? "Sầu riêng" : "Cà phê";
 
         const icon = L.divIcon({
           className: "",
@@ -949,17 +953,17 @@ export default function GISWorkspace({
             display: flex;
             align-items: center;
             justify-content: center;
-            background: ${isSelected ? "#f59e0b" : "#059669"};
+            background: ${isSelected ? activeBgColor : baseBgColor};
             color: #fff;
             border: 2px solid #fff;
             box-shadow: 0 3px 10px rgba(0,0,0,.18);
             font-size: 16px;
             font-weight: 700;
-          ">⌂</div>`,
+          ">${cropIcon}</div>`,
         });
 
         L.marker(markerPos, { icon })
-          .bindTooltip(`${lot.plotName} (${lot.lotCode})`, {
+          .bindTooltip(`${lot.plotName} (${lot.lotCode}) • ${cropLabel}`, {
             direction: "top",
             offset: [0, -8],
           })
@@ -1250,7 +1254,8 @@ export default function GISWorkspace({
                 variant={showSupervisorZones ? "primary" : "ghost"}
                 onClick={() => setShowSupervisorZones((prev) => !prev)}
                 disabled={
-                  supervisorViewId === "all" || supervisorZonePoints.length === 0
+                  supervisorViewId === "all" ||
+                  supervisorZonePoints.length === 0
                 }
               >
                 Point zone ({supervisorZonePoints.length})

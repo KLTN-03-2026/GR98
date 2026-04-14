@@ -23,8 +23,21 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 // STORAGE KEYS — kept for localStorage fallback / non-sensitive data
 // ============================================================
 export const STORAGE_KEYS = {
+  AUTH: 'ec_auth',
   USER: 'ec_user',
 } as const;
+
+const redirectToLoginIfNeeded = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (window.location.pathname === '/auth/login') {
+    return;
+  }
+
+  window.location.replace('/auth/login');
+};
 
 // ============================================================
 // AXIOS INSTANCE
@@ -89,15 +102,17 @@ apiClient.interceptors.response.use(
         } catch {
           // Refresh thất bại → xóa toàn bộ auth state
           clearAllAuthCookies();
+          localStorage.removeItem(STORAGE_KEYS.AUTH);
           localStorage.removeItem(STORAGE_KEYS.USER);
-          window.location.href = '/auth/login';
+          redirectToLoginIfNeeded();
           return Promise.reject(error);
         }
       } else {
         // Không có refresh token → clear và redirect
         clearAllAuthCookies();
+        localStorage.removeItem(STORAGE_KEYS.AUTH);
         localStorage.removeItem(STORAGE_KEYS.USER);
-        window.location.href = '/auth/login';
+        redirectToLoginIfNeeded();
       }
     }
 

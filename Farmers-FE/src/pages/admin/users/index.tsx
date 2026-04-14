@@ -1,6 +1,6 @@
-'use client';
-import { useState, useCallback, useEffect } from 'react';
-import type { AxiosError } from 'axios';
+"use client";
+import { useState, useCallback, useEffect } from "react";
+import type { AxiosError } from "axios";
 import {
   Plus,
   Search,
@@ -8,22 +8,22 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,71 +33,68 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  Pencil,
-  Trash2,
-} from 'lucide-react';
-import { userApi, type UserResponse } from '@/client/lib/api-client';
-import CreateUserForm from './forms/create-user.form';
-import UpdateUserForm from './forms/update-user.form';
-import type { FilterItem } from '@/components/custom/filter.popover';
-import { FilterPopover } from '@/components/custom/filter.popover';
+} from "@/components/ui/alert-dialog";
+import { Pencil, Trash2 } from "lucide-react";
+import { userApi, type UserResponse } from "@/client/lib/api-client";
+import CreateUserForm from "./forms/create-user.form";
+import UpdateUserForm from "./forms/update-user.form";
+import type { FilterItem } from "@/components/custom/filter.popover";
+import { FilterPopover } from "@/components/custom/filter.popover";
 
 const USER_FILTER_OPTIONS = [
   {
-    key: 'status',
-    label: 'Trạng thái',
+    key: "status",
+    label: "Trạng thái",
     values: [
-      { value: 'ACTIVE', label: 'Hoạt động' },
-      { value: 'INACTIVE', label: 'Không hoạt động' },
-      { value: 'SUSPENDED', label: 'Tạm ngưng' },
+      { value: "ACTIVE", label: "Hoạt động" },
+      { value: "INACTIVE", label: "Không hoạt động" },
+      { value: "SUSPENDED", label: "Tạm ngưng" },
     ],
   },
   {
-    key: 'role',
-    label: 'Vai trò',
+    key: "role",
+    label: "Vai trò",
     values: [
-      { value: 'ADMIN', label: 'Quản trị viên' },
-      { value: 'SUPERVISOR', label: 'Giám sát viên' },
-      { value: 'INVENTORY', label: 'Nhân viên kho' },
-      { value: 'CLIENT', label: 'Khách hàng' },
+      { value: "ADMIN", label: "Quản trị viên" },
+      { value: "SUPERVISOR", label: "Giám sát viên" },
+      { value: "INVENTORY", label: "Nhân viên kho" },
+      { value: "CLIENT", label: "Khách hàng" },
     ],
   },
 ];
 
 function getRoleLabel(role: string) {
   const map: Record<string, string> = {
-    ADMIN: 'Quản trị viên',
-    SUPERVISOR: 'Giám sát viên',
-    INVENTORY: 'Nhân viên kho',
-    CLIENT: 'Khách hàng',
+    ADMIN: "Quản trị viên",
+    SUPERVISOR: "Giám sát viên",
+    INVENTORY: "Nhân viên kho",
+    CLIENT: "Khách hàng",
   };
   return map[role] ?? role;
 }
 
 function getRoleBadgeVariant(role: string) {
-  if (role === 'ADMIN') return 'dashed';
-  if (role === 'SUPERVISOR') return 'dashed-warning';
-  if (role === 'INVENTORY') return 'dashed-info';
-  return 'dashed-success';
+  if (role === "ADMIN") return "dashed";
+  if (role === "SUPERVISOR") return "dashed-warning";
+  if (role === "INVENTORY") return "dashed-info";
+  return "dashed-success";
 }
 
 function getStatusLabel(status: string) {
   const map: Record<string, string> = {
-    ACTIVE: 'Hoạt động',
-    INACTIVE: 'Không hoạt động',
-    SUSPENDED: 'Tạm ngưng',
+    ACTIVE: "Hoạt động",
+    INACTIVE: "Không hoạt động",
+    SUSPENDED: "Tạm ngưng",
   };
   return map[status] ?? status;
 }
 
 function getInitials(name: string) {
   return name
-    .split(' ')
+    .split(" ")
     .map((n) => n[0])
     .slice(0, 2)
-    .join('')
+    .join("")
     .toUpperCase();
 }
 
@@ -135,8 +132,8 @@ function UserCardSkeleton() {
 }
 
 export default function UsersManagementPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(16);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -172,8 +169,14 @@ export default function UsersManagementPage() {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const activeStatus = filterList.find((f) => f.key === 'status')?.values[0] as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | undefined;
-      const activeRole = filterList.find((f) => f.key === 'role')?.values[0] as 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT' | undefined;
+      const activeStatus = filterList.find((f) => f.key === "status")
+        ?.values[0] as "ACTIVE" | "INACTIVE" | "SUSPENDED" | undefined;
+      const activeRole = filterList.find((f) => f.key === "role")?.values[0] as
+        | "ADMIN"
+        | "SUPERVISOR"
+        | "INVENTORY"
+        | "CLIENT"
+        | undefined;
 
       const response = await userApi.list({
         page: currentPage,
@@ -198,11 +201,14 @@ export default function UsersManagementPage() {
       setTotal(payload.total ?? 0);
       setTotalPages(payload.totalPages ?? 0);
     } catch (err: unknown) {
-      const axiosErr = err as AxiosError<{ error?: { message?: string }; message?: string }>;
+      const axiosErr = err as AxiosError<{
+        error?: { message?: string };
+        message?: string;
+      }>;
       const message =
         axiosErr.response?.data?.error?.message ||
         axiosErr.message ||
-        'Tải danh sách thất bại';
+        "Tải danh sách thất bại";
       setFetchError(message);
       toast.error(message);
     } finally {
@@ -234,11 +240,14 @@ export default function UsersManagementPage() {
       setDeleteTarget(null);
       fetchUsers();
     } catch (err: unknown) {
-      const axiosErr = err as AxiosError<{ error?: { message?: string }; message?: string }>;
+      const axiosErr = err as AxiosError<{
+        error?: { message?: string };
+        message?: string;
+      }>;
       const message =
         axiosErr.response?.data?.error?.message ||
         axiosErr.message ||
-        'Xóa người dùng thất bại';
+        "Xóa người dùng thất bại";
       toast.error(message);
     } finally {
       setIsDeleting(false);
@@ -280,10 +289,17 @@ export default function UsersManagementPage() {
           <div className="flex flex-wrap gap-2">
             {filterList.map((f) =>
               f.values.map((val) => (
-                <Badge key={`${f.key}-${val}`} variant="secondary" className="text-xs">
-                  {USER_FILTER_OPTIONS.find((opt) => opt.key === f.key)?.label ?? f.key}: {USER_FILTER_OPTIONS
-                    .find((opt) => opt.key === f.key)
-                    ?.values.find((item) => item.value === val)?.label ?? val}
+                <Badge
+                  key={`${f.key}-${val}`}
+                  variant="secondary"
+                  className="text-xs"
+                >
+                  {USER_FILTER_OPTIONS.find((opt) => opt.key === f.key)
+                    ?.label ?? f.key}
+                  :{" "}
+                  {USER_FILTER_OPTIONS.find(
+                    (opt) => opt.key === f.key,
+                  )?.values.find((item) => item.value === val)?.label ?? val}
                 </Badge>
               )),
             )}
@@ -295,7 +311,12 @@ export default function UsersManagementPage() {
       {fetchError && (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-destructive text-sm">{fetchError}</p>
-          <Button variant="ghost" size="sm" onClick={fetchUsers} className="ml-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchUsers}
+            className="ml-2"
+          >
             Thử lại
           </Button>
         </div>
@@ -315,19 +336,32 @@ export default function UsersManagementPage() {
               <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
                 <Search className="h-10 w-10 opacity-30" />
                 <p className="text-sm">Không tìm thấy người dùng nào</p>
-                <Button variant="outline" size="sm" onClick={() => { setSearchQuery(''); setFilterList([]); }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterList([]);
+                  }}
+                >
                   Xóa bộ lọc
                 </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 p-2">
                 {users.map((user) => (
-                  <Card key={user.id} className="group border border-dashed border-primary/30 hover:border-primary/60 hover:shadow-md transition-all duration-200">
+                  <Card
+                    key={user.id}
+                    className="group border border-dashed border-primary/30 hover:border-primary/60 hover:shadow-md transition-all duration-200"
+                  >
                     <CardContent className="p-0 h-full flex flex-col">
                       {/* Mobile layout */}
                       <div className="flex sm:hidden w-full items-center space-x-2 mb-3 p-4">
                         <Avatar className="w-12 h-12 rounded-lg flex-shrink-0">
-                          <AvatarImage src={user.avatar ?? undefined} alt={user.fullName} />
+                          <AvatarImage
+                            src={user.avatar ?? undefined}
+                            alt={user.fullName}
+                          />
                           <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-semibold">
                             {getInitials(user.fullName)}
                           </AvatarFallback>
@@ -339,17 +373,19 @@ export default function UsersManagementPage() {
                           >
                             {getRoleLabel(user.role)}
                           </Badge>
-                          <h3 className="font-bold text-xl truncate leading-tight mb-1">{user.fullName}</h3>
+                          <h3 className="font-bold text-xl truncate leading-tight mb-1">
+                            {user.fullName}
+                          </h3>
                           <p className="text-xs text-muted-foreground truncate leading-tight mb-1">
                             {user.phone ?? user.email}
                           </p>
                           <Badge
                             variant={
-                              user.status === 'ACTIVE'
-                                ? 'success'
-                                : user.status === 'SUSPENDED'
-                                  ? 'destructive'
-                                  : 'secondary'
+                              user.status === "ACTIVE"
+                                ? "success"
+                                : user.status === "SUSPENDED"
+                                  ? "destructive"
+                                  : "secondary"
                             }
                             className="text-xs"
                           >
@@ -379,12 +415,18 @@ export default function UsersManagementPage() {
                       {/* Desktop layout */}
                       <div className="hidden sm:flex w-full">
                         <Avatar className="w-16 h-16 rounded-lg ml-5 my-auto">
-                          <AvatarImage src={user.avatar ?? undefined} alt={user.fullName} />
+                          <AvatarImage
+                            src={user.avatar ?? undefined}
+                            alt={user.fullName}
+                          />
                           <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-semibold">
                             {getInitials(user.fullName)}
                           </AvatarFallback>
                         </Avatar>
-                        <Separator orientation="vertical" className="mx-3 flex-shrink-0" />
+                        <Separator
+                          orientation="vertical"
+                          className="mx-3 flex-shrink-0"
+                        />
                         <div className="flex-1 flex flex-col justify-center gap-2 min-w-0 py-5">
                           <Badge
                             variant={getRoleBadgeVariant(user.role)}
@@ -392,30 +434,35 @@ export default function UsersManagementPage() {
                           >
                             {getRoleLabel(user.role)}
                           </Badge>
-                          <h3 className="font-bold text-xl truncate">{user.fullName}</h3>
-                          <p className="text-xs text-muted-foreground truncate">{user.phone ?? user.email}</p>
+                          <h3 className="font-bold text-xl truncate">
+                            {user.fullName}
+                          </h3>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {user.phone ?? user.email}
+                          </p>
                           <Badge
                             variant={
-                              user.status === 'ACTIVE'
-                                ? 'success'
-                                : user.status === 'SUSPENDED'
-                                  ? 'destructive'
-                                  : 'secondary'
+                              user.status === "ACTIVE"
+                                ? "success"
+                                : user.status === "SUSPENDED"
+                                  ? "destructive"
+                                  : "secondary"
                             }
                             className="text-xs w-fit"
                           >
                             {getStatusLabel(user.status)}
                           </Badge>
-                          {user.role === 'ADMIN' && user.adminProfile && (
+                          {user.role === "ADMIN" && user.adminProfile && (
                             <p className="text-xs text-muted-foreground truncate">
                               {user.adminProfile.businessName}
                             </p>
                           )}
-                          {user.role === 'CLIENT' && user.clientProfile?.province && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              {user.clientProfile.province}
-                            </p>
-                          )}
+                          {user.role === "CLIENT" &&
+                            user.clientProfile?.province && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {user.clientProfile.province}
+                              </p>
+                            )}
                         </div>
                         <div className="flex flex-col items-center justify-center gap-1 pr-3">
                           <Button
@@ -501,7 +548,9 @@ export default function UsersManagementPage() {
                   variant="ghost"
                   size="sm"
                   className="h-7 px-2 text-xs"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
                   disabled={currentPage === totalPages}
                 >
                   <span className="hidden sm:inline mr-1">Sau</span>
@@ -543,11 +592,15 @@ export default function UsersManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa người dùng</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc muốn xóa người dùng &quot;{deleteTarget?.fullName}&quot;? Hành động này không thể hoàn tác.
+              Bạn có chắc muốn xóa người dùng &quot;{deleteTarget?.fullName}
+              &quot;? Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsDeleteOpen(false)} disabled={isDeleting}>
+            <AlertDialogCancel
+              onClick={() => setIsDeleteOpen(false)}
+              disabled={isDeleting}
+            >
               Hủy
             </AlertDialogCancel>
             <AlertDialogAction
@@ -555,7 +608,7 @@ export default function UsersManagementPage() {
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Đang xóa...' : 'Xóa'}
+              {isDeleting ? "Đang xóa..." : "Xóa"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

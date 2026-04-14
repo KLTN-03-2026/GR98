@@ -815,6 +815,77 @@ export const supervisorApi = {
 };
 
 // ============================================================
+// INVENTORY STAFF API ENDPOINTS
+// ============================================================
+export interface InventoryStaffResponse {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  avatar: string | null;
+  role: 'INVENTORY';
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  createdAt: string;
+  updatedAt: string;
+  inventoryProfile: {
+    id: string;
+    employeeCode: string;
+    adminId: string;
+    hiredAt: string;
+    _count: {
+      warehouses: number;
+    };
+    warehouses: Array<{
+      id: string;
+      name: string;
+    }>;
+  } | null;
+}
+
+export interface PaginatedInventoryStaffResponse {
+  data: InventoryStaffResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const inventoryStaffApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  }) => apiGet<ApiSuccessResponse<PaginatedInventoryStaffResponse>>('/inventory-staff', { params }),
+
+  getById: (id: string) =>
+    apiGet<ApiSuccessResponse<InventoryStaffResponse>>(`/inventory-staff/${id}`),
+
+  create: (data: {
+    fullName: string;
+    email: string;
+    password: string;
+    phone?: string;
+    avatar?: string;
+  }) => apiPost<ApiSuccessResponse<InventoryStaffResponse>>('/inventory-staff', data),
+
+  update: (
+    id: string,
+    data: Partial<{
+      fullName: string;
+      email: string;
+      phone: string;
+      status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+      avatar: string;
+      clearAvatar: boolean;
+    }>,
+  ) => apiPatch<ApiSuccessResponse<InventoryStaffResponse>>(`/inventory-staff/${id}`, data),
+
+  delete: (id: string) =>
+    apiDelete<ApiSuccessResponse<{ id: string; deletedAt: string }>>(`/inventory-staff/${id}`),
+};
+
+// ============================================================
 // HELPER: Extract data từ wrapped response
 // BE interceptor wrap: { success: true, data: T }
 // Axios unwrap HTTP: response.data = { success: true, data: T }

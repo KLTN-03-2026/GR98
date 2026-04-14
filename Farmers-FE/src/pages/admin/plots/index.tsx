@@ -309,7 +309,9 @@ export default function PlotsPage() {
                   <p className="text-base font-semibold text-slate-900 group-hover:text-emerald-900">
                     {plot.plotName}
                   </p>
-                  <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {plot.lotCode}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button

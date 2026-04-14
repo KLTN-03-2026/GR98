@@ -59,13 +59,6 @@ interface SupervisorOption {
   meta?: string;
 }
 
-interface SupervisorZonePoint {
-  key: string;
-  label: string;
-  position: [number, number];
-  plotCount: number;
-}
-
 const EMPTY_LOT: LotPoint = {
   id: "empty",
   lotCode: "N/A",
@@ -160,7 +153,6 @@ export default function GISWorkspace({
   >([]);
   const [selectedSupervisorId, setSelectedSupervisorId] = useState("");
   const [supervisorViewId, setSupervisorViewId] = useState("all");
-  const [showSupervisorZones, setShowSupervisorZones] = useState(false);
   const [sheet, setSheet] = useState({
     plotName: "",
     farmerName: "",
@@ -182,7 +174,6 @@ export default function GISWorkspace({
   const searchMarkerRef = useRef<L.Marker | null>(null);
   const streetLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
-  const supervisorPointLayerRef = useRef<L.LayerGroup | null>(null);
 
   const readLocalPolygons = () => {
     try {
@@ -322,34 +313,6 @@ export default function GISWorkspace({
       null,
     [supervisorOptions, selectedSupervisorId],
   );
-
-  const supervisorZonePoints = useMemo<SupervisorZonePoint[]>(() => {
-    if (supervisorViewId === "all") {
-      return [];
-    }
-
-    const grouped = new Map<string, SupervisorZonePoint>();
-
-    filteredLotsForMap
-      .filter((lot) => isValidPolygon(lot.polygon))
-      .forEach((lot) => {
-        const key = `${lot.district || "N/A"}|${lot.province || "N/A"}`;
-        const existing = grouped.get(key);
-        if (existing) {
-          existing.plotCount += 1;
-          return;
-        }
-
-        grouped.set(key, {
-          key,
-          label: `${lot.district || "N/A"}, ${lot.province || "N/A"}`,
-          position: polygonCenter(lot.polygon as Array<[number, number]>),
-          plotCount: 1,
-        });
-      });
-
-    return Array.from(grouped.values());
-  }, [supervisorViewId, filteredLotsForMap]);
 
   const focusLot = (
     lot: LotPoint,
@@ -755,7 +718,6 @@ export default function GISWorkspace({
     map.addControl(drawControl);
 
     markerLayerRef.current = L.layerGroup().addTo(map);
-    supervisorPointLayerRef.current = L.layerGroup().addTo(map);
     streetLayerRef.current = streetLayer;
     satelliteLayerRef.current = satelliteLayer;
     mapRef.current = map;
@@ -854,7 +816,6 @@ export default function GISWorkspace({
       searchMarkerRef.current = null;
       streetLayerRef.current = null;
       satelliteLayerRef.current = null;
-      supervisorPointLayerRef.current = null;
       drawnItemsRef.current = null;
       previewPolygonRef.current = null;
     };
@@ -1009,34 +970,6 @@ export default function GISWorkspace({
       map.removeLayer(streetLayer);
     }
   }, [activeLayer]);
-
-  useEffect(() => {
-    const pointLayer = supervisorPointLayerRef.current;
-    if (!pointLayer) {
-      return;
-    }
-
-    pointLayer.clearLayers();
-
-    if (!showSupervisorZones || supervisorViewId === "all") {
-      return;
-    }
-
-    supervisorZonePoints.forEach((point) => {
-      L.circleMarker(point.position, {
-        radius: 10,
-        color: "#0f766e",
-        weight: 2,
-        fillColor: "#14b8a6",
-        fillOpacity: 0.35,
-      })
-        .bindTooltip(`${point.label} • ${point.plotCount} lô`, {
-          direction: "top",
-          offset: [0, -8],
-        })
-        .addTo(pointLayer);
-    });
-  }, [showSupervisorZones, supervisorViewId, supervisorZonePoints]);
 
   const geocodePlace = async (query: string, label: string) => {
     const map = mapRef.current;
@@ -1249,17 +1182,6 @@ export default function GISWorkspace({
                   </option>
                 ))}
               </select>
-              <Button
-                size="sm"
-                variant={showSupervisorZones ? "primary" : "ghost"}
-                onClick={() => setShowSupervisorZones((prev) => !prev)}
-                disabled={
-                  supervisorViewId === "all" ||
-                  supervisorZonePoints.length === 0
-                }
-              >
-                Point zone ({supervisorZonePoints.length})
-              </Button>
             </div>
           </div>
         </div>

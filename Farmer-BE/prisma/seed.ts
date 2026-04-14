@@ -12,6 +12,16 @@ type LoginSeedAccount = {
   role: Role;
 };
 
+type FarmerSeedRecord = {
+  fullName: string;
+  phone: string;
+  cccd: string;
+  bankAccount?: string;
+  address?: string;
+  province?: string;
+  assignToSupervisor?: boolean;
+};
+
 const ACCOUNTS: LoginSeedAccount[] = [
   {
     email: 'admin@farmers.com',
@@ -36,6 +46,45 @@ const ACCOUNTS: LoginSeedAccount[] = [
     fullName: 'Khách Hàng',
     phone: '0987654321',
     role: Role.CLIENT,
+  },
+];
+
+const FARMERS: FarmerSeedRecord[] = [
+  {
+    fullName: 'Nguyen Van Khoa',
+    phone: '0903000001',
+    cccd: '079123456701',
+    bankAccount: '9704361234567890',
+    address: 'Thon Dong, Dong Anh',
+    province: 'Ha Noi',
+    assignToSupervisor: true,
+  },
+  {
+    fullName: 'Tran Thi Lan',
+    phone: '0903000002',
+    cccd: '079123456702',
+    bankAccount: '9704361234567891',
+    address: 'Xa Phu Cuong, Soc Son',
+    province: 'Ha Noi',
+    assignToSupervisor: true,
+  },
+  {
+    fullName: 'Le Van Binh',
+    phone: '0903000003',
+    cccd: '079123456703',
+    bankAccount: '9704361234567892',
+    address: 'Xa Yen Bai, Ba Vi',
+    province: 'Ha Noi',
+    assignToSupervisor: false,
+  },
+  {
+    fullName: 'Pham Thi Hoa',
+    phone: '0903000004',
+    cccd: '079123456704',
+    bankAccount: '9704361234567893',
+    address: 'Xa Nguyen Khe, Dong Anh',
+    province: 'Ha Noi',
+    assignToSupervisor: false,
   },
 ];
 
@@ -130,7 +179,7 @@ async function upsertLoginUsersOnly() {
     },
   });
 
-  await prisma.supervisorProfile.upsert({
+  const supervisorProfile = await prisma.supervisorProfile.upsert({
     where: { userId: supervisorUser.id },
     update: {
       adminId: adminProfile.id,
@@ -221,6 +270,47 @@ async function upsertLoginUsersOnly() {
   for (const account of ACCOUNTS) {
     console.log(`       ${account.role} -> ${account.email} / ${DEFAULT_PASSWORD}`);
   }
+
+  return {
+    adminProfile,
+    supervisorProfile,
+  };
+}
+
+async function upsertFarmers(params: {
+  adminProfileId: string;
+  supervisorProfileId: string;
+}) {
+  for (const farmer of FARMERS) {
+    await prisma.farmer.upsert({
+      where: { cccd: farmer.cccd },
+      update: {
+        adminId: params.adminProfileId,
+        fullName: farmer.fullName,
+        phone: farmer.phone,
+        bankAccount: farmer.bankAccount,
+        address: farmer.address,
+        province: farmer.province,
+        supervisorId: farmer.assignToSupervisor
+          ? params.supervisorProfileId
+          : null,
+      },
+      create: {
+        adminId: params.adminProfileId,
+        fullName: farmer.fullName,
+        phone: farmer.phone,
+        cccd: farmer.cccd,
+        bankAccount: farmer.bankAccount,
+        address: farmer.address,
+        province: farmer.province,
+        supervisorId: farmer.assignToSupervisor
+          ? params.supervisorProfileId
+          : null,
+      },
+    });
+  }
+
+  console.log(`[SEED] Farmers are ready: ${FARMERS.length} records`);
 }
 
 async function main() {
@@ -231,7 +321,11 @@ async function main() {
   await clearNonAuthData();
   console.log('[SEED] Cleared non-auth tables');
 
-  await upsertLoginUsersOnly();
+  const authContext = await upsertLoginUsersOnly();
+  await upsertFarmers({
+    adminProfileId: authContext.adminProfile.id,
+    supervisorProfileId: authContext.supervisorProfile.id,
+  });
 
   console.log('\n========================================');
   console.log('  SEED COMPLETE');

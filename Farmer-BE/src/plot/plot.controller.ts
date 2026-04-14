@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Param,
   Body,
   Query,
   Request,
@@ -21,7 +23,7 @@ import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PlotService } from './plot.service';
-import { CreatePlotDto, PlotQueryDto } from './dto/plot.dto';
+import { CreatePlotDto, PlotQueryDto, UpdatePlotDto } from './dto/plot.dto';
 
 @ApiTags('plots')
 @ApiBearerAuth()
@@ -37,6 +39,19 @@ export class PlotController {
   @ApiResponse({ status: 201, description: 'Tạo thành công' })
   create(@Body() dto: CreatePlotDto, @Request() req: any) {
     return this.plotService.create(dto, req.user.id);
+  }
+
+  @Patch(':id')
+  @Roles(Role.ADMIN, Role.SUPERVISOR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cập nhật lô đất (đổi supervisor phụ trách)' })
+  @ApiResponse({ status: 200, description: 'Cập nhật thành công' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePlotDto,
+    @Request() req: any,
+  ) {
+    return this.plotService.update(id, dto, req.user.id);
   }
 
   @Get()

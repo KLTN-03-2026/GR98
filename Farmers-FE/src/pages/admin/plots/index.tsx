@@ -39,7 +39,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { plotApi, type PlotResponse } from "@/client/lib/api-client";
+import {
+  plotApi,
+  supervisorApi,
+  type PlotResponse,
+} from "@/client/lib/api-client";
 
 type CropType = "sau-rieng" | "ca-phe";
 
@@ -52,6 +56,12 @@ type PlotFieldOverride = {
   farmerPhone?: string;
   farmerCccd?: string;
   contractId?: string;
+};
+
+type SupervisorOption = {
+  id: string;
+  name: string;
+  employeeCode?: string;
 };
 
 const getCropLabel = (crop: CropType) =>
@@ -73,6 +83,10 @@ export default function PlotsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlotItem | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingSupervisors, setIsLoadingSupervisors] = useState(false);
+  const [supervisors, setSupervisors] = useState<SupervisorOption[]>([]);
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState("");
   const [sheet, setSheet] = useState<
     Pick<
       PlotItem,
@@ -168,6 +182,60 @@ export default function PlotsPage() {
     }
   }, [currentPage, totalPages, isLoading]);
 
+  useEffect(() => {
+    const fetchSupervisors = async () => {
+      setIsLoadingSupervisors(true);
+      try {
+        const options: SupervisorOption[] = [];
+        let page = 1;
+        let totalPages = 1;
+
+        do {
+          const response = await supervisorApi.list({
+            page,
+            limit: 20,
+            status: "ACTIVE",
+          });
+
+          const payload = response.data.data;
+          payload.data
+            .filter((row) => Boolean(row.supervisorProfile?.id))
+            .forEach((row) => {
+              const id = row.supervisorProfile?.id;
+              if (!id) return;
+              options.push({
+                id,
+                name: row.fullName,
+                employeeCode: row.supervisorProfile?.employeeCode,
+              });
+            });
+
+          totalPages = Math.max(1, payload.totalPages || 1);
+          page += 1;
+        } while (page <= totalPages);
+
+        const deduped = Array.from(
+          new Map(options.map((item) => [item.id, item])).values(),
+        );
+        setSupervisors(deduped);
+      } catch (error) {
+        const message =
+          typeof error === "object" &&
+          error !== null &&
+          "message" in error &&
+          typeof (error as { message?: unknown }).message === "string"
+            ? ((error as { message?: string }).message ?? "")
+            : "Tải danh sách giám sát viên thất bại";
+        toast.error(message || "Tải danh sách giám sát viên thất bại");
+        setSupervisors([]);
+      } finally {
+        setIsLoadingSupervisors(false);
+      }
+    };
+
+    void fetchSupervisors();
+  }, []);
+
   const openSheet = (plot: PlotItem) => {
     setEditingId(plot.id);
     setSheet({
@@ -178,6 +246,7 @@ export default function PlotsPage() {
       cropType: plot.cropType,
     });
     setFormErrors({});
+    setSelectedSupervisorId(plot.id_suppervisor || "");
     setSheetOpen(true);
   };
 
@@ -202,35 +271,70 @@ export default function PlotsPage() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingId) return;
     if (!validateSheetForm()) {
       toast.error("Vui lòng kiểm tra lại thông tin lô đất");
       return;
     }
-    const updatedOverrides = {
-      ...readLocalOverrides(),
-      [editingId]: {
-        plotName: sheet.plotName,
-        farmerName: sheet.farmerName,
-        contractId: sheet.contractId,
-      },
-    };
-    writeLocalOverrides(updatedOverrides);
 
-    setPlots((prev) =>
-      prev.map((item) =>
-        item.id === editingId
-          ? {
-              ...item,
-              ...sheet,
-              updatedAt: new Date().toLocaleString("vi-VN"),
-            }
-          : item,
-      ),
+    const selectedSupervisor = supervisors.find(
+      (item) => item.id === selectedSupervisorId,
     );
-    toast.success("Đã cập nhật thông tin lô đất");
-    setSheetOpen(false);
+
+    if (!selectedSupervisorId || !selectedSupervisor) {
+      toast.error("Vui lòng chọn giám sát viên phụ trách");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await plotApi.update(editingId, {
+        id_suppervisor: selectedSupervisorId,
+        name_suppervisor: selectedSupervisor.name,
+      });
+
+      const updatedPlotFromApi = response.data.data;
+
+      const updatedOverrides = {
+        ...readLocalOverrides(),
+        [editingId]: {
+          plotName: sheet.plotName,
+          farmerName: sheet.farmerName,
+          contractId: sheet.contractId,
+        },
+      };
+      writeLocalOverrides(updatedOverrides);
+
+      setPlots((prev) =>
+        prev.map((item) =>
+          item.id === editingId
+            ? {
+                ...item,
+                ...updatedPlotFromApi,
+                ...sheet,
+                id_suppervisor: updatedPlotFromApi.id_suppervisor,
+                name_suppervisor: updatedPlotFromApi.name_suppervisor,
+                updatedAt: new Date().toLocaleString("vi-VN"),
+              }
+            : item,
+        ),
+      );
+      toast.success("Đã cập nhật giám sát viên cho lô đất");
+      setSheetOpen(false);
+    } catch (error) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        typeof (error as { message?: unknown }).message === "string"
+          ? ((error as { message?: string }).message ?? "")
+          : "Cập nhật giám sát viên thất bại";
+      toast.error(message || "Cập nhật giám sát viên thất bại");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = () => {
@@ -374,6 +478,10 @@ export default function PlotsPage() {
                     <p className="inline-flex items-center gap-2">
                       <UserRound className="h-4 w-4" />
                       {plot.farmerName}
+                    </p>
+                    <p className="inline-flex items-center gap-2">
+                      <UserRound className="h-4 w-4" />
+                      GS: {plot.name_suppervisor || "Chưa phân công"}
                     </p>
                     <p className="inline-flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
@@ -520,6 +628,10 @@ export default function PlotsPage() {
                     {editingPlot.farmerName}
                   </p>
                   <p className="inline-flex items-center gap-2">
+                    <UserRound className="h-4 w-4" />
+                    GS: {editingPlot.name_suppervisor || "Chưa phân công"}
+                  </p>
+                  <p className="inline-flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
                     {editingPlot.district}, {editingPlot.province}
                   </p>
@@ -612,6 +724,29 @@ export default function PlotsPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="plot-supervisor">Giám sát viên phụ trách</Label>
+                  <select
+                    id="plot-supervisor"
+                    value={selectedSupervisorId}
+                    onChange={(event) =>
+                      setSelectedSupervisorId(event.target.value)
+                    }
+                    disabled={isLoadingSupervisors || isSaving}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {!selectedSupervisorId && (
+                      <option value="">Chọn giám sát viên</option>
+                    )}
+                    {supervisors.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                        {item.employeeCode ? ` (${item.employeeCode})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
                   <Label>Loại cây trồng</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
@@ -654,9 +789,12 @@ export default function PlotsPage() {
                 <Button variant="outline" onClick={() => setSheetOpen(false)}>
                   Đóng
                 </Button>
-                <Button onClick={handleSave} disabled={!editingPlot}>
+                <Button
+                  onClick={() => void handleSave()}
+                  disabled={!editingPlot || isSaving}
+                >
                   <Save className="h-4 w-4" />
-                  Lưu thay đổi
+                  {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
                 </Button>
               </div>
             </div>

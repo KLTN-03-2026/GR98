@@ -100,6 +100,22 @@ export class CreatePlotDto {
   district?: string;
 
   @ApiPropertyOptional({
+    example: 'cmabc123supervisor',
+    description: 'ID Supervisor muốn phân công cho lô đất',
+  })
+  @IsOptional()
+  @IsString()
+  id_suppervisor?: string;
+
+  @ApiPropertyOptional({
+    example: 'Nguyễn Văn B',
+    description: 'Tên Supervisor để đối chiếu nếu FE gửi kèm',
+  })
+  @IsOptional()
+  @IsString()
+  name_suppervisor?: string;
+
+  @ApiPropertyOptional({
     example: [
       [20.8401, 104.7398],
       [20.8408, 104.7404],
@@ -131,4 +147,22 @@ export class PlotQueryDto {
   @IsOptional()
   @IsString()
   cropType?: string;
+}
+
+export class UpdatePlotDto {
+  @ApiPropertyOptional({
+    example: 'cmabc123supervisor',
+    description: 'ID Supervisor muốn phân công lại cho lô đất',
+  })
+  @IsOptional()
+  @IsString()
+  id_suppervisor?: string;
+
+  @ApiPropertyOptional({
+    example: 'Nguyễn Văn B',
+    description: 'Tên Supervisor để đối chiếu nếu FE gửi kèm',
+  })
+  @IsOptional()
+  @IsString()
+  name_suppervisor?: string;
 }

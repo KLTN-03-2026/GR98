@@ -3,13 +3,20 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
-import { Filter, Layers, Search, Sprout } from "lucide-react";
+import { Filter, Layers, Search, Sprout, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { plotApi, type PlotResponse } from "@/client/lib/api-client";
+import {
+  authApi,
+  extractData,
+  plotApi,
+  supervisorApi,
+  type MeResponse,
+  type PlotResponse,
+} from "@/client/lib/api-client";
 import {
   Sheet,
   SheetContent,
@@ -44,6 +51,19 @@ interface ProvinceInput {
 interface ProvinceHashValue {
   name: string;
   districts?: Record<string, string>;
+}
+
+interface SupervisorOption {
+  id: string;
+  name: string;
+  meta?: string;
+}
+
+interface SupervisorZonePoint {
+  key: string;
+  label: string;
+  position: [number, number];
+  plotCount: number;
 }
 
 const EMPTY_LOT: LotPoint = {
@@ -114,7 +134,6 @@ export default function GISWorkspace({
   description,
 }: GISWorkspaceProps) {
   void title;
-  void roleLabel;
   void description;
 
   const [tab, setTab] = useState<GISTab>("all");
@@ -127,12 +146,21 @@ export default function GISWorkspace({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [polygonMeta, setPolygonMeta] = useState(DEFAULT_POLYGON_META);
   const [polygonAreaHa, setPolygonAreaHa] = useState<number | null>(null);
-  const [polygonCoords, setPolygonCoords] = useState<Array<[number, number]>>([]);
+  const [polygonCoords, setPolygonCoords] = useState<Array<[number, number]>>(
+    [],
+  );
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingSupervisors, setIsLoadingSupervisors] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({
     lat: 16.2,
     lng: 106.2,
   });
+  const [supervisorOptions, setSupervisorOptions] = useState<
+    SupervisorOption[]
+  >([]);
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState("");
+  const [supervisorViewId, setSupervisorViewId] = useState("all");
+  const [showSupervisorZones, setShowSupervisorZones] = useState(false);
   const [sheet, setSheet] = useState({
     plotName: "",
     farmerName: "",
@@ -154,6 +182,7 @@ export default function GISWorkspace({
   const searchMarkerRef = useRef<L.Marker | null>(null);
   const streetLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
+  const supervisorPointLayerRef = useRef<L.LayerGroup | null>(null);
 
   const readLocalPolygons = () => {
     try {
@@ -173,7 +202,9 @@ export default function GISWorkspace({
     }
   };
 
-  const writeLocalPolygons = (value: Record<string, Array<[number, number]>>) => {
+  const writeLocalPolygons = (
+    value: Record<string, Array<[number, number]>>,
+  ) => {
     localStorage.setItem(LOCAL_POLYGON_KEY, JSON.stringify(value));
   };
 
@@ -237,23 +268,33 @@ export default function GISWorkspace({
     [lots, tab],
   );
 
+  const filteredLotsForMap = useMemo(
+    () =>
+      visibleLots.filter(
+        (lot) =>
+          supervisorViewId === "all" || lot.id_suppervisor === supervisorViewId,
+      ),
+    [visibleLots, supervisorViewId],
+  );
+
   const searchResults = useMemo(() => {
     const normalized = keyword.trim().toLowerCase();
     if (!normalized) {
       return [];
     }
 
-    return visibleLots
+    return filteredLotsForMap
       .filter(
         (lot) =>
           lot.plotName.toLowerCase().includes(normalized) ||
           lot.lotCode.toLowerCase().includes(normalized) ||
           lot.farmerName.toLowerCase().includes(normalized) ||
+          (lot.name_suppervisor || "").toLowerCase().includes(normalized) ||
           lot.province.toLowerCase().includes(normalized) ||
           lot.district.toLowerCase().includes(normalized),
       )
       .slice(0, 8);
-  }, [keyword, visibleLots]);
+  }, [keyword, filteredLotsForMap]);
 
   const placeSearchResults = useMemo(() => {
     const normalized = keyword.trim().toLowerCase();
@@ -268,26 +309,75 @@ export default function GISWorkspace({
 
   const selectedLot = useMemo(() => {
     return (
-      visibleLots.find((lot) => lot.id === selectedLotId) ??
-      visibleLots[0] ??
+      filteredLotsForMap.find((lot) => lot.id === selectedLotId) ??
+      filteredLotsForMap[0] ??
       lots[0] ??
       EMPTY_LOT
     );
-  }, [visibleLots, selectedLotId, lots]);
+  }, [filteredLotsForMap, selectedLotId, lots]);
 
-  const focusLot = (lot: LotPoint) => {
+  const selectedSupervisor = useMemo(
+    () =>
+      supervisorOptions.find((item) => item.id === selectedSupervisorId) ??
+      null,
+    [supervisorOptions, selectedSupervisorId],
+  );
+
+  const supervisorZonePoints = useMemo<SupervisorZonePoint[]>(() => {
+    if (supervisorViewId === "all") {
+      return [];
+    }
+
+    const grouped = new Map<string, SupervisorZonePoint>();
+
+    filteredLotsForMap
+      .filter(
+        (lot) => isValidPolygon(lot.polygon),
+      )
+      .forEach((lot) => {
+        const key = `${lot.district || "N/A"}|${lot.province || "N/A"}`;
+        const existing = grouped.get(key);
+        if (existing) {
+          existing.plotCount += 1;
+          return;
+        }
+
+        grouped.set(key, {
+          key,
+          label: `${lot.district || "N/A"}, ${lot.province || "N/A"}`,
+          position: polygonCenter(lot.polygon as Array<[number, number]>),
+          plotCount: 1,
+        });
+      });
+
+    return Array.from(grouped.values());
+  }, [supervisorViewId, filteredLotsForMap]);
+
+  const focusLot = (
+    lot: LotPoint,
+    options?: {
+      flyTo?: boolean;
+      syncForm?: boolean;
+    },
+  ) => {
+    const shouldFly = options?.flyTo ?? true;
+    const shouldSyncForm = options?.syncForm ?? true;
+
     setSelectedLotId(lot.id);
-    setSheet({
-      plotName: lot.plotName,
-      farmerName: lot.farmerName,
-      farmerPhone: lot.farmerPhone || "",
-      farmerCccd: lot.farmerCccd || "",
-      contractId: lot.contractId,
-      cropType: lot.cropType,
-    });
+    if (shouldSyncForm) {
+      setSelectedSupervisorId(lot.id_suppervisor || "");
+      setSheet({
+        plotName: lot.plotName,
+        farmerName: lot.farmerName,
+        farmerPhone: lot.farmerPhone || "",
+        farmerCccd: lot.farmerCccd || "",
+        contractId: lot.contractId,
+        cropType: lot.cropType,
+      });
+    }
 
     const map = mapRef.current;
-    if (map) {
+    if (map && shouldFly) {
       map.flyTo([lot.lat, lot.lng], Math.max(map.getZoom(), 9), {
         duration: 0.35,
       });
@@ -335,6 +425,14 @@ export default function GISWorkspace({
       return;
     }
 
+    if (roleLabel === "ADMIN" && !selectedSupervisorId) {
+      toast.error("Vui lòng chọn giám sát viên phụ trách");
+      return;
+    }
+
+    const supervisorIdPayload = selectedSupervisorId || undefined;
+    const supervisorNamePayload = selectedSupervisor?.name || undefined;
+
     setIsSaving(true);
     try {
       const response = await plotApi.create({
@@ -347,8 +445,12 @@ export default function GISWorkspace({
         areaHa,
         lat: mapCenter.lat,
         lng: mapCenter.lng,
-        province: selectedLot.province !== "N/A" ? selectedLot.province : undefined,
-        district: selectedLot.district !== "N/A" ? selectedLot.district : undefined,
+        province:
+          selectedLot.province !== "N/A" ? selectedLot.province : undefined,
+        district:
+          selectedLot.district !== "N/A" ? selectedLot.district : undefined,
+        id_suppervisor: supervisorIdPayload,
+        name_suppervisor: supervisorNamePayload,
         polygon: polygonCoords,
       });
 
@@ -363,6 +465,9 @@ export default function GISWorkspace({
         farmerPhone,
         farmerCccd,
         contractId: sheet.contractId.trim(),
+        id_suppervisor: created.id_suppervisor ?? supervisorIdPayload ?? null,
+        name_suppervisor:
+          created.name_suppervisor ?? supervisorNamePayload ?? null,
       };
 
       const updatedOverrides = {
@@ -469,6 +574,131 @@ export default function GISWorkspace({
   }, []);
 
   useEffect(() => {
+    let isDisposed = false;
+
+    const loadSupervisors = async () => {
+      setIsLoadingSupervisors(true);
+      try {
+        if (roleLabel === "ADMIN") {
+          const fetched: SupervisorOption[] = [];
+          let page = 1;
+          let totalPages = 1;
+
+          do {
+            const response = await supervisorApi.list({
+              page,
+              limit: 20,
+              status: "ACTIVE",
+            });
+
+            const payload = response.data.data;
+            payload.data
+              .filter((row) => Boolean(row.supervisorProfile?.id))
+              .forEach((row) => {
+                const id = row.supervisorProfile?.id;
+                if (!id) return;
+                fetched.push({
+                  id,
+                  name: row.fullName,
+                  meta: row.supervisorProfile?.employeeCode,
+                });
+              });
+
+            totalPages = Math.max(1, payload.totalPages || 1);
+            page += 1;
+          } while (page <= totalPages);
+
+          if (isDisposed) return;
+
+          const options = Array.from(
+            new Map(fetched.map((item) => [item.id, item])).values(),
+          );
+
+          setSupervisorOptions(options);
+          setSelectedSupervisorId((prev) => {
+            if (prev && options.some((item) => item.id === prev)) {
+              return prev;
+            }
+            return options[0]?.id ?? "";
+          });
+          setSupervisorViewId((prev) => {
+            if (prev === "all") {
+              return "all";
+            }
+
+            if (options.some((item) => item.id === prev)) {
+              return prev;
+            }
+
+            return "all";
+          });
+          return;
+        }
+
+        if (roleLabel === "SUPERVISOR") {
+          const response = await authApi.getMe();
+          if (isDisposed) return;
+
+          const me = extractData<MeResponse>(response);
+          if (me.supervisorProfile?.id) {
+            const options: SupervisorOption[] = [
+              {
+                id: me.supervisorProfile.id,
+                name: me.fullName,
+                meta: me.supervisorProfile.employeeCode,
+              },
+            ];
+            setSupervisorOptions(options);
+            setSelectedSupervisorId(me.supervisorProfile.id);
+            setSupervisorViewId(me.supervisorProfile.id);
+            return;
+          }
+        }
+
+        if (isDisposed) return;
+        setSupervisorOptions([]);
+        setSelectedSupervisorId("");
+        setSupervisorViewId("all");
+      } catch {
+        if (isDisposed) return;
+        setSupervisorOptions([]);
+        setSelectedSupervisorId("");
+        setSupervisorViewId("all");
+      } finally {
+        if (!isDisposed) {
+          setIsLoadingSupervisors(false);
+        }
+      }
+    };
+
+    void loadSupervisors();
+    return () => {
+      isDisposed = true;
+    };
+  }, [roleLabel]);
+
+  useEffect(() => {
+    if (roleLabel === "SUPERVISOR" && supervisorOptions.length === 1) {
+      const onlyId = supervisorOptions[0].id;
+      if (selectedSupervisorId !== onlyId) {
+        setSelectedSupervisorId(onlyId);
+      }
+      if (supervisorViewId !== onlyId) {
+        setSupervisorViewId(onlyId);
+      }
+      return;
+    }
+
+    if (
+      roleLabel === "ADMIN" &&
+      !selectedSupervisorId &&
+      supervisorOptions.length > 0
+    ) {
+      setSelectedSupervisorId(supervisorOptions[0].id);
+    }
+  }, [roleLabel, selectedSupervisorId, supervisorOptions, supervisorViewId]);
+
+  useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
       return;
     }
@@ -509,7 +739,8 @@ export default function GISWorkspace({
           }),
           touchIcon: new L.DivIcon({
             iconSize: new L.Point(8, 8),
-            className: "leaflet-div-icon leaflet-editing-icon leaflet-touch-icon",
+            className:
+              "leaflet-div-icon leaflet-editing-icon leaflet-touch-icon",
           }),
         },
         polyline: false,
@@ -526,6 +757,7 @@ export default function GISWorkspace({
     map.addControl(drawControl);
 
     markerLayerRef.current = L.layerGroup().addTo(map);
+    supervisorPointLayerRef.current = L.layerGroup().addTo(map);
     streetLayerRef.current = streetLayer;
     satelliteLayerRef.current = satelliteLayer;
     mapRef.current = map;
@@ -624,6 +856,7 @@ export default function GISWorkspace({
       searchMarkerRef.current = null;
       streetLayerRef.current = null;
       satelliteLayerRef.current = null;
+      supervisorPointLayerRef.current = null;
       drawnItemsRef.current = null;
       previewPolygonRef.current = null;
     };
@@ -699,7 +932,7 @@ export default function GISWorkspace({
 
     markerLayer.clearLayers();
 
-    visibleLots
+    filteredLotsForMap
       .filter((lot) => isValidPolygon(lot.polygon))
       .forEach((lot) => {
         const isSelected = lot.id === selectedLot.id;
@@ -732,8 +965,10 @@ export default function GISWorkspace({
           })
           .on("click", (event: L.LeafletMouseEvent) => {
             L.DomEvent.stopPropagation(event);
-            focusLot(lot);
-            showOnlyPolygon(lot);
+            focusLot(lot, {
+              flyTo: false,
+              syncForm: false,
+            });
           })
           .on("dblclick", (event: L.LeafletMouseEvent) => {
             L.DomEvent.stopPropagation(event);
@@ -743,7 +978,7 @@ export default function GISWorkspace({
           })
           .addTo(markerLayer);
       });
-  }, [visibleLots, selectedLot]);
+  }, [filteredLotsForMap, selectedLot]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -772,23 +1007,32 @@ export default function GISWorkspace({
   }, [activeLayer]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    const lotsHasPolygon = visibleLots.filter((lot) =>
-      isValidPolygon(lot.polygon),
-    );
-    if (!map || !lotsHasPolygon.length) {
+    const pointLayer = supervisorPointLayerRef.current;
+    if (!pointLayer) {
       return;
     }
 
-    const bounds = L.latLngBounds(
-      lotsHasPolygon.map((lot) =>
-        polygonCenter(lot.polygon as Array<[number, number]>),
-      ),
-    );
-    if (bounds.isValid()) {
-      map.fitBounds(bounds.pad(0.28), { animate: true, duration: 0.35 });
+    pointLayer.clearLayers();
+
+    if (!showSupervisorZones || supervisorViewId === "all") {
+      return;
     }
-  }, [tab, visibleLots]);
+
+    supervisorZonePoints.forEach((point) => {
+      L.circleMarker(point.position, {
+        radius: 10,
+        color: "#0f766e",
+        weight: 2,
+        fillColor: "#14b8a6",
+        fillOpacity: 0.35,
+      })
+        .bindTooltip(`${point.label} • ${point.plotCount} lô`, {
+          direction: "top",
+          offset: [0, -8],
+        })
+        .addTo(pointLayer);
+    });
+  }, [showSupervisorZones, supervisorViewId, supervisorZonePoints]);
 
   const geocodePlace = async (query: string, label: string) => {
     const map = mapRef.current;
@@ -985,6 +1229,33 @@ export default function GISWorkspace({
                 Cà phê
               </Button>
             </div>
+
+            <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white px-2 py-1.5 shadow-xs">
+              <Users className="h-4 w-4 text-emerald-700" />
+              <select
+                value={supervisorViewId}
+                onChange={(event) => setSupervisorViewId(event.target.value)}
+                disabled={isLoadingSupervisors}
+                className="h-8 min-w-48 rounded-md border border-emerald-200 bg-white px-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <option value="all">Xem tất cả giám sát viên</option>
+                {supervisorOptions.map((item) => (
+                  <option key={`supervisor-view-${item.id}`} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                variant={showSupervisorZones ? "primary" : "ghost"}
+                onClick={() => setShowSupervisorZones((prev) => !prev)}
+                disabled={
+                  supervisorViewId === "all" || supervisorZonePoints.length === 0
+                }
+              >
+                Point zone ({supervisorZonePoints.length})
+              </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -1012,6 +1283,10 @@ export default function GISWorkspace({
               <p className="text-sm text-emerald-800">
                 {selectedLot.lotCode} • {selectedLot.district},{" "}
                 {selectedLot.province}
+              </p>
+              <p className="mt-1 text-xs text-emerald-700">
+                Giám sát viên:{" "}
+                {selectedLot.name_suppervisor || "Chưa phân công"}
               </p>
             </div>
 
@@ -1100,6 +1375,43 @@ export default function GISWorkspace({
                 }
                 placeholder="Nhập mã hợp đồng"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sheet-supervisor">Giám sát viên phụ trách</Label>
+              <select
+                id="sheet-supervisor"
+                value={selectedSupervisorId}
+                onChange={(event) =>
+                  setSelectedSupervisorId(event.target.value)
+                }
+                disabled={
+                  roleLabel === "SUPERVISOR" ||
+                  isLoadingSupervisors ||
+                  supervisorOptions.length === 0
+                }
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted"
+              >
+                {supervisorOptions.length === 0 && (
+                  <option value="">
+                    {isLoadingSupervisors
+                      ? "Đang tải danh sách giám sát viên..."
+                      : "Chưa có giám sát viên khả dụng"}
+                  </option>
+                )}
+
+                {supervisorOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                    {item.meta ? ` (${item.meta})` : ""}
+                  </option>
+                ))}
+              </select>
+              {roleLabel === "SUPERVISOR" && (
+                <p className="text-xs text-muted-foreground">
+                  Role SUPERVISOR chỉ được tạo lô cho chính mình.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

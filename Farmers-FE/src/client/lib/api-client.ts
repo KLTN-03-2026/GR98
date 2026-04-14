@@ -687,6 +687,8 @@ export interface PlotResponse {
   lng: number;
   updatedAt: string;
   polygon?: Array<[number, number]>;
+  id_suppervisor?: string | null;
+  name_suppervisor?: string | null;
 }
 
 export interface PaginatedPlotsResponse {
@@ -704,6 +706,8 @@ export interface CreatePlotPayload {
   farmerPhone?: string;
   farmerCccd?: string;
   contractId?: string;
+  id_suppervisor?: string;
+  name_suppervisor?: string;
   cropType: PlotCropType;
   areaHa: number;
   lat?: number;
@@ -711,6 +715,11 @@ export interface CreatePlotPayload {
   province?: string;
   district?: string;
   polygon?: Array<[number, number]>;
+}
+
+export interface UpdatePlotPayload {
+  id_suppervisor?: string;
+  name_suppervisor?: string;
 }
 
 type ApiSuccessResponse<T> = {
@@ -728,6 +737,9 @@ export const plotApi = {
 
   create: (data: CreatePlotPayload) =>
     apiPost<ApiSuccessResponse<PlotResponse>>('/plots', data),
+
+  update: (id: string, data: UpdatePlotPayload) =>
+    apiPatch<ApiSuccessResponse<PlotResponse>>(`/plots/${id}`, data),
 };
 
 // ============================================================

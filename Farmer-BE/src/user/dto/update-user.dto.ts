@@ -62,4 +62,7 @@ export class UpdateUserDto {
   businessName?: string;
 
   // ── CLIENT-only fields ─────────────────────────────────────────────────────
+  @IsOptional()
+  @IsString()
+  defaultAddress?: string;
 }

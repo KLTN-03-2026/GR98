@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role, UserStatus } from '@prisma/client';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -24,6 +24,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException();
     }
 
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        'Tài khoản đã bị ngưng hoạt động hoặc tạm ngưng',
+      );
+    }
+
     // Resolve adminId from profile (never trust JWT payload alone for tenant isolation)
     let adminId: string | null = null;
     if (user.role === Role.ADMIN) {
@@ -33,6 +39,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       adminId = profile?.id ?? null;
     } else if (user.role === Role.SUPERVISOR) {
       const profile = await this.prisma.supervisorProfile.findUnique({
+        where: { userId: user.id },
+      });
+      adminId = profile?.adminId ?? null;
+    } else if (user.role === Role.INVENTORY) {
+      const profile = await this.prisma.inventoryProfile.findUnique({
         where: { userId: user.id },
       });
       adminId = profile?.adminId ?? null;

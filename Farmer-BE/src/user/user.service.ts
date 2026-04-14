@@ -34,6 +34,12 @@ export class UserService {
       });
       return profile?.adminId ?? null;
     }
+    if (user.role === Role.INVENTORY) {
+      const profile = await this.prisma.inventoryProfile.findUnique({
+        where: { userId },
+      });
+      return profile?.adminId ?? null;
+    }
     if (user.role === Role.CLIENT) {
       const profile = await this.prisma.clientProfile.findUnique({
         where: { userId },
@@ -49,6 +55,7 @@ export class UserService {
       return {
         OR: [
           { supervisorProfile: { adminId } },
+          { inventoryProfile: { adminId } },
           { clientProfile: { adminId } },
         ],
       };
@@ -58,6 +65,7 @@ export class UserService {
       return {
         OR: [
           { supervisorProfile: { adminId } },
+          { inventoryProfile: { adminId } },
           { clientProfile: { adminId } },
         ],
       };
@@ -121,6 +129,17 @@ export class UserService {
             userId: createdUser.id,
             adminId: creatorAdminId,
             employeeCode: `SP-${createdUser.id.slice(-6).toUpperCase()}`,
+          },
+        });
+      } else if (dto.role === Role.INVENTORY) {
+        if (!creatorAdminId) {
+          throw new ForbiddenException('Không xác định được Admin quản lý');
+        }
+        await tx.inventoryProfile.create({
+          data: {
+            userId: createdUser.id,
+            adminId: creatorAdminId,
+            employeeCode: `IV-${createdUser.id.slice(-6).toUpperCase()}`,
           },
         });
       } else if (dto.role === Role.CLIENT) {
@@ -197,6 +216,9 @@ export class UserService {
           supervisorProfile: {
             select: { id: true, employeeCode: true, adminId: true },
           },
+          inventoryProfile: {
+            select: { id: true, employeeCode: true, adminId: true },
+          },
           clientProfile: {
             select: { id: true, province: true },
           },
@@ -256,6 +278,14 @@ export class UserService {
             hiredAt: true,
           },
         },
+        inventoryProfile: {
+          select: {
+            id: true,
+            employeeCode: true,
+            adminId: true,
+            hiredAt: true,
+          },
+        },
         clientProfile: {
           select: { id: true, province: true },
         },
@@ -308,11 +338,19 @@ export class UserService {
       if (dup) throw new ConflictException('Số điện thoại đã được sử dụng');
     }
 
+    const currentAdminId = await this.resolveAdminIdFromToken(currentUserId);
+    const nextRole = dto.role ?? existing.role;
+
+    if (existing.role === Role.ADMIN && nextRole !== Role.ADMIN) {
+      throw new ForbiddenException('Không hỗ trợ đổi vai trò cho tài khoản Admin');
+    }
+
     // Build user-level update data
     const updateData: any = { ...dto };
     delete updateData.password;
     delete updateData.businessName;
     delete updateData.province;
+    delete updateData.defaultAddress;
     delete updateData.clearAvatar;
 
     // Handle avatar
@@ -343,8 +381,59 @@ export class UserService {
         },
       });
 
+      if (existing.role !== nextRole) {
+        if (!currentAdminId) {
+          throw new ForbiddenException('Không xác định được Admin quản lý');
+        }
+
+        if (nextRole === Role.SUPERVISOR) {
+          const profile = await tx.supervisorProfile.findUnique({
+            where: { userId: id },
+          });
+          if (!profile) {
+            await tx.supervisorProfile.create({
+              data: {
+                userId: id,
+                adminId: currentAdminId,
+                employeeCode: `SP-${id.slice(-6).toUpperCase()}`,
+              },
+            });
+          }
+        }
+
+        if (nextRole === Role.INVENTORY) {
+          const profile = await tx.inventoryProfile.findUnique({
+            where: { userId: id },
+          });
+          if (!profile) {
+            await tx.inventoryProfile.create({
+              data: {
+                userId: id,
+                adminId: currentAdminId,
+                employeeCode: `IV-${id.slice(-6).toUpperCase()}`,
+              },
+            });
+          }
+        }
+
+        if (nextRole === Role.CLIENT) {
+          const profile = await tx.clientProfile.findUnique({
+            where: { userId: id },
+          });
+          if (!profile) {
+            await tx.clientProfile.create({
+              data: {
+                userId: id,
+                adminId: currentAdminId,
+                province: dto.province ?? null,
+              },
+            });
+          }
+        }
+      }
+
       // Update ADMIN profile
-      if (existing.role === Role.ADMIN) {
+      if (nextRole === Role.ADMIN) {
         const adminUpdate: any = {};
         if (dto.businessName !== undefined)
           adminUpdate.businessName = dto.businessName;
@@ -358,13 +447,18 @@ export class UserService {
       }
 
       // Update CLIENT profile
-      if (existing.role === Role.CLIENT) {
+      if (nextRole === Role.CLIENT) {
         const clientUpdate: any = {};
         if (dto.province !== undefined) clientUpdate.province = dto.province;
         if (Object.keys(clientUpdate).length > 0) {
-          await tx.clientProfile.update({
+          await tx.clientProfile.upsert({
             where: { userId: id },
-            data: clientUpdate,
+            create: {
+              userId: id,
+              adminId: currentAdminId,
+              province: dto.province ?? null,
+            },
+            update: clientUpdate,
           });
         }
       }

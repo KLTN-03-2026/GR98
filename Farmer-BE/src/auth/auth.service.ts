@@ -13,7 +13,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcryptjs';
-import { Role } from '@prisma/client';
+import { Role, UserStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -203,6 +203,12 @@ export class AuthService {
       );
     }
 
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        'Tài khoản đã bị ngưng hoạt động hoặc tạm ngưng',
+      );
+    }
+
     // 2. Verify password
     const isPasswordValid = await bcrypt.compare(
       loginDto.password,
@@ -224,6 +230,11 @@ export class AuthService {
       adminId = profile?.id ?? null;
     } else if (user.role === Role.SUPERVISOR) {
       const profile = await this.prisma.supervisorProfile.findUnique({
+        where: { userId: user.id },
+      });
+      adminId = profile?.adminId ?? null;
+    } else if (user.role === Role.INVENTORY) {
+      const profile = await this.prisma.inventoryProfile.findUnique({
         where: { userId: user.id },
       });
       adminId = profile?.adminId ?? null;
@@ -254,6 +265,11 @@ export class AuthService {
       profileId = profile?.id ?? null;
     } else if (user.role === Role.SUPERVISOR) {
       const profile = await this.prisma.supervisorProfile.findUnique({
+        where: { userId: user.id },
+      });
+      profileId = profile?.id ?? null;
+    } else if (user.role === Role.INVENTORY) {
+      const profile = await this.prisma.inventoryProfile.findUnique({
         where: { userId: user.id },
       });
       profileId = profile?.id ?? null;
@@ -288,6 +304,12 @@ export class AuthService {
       throw new UnauthorizedException('User không tồn tại');
     }
 
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        'Tài khoản đã bị ngưng hoạt động hoặc tạm ngưng',
+      );
+    }
+
     // Resolve adminId from profile (never trust JWT payload for tenant isolation)
     let adminId: string | null = null;
     if (user.role === Role.ADMIN) {
@@ -297,6 +319,11 @@ export class AuthService {
       adminId = profile?.id ?? null;
     } else if (user.role === Role.SUPERVISOR) {
       const profile = await this.prisma.supervisorProfile.findUnique({
+        where: { userId: user.id },
+      });
+      adminId = profile?.adminId ?? null;
+    } else if (user.role === Role.INVENTORY) {
+      const profile = await this.prisma.inventoryProfile.findUnique({
         where: { userId: user.id },
       });
       adminId = profile?.adminId ?? null;

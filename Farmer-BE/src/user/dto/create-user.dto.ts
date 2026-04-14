@@ -56,4 +56,7 @@ export class CreateUserDto {
   businessName?: string;
 
   // ── CLIENT-only fields ─────────────────────────────────────────────────────
+  @IsOptional()
+  @IsString()
+  defaultAddress?: string;
 }

@@ -12,7 +12,7 @@ const SIDEBAR_STORAGE_KEY = "sidebar_collapsed_state";
 const NAVBAR_HEIGHT = 64; // 16 * 4 = 64px (h-16)
 
 const DashboardLayout: React.FC = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       const savedState = localStorage.getItem(SIDEBAR_STORAGE_KEY);
       if (savedState !== null) {
@@ -29,7 +29,6 @@ const DashboardLayout: React.FC = () => {
     }
     return false; // Default value
   });
-
 
   const isMobile = useIsMobile();
   const clickTimeoutRef = useRef<number | null>(null);
@@ -77,7 +76,6 @@ const DashboardLayout: React.FC = () => {
     }
   }, [isMobile, isInitialized]);
 
-
   const handleMenuClick = useCallback(() => {
     // Only handle menu click if sidebar is shown
     if (!showSidebar) return;
@@ -87,10 +85,10 @@ const DashboardLayout: React.FC = () => {
       clearTimeout(clickTimeoutRef.current);
     }
 
-    clickTimeoutRef.current = setTimeout(() => {
-      setSidebarCollapsed(!sidebarCollapsed);
+    clickTimeoutRef.current = window.setTimeout(() => {
+      setSidebarCollapsed((prev) => !prev);
     }, 50); // Small delay to debounce
-  }, [sidebarCollapsed, showSidebar]);
+  }, [showSidebar]);
 
   // Handle backdrop click on mobile to close sidebar
   const handleBackdropClick = useCallback(() => {
@@ -134,8 +132,6 @@ const DashboardLayout: React.FC = () => {
   // Mock layout does not require dynamic content height calc
 
   return (
-    // Keep this commented for quick restore of dashboard dark mode in future:
-    // <ThemeProvider defaultTheme="light" storageKey="farmers_dashboard_theme">
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Animated Sidebar với AnimatePresence */}
       <AnimatePresence mode="wait">
@@ -183,8 +179,7 @@ const DashboardLayout: React.FC = () => {
       {/* Main content với responsive layout */}
       <motion.main
         className={cn(
-          "flex-1 min-h-0 overflow-hidden pt-1",
-          "pb-2",
+          "flex-1 min-h-0 overflow-hidden",
           "px-1"
         )}
         animate={showSidebar && !isMobile ? "managementMode" : "workingMode"}
@@ -218,35 +213,26 @@ const DashboardLayout: React.FC = () => {
         <div
           className={cn(
             "h-full w-full flex flex-col",
-            isMobile ? "pt-3 px-3 pb-0" : "pt-2 px-4 pb-0"
+            isMobile ? "pt-3 px-3 pb-3" : "pt-2 px-4 pb-4" // Fixed padding to prevent overflow
           )}
         >
           {/* Breadcrumb - flexible height */}
 
           {/* Content container - đảm bảo chiếm hết không gian còn lại */}
           <motion.div
-            className="flex-1 min-h-0 w-full"
+            className="flex-1 min-h-0 w-full overflow-hidden"
             animate={{ opacity: 1 }}
             transition={{ duration: 0.1 }}
-            style={{
-              height:
-                showSidebar && !isMobile
-                  ? `calc(100% - 4rem)` // Trừ đi breadcrumb space
-                  : "100%",
-            }}
           >
-            <div className="h-full w-full flex flex-col pb-4">
-              <Card className="bg-card text-card-foreground gap-2 rounded-xl border py-4 h-full w-full flex flex-col shadow-sm">
-                <CardContent className="flex flex-col min-h-0 px-4 flex-1 overflow-hidden">
-                  <Outlet />
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="bg-card text-card-foreground rounded-xl border h-full w-full flex flex-col shadow-sm overflow-hidden">
+              <CardContent className="flex flex-col min-h-0 p-4 flex-1 overflow-hidden">
+                <Outlet />
+              </CardContent>
+            </Card>
           </motion.div>
         </div>
       </motion.main>
     </div>
-    // </ThemeProvider>
   );
 };
 

@@ -148,6 +148,7 @@ export function useDeleteAccount() {
 
 export function useLogin() {
   const { login } = useAuthStore();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: LoginRequest) => {
       const loginResponse = await authApi.login(data);
@@ -178,6 +179,7 @@ export function useLogin() {
           adminProfile: null,
           supervisorProfile: null,
           clientProfile: null,
+          inventoryProfile: null,
         };
       }
 
@@ -195,10 +197,12 @@ export function useLogin() {
         avatarUrl: me.avatar ?? undefined,
         adminId: loginUser.adminId ?? undefined,
       };
+      
+      queryClient.clear(); // Clear cache for the new user
       login(authUser, accessToken);
       toast.success('Đăng nhập thành công!');
     },
-    onError: (error: { message: string }) => {
+    onError: (error: { message?: string }) => {
       toast.error(error.message || 'Đăng nhập thất bại');
     },
   });
@@ -209,13 +213,13 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      // Call logout API if needed
+      await authApi.logout();
     },
     onSettled: () => {
-      queryClient.removeQueries({ queryKey: ['me'] });
+      queryClient.clear();
       logout();
       localStorage.removeItem('ec_cart');
-      toast.success('Đã đăng xuất');
+      toast.success('Đăng xuất thành công!');
     },
   });
 }
@@ -650,7 +654,7 @@ export function useCreateReview(productId: string) {
       queryClient.invalidateQueries({ queryKey: ['reviews', productId] });
       toast.success('Cảm ơn bạn đã đánh giá!');
     },
-    onError: (error: { message: string }) => {
+    onError: (error: { message?: string }) => {
       toast.error(error.message || 'Gửi đánh giá thất bại');
     },
   });

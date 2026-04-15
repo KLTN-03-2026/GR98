@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Skeleton } from "../ui/skeleton";
 import { Badge } from "../ui/badge";
 import { getSidebarItems } from "@/constants/sidebar.item";
-import { ChevronDown, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { AppLogo } from "@/components/global/app-logo";
 import { useAuthStore } from "@/client/store";
 import { clearAllAuthCookies } from "@/lib/cookie-utils";
@@ -45,15 +45,9 @@ function SidebarGroup({
   collapsed,
   renderMenuItem,
   isExpanded,
-  onToggleExpanded,
-  isCollapsible = true,
+  onToggleExpanded: _onToggleExpanded,
+  isCollapsible: _isCollapsible = true,
 }: SidebarGroupProps) {
-  const toggleExpanded = () => {
-    if (!collapsed && isCollapsible) {
-      onToggleExpanded();
-    }
-  };
-
   return (
     <div className="px-1 ">
       {!collapsed && (
@@ -138,12 +132,63 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
   };
 
   const handleMenuItemClick = (path: string) => {
-    navigate(path);
+    if (path === "/dashboard/users") {
+      navigate({ pathname: "/dashboard/users", search: "" });
+      return;
+    }
+
+    if (path === "/dashboard/supervisors") {
+      navigate({ pathname: "/dashboard/users", search: "?tab=supervisors" });
+      return;
+    }
+
+    if (path === "/dashboard/inventory-staff") {
+      navigate({ pathname: "/dashboard/users", search: "?tab=inventory-staff" });
+      return;
+    }
+
+    if (path === "/dashboard/farmers") {
+      navigate({ pathname: "/dashboard/users", search: "?tab=farmers" });
+      return;
+    }
+
+    navigate({ pathname: path, search: "" });
+  };
+
+  const activeTab = new URLSearchParams(location.search).get("tab");
+
+  const getPeopleTabFromPath = (path: string): string | null => {
+    if (path === "/dashboard/supervisors") return "supervisors";
+    if (path === "/dashboard/inventory-staff") return "inventory-staff";
+    if (path === "/dashboard/farmers") return "farmers";
+    return null;
   };
 
   const renderMenuItem = (item: (typeof menuItems)[0]) => {
+    const peopleTab = getPeopleTabFromPath(item.path);
+    const isKnownPeopleTab =
+      activeTab === "supervisors" ||
+      activeTab === "inventory-staff" ||
+      activeTab === "farmers";
+    const isUsersRootItem = item.path === "/dashboard/users";
+    const isPeopleTabActive =
+      !!peopleTab &&
+      location.pathname === "/dashboard/users" &&
+      activeTab === peopleTab;
+
+    const isUsersRootActive =
+      isUsersRootItem &&
+      location.pathname === "/dashboard/users" &&
+      !isKnownPeopleTab;
+
+    const isDirectPathActive =
+      location.pathname === item.path &&
+      !(isUsersRootItem && location.pathname === "/dashboard/users" && isKnownPeopleTab);
+
     const isActive =
-      location.pathname === item.path ||
+      isPeopleTabActive ||
+      isUsersRootActive ||
+      isDirectPathActive ||
       (item.path === "/" && location.pathname === "/");
 
     const menuButton = (

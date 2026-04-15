@@ -361,7 +361,9 @@ export class UserService {
     const nextRole = dto.role ?? existing.role;
 
     if (existing.role === Role.ADMIN && nextRole !== Role.ADMIN) {
-      throw new ForbiddenException('Không hỗ trợ đổi vai trò cho tài khoản Admin');
+      throw new ForbiddenException(
+        'Không hỗ trợ đổi vai trò cho tài khoản Admin',
+      );
     }
 
     // Build user-level update data

@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsNotEmpty,
-  MinLength,
-  Matches,
-} from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, Matches } from 'class-validator';
 
 export class ChangePasswordDto {
   @IsNotEmpty({ message: 'Mật khẩu hiện tại là bắt buộc' })

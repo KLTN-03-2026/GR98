@@ -2,7 +2,10 @@ import { IsNotEmpty, IsString, MinLength, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ResetPasswordDto {
-  @ApiProperty({ example: 'abc123token', description: 'Token đặt lại mật khẩu' })
+  @ApiProperty({
+    example: 'abc123token',
+    description: 'Token đặt lại mật khẩu',
+  })
   @IsNotEmpty({ message: 'Token là bắt buộc' })
   @IsString()
   token: string;

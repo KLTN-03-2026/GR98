@@ -45,7 +45,10 @@ export class CreatePriceBoardDto {
 export class UpdatePriceBoardDto extends PartialType(CreatePriceBoardDto) {}
 
 export class PriceBoardQueryDto {
-  @ApiPropertyOptional({ example: 'Thanh long', description: 'Lọc theo loại nông sản' })
+  @ApiPropertyOptional({
+    example: 'Thanh long',
+    description: 'Lọc theo loại nông sản',
+  })
   @IsOptional()
   @IsString()
   cropType?: string;
@@ -55,7 +58,10 @@ export class PriceBoardQueryDto {
   @IsEnum(QualityGrade)
   grade?: QualityGrade;
 
-  @ApiPropertyOptional({ example: 'true', description: 'Chỉ hiển thị bảng giá đang active' })
+  @ApiPropertyOptional({
+    example: 'true',
+    description: 'Chỉ hiển thị bảng giá đang active',
+  })
   @IsOptional()
   @IsString()
   isActive?: string;

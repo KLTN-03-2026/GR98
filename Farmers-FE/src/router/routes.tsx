@@ -28,6 +28,7 @@ import InventoryCategoriesPage from '@/pages/inventory/categories';
 import InventoryPriceBoardsPage from '@/pages/inventory/price-boards';
 import InventoryOverviewPage from '@/pages/inventory/overview';
 import InventoryWarehousesPage from '@/pages/inventory/warehouses';
+import WarehouseDetailPage from '@/pages/inventory/warehouses/details';
 import InventoryLotsPage from '@/pages/inventory/lots';
 import InventoryTransactionsPage from '@/pages/inventory/transactions';
 import InventorySupplyDemandPage from '@/pages/inventory/supply-demand';
@@ -321,6 +322,10 @@ const inventoryDashboard: RouteObject = {
     {
       path: 'warehouses',
       element: <InventoryWarehousesPage />,
+    },
+    {
+      path: 'warehouses/:id',
+      element: <WarehouseDetailPage />,
     },
     {
       path: 'lots',

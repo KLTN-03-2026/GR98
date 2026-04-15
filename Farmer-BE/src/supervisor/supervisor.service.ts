@@ -17,7 +17,9 @@ export class SupervisorService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async resolveAdminId(currentUserId: string): Promise<string> {
-    const user = await this.prisma.user.findUnique({ where: { id: currentUserId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
     if (!user || user.role !== Role.ADMIN) {
       throw new ForbiddenException('Bạn không có quyền quản lý giám sát viên');
     }
@@ -50,7 +52,9 @@ export class SupervisorService {
     return zone.id;
   }
 
-  private async generateEmployeeCode(tx: Prisma.TransactionClient): Promise<string> {
+  private async generateEmployeeCode(
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
     for (let i = 0; i < 6; i += 1) {
       const now = Date.now().toString();
       const candidate = `SP-${now.slice(-6)}${Math.floor(Math.random() * 9)}`;

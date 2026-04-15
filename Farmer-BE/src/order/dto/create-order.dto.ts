@@ -75,7 +75,10 @@ export class CreateOrderDto {
   @IsString()
   note?: string;
 
-  @ApiPropertyOptional({ example: 'clxxx', description: 'ID địa chỉ giao hàng đã lưu (optional)' })
+  @ApiPropertyOptional({
+    example: 'clxxx',
+    description: 'ID địa chỉ giao hàng đã lưu (optional)',
+  })
   @IsOptional()
   @IsString()
   savedAddressId?: string;
@@ -134,17 +137,26 @@ export class OrderQueryDto {
   @IsEnum(PaymentMethod)
   paymentMethod?: PaymentMethod;
 
-  @ApiPropertyOptional({ example: 'true', description: 'Chỉ đơn hàng của client hiện tại' })
+  @ApiPropertyOptional({
+    example: 'true',
+    description: 'Chỉ đơn hàng của client hiện tại',
+  })
   @IsOptional()
   @IsString()
   myOrders?: string;
 
-  @ApiPropertyOptional({ example: '2026-04-01', description: 'Từ ngày (orderedAt)' })
+  @ApiPropertyOptional({
+    example: '2026-04-01',
+    description: 'Từ ngày (orderedAt)',
+  })
   @IsOptional()
   @IsDateString()
   fromDate?: string;
 
-  @ApiPropertyOptional({ example: '2026-04-30', description: 'Đến ngày (orderedAt)' })
+  @ApiPropertyOptional({
+    example: '2026-04-30',
+    description: 'Đến ngày (orderedAt)',
+  })
   @IsOptional()
   @IsDateString()
   toDate?: string;

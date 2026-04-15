@@ -34,12 +34,18 @@ export class CreateCategoryDto {
   @IsString()
   slug?: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/image.jpg', description: 'URL ảnh danh mục' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/image.jpg',
+    description: 'URL ảnh danh mục',
+  })
   @IsOptional()
   @IsString()
   imageUrl?: string;
 
-  @ApiPropertyOptional({ example: 'Các loại trái cây nhiệt đới', description: 'Mô tả' })
+  @ApiPropertyOptional({
+    example: 'Các loại trái cây nhiệt đới',
+    description: 'Mô tả',
+  })
   @IsOptional()
   @IsString()
   description?: string;
@@ -48,7 +54,9 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  @Transform(({ value }) => (value !== undefined ? parseInt(String(value), 10) : 0))
+  @Transform(({ value }) =>
+    value !== undefined ? parseInt(String(value), 10) : 0,
+  )
   sortOrder?: number;
 }
 
@@ -74,7 +82,10 @@ export class CategoryQueryDto {
 export class ReorderCategoryDto {
   @ApiProperty({
     type: [ReorderCategoryItemDto],
-    example: [{ id: 'xxx', sortOrder: 0 }, { id: 'yyy', sortOrder: 1 }],
+    example: [
+      { id: 'xxx', sortOrder: 0 },
+      { id: 'yyy', sortOrder: 1 },
+    ],
     description: 'Danh sách id và sortOrder mới',
   })
   @IsArray()

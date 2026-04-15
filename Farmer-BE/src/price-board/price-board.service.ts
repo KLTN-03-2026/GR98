@@ -5,7 +5,11 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePriceBoardDto, UpdatePriceBoardDto, PriceBoardQueryDto } from './dto/create-price-board.dto';
+import {
+  CreatePriceBoardDto,
+  UpdatePriceBoardDto,
+  PriceBoardQueryDto,
+} from './dto/create-price-board.dto';
 import { QualityGrade, Role } from '@prisma/client';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
 
@@ -19,11 +23,15 @@ export class PriceBoardService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return null;
     if (user.role === Role.ADMIN) {
-      const profile = await this.prisma.adminProfile.findUnique({ where: { userId } });
+      const profile = await this.prisma.adminProfile.findUnique({
+        where: { userId },
+      });
       return profile?.id ?? null;
     }
     if (user.role === Role.SUPERVISOR) {
-      const profile = await this.prisma.supervisorProfile.findUnique({ where: { userId } });
+      const profile = await this.prisma.supervisorProfile.findUnique({
+        where: { userId },
+      });
       return profile?.adminId ?? null;
     }
     return null;
@@ -58,7 +66,9 @@ export class PriceBoardService {
       grade: dto.grade,
       buyPrice: dto.buyPrice,
       sellPrice: dto.sellPrice,
-      effectiveDate: dto.effectiveDate ? new Date(dto.effectiveDate) : new Date(),
+      effectiveDate: dto.effectiveDate
+        ? new Date(dto.effectiveDate)
+        : new Date(),
     };
 
     return this.prisma.priceBoard.create({ data });
@@ -67,7 +77,9 @@ export class PriceBoardService {
   // ─── findAll ───────────────────────────────────────────────────────────────
 
   async findAll(query: PriceBoardQueryDto, currentUserId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: currentUserId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
     if (!user) throw new NotFoundException('Người dùng không tồn tại');
 
     const adminId = await this.resolveAdminId(currentUserId);
@@ -129,7 +141,9 @@ export class PriceBoardService {
     });
 
     if (!item) {
-      throw new NotFoundException('Bảng giá không tồn tại hoặc bạn không có quyền xem');
+      throw new NotFoundException(
+        'Bảng giá không tồn tại hoặc bạn không có quyền xem',
+      );
     }
 
     return item;
@@ -139,13 +153,16 @@ export class PriceBoardService {
 
   async update(id: string, dto: UpdatePriceBoardDto, currentUserId: string) {
     const adminId = await this.resolveAdminId(currentUserId);
-    if (!adminId) throw new ForbiddenException('Không có quyền cập nhật bảng giá');
+    if (!adminId)
+      throw new ForbiddenException('Không có quyền cập nhật bảng giá');
 
     const existing = await this.prisma.priceBoard.findFirst({
       where: { id, adminId },
     });
     if (!existing) {
-      throw new NotFoundException('Bảng giá không tồn tại hoặc bạn không có quyền sửa');
+      throw new NotFoundException(
+        'Bảng giá không tồn tại hoặc bạn không có quyền sửa',
+      );
     }
 
     // Nếu đổi cropType/grade → kiểm tra trùng
@@ -184,13 +201,16 @@ export class PriceBoardService {
 
   async toggleActive(id: string, currentUserId: string) {
     const adminId = await this.resolveAdminId(currentUserId);
-    if (!adminId) throw new ForbiddenException('Không có quyền cập nhật bảng giá');
+    if (!adminId)
+      throw new ForbiddenException('Không có quyền cập nhật bảng giá');
 
     const existing = await this.prisma.priceBoard.findFirst({
       where: { id, adminId },
     });
     if (!existing) {
-      throw new NotFoundException('Bảng giá không tồn tại hoặc bạn không có quyền sửa');
+      throw new NotFoundException(
+        'Bảng giá không tồn tại hoặc bạn không có quyền sửa',
+      );
     }
 
     return this.prisma.priceBoard.update({
@@ -209,7 +229,9 @@ export class PriceBoardService {
       where: { id, adminId },
     });
     if (!existing) {
-      throw new NotFoundException('Bảng giá không tồn tại hoặc bạn không có quyền xóa');
+      throw new NotFoundException(
+        'Bảng giá không tồn tại hoặc bạn không có quyền xóa',
+      );
     }
 
     await this.prisma.priceBoard.delete({ where: { id } });

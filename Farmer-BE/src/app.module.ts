@@ -13,11 +13,26 @@ import { CategoriesModule } from './categories/categories.module';
 import { PlotModule } from './plot/plot.module';
 import { SupervisorModule } from './supervisor/supervisor.module';
 import { InventoryStaffModule } from './inventory-staff/inventory-staff.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { FarmerModule } from './farmer/farmer.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UserModule, ProfileModule, MailModule, PriceBoardModule, OrderModule, CategoriesModule, PlotModule, SupervisorModule, InventoryStaffModule, FarmerModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    UserModule,
+    ProfileModule,
+    MailModule,
+    PriceBoardModule,
+    OrderModule,
+    CategoriesModule,
+    PlotModule,
+    SupervisorModule,
+    InventoryStaffModule,
+    InventoryModule,
+    FarmerModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

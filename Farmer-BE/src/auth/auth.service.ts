@@ -371,7 +371,11 @@ export class AuthService {
 
     // Gửi email
     try {
-      await this.mailService.sendPasswordResetEmail(user.email, resetLink, user.fullName);
+      await this.mailService.sendPasswordResetEmail(
+        user.email,
+        resetLink,
+        user.fullName,
+      );
     } catch (error) {
       console.error('Failed to send reset email:', error);
       // Vẫn return thành công để không leak thông tin

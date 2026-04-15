@@ -43,9 +43,14 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Cập nhật thông tin cơ bản của người dùng hiện tại' })
+  @ApiOperation({
+    summary: 'Cập nhật thông tin cơ bản của người dùng hiện tại',
+  })
   @ApiResponse({ status: 200, description: 'Cập nhật thành công' })
-  updateMe(@Body() body: { fullName?: string; phone?: string }, @Request() req: any) {
+  updateMe(
+    @Body() body: { fullName?: string; phone?: string },
+    @Request() req: any,
+  ) {
     return this.authService.updateMe(req.user.id, body);
   }
 
@@ -63,7 +68,10 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Gửi email đặt lại mật khẩu' })
-  @ApiResponse({ status: 200, description: 'Email đã được gửi (luôn return success)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email đã được gửi (luôn return success)',
+  })
   @ApiResponse({ status: 400, description: 'Email không hợp lệ' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
@@ -73,7 +81,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Đặt lại mật khẩu với token' })
   @ApiResponse({ status: 200, description: 'Mật khẩu đã được cập nhật' })
-  @ApiResponse({ status: 400, description: 'Token không hợp lệ hoặc đã hết hạn' })
+  @ApiResponse({
+    status: 400,
+    description: 'Token không hợp lệ hoặc đã hết hạn',
+  })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
   }

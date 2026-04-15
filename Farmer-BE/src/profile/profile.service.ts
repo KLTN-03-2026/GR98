@@ -230,7 +230,9 @@ export class ProfileService {
       where: { id: addressId, clientProfileId: clientProfile.id },
     });
     if (!address) {
-      throw new NotFoundException('Địa chỉ không tồn tại hoặc bạn không có quyền');
+      throw new NotFoundException(
+        'Địa chỉ không tồn tại hoặc bạn không có quyền',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -267,10 +269,14 @@ export class ProfileService {
       where: { id: addressId, clientProfileId: clientProfile.id },
     });
     if (!address) {
-      throw new NotFoundException('Địa chỉ không tồn tại hoặc bạn không có quyền');
+      throw new NotFoundException(
+        'Địa chỉ không tồn tại hoặc bạn không có quyền',
+      );
     }
 
-    await this.prisma.clientShippingAddress.delete({ where: { id: addressId } });
+    await this.prisma.clientShippingAddress.delete({
+      where: { id: addressId },
+    });
     return { id: addressId, deletedAt: new Date() };
   }
 
@@ -286,7 +292,9 @@ export class ProfileService {
       where: { id: addressId, clientProfileId: clientProfile.id },
     });
     if (!address) {
-      throw new NotFoundException('Địa chỉ không tồn tại hoặc bạn không có quyền');
+      throw new NotFoundException(
+        'Địa chỉ không tồn tại hoặc bạn không có quyền',
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {

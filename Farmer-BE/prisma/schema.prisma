@@ -427,11 +427,12 @@ model Contract {
   signatureUrl String?
   createdAt    DateTime       @default(now())
 
-  admin      AdminProfile @relation(fields: [adminId], references: [id])
-  farmer     Farmer       @relation(fields: [farmerId], references: [id])
-  plot       Plot         @relation(fields: [plotId], references: [id])
-  priceBoard PriceBoard?  @relation(fields: [priceBoardId], references: [id])
-  product    Product?
+  admin         AdminProfile   @relation(fields: [adminId], references: [id])
+  farmer        Farmer         @relation(fields: [farmerId], references: [id])
+  plot          Plot           @relation(fields: [plotId], references: [id])
+  priceBoard    PriceBoard?    @relation(fields: [priceBoardId], references: [id])
+  product       Product?
+  inventoryLots InventoryLot[]
 
   @@map("Contracts")
 }
@@ -603,6 +604,7 @@ model InventoryLot {
 
   warehouse    Warehouse              @relation(fields: [warehouseId], references: [id])
   product      Product                @relation(fields: [productId], references: [id])
+  contract     Contract?              @relation(fields: [contractId], references: [id])
   transactions WarehouseTransaction[]
 
   @@map("inventory_lots")

@@ -17,7 +17,20 @@ import { InventoryModule } from './inventory/inventory.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UserModule, ProfileModule, MailModule, PriceBoardModule, OrderModule, CategoriesModule, PlotModule, SupervisorModule, InventoryStaffModule, InventoryModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    UserModule,
+    ProfileModule,
+    MailModule,
+    PriceBoardModule,
+    OrderModule,
+    CategoriesModule,
+    PlotModule,
+    SupervisorModule,
+    InventoryStaffModule,
+    InventoryModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -5,7 +5,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateOrderDto, UpdateOrderDto, OrderQueryDto, CancelOrderDto } from './dto/create-order.dto';
+import {
+  CreateOrderDto,
+  UpdateOrderDto,
+  OrderQueryDto,
+  CancelOrderDto,
+} from './dto/create-order.dto';
 import { PaymentStatus, FulfillStatus, Role } from '@prisma/client';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
 
@@ -19,22 +24,30 @@ export class OrderService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return null;
     if (user.role === Role.ADMIN) {
-      const profile = await this.prisma.adminProfile.findUnique({ where: { userId } });
+      const profile = await this.prisma.adminProfile.findUnique({
+        where: { userId },
+      });
       return profile?.id ?? null;
     }
     if (user.role === Role.SUPERVISOR) {
-      const profile = await this.prisma.supervisorProfile.findUnique({ where: { userId } });
+      const profile = await this.prisma.supervisorProfile.findUnique({
+        where: { userId },
+      });
       return profile?.adminId ?? null;
     }
     if (user.role === Role.CLIENT) {
-      const profile = await this.prisma.clientProfile.findUnique({ where: { userId } });
+      const profile = await this.prisma.clientProfile.findUnique({
+        where: { userId },
+      });
       return profile?.adminId ?? null;
     }
     return null;
   }
 
   private async getClientProfileId(userId: string): Promise<string | null> {
-    const profile = await this.prisma.clientProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.clientProfile.findUnique({
+      where: { userId },
+    });
     return profile?.id ?? null;
   }
 
@@ -110,10 +123,14 @@ export class OrderService {
     for (const item of dto.items) {
       const product = productMap.get(item.productId);
       if (!product) {
-        throw new BadRequestException(`Sản phẩm "${item.productId}" không tồn tại`);
+        throw new BadRequestException(
+          `Sản phẩm "${item.productId}" không tồn tại`,
+        );
       }
       if (item.quantityKg < 0.25) {
-        throw new BadRequestException(`Số lượng tối thiểu là 0.25kg cho "${product.name}"`);
+        throw new BadRequestException(
+          `Số lượng tối thiểu là 0.25kg cho "${product.name}"`,
+        );
       }
       const itemSubtotal = product.pricePerKg * item.quantityKg;
       subtotal += itemSubtotal;
@@ -130,7 +147,7 @@ export class OrderService {
     const shippingFee = subtotal >= 500000 ? 0 : 25000;
     const total = subtotal + shippingFee;
 
-    const adminIdForOrder = clientProfile.adminId as string;
+    const adminIdForOrder = clientProfile.adminId;
     const orderNo = this.generateOrderNo(adminIdForOrder);
     const orderCode = this.generateOrderCode();
 
@@ -170,7 +187,9 @@ export class OrderService {
   // ─── findAll (admin) ─────────────────────────────────────────────────────
 
   async findAll(query: OrderQueryDto, currentUserId: string) {
-    const currentUser = await this.prisma.user.findUnique({ where: { id: currentUserId } });
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
     if (!currentUser) throw new NotFoundException('Người dùng không tồn tại');
 
     const adminId = await this.resolveAdminId(currentUserId);
@@ -178,8 +197,11 @@ export class OrderService {
     const where: any = {};
     if (currentUser.role === Role.CLIENT) {
       // CLIENT: chỉ thấy đơn của mình
-      const clientProfile = await this.prisma.clientProfile.findUnique({ where: { userId: currentUserId } });
-      if (!clientProfile) throw new ForbiddenException('Không có quyền xem đơn hàng');
+      const clientProfile = await this.prisma.clientProfile.findUnique({
+        where: { userId: currentUserId },
+      });
+      if (!clientProfile)
+        throw new ForbiddenException('Không có quyền xem đơn hàng');
       where.clientId = clientProfile.id;
     } else {
       // ADMIN/SUPERVISOR: theo tenant
@@ -249,7 +271,9 @@ export class OrderService {
   // ─── findOne ──────────────────────────────────────────────────────────────
 
   async findOne(id: string, currentUserId: string) {
-    const currentUser = await this.prisma.user.findUnique({ where: { id: currentUserId } });
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
     if (!currentUser) throw new NotFoundException('Người dùng không tồn tại');
 
     const order = await this.prisma.order.findUnique({
@@ -278,7 +302,9 @@ export class OrderService {
 
     // CLIENT: chỉ xem đơn của mình
     if (currentUser.role === Role.CLIENT) {
-      const clientProfile = await this.prisma.clientProfile.findUnique({ where: { userId: currentUserId } });
+      const clientProfile = await this.prisma.clientProfile.findUnique({
+        where: { userId: currentUserId },
+      });
       if (!clientProfile || order.clientId !== clientProfile.id) {
         throw new ForbiddenException('Bạn không có quyền xem đơn hàng này');
       }
@@ -290,11 +316,15 @@ export class OrderService {
   // ─── update (admin) ────────────────────────────────────────────────────────
 
   async update(id: string, dto: UpdateOrderDto, currentUserId: string) {
-    const currentUser = await this.prisma.user.findUnique({ where: { id: currentUserId } });
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
     if (!currentUser) throw new NotFoundException('Người dùng không tồn tại');
 
     if (currentUser.role === Role.CLIENT) {
-      throw new ForbiddenException('Khách hàng không có quyền cập nhật đơn hàng');
+      throw new ForbiddenException(
+        'Khách hàng không có quyền cập nhật đơn hàng',
+      );
     }
 
     const adminId = await this.resolveAdminId(currentUserId);
@@ -302,7 +332,10 @@ export class OrderService {
     const existing = await this.prisma.order.findFirst({
       where: { id, adminId: adminId as string },
     });
-    if (!existing) throw new NotFoundException('Đơn hàng không tồn tại hoặc bạn không có quyền sửa');
+    if (!existing)
+      throw new NotFoundException(
+        'Đơn hàng không tồn tại hoặc bạn không có quyền sửa',
+      );
 
     const updated = await this.prisma.order.update({
       where: { id },

@@ -1,4 +1,13 @@
-import { Controller, Get, Request, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Request,
+  UseGuards,
+  Param,
+  Query,
+  Post,
+  Body,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -20,17 +29,116 @@ export class InventoryController {
 
   @Get('dashboard')
   @Roles(Role.ADMIN, Role.INVENTORY)
-  @ApiOperation({ summary: 'Dashboard tổng quan — KPI + giao dịch gần đây + đơn chờ' })
+  @ApiOperation({
+    summary: 'Dashboard tổng quan — KPI + giao dịch gần đây + đơn chờ',
+  })
   @ApiResponse({ status: 200, description: 'Dữ liệu dashboard' })
-  getDashboard(@Request() req: any) {
+  getDashboard(@Request() req: { user: any }) {
     return this.inventoryService.getDashboard(req.user);
   }
 
   @Get('dashboard/chart')
   @Roles(Role.ADMIN, Role.INVENTORY)
   @ApiOperation({ summary: 'Dữ liệu biểu đồ giao dịch 7 ngày' })
-  @ApiResponse({ status: 200, description: 'Dữ liệu chart (labels + inbound + outbound + adjustment)' })
-  getChartData(@Request() req: any) {
+  @ApiResponse({
+    status: 200,
+    description: 'Dữ liệu chart (labels + inbound + outbound + adjustment)',
+  })
+  getChartData(@Request() req: { user: any }) {
     return this.inventoryService.getChartData(req.user);
+  }
+
+  @Get('warehouses')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách kho được phân công' })
+  @ApiResponse({ status: 200, description: 'Danh sách kho' })
+  getWarehouses(@Request() req: { user: any }) {
+    return this.inventoryService.getWarehouses(req.user);
+  }
+
+  @Get('warehouses/:id')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Chi tiết kho hàng — bao gồm lô hàng và giao dịch' })
+  @ApiResponse({ status: 200, description: 'Chi tiết kho' })
+  getWarehouseById(@Param('id') id: string, @Request() req: { user: any }) {
+    return this.inventoryService.getWarehouseById(id, req.user);
+  }
+
+  @Get('lots')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách lô hàng nhập kho' })
+  @ApiResponse({ status: 200, description: 'Danh sách lô hàng' })
+  getLots(
+    @Request() req: { user: any },
+    @Query('warehouseId') warehouseId?: string,
+    @Query('productId') productId?: string,
+    @Query('qualityGrade') qualityGrade?: string,
+  ) {
+    return this.inventoryService.getLots(req.user, {
+      warehouseId,
+      productId,
+      qualityGrade,
+    });
+  }
+
+  @Post('lots')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Nhập kho lô hàng mới' })
+  @ApiResponse({ status: 201, description: 'Lô hàng đã được tạo' })
+  createLot(@Request() req: { user: any }, @Body() data: any) {
+    return this.inventoryService.createLot(req.user, data);
+  }
+
+  @Get('lots/:id')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Chi tiết lô hàng — Traceability' })
+  @ApiResponse({ status: 200, description: 'Chi tiết lô hàng' })
+  getLotById(@Param('id') id: string, @Request() req: { user: any }) {
+    return this.inventoryService.getLotById(id, req.user);
+  }
+
+  @Get('products')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách sản phẩm nông sản' })
+  @ApiResponse({ status: 200, description: 'Danh sách sản phẩm' })
+  getProducts(@Request() req: { user: any }) {
+    return this.inventoryService.getProducts(req.user);
+  }
+
+  @Get('contracts')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách hợp đồng đang hoạt động' })
+  @ApiResponse({ status: 200, description: 'Danh sách hợp đồng' })
+  getActiveContracts(@Request() req: { user: any }) {
+    return this.inventoryService.getActiveContracts(req.user);
+  }
+
+  @Get('transactions')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách giao dịch kho' })
+  @ApiResponse({ status: 200, description: 'Danh sách giao dịch' })
+  getTransactions(
+    @Request() req: { user: any },
+    @Query('warehouseId') warehouseId?: string,
+    @Query('type') type?: string,
+    @Query('productId') productId?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    return this.inventoryService.getTransactions(req.user, {
+      warehouseId,
+      type,
+      productId,
+      fromDate,
+      toDate,
+    });
+  }
+
+  @Post('transactions')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Tạo giao dịch kho mới (Nhập/Xuất/Điều chỉnh)' })
+  @ApiResponse({ status: 201, description: 'Giao dịch đã được tạo' })
+  createTransaction(@Request() req: { user: any }, @Body() data: any) {
+    return this.inventoryService.createTransaction(req.user, data);
   }
 }

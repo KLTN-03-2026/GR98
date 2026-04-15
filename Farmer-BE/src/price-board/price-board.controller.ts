@@ -20,7 +20,11 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { PriceBoardService } from './price-board.service';
-import { CreatePriceBoardDto, UpdatePriceBoardDto, PriceBoardQueryDto } from './dto/create-price-board.dto';
+import {
+  CreatePriceBoardDto,
+  UpdatePriceBoardDto,
+  PriceBoardQueryDto,
+} from './dto/create-price-board.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';

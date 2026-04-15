@@ -4,7 +4,11 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCategoryDto, UpdateCategoryDto, ReorderCategoryDto } from './dto/create-category.dto';
+import {
+  CreateCategoryDto,
+  UpdateCategoryDto,
+  ReorderCategoryDto,
+} from './dto/create-category.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -24,7 +28,10 @@ export class CategoriesService {
       .replace(/-+/g, '-');
   }
 
-  private async ensureSlugUnique(slug: string, excludeId?: string): Promise<string> {
+  private async ensureSlugUnique(
+    slug: string,
+    excludeId?: string,
+  ): Promise<string> {
     const existing = await this.prisma.category.findFirst({
       where: { slug, ...(excludeId ? { id: { not: excludeId } } : {}) },
     });
@@ -123,7 +130,9 @@ export class CategoriesService {
     // Lấy max sortOrder nếu không truyền
     let sortOrder = dto.sortOrder ?? 0;
     if (dto.sortOrder === undefined) {
-      const max = await this.prisma.category.aggregate({ _max: { sortOrder: true } });
+      const max = await this.prisma.category.aggregate({
+        _max: { sortOrder: true },
+      });
       sortOrder = (max._max.sortOrder ?? 0) + 1;
     }
 

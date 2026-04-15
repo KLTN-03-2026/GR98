@@ -17,7 +17,9 @@ export class InventoryStaffService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async resolveAdminId(currentUserId: string): Promise<string> {
-    const user = await this.prisma.user.findUnique({ where: { id: currentUserId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
     if (!user || user.role !== Role.ADMIN) {
       throw new ForbiddenException('Bạn không có quyền quản lý nhân viên kho');
     }
@@ -33,7 +35,9 @@ export class InventoryStaffService {
     return adminProfile.id;
   }
 
-  private async generateEmployeeCode(tx: Prisma.TransactionClient): Promise<string> {
+  private async generateEmployeeCode(
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
     for (let i = 0; i < 6; i += 1) {
       const now = Date.now().toString();
       const candidate = `IV-${now.slice(-6)}${Math.floor(Math.random() * 9)}`;
@@ -255,7 +259,11 @@ export class InventoryStaffService {
     return this.mapInventoryStaff(item);
   }
 
-  async update(id: string, dto: UpdateInventoryStaffDto, currentUserId: string) {
+  async update(
+    id: string,
+    dto: UpdateInventoryStaffDto,
+    currentUserId: string,
+  ) {
     const adminId = await this.resolveAdminId(currentUserId);
 
     const existing = await this.prisma.user.findFirst({

@@ -38,8 +38,13 @@ export class CategoriesController {
   // ─── PUBLIC: Danh sách danh mục cho client ────────────────────────────────
 
   @Get()
-  @ApiOperation({ summary: 'Danh sách danh mục (client — không cần đăng nhập)' })
-  @ApiResponse({ status: 200, description: 'Danh sách danh mục kèm productCount' })
+  @ApiOperation({
+    summary: 'Danh sách danh mục (client — không cần đăng nhập)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách danh mục kèm productCount',
+  })
   findAll(@Query() query: CategoryQueryDto) {
     return this.categoriesService.findAll(query);
   }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Eye, Search, Package, CheckCircle2, Truck, Clock, XCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { useOrders, useOrder, useUpdateOrder } from '@/client/api';
+import { useOrders, useOrder, useUpdateOrder, type UpdateOrderPayload } from '@/client/api';
 import { formatPrice } from '@/client/data/mock-data';
 import {
   PAYMENT_STATUS_LABELS,
@@ -22,6 +22,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -39,10 +47,11 @@ import {
 } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import type { FulfillStatus, PaymentStatus } from '@/client/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-const FULFILL_COLORS: Record<string, string> = {
+const FULFILL_COLORS: Record<FulfillStatus, string> = {
   PENDING: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
   PACKING: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
   SHIPPED: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
@@ -50,14 +59,14 @@ const FULFILL_COLORS: Record<string, string> = {
   CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 };
 
-const PAYMENT_COLORS: Record<string, string> = {
+const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   PAID: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   FAILED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
   REFUNDED: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
 };
 
-function FulfillStatusBadge({ status }: { status: string }) {
+function FulfillStatusBadge({ status }: { status: FulfillStatus }) {
   const icons: Record<string, React.ReactNode> = {
     PENDING: <Clock className="h-3.5 w-3.5" />,
     PACKING: <Package className="h-3.5 w-3.5" />,
@@ -73,10 +82,10 @@ function FulfillStatusBadge({ status }: { status: string }) {
   );
 }
 
-function PaymentStatusBadge({ status }: { status: string }) {
+function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
   return (
     <Badge className={cn('font-medium text-xs', PAYMENT_COLORS[status] ?? '')}>
-      {PAYMENT_STATUS_LABELS[status as keyof typeof PAYMENT_STATUS_LABELS] ?? status}
+      {PAYMENT_STATUS_LABELS[status] ?? status}
     </Badge>
   );
 }
@@ -108,18 +117,20 @@ function UpdateOrderDialog({ orderId }: { orderId: string }) {
   };
 
   const handleSubmit = async () => {
-    const data: Record<string, string> = {};
-    if (order && fulfillStatus !== order.fulfillStatus) data.fulfillStatus = fulfillStatus;
-    if (order && paymentStatus !== order.paymentStatus) data.paymentStatus = paymentStatus;
-    if (trackingCode !== (order?.trackingCode ?? '')) data.trackingCode = trackingCode || undefined;
+    if (!order) return;
 
-    if (Object.keys(data).length === 0) {
+    const updateData: UpdateOrderPayload = {};
+    if (fulfillStatus !== order.fulfillStatus) updateData.fulfillStatus = fulfillStatus as FulfillStatus;
+    if (paymentStatus !== order.paymentStatus) updateData.paymentStatus = paymentStatus as PaymentStatus;
+    if (trackingCode !== (order.trackingCode ?? '')) updateData.trackingCode = trackingCode || undefined;
+
+    if (Object.keys(updateData).length === 0) {
       setOpen(false);
       return;
     }
 
     try {
-      await updateMutation.mutateAsync({ orderId, data });
+      await updateMutation.mutateAsync({ orderId, data: updateData });
       setOpen(false);
     } catch {
       // toast handled in hook
@@ -368,11 +379,11 @@ function TableSkeleton() {
 
 // ─── Main Page ───────────────────────────────────────────────────────────
 
-export default function AdminOrdersPage() {
+export default function InventoryOrdersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [fulfillFilter, setFulfillFilter] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState('');
+  const [fulfillFilter, setFulfillFilter] = useState<string>('');
+  const [paymentFilter, setPaymentFilter] = useState<string>('');
 
   const { data, isLoading, isFetching } = useOrders({
     page,
@@ -470,59 +481,63 @@ export default function AdminOrdersPage() {
           ) : (
             <>
               {/* Desktop Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 pr-4 font-medium">Mã đơn</th>
-                      <th className="pb-3 pr-4 font-medium">Khách hàng</th>
-                      <th className="pb-3 pr-4 font-medium">Thanh toán</th>
-                      <th className="pb-3 pr-4 font-medium">Giao hàng</th>
-                      <th className="pb-3 pr-4 font-medium text-right">Tổng tiền</th>
-                      <th className="pb-3 pr-4 font-medium text-right">Ngày đặt</th>
-                      <th className="pb-3 font-medium text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
+              <div className="hidden md:block rounded-xl border bg-card/50 overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead className="font-semibold text-foreground">Mã đơn</TableHead>
+                      <TableHead className="font-semibold text-foreground">Khách hàng</TableHead>
+                      <TableHead className="font-semibold text-foreground">Thanh toán</TableHead>
+                      <TableHead className="font-semibold text-foreground">Giao hàng</TableHead>
+                      <TableHead className="font-semibold text-foreground text-right">Tổng tiền</TableHead>
+                      <TableHead className="font-semibold text-foreground text-right">Ngày đặt</TableHead>
+                      <TableHead className="font-semibold text-foreground text-right">Thao tác</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {items.map((order) => (
-                      <tr key={order.id} className="align-top">
-                        <td className="py-3 pr-4">
-                          <span className="font-mono font-semibold">{order.orderNo}</span>
-                        </td>
-                        <td className="py-3 pr-4">
+                      <TableRow key={order.id} className="group hover:bg-primary/5 transition-colors">
+                        <TableCell>
+                          <span className="font-mono font-bold text-primary group-hover:underline cursor-pointer">
+                            {order.orderNo}
+                          </span>
+                        </TableCell>
+                        <TableCell>
                           {order.client?.user ? (
-                            <div className="text-sm">
-                              <p className="font-medium">{order.client.user.fullName}</p>
-                              <p className="text-muted-foreground">{order.client.user.email}</p>
+                            <div className="space-y-0.5">
+                              <p className="font-medium text-foreground">{order.client.user.fullName}</p>
+                              <p className="text-xs text-muted-foreground">{order.client.user.email}</p>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground italic text-xs">Khách lẻ</span>
                           )}
-                        </td>
-                        <td className="py-3 pr-4">
+                        </TableCell>
+                        <TableCell>
                           <PaymentStatusBadge status={order.paymentStatus} />
-                        </td>
-                        <td className="py-3 pr-4">
+                        </TableCell>
+                        <TableCell>
                           <FulfillStatusBadge status={order.fulfillStatus} />
-                        </td>
-                        <td className="py-3 pr-4 text-right font-mono font-semibold text-primary">
-                          {formatPrice(order.total)}
-                        </td>
-                        <td className="py-3 pr-4 text-right text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="font-mono font-bold text-lg text-primary">
+                            {formatPrice(order.total)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground text-xs">
                           {new Date(order.orderedAt).toLocaleDateString('vi-VN', {
                             day: '2-digit', month: '2-digit', year: 'numeric',
                           })}
-                        </td>
-                        <td className="py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                             <OrderDetailSheet orderId={order.id} />
                             <UpdateOrderDialog orderId={order.id} />
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
 
               {/* Mobile Cards */}
@@ -582,6 +597,6 @@ export default function AdminOrdersPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </div >
   );
 }

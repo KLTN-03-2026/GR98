@@ -96,6 +96,8 @@ export interface Product {
   stockKg: number;
   minOrderKg: number;
   qrCode: string;
+  sku: string;
+  unit?: string;
   imageUrls: string[];
   status: ProductStatus;
   harvestDate?: string;

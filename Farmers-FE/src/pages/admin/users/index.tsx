@@ -351,12 +351,19 @@ export default function UsersManagementPage({
                   const tone = getCardTone(user.role);
 
                   return (
-                    <button
+                    <div
                       key={user.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleEdit(user)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleEdit(user);
+                        }
+                      }}
                       className={cn(
-                        "rounded-2xl border border-l-4 bg-linear-to-br p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md",
+                        "cursor-pointer rounded-2xl border border-l-4 bg-linear-to-br p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                         tone.border,
                         tone.hover,
                         tone.bg,
@@ -451,7 +458,7 @@ export default function UsersManagementPage({
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

@@ -167,6 +167,7 @@ export class UserService {
       search?: string;
       role?: Role;
       status?: UserStatus;
+      excludeClient?: boolean;
     },
   ) {
     const currentUser = await this.prisma.user.findUnique({
@@ -181,7 +182,11 @@ export class UserService {
 
     const where: any = {
       ...tenantFilter,
-      ...(filters?.role ? { role: filters.role } : {}),
+      ...(filters?.role
+        ? { role: filters.role }
+        : filters?.excludeClient
+          ? { role: { not: Role.CLIENT } }
+          : {}),
       ...(filters?.status ? { status: filters.status } : {}),
       ...(filters?.search
         ? {

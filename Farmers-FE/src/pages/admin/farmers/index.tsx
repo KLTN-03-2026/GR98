@@ -5,6 +5,7 @@ export default function AdminFarmersPage() {
     <UsersManagementPage
       fixedRole="CLIENT"
       hideRoleSelector
+      readOnlyList
       pageTitle="Nông dân"
     />
   );

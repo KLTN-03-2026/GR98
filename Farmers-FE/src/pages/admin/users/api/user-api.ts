@@ -14,6 +14,7 @@ export const userApi = {
     search?: string;
     role?: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
     status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+    excludeClient?: boolean;
   }) => apiGet<ApiSuccessResponse<PaginatedUsersResponse>>('/users', { params }),
 
   getById: (id: string) =>

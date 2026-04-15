@@ -17,7 +17,6 @@ import {
   VoicemailIcon,
   UserIcon,
   ShieldCheckIcon,
-  MapIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -69,8 +68,6 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [shouldRestoreSheet, setShouldRestoreSheet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<string | undefined>(undefined);
-
   const form = useForm<UserCreateFormInput>({
     resolver: zodResolver(userCreateFormSchema),
     defaultValues: {
@@ -91,7 +88,6 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
       setShouldRestoreSheet(false);
       form.reset();
       form.clearErrors();
-      setSelectedRole(undefined);
     }
   }, [open, form]);
 
@@ -109,12 +105,8 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
         password: values.password,
         fullName: values.fullName,
         phone: values.phone || undefined,
-        role: values.role as 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT',
+        role: values.role as 'SUPERVISOR' | 'INVENTORY',
         ...(avatarBase64 && { avatar: avatarBase64 }),
-        ...(values.role === 'CLIENT' && {
-          province: values.province || undefined,
-          defaultAddress: values.defaultAddress || undefined,
-        }),
       };
 
       await userApi.create(payload);
@@ -271,7 +263,6 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
                         <Select
                           onValueChange={(val) => {
                             field.onChange(val);
-                            setSelectedRole(val);
                           }}
                           value={field.value}
                         >
@@ -281,52 +272,14 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="ADMIN">Quản trị viên (Admin)</SelectItem>
                             <SelectItem value="SUPERVISOR">Giám sát viên (Supervisor)</SelectItem>
                             <SelectItem value="INVENTORY">Nhân viên kho (Inventory)</SelectItem>
-                            <SelectItem value="CLIENT">Khách hàng (Client)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
-                  {/* ── CLIENT-only fields ─────────────────────────────────────── */}
-                  {selectedRole === 'CLIENT' && (
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="province"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tỉnh / Thành phố</FormLabel>
-                            <FormControl>
-                              <Input placeholder="TP. Hồ Chí Minh" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="defaultAddress"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-1.5">
-                              <MapIcon className="size-3.5" />
-                              Địa chỉ mặc định
-                            </FormLabel>
-                            <FormControl>
-                              <Input placeholder="123 Đường ABC, Quận 1, TP.HCM" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
 
                   {/* Avatar */}
                   <FormField

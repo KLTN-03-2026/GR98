@@ -8,8 +8,6 @@ import {
   VoicemailIcon,
   UserIcon,
   ShieldCheckIcon,
-  MapIcon,
-  MapPin,
   ToggleLeftIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -77,7 +75,6 @@ export default function UpdateUserForm({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [shouldRestoreSheet, setShouldRestoreSheet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<string | undefined>(undefined);
 
   const form = useForm<UserUpdateFormInput>({
     resolver: zodResolver(userUpdateFormSchema),
@@ -102,13 +99,12 @@ export default function UpdateUserForm({
         fullName: user.fullName,
         email: user.email,
         phone: user.phone ?? '',
-        role: user.role,
+        role: user.role === 'CLIENT' ? undefined : user.role,
         password: '',
         province: user.clientProfile?.province ?? '',
         defaultAddress: user.clientProfile?.defaultAddress ?? '',
         avatar: undefined,
       });
-      setSelectedRole(user.role);
     }
   }, [open, user, form]);
 
@@ -131,13 +127,6 @@ export default function UpdateUserForm({
       } else if (values.avatar === null && user.avatar) {
         // User removed avatar
         payload.clearAvatar = true;
-      }
-
-      if (values.role === 'CLIENT') {
-        if (values.defaultAddress !== (user.clientProfile?.defaultAddress ?? ''))
-          payload.defaultAddress = values.defaultAddress;
-        if (values.province !== (user.clientProfile?.province ?? ''))
-          payload.province = values.province;
       }
 
       if (Object.keys(payload).length === 0) {
@@ -285,10 +274,7 @@ export default function UpdateUserForm({
                           Vai trò
                         </FormLabel>
                         <Select
-                          onValueChange={(val) => {
-                            field.onChange(val);
-                            setSelectedRole(val);
-                          }}
+                          onValueChange={(val) => field.onChange(val)}
                           value={field.value}
                         >
                           <FormControl>
@@ -300,7 +286,6 @@ export default function UpdateUserForm({
                             <SelectItem value="ADMIN">Quản trị viên (Admin)</SelectItem>
                             <SelectItem value="SUPERVISOR">Giám sát viên (Supervisor)</SelectItem>
                             <SelectItem value="INVENTORY">Nhân viên kho (Inventory)</SelectItem>
-                            <SelectItem value="CLIENT">Khách hàng (Client)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -362,45 +347,6 @@ export default function UpdateUserForm({
                       </FormItem>
                     )}
                   />
-
-                  {/* ── CLIENT-only fields ─────────────────────────────────────── */}
-                  {selectedRole === 'CLIENT' && (
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="province"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-1.5">
-                              <MapPin className="size-3.5" />
-                              Tỉnh / Thành phố
-                            </FormLabel>
-                            <FormControl>
-                              <Input placeholder="TP. Hồ Chí Minh" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="defaultAddress"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-1.5">
-                              <MapIcon className="size-3.5" />
-                              Địa chỉ mặc định
-                            </FormLabel>
-                            <FormControl>
-                              <Input placeholder="123 Đường ABC, Quận 1, TP.HCM" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
 
                 </div>
               </div>

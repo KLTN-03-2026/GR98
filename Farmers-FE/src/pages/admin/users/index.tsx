@@ -47,6 +47,8 @@ type FixedUserRole = Exclude<UserRole, "ALL">;
 type UsersManagementPageProps = {
   fixedRole?: FixedUserRole;
   hideRoleSelector?: boolean;
+  excludeClientByDefault?: boolean;
+  readOnlyList?: boolean;
   pageTitle?: string;
 };
 
@@ -165,6 +167,8 @@ function UserCardSkeleton() {
 export default function UsersManagementPage({
   fixedRole,
   hideRoleSelector = false,
+  excludeClientByDefault = false,
+  readOnlyList = false,
   pageTitle = "người dùng",
 }: UsersManagementPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -203,6 +207,7 @@ export default function UsersManagementPage({
   // ─── TanStack Query / Mutation hooks ─────────────────────────────────────
   const activeStatus = statusFilter === "ALL" ? undefined : statusFilter;
   const activeRole = fixedRole ?? (roleFilter === "ALL" ? undefined : roleFilter);
+  const activeExcludeClient = !fixedRole && excludeClientByDefault ? true : undefined;
 
   const {
     data: queryData,
@@ -215,6 +220,7 @@ export default function UsersManagementPage({
     search: debouncedSearch || undefined,
     status: activeStatus,
     role: activeRole,
+    excludeClient: activeExcludeClient,
   });
 
   const deleteMutation = useDeleteUser();
@@ -283,7 +289,6 @@ export default function UsersManagementPage({
                     <SelectItem value="ADMIN">Quản trị viên</SelectItem>
                     <SelectItem value="SUPERVISOR">Giám sát viên</SelectItem>
                     <SelectItem value="INVENTORY">Nhân viên kho</SelectItem>
-                    <SelectItem value="CLIENT">Khách hàng</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -308,6 +313,7 @@ export default function UsersManagementPage({
               <Button
                 onClick={() => setIsCreateOpen(true)}
                 className="rounded-full"
+                disabled={readOnlyList}
               >
                 <Plus className="h-4 w-4" />
                 Thêm người dùng
@@ -351,12 +357,24 @@ export default function UsersManagementPage({
                   const tone = getCardTone(user.role);
 
                   return (
-                    <button
+                    <div
                       key={user.id}
-                      type="button"
-                      onClick={() => handleEdit(user)}
+                      role="button"
+                      tabIndex={readOnlyList ? -1 : 0}
+                      onClick={() => {
+                        if (readOnlyList) return;
+                        handleEdit(user);
+                      }}
+                      onKeyDown={(event) => {
+                        if (readOnlyList) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleEdit(user);
+                        }
+                      }}
                       className={cn(
-                        "rounded-2xl border border-l-4 bg-linear-to-br p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md",
+                        "rounded-2xl border border-l-4 bg-linear-to-br p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                        !readOnlyList && "cursor-pointer",
                         tone.border,
                         tone.hover,
                         tone.bg,
@@ -425,33 +443,35 @@ export default function UsersManagementPage({
                         </div>
                       </div>
 
-                      <div className="mt-4 flex items-center justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-primary"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleEdit(user);
-                          }}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleDeletePrompt(user);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </button>
+                      {!readOnlyList && (
+                        <div className="mt-4 flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-primary"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleEdit(user);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDeletePrompt(user);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

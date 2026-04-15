@@ -23,7 +23,7 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -109,17 +109,23 @@ export class UserController {
   })
   @ApiQuery({ name: 'role', required: false, enum: Role })
   @ApiQuery({ name: 'status', required: false, enum: UserStatus })
+  @ApiQuery({
+    name: 'excludeClient',
+    required: false,
+    type: Boolean,
+    description: 'Ẩn role CLIENT khỏi danh sách (dùng cho tab users nội bộ)',
+  })
   findAll(
-    @Query() pagination: PaginationDto,
-    @Query('search') search: string,
-    @Query('role') role: Role,
-    @Query('status') status: UserStatus,
+    @Query() query: ListUsersQueryDto,
     @Request() req: any,
   ) {
-    return this.userService.findAll(pagination, req.user.id, {
-      search,
-      role,
-      status,
+    const excludeClient = query.excludeClient ?? query.xcludeClient;
+
+    return this.userService.findAll(query, req.user.id, {
+      search: query.search?.trim() || undefined,
+      role: query.role,
+      status: query.status,
+      excludeClient,
     });
   }
 

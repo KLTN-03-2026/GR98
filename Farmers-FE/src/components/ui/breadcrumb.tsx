@@ -50,6 +50,14 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
 // Hook để tự động tạo breadcrumb từ router path
 export function useBreadcrumb() {
   const location = useLocation();
+  const activeTab = new URLSearchParams(location.search).get("tab");
+
+  const getUsersTabLabel = () => {
+    if (activeTab === "farmers") return "Nông dân";
+    if (activeTab === "supervisors") return "Giám sát viên";
+    if (activeTab === "inventory-staff") return "Nhân viên kho";
+    return "Users & Roles";
+  };
   
   const generateBreadcrumb = (): BreadcrumbItem[] => {
     const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -69,7 +77,7 @@ export function useBreadcrumb() {
         'dashboard': 'Dashboard',
         'user': 'User',
         'system': 'System',
-        'users': 'Users & Roles',
+        'users': getUsersTabLabel(),
         'zones': 'Zones',
         'farmers': 'Farmers',
         'plots': 'Plots',

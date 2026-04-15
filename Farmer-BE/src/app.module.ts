@@ -14,6 +14,7 @@ import { PlotModule } from './plot/plot.module';
 import { SupervisorModule } from './supervisor/supervisor.module';
 import { InventoryStaffModule } from './inventory-staff/inventory-staff.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { FarmerModule } from './farmer/farmer.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
@@ -30,6 +31,7 @@ import { InventoryModule } from './inventory/inventory.module';
     SupervisorModule,
     InventoryStaffModule,
     InventoryModule,
+    FarmerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

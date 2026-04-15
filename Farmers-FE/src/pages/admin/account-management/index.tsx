@@ -20,7 +20,7 @@ export default function AdminAccountManagementPage() {
   return (
     <div className="h-full min-h-0 flex flex-col p-4 sm:p-6">
       <div className="min-h-0 flex-1">
-        {activeTab === "users" && <UsersManagementPage />}
+        {activeTab === "users" && <UsersManagementPage excludeClientByDefault />}
         {activeTab === "supervisors" && <AdminSupervisorsPage />}
         {activeTab === "inventory-staff" && <AdminInventoryStaffPage />}
         {activeTab === "farmers" && <AdminFarmersPage />}

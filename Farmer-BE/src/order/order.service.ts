@@ -35,6 +35,12 @@ export class OrderService {
       });
       return profile?.adminId ?? null;
     }
+    if (user.role === Role.INVENTORY) {
+      const profile = await this.prisma.inventoryProfile.findUnique({
+        where: { userId },
+      });
+      return profile?.adminId ?? null;
+    }
     if (user.role === Role.CLIENT) {
       const profile = await this.prisma.clientProfile.findUnique({
         where: { userId },

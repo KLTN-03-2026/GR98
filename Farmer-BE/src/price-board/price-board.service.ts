@@ -34,6 +34,12 @@ export class PriceBoardService {
       });
       return profile?.adminId ?? null;
     }
+    if (user.role === Role.INVENTORY) {
+      const profile = await this.prisma.inventoryProfile.findUnique({
+        where: { userId },
+      });
+      return profile?.adminId ?? null;
+    }
     return null;
   }
 

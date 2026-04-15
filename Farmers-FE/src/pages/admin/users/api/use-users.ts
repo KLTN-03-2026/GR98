@@ -12,6 +12,7 @@ export function useUsers(params?: {
   search?: string;
   role?: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
   status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  excludeClient?: boolean;
 }) {
   return useQuery({
     queryKey: ['users', params],

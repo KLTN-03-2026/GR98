@@ -2,19 +2,15 @@ import {
     BookOpenCheck,
     Boxes,
     ClipboardList,
-    Contact,
     FileSpreadsheet,
     Handshake,
-    LayoutGrid,
     LayoutDashboard,
     MapPinned,
     Package,
     ReceiptText,
     ScanSearch,
     ShieldCheck,
-    ShoppingBag,
     Sprout,
-    Star,
     Users,
     Warehouse,
     Layers,
@@ -44,10 +40,7 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
 
             // Identity & Access (People Management)
             { icon: ShieldCheck, label: 'Quản lý Tài khoản', category: 'people', path: `${basePath}/users` },
-            { icon: Users, label: 'Giám sát viên', category: 'people', path: `${basePath}/supervisors` },
-            { icon: Warehouse, label: 'Nhân viên kho', category: 'people', path: `${basePath}/inventory-staff` },
-            { icon: Users, label: 'Quản lý Nông dân', category: 'people', path: `${basePath}/farmers` },
-
+            
             // HRM & Business Area
             { icon: MapPinned, label: 'Quản lý Vùng trồng', category: 'management', path: `${basePath}/zones` },
             { icon: Sprout, label: 'Quản lý Lô đất', category: 'management', path: `${basePath}/plots` },

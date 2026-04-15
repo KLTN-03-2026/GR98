@@ -1,20 +1,17 @@
-import type { RouteObject } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
 import RootLayout from '@/layouts/RootLayout';
 import DashboardLayout from '@/layouts/dashboard.layout';
 import AdminAuthLayout from '@/layouts/admin-auth.layout';
 import SupervisorAuthLayout from '@/layouts/supervisor-auth.layout';
 import InventoryAuthLayout from '@/layouts/inventory-auth.layout';
-import AdminUsersManagementPage from '@/pages/admin/users';
+import AdminAccountManagementPage from '@/pages/admin/account-management';
 import AdminOverviewPage from '@/pages/admin/overview';
 import AdminZonesPage from '@/pages/admin/zones';
-import AdminFarmersPage from '@/pages/admin/farmers';
 import AdminPlotsPage from '@/pages/admin/plots';
 import AdminContractsPage from '@/pages/admin/contracts';
 import AdminDailyReportsPage from '@/pages/admin/daily-reports';
 import AdminOrdersPage from '@/pages/admin/orders';
 import AdminAssignmentsPage from '@/pages/admin/assignments';
-import AdminSupervisorsPage from '@/pages/admin/supervisors';
-import AdminInventoryStaffPage from '@/pages/admin/inventory-staff';
 import AdminClientsPage from '@/pages/admin/clients';
 import AdminWarehousesPage from '@/pages/admin/warehouses';
 
@@ -158,7 +155,7 @@ const adminDashboard: RouteObject = {
   children: [
     {
       index: true,
-      element: <AdminUsersManagementPage />,
+      element: <AdminAccountManagementPage />,
     },
     {
       path: 'overview',
@@ -166,15 +163,15 @@ const adminDashboard: RouteObject = {
     },
     {
       path: 'users',
-      element: <AdminUsersManagementPage />,
+      element: <AdminAccountManagementPage />,
     },
     {
       path: 'supervisors',
-      element: <AdminSupervisorsPage />,
+      element: <Navigate to="/dashboard/users?tab=supervisors" replace />,
     },
     {
       path: 'inventory-staff',
-      element: <AdminInventoryStaffPage />,
+      element: <Navigate to="/dashboard/users?tab=inventory-staff" replace />,
     },
     {
       path: 'zones',
@@ -182,7 +179,7 @@ const adminDashboard: RouteObject = {
     },
     {
       path: 'farmers',
-      element: <AdminFarmersPage />,
+      element: <Navigate to="/dashboard/users?tab=farmers" replace />,
     },
     {
       path: 'plots',

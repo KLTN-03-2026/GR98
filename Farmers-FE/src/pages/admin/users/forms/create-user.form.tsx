@@ -105,7 +105,7 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
         password: values.password,
         fullName: values.fullName,
         phone: values.phone || undefined,
-        role: values.role as 'ADMIN' | 'SUPERVISOR' | 'INVENTORY',
+        role: values.role as 'SUPERVISOR' | 'INVENTORY',
         ...(avatarBase64 && { avatar: avatarBase64 }),
       };
 
@@ -272,7 +272,6 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="ADMIN">Quản trị viên (Admin)</SelectItem>
                             <SelectItem value="SUPERVISOR">Giám sát viên (Supervisor)</SelectItem>
                             <SelectItem value="INVENTORY">Nhân viên kho (Inventory)</SelectItem>
                           </SelectContent>

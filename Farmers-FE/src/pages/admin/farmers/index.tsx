@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,13 +12,13 @@ import {
   Trash2,
   UserRound,
   Wheat,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "lucide-react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Sheet,
   SheetContent,
@@ -26,7 +26,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from '@/components/ui/sheet';
+} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,9 +36,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { cn } from '@/lib/utils';
-import { useAllSupervisors } from '@/pages/admin/supervisors/api/use-supervisors';
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
+import { useAllSupervisors } from "@/pages/admin/supervisors/api/use-supervisors";
 import {
   useCreateFarmer,
   useDeleteFarmer,
@@ -46,7 +46,7 @@ import {
   useUpdateFarmer,
   type FarmerResponse,
   type FarmerStatus,
-} from './api';
+} from "./api";
 
 export default function AdminFarmersPage() {
   return <FarmerManagementPage />;
@@ -66,39 +66,39 @@ type FarmerForm = {
 const PAGE_LIMIT = 15;
 const PHONE_REGEX = /^(\+84|0)[0-9]{9,10}$/;
 const CCCD_REGEX = /^\d{12}$/;
-const UNASSIGNED_SUPERVISOR = '__NONE__';
+const UNASSIGNED_SUPERVISOR = "__NONE__";
 
 const defaultForm: FarmerForm = {
-  fullName: '',
-  phone: '',
-  cccd: '',
-  province: '',
-  address: '',
-  bankAccount: '',
+  fullName: "",
+  phone: "",
+  cccd: "",
+  province: "",
+  address: "",
+  bankAccount: "",
   supervisorId: UNASSIGNED_SUPERVISOR,
-  status: 'ACTIVE',
+  status: "ACTIVE",
 };
 
 function getStatusLabel(status: FarmerStatus) {
-  return status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động';
+  return status === "ACTIVE" ? "Hoạt động" : "Không hoạt động";
 }
 
 function getStatusVariant(status: FarmerStatus) {
-  return status === 'ACTIVE' ? ('success' as const) : ('secondary' as const);
+  return status === "ACTIVE" ? ("success" as const) : ("secondary" as const);
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return 'N/A';
+  if (!value) return "N/A";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'N/A';
-  return date.toLocaleString('vi-VN');
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString("vi-VN");
 }
 
 function FarmerManagementPage() {
-  const [keyword, setKeyword] = useState('');
-  const [debouncedKeyword, setDebouncedKeyword] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | FarmerStatus>('ALL');
-  const [supervisorFilter, setSupervisorFilter] = useState<string>('ALL');
+  const [keyword, setKeyword] = useState("");
+  const [debouncedKeyword, setDebouncedKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | FarmerStatus>("ALL");
+  const [supervisorFilter, setSupervisorFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 
   const { data: supervisors = [] } = useAllSupervisors();
@@ -107,8 +107,8 @@ function FarmerManagementPage() {
     page: currentPage,
     limit: PAGE_LIMIT,
     search: debouncedKeyword || undefined,
-    status: statusFilter === 'ALL' ? undefined : statusFilter,
-    supervisorId: supervisorFilter === 'ALL' ? undefined : supervisorFilter,
+    status: statusFilter === "ALL" ? undefined : statusFilter,
+    supervisorId: supervisorFilter === "ALL" ? undefined : supervisorFilter,
   });
 
   const farmers = useMemo(() => queryData?.data ?? [], [queryData]);
@@ -122,7 +122,7 @@ function FarmerManagementPage() {
   const isDeleting = deleteMutation.isPending;
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [mode, setMode] = useState<'create' | 'edit'>('edit');
+  const [mode, setMode] = useState<"create" | "edit">("edit");
   const [selected, setSelected] = useState<FarmerResponse | null>(null);
   const [form, setForm] = useState<FarmerForm>(defaultForm);
   const [deleteTarget, setDeleteTarget] = useState<FarmerResponse | null>(null);
@@ -132,7 +132,7 @@ function FarmerManagementPage() {
   >({});
 
   const activeCount = useMemo(
-    () => farmers.filter((item) => item.status === 'ACTIVE').length,
+    () => farmers.filter((item) => item.status === "ACTIVE").length,
     [farmers],
   );
   const pageFrom = total === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
@@ -160,7 +160,7 @@ function FarmerManagementPage() {
   }, [currentPage, totalPages, isLoading]);
 
   const openCreateSheet = () => {
-    setMode('create');
+    setMode("create");
     setSelected(null);
     setForm(defaultForm);
     setFormErrors({});
@@ -169,15 +169,15 @@ function FarmerManagementPage() {
   };
 
   const openEditSheet = (row: FarmerResponse) => {
-    setMode('edit');
+    setMode("edit");
     setSelected(row);
     setForm({
       fullName: row.fullName,
       phone: row.phone,
       cccd: row.cccd,
-      province: row.province ?? '',
-      address: row.address ?? '',
-      bankAccount: row.bankAccount ?? '',
+      province: row.province ?? "",
+      address: row.address ?? "",
+      bankAccount: row.bankAccount ?? "",
       supervisorId: row.supervisorId ?? UNASSIGNED_SUPERVISOR,
       status: row.status,
     });
@@ -190,17 +190,17 @@ function FarmerManagementPage() {
     const errors: Partial<Record<keyof FarmerForm, string>> = {};
 
     if (!form.fullName.trim()) {
-      errors.fullName = 'Vui lòng nhập họ tên';
+      errors.fullName = "Vui lòng nhập họ tên";
     }
     if (!form.phone.trim()) {
-      errors.phone = 'Vui lòng nhập số điện thoại';
+      errors.phone = "Vui lòng nhập số điện thoại";
     } else if (!PHONE_REGEX.test(form.phone.trim())) {
-      errors.phone = 'Số điện thoại không hợp lệ';
+      errors.phone = "Số điện thoại không hợp lệ";
     }
     if (!form.cccd.trim()) {
-      errors.cccd = 'Vui lòng nhập CCCD';
+      errors.cccd = "Vui lòng nhập CCCD";
     } else if (!CCCD_REGEX.test(form.cccd.trim())) {
-      errors.cccd = 'CCCD phải gồm đúng 12 chữ số';
+      errors.cccd = "CCCD phải gồm đúng 12 chữ số";
     }
 
     setFormErrors(errors);
@@ -216,7 +216,7 @@ function FarmerManagementPage() {
 
   const submitForm = async () => {
     if (!validateForm()) {
-      toast.error('Vui lòng kiểm tra lại thông tin đã nhập');
+      toast.error("Vui lòng kiểm tra lại thông tin đã nhập");
       return;
     }
 
@@ -224,7 +224,7 @@ function FarmerManagementPage() {
       form.supervisorId === UNASSIGNED_SUPERVISOR ? null : form.supervisorId;
 
     try {
-      if (mode === 'create') {
+      if (mode === "create") {
         await createMutation.mutateAsync({
           fullName: form.fullName.trim(),
           phone: form.phone.trim(),
@@ -292,23 +292,23 @@ function FarmerManagementPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant={statusFilter === 'ALL' ? 'primary' : 'outline'}
+              variant={statusFilter === "ALL" ? "primary" : "outline"}
               className="rounded-full"
-              onClick={() => setStatusFilter('ALL')}
+              onClick={() => setStatusFilter("ALL")}
             >
               Tất cả trạng thái
             </Button>
             <Button
-              variant={statusFilter === 'ACTIVE' ? 'primary' : 'outline'}
+              variant={statusFilter === "ACTIVE" ? "primary" : "outline"}
               className="rounded-full"
-              onClick={() => setStatusFilter('ACTIVE')}
+              onClick={() => setStatusFilter("ACTIVE")}
             >
               Hoạt động
             </Button>
             <Button
-              variant={statusFilter === 'INACTIVE' ? 'primary' : 'outline'}
+              variant={statusFilter === "INACTIVE" ? "primary" : "outline"}
               className="rounded-full"
-              onClick={() => setStatusFilter('INACTIVE')}
+              onClick={() => setStatusFilter("INACTIVE")}
             >
               Không hoạt động
             </Button>
@@ -320,7 +320,10 @@ function FarmerManagementPage() {
             >
               <option value="ALL">Tất cả giám sát viên</option>
               {supervisors.map((item) => (
-                <option key={item.supervisorProfile?.id ?? item.id} value={item.supervisorProfile?.id ?? item.id}>
+                <option
+                  key={item.supervisorProfile?.id ?? item.id}
+                  value={item.supervisorProfile?.id ?? item.id}
+                >
                   {item.fullName}
                 </option>
               ))}
@@ -328,7 +331,9 @@ function FarmerManagementPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Hiển thị {farmers.length} / {total} nông dân.</span>
+            <span>
+              Hiển thị {farmers.length} / {total} nông dân.
+            </span>
             <span>Đang hoạt động: {activeCount}</span>
             <span>Giới hạn mỗi trang: {PAGE_LIMIT}</span>
           </div>
@@ -351,8 +356,8 @@ function FarmerManagementPage() {
                   type="button"
                   onClick={() => openEditSheet(row)}
                   className={cn(
-                    'rounded-2xl border border-l-4 border-l-emerald-500 bg-linear-to-br from-white to-emerald-50/60 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md',
-                    selected?.id === row.id && 'ring-2 ring-emerald-200',
+                    "rounded-2xl border border-l-4 border-l-emerald-500 bg-linear-to-br from-white to-emerald-50/60 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md",
+                    selected?.id === row.id && "ring-2 ring-emerald-200",
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -376,19 +381,24 @@ function FarmerManagementPage() {
                     </p>
                     <p className="inline-flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
-                      <span className="truncate">{row.province || 'Chưa cập nhật tỉnh'}</span>
+                      <span className="truncate">
+                        {row.province || "Chưa cập nhật tỉnh"}
+                      </span>
                     </p>
                     <p className="inline-flex items-center gap-2">
                       <UserRound className="h-4 w-4" />
                       <span className="truncate">
-                        {row.supervisor?.user.fullName || 'Chưa gán giám sát viên'}
+                        {row.supervisor?.user.fullName ||
+                          "Chưa gán giám sát viên"}
                       </span>
                     </p>
                   </div>
 
                   <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                     <Badge variant="outline">Lô đất: {row._count.plots}</Badge>
-                    <Badge variant="outline">Hợp đồng: {row._count.contracts}</Badge>
+                    <Badge variant="outline">
+                      Hợp đồng: {row._count.contracts}
+                    </Badge>
                   </div>
                 </button>
               ))}
@@ -463,13 +473,17 @@ function FarmerManagementPage() {
       </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-lg overflow-y-auto"
+        >
           <SheetHeader>
             <SheetTitle>
-              {mode === 'create' ? 'Thêm nông dân' : 'Cập nhật nông dân'}
+              {mode === "create" ? "Thêm nông dân" : "Cập nhật nông dân"}
             </SheetTitle>
             <SheetDescription>
-              Quản lý hồ sơ nông dân theo tenant Admin, đồng bộ với lô đất và hợp đồng.
+              Quản lý hồ sơ nông dân theo tenant Admin, đồng bộ với lô đất và
+              hợp đồng.
             </SheetDescription>
           </SheetHeader>
 
@@ -484,7 +498,9 @@ function FarmerManagementPage() {
                 placeholder="Nguyễn Văn A"
               />
               {formErrors.fullName && (
-                <p className="text-xs text-destructive">{formErrors.fullName}</p>
+                <p className="text-xs text-destructive">
+                  {formErrors.fullName}
+                </p>
               )}
             </div>
 
@@ -543,7 +559,10 @@ function FarmerManagementPage() {
               <Input
                 value={form.bankAccount}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, bankAccount: event.target.value }))
+                  setForm((prev) => ({
+                    ...prev,
+                    bankAccount: event.target.value,
+                  }))
                 }
                 placeholder="9704..."
               />
@@ -554,7 +573,10 @@ function FarmerManagementPage() {
               <select
                 value={form.supervisorId}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, supervisorId: event.target.value }))
+                  setForm((prev) => ({
+                    ...prev,
+                    supervisorId: event.target.value,
+                  }))
                 }
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
@@ -567,7 +589,7 @@ function FarmerManagementPage() {
                       {item.fullName}
                       {item.supervisorProfile?.employeeCode
                         ? ` (${item.supervisorProfile.employeeCode})`
-                        : ''}
+                        : ""}
                     </option>
                   );
                 })}
@@ -579,16 +601,18 @@ function FarmerManagementPage() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
-                  variant={form.status === 'ACTIVE' ? 'primary' : 'outline'}
-                  onClick={() => setForm((prev) => ({ ...prev, status: 'ACTIVE' }))}
+                  variant={form.status === "ACTIVE" ? "primary" : "outline"}
+                  onClick={() =>
+                    setForm((prev) => ({ ...prev, status: "ACTIVE" }))
+                  }
                 >
                   Hoạt động
                 </Button>
                 <Button
                   type="button"
-                  variant={form.status === 'INACTIVE' ? 'primary' : 'outline'}
+                  variant={form.status === "INACTIVE" ? "primary" : "outline"}
                   onClick={() =>
-                    setForm((prev) => ({ ...prev, status: 'INACTIVE' }))
+                    setForm((prev) => ({ ...prev, status: "INACTIVE" }))
                   }
                 >
                   Không hoạt động
@@ -609,7 +633,7 @@ function FarmerManagementPage() {
           </div>
 
           <SheetFooter className="gap-2 border-t px-4 pt-4">
-            {mode === 'edit' && selected && (
+            {mode === "edit" && selected && (
               <Button
                 variant="destructive"
                 onClick={openDeleteConfirm}
@@ -621,7 +645,7 @@ function FarmerManagementPage() {
             )}
             <Button onClick={() => void submitForm()} disabled={isSaving}>
               <Save className="h-4 w-4" />
-              {isSaving ? 'Đang lưu...' : 'Lưu thông tin'}
+              {isSaving ? "Đang lưu..." : "Lưu thông tin"}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -643,8 +667,8 @@ function FarmerManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa nông dân</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc muốn xóa nông dân "{deleteTarget?.fullName}"?
-              Nếu hồ sơ đã phát sinh lô đất/hợp đồng, hệ thống sẽ từ chối xóa.
+              Bạn có chắc muốn xóa nông dân "{deleteTarget?.fullName}"? Nếu hồ
+              sơ đã phát sinh lô đất/hợp đồng, hệ thống sẽ từ chối xóa.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -654,7 +678,7 @@ function FarmerManagementPage() {
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Đang xóa...' : 'Xóa'}
+              {isDeleting ? "Đang xóa..." : "Xóa"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

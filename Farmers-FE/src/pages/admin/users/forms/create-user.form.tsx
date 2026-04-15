@@ -56,7 +56,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { userCreateFormSchema, type UserCreateFormInput } from '@/pages/admin/users/validation/create-user.validation';
-import { userApi } from '@/client/lib/api-client';
+import { userApi } from '@/pages/admin/users/api';
 import FileUpload from '@/components/custom/file-upload';
 
 interface CreateUserFormProps {

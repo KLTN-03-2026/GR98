@@ -39,7 +39,7 @@ import {
   useChangePassword,
   useUpdateMe,
   useDeleteAccount,
-} from '@/client/hooks/use-queries';
+} from '@/client/api';
 import { useAuthStore } from '@/client/store';
 
 type TabKey = 'profile' | 'address' | 'notifications' | 'security';

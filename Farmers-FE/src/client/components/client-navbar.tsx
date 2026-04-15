@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useCartStore } from '@/client/store';
 import { useAuthStore } from '@/client/store';
-import { useLogout } from '@/client/hooks/use-queries';
+import { useLogout } from '@/client/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';

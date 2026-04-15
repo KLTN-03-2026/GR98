@@ -18,7 +18,7 @@ import {
   useOrders,
   useOrder,
   useCancelOrder,
-} from '@/client/hooks/use-queries';
+} from '@/client/api';
 import { formatPrice } from '@/client/data/mock-data';
 import {
   PAYMENT_STATUS_LABELS,

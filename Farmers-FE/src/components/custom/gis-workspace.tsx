@@ -9,14 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  authApi,
-  extractData,
-  plotApi,
-  supervisorApi,
-  type MeResponse,
-  type PlotResponse,
-} from "@/client/lib/api-client";
+import { extractData } from "@/client/lib/api-client";
+import { authApi } from "@/client/api/auth/auth-api";
+import { plotApi } from "@/pages/admin/plots/api/plot-api";
+import { supervisorApi } from "@/pages/admin/supervisors/api/supervisor-api";
+import type { MeResponse } from "@/client/api/auth/types";
+import type { PlotResponse } from "@/pages/admin/plots/api/types";
 import {
   Sheet,
   SheetContent,

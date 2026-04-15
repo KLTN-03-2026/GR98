@@ -15,12 +15,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  authApi,
-  extractData,
-  type AuthUserResponse,
-  type MeResponse,
-} from "@/client/lib/api-client";
+import { extractData } from "@/client/lib/api-client";
+import { authApi } from "@/client/api/auth/auth-api";
+import type { AuthUserResponse, MeResponse } from "@/client/api/auth/types";
 import type { ApiError, AuthUser } from "@/client/types";
 import { useAuthStore } from "@/client/store";
 import { toast } from "sonner";

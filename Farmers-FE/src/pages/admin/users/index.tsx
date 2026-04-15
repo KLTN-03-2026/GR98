@@ -1,6 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
-import type { AxiosError } from "axios";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -35,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Pencil, Trash2 } from "lucide-react";
-import { userApi, type UserResponse } from "@/client/lib/api-client";
+import { useUsers, useDeleteUser, type UserResponse } from "./api";
 import CreateUserForm from "./forms/create-user.form";
 import UpdateUserForm from "./forms/update-user.form";
 import type { FilterItem } from "@/components/custom/filter.popover";
@@ -142,8 +141,6 @@ export default function UsersManagementPage() {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
@@ -151,7 +148,6 @@ export default function UsersManagementPage() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -164,29 +160,32 @@ export default function UsersManagementPage() {
     setCurrentPage(1);
   }, [debouncedSearch, filterList]);
 
-  // Fetch users
-  const fetchUsers = useCallback(async () => {
-    setIsLoading(true);
-    setFetchError(null);
-    try {
-      const activeStatus = filterList.find((f) => f.key === "status")
-        ?.values[0] as "ACTIVE" | "INACTIVE" | "SUSPENDED" | undefined;
-      const activeRole = filterList.find((f) => f.key === "role")?.values[0] as
-        | "ADMIN"
-        | "SUPERVISOR"
-        | "INVENTORY"
-        | "CLIENT"
-        | undefined;
+  // ─── TanStack Query / Mutation hooks ─────────────────────────────────────
+  const activeStatus = filterList.find((f) => f.key === "status")
+    ?.values[0] as "ACTIVE" | "INACTIVE" | "SUSPENDED" | undefined;
+  const activeRole = filterList.find((f) => f.key === "role")?.values[0] as
+    | "ADMIN"
+    | "SUPERVISOR"
+    | "INVENTORY"
+    | "CLIENT"
+    | undefined;
 
-      const response = await userApi.list({
-        page: currentPage,
-        limit: itemsPerPage,
-        search: debouncedSearch || undefined,
-        status: activeStatus,
-        role: activeRole,
-      });
+  const { data: queryData, isLoading, error: queryError, refetch } = useUsers({
+    page: currentPage,
+    limit: itemsPerPage,
+    search: debouncedSearch || undefined,
+    status: activeStatus,
+    role: activeRole,
+  });
 
-      const raw = response.data as unknown as {
+  const deleteMutation = useDeleteUser();
+  const isDeleting = deleteMutation.isPending;
+  const fetchError = queryError?.message ?? null;
+
+  // Sync query data to local state (for compatibility with existing UI)
+  useEffect(() => {
+    if (queryData) {
+      const raw = queryData as unknown as {
         data?: {
           data?: UserResponse[];
           total?: number;
@@ -195,30 +194,12 @@ export default function UsersManagementPage() {
         total?: number;
         totalPages?: number;
       };
-
       const payload = raw.data && Array.isArray(raw.data.data) ? raw.data : raw;
       setUsers(Array.isArray(payload.data) ? payload.data : []);
       setTotal(payload.total ?? 0);
       setTotalPages(payload.totalPages ?? 0);
-    } catch (err: unknown) {
-      const axiosErr = err as AxiosError<{
-        error?: { message?: string };
-        message?: string;
-      }>;
-      const message =
-        axiosErr.response?.data?.error?.message ||
-        axiosErr.message ||
-        "Tải danh sách thất bại";
-      setFetchError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
     }
-  }, [currentPage, itemsPerPage, debouncedSearch, filterList]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  }, [queryData]);
 
   function handleEdit(user: UserResponse) {
     setSelectedUser(user);
@@ -232,25 +213,12 @@ export default function UsersManagementPage() {
 
   async function confirmDelete() {
     if (!deleteTarget) return;
-    setIsDeleting(true);
     try {
-      await userApi.delete(deleteTarget.id);
-      toast.success(`Đã xóa người dùng "${deleteTarget.fullName}"`);
+      await deleteMutation.mutateAsync(deleteTarget.id);
       setIsDeleteOpen(false);
       setDeleteTarget(null);
-      fetchUsers();
-    } catch (err: unknown) {
-      const axiosErr = err as AxiosError<{
-        error?: { message?: string };
-        message?: string;
-      }>;
-      const message =
-        axiosErr.response?.data?.error?.message ||
-        axiosErr.message ||
-        "Xóa người dùng thất bại";
-      toast.error(message);
-    } finally {
-      setIsDeleting(false);
+    } catch {
+      // Hook's onError already shows toast
     }
   }
 
@@ -314,7 +282,7 @@ export default function UsersManagementPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={fetchUsers}
+            onClick={() => refetch()}
             className="ml-2"
           >
             Thử lại
@@ -576,14 +544,14 @@ export default function UsersManagementPage() {
       <CreateUserForm
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
-        onSuccess={fetchUsers}
+        onSuccess={() => refetch()}
       />
 
       <UpdateUserForm
         open={isUpdateOpen}
         onOpenChange={setIsUpdateOpen}
         user={selectedUser}
-        onSuccess={fetchUsers}
+        onSuccess={() => refetch()}
       />
 
       {/* Delete confirmation */}

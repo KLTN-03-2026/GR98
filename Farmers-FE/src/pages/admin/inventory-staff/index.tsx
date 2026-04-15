@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { AxiosError } from 'axios';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -38,9 +37,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  inventoryStaffApi,
+  useInventoryStaff,
+  useCreateInventoryStaff,
+  useUpdateInventoryStaff,
+  useDeleteInventoryStaff,
   type InventoryStaffResponse,
-} from '@/client/lib/api-client';
+} from './api';
 import { cn } from '@/lib/utils';
 
 type InventoryStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
@@ -88,16 +90,28 @@ function formatDate(value?: string | null) {
 }
 
 export default function AdminInventoryStaffPage() {
-  const [staffs, setStaffs] = useState<InventoryStaffResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | InventoryStatus>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+
+  // ─── TanStack Query / Mutation hooks ─────────────────────────────────────
+  const { data: queryData, isLoading } = useInventoryStaff({
+    page: currentPage,
+    limit: PAGE_LIMIT,
+    search: debouncedKeyword || undefined,
+    status: statusFilter === 'ALL' ? undefined : statusFilter,
+  });
+  const staffs = queryData?.data ?? [];
+  const total = queryData?.total ?? 0;
+  const totalPages = Math.max(1, queryData?.totalPages ?? 1);
+
+  const createMutation = useCreateInventoryStaff();
+  const updateMutation = useUpdateInventoryStaff();
+  const deleteMutation = useDeleteInventoryStaff();
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isDeleting = deleteMutation.isPending;
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [mode, setMode] = useState<'create' | 'edit'>('edit');
   const [selected, setSelected] = useState<InventoryStaffResponse | null>(null);
@@ -129,43 +143,6 @@ export default function AdminInventoryStaffPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedKeyword, statusFilter]);
-
-  const fetchInventoryStaff = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await inventoryStaffApi.list({
-        page: currentPage,
-        limit: PAGE_LIMIT,
-        search: debouncedKeyword || undefined,
-        status: statusFilter === 'ALL' ? undefined : statusFilter,
-      });
-
-      const payload = response.data.data;
-      setStaffs(payload.data);
-      setTotal(payload.total);
-      setTotalPages(Math.max(1, payload.totalPages));
-    } catch (error: unknown) {
-      const axiosErr = error as AxiosError<{
-        error?: { message?: string };
-        message?: string;
-      }>;
-      const message =
-        axiosErr.response?.data?.error?.message ||
-        axiosErr.response?.data?.message ||
-        axiosErr.message ||
-        'Tải danh sách nhân viên kho thất bại';
-      toast.error(message);
-      setStaffs([]);
-      setTotal(0);
-      setTotalPages(1);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, debouncedKeyword, statusFilter]);
-
-  useEffect(() => {
-    void fetchInventoryStaff();
-  }, [fetchInventoryStaff]);
 
   useEffect(() => {
     if (!isLoading && currentPage > totalPages) {
@@ -244,69 +221,42 @@ export default function AdminInventoryStaffPage() {
       return;
     }
 
-    setIsSaving(true);
     try {
       if (mode === 'create') {
-        await inventoryStaffApi.create({
+        await createMutation.mutateAsync({
           fullName: form.fullName.trim(),
           email: form.email.trim(),
           password: form.password,
           phone: form.phone.trim() || undefined,
         });
-        toast.success('Đã tạo nhân viên kho mới');
       } else if (selected) {
-        await inventoryStaffApi.update(selected.id, {
-          fullName: form.fullName.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim() || '',
-          status: form.status,
+        await updateMutation.mutateAsync({
+          id: selected.id,
+          data: {
+            fullName: form.fullName.trim(),
+            email: form.email.trim(),
+            phone: form.phone.trim() || '',
+            status: form.status,
+          },
         });
-        toast.success('Đã cập nhật nhân viên kho');
       }
-
       setSheetOpen(false);
-      await fetchInventoryStaff();
-    } catch (error: unknown) {
-      const axiosErr = error as AxiosError<{
-        error?: { message?: string };
-        message?: string;
-      }>;
-      const message =
-        axiosErr.response?.data?.error?.message ||
-        axiosErr.response?.data?.message ||
-        axiosErr.message ||
-        'Lưu nhân viên kho thất bại';
-      toast.error(message);
-    } finally {
-      setIsSaving(false);
+    } catch {
+      // Hook's onError already shows toast
     }
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    setIsDeleting(true);
     setShouldRestoreSheet(false);
     try {
-      await inventoryStaffApi.delete(deleteTarget.id);
-      toast.success(`Đã xóa ${deleteTarget.fullName}`);
+      await deleteMutation.mutateAsync(deleteTarget.id);
       setDeleteTarget(null);
       if (selected?.id === deleteTarget.id) {
         setSelected(null);
       }
-      await fetchInventoryStaff();
-    } catch (error: unknown) {
-      const axiosErr = error as AxiosError<{
-        error?: { message?: string };
-        message?: string;
-      }>;
-      const message =
-        axiosErr.response?.data?.error?.message ||
-        axiosErr.response?.data?.message ||
-        axiosErr.message ||
-        'Xóa nhân viên kho thất bại';
-      toast.error(message);
-    } finally {
-      setIsDeleting(false);
+    } catch {
+      // Hook's onError already shows toast
     }
   };
 

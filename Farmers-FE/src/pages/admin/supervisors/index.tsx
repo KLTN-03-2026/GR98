@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AxiosError } from "axios";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -40,9 +39,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  supervisorApi,
+  useSupervisors,
+  useCreateSupervisor,
+  useUpdateSupervisor,
+  useDeleteSupervisor,
   type SupervisorResponse,
-} from "@/client/lib/api-client";
+} from "./api";
 import { cn } from "@/lib/utils";
 
 type SupervisorStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
@@ -92,18 +94,30 @@ function formatDate(value?: string | null) {
 }
 
 export default function AdminSupervisorsPage() {
-  const [supervisors, setSupervisors] = useState<SupervisorResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [debouncedKeyword, setDebouncedKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | SupervisorStatus>(
     "ALL",
   );
   const [currentPage, setCurrentPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+
+  // ─── TanStack Query / Mutation hooks ─────────────────────────────────────
+  const { data: queryData, isLoading } = useSupervisors({
+    page: currentPage,
+    limit: PAGE_LIMIT,
+    search: debouncedKeyword || undefined,
+    status: statusFilter === "ALL" ? undefined : statusFilter,
+  });
+  const supervisors = queryData?.data ?? [];
+  const total = queryData?.total ?? 0;
+  const totalPages = Math.max(1, queryData?.totalPages ?? 1);
+
+  const createMutation = useCreateSupervisor();
+  const updateMutation = useUpdateSupervisor();
+  const deleteMutation = useDeleteSupervisor();
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isDeleting = deleteMutation.isPending;
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [mode, setMode] = useState<"create" | "edit">("edit");
   const [selected, setSelected] = useState<SupervisorResponse | null>(null);
@@ -138,43 +152,6 @@ export default function AdminSupervisorsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedKeyword, statusFilter]);
-
-  const fetchSupervisors = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await supervisorApi.list({
-        page: currentPage,
-        limit: PAGE_LIMIT,
-        search: debouncedKeyword || undefined,
-        status: statusFilter === "ALL" ? undefined : statusFilter,
-      });
-
-      const payload = response.data.data;
-      setSupervisors(payload.data);
-      setTotal(payload.total);
-      setTotalPages(Math.max(1, payload.totalPages));
-    } catch (error: unknown) {
-      const axiosErr = error as AxiosError<{
-        error?: { message?: string };
-        message?: string;
-      }>;
-      const message =
-        axiosErr.response?.data?.error?.message ||
-        axiosErr.response?.data?.message ||
-        axiosErr.message ||
-        "Tải danh sách giám sát viên thất bại";
-      toast.error(message);
-      setSupervisors([]);
-      setTotal(0);
-      setTotalPages(1);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, debouncedKeyword, statusFilter]);
-
-  useEffect(() => {
-    void fetchSupervisors();
-  }, [fetchSupervisors]);
 
   useEffect(() => {
     if (!isLoading && currentPage > totalPages) {
@@ -254,72 +231,45 @@ export default function AdminSupervisorsPage() {
       return;
     }
 
-    setIsSaving(true);
     try {
       if (mode === "create") {
-        await supervisorApi.create({
+        await createMutation.mutateAsync({
           fullName: form.fullName.trim(),
           email: form.email.trim(),
           password: form.password,
           phone: form.phone.trim() || undefined,
           zoneId: form.zoneId.trim() || undefined,
         });
-        toast.success("Đã tạo giám sát viên mới");
       } else if (selected) {
-        await supervisorApi.update(selected.id, {
-          fullName: form.fullName.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim() || "",
-          zoneId: form.zoneId.trim() || null,
-          status: form.status,
+        await updateMutation.mutateAsync({
+          id: selected.id,
+          data: {
+            fullName: form.fullName.trim(),
+            email: form.email.trim(),
+            phone: form.phone.trim() || "",
+            zoneId: form.zoneId.trim() || null,
+            status: form.status,
+          },
         });
-        toast.success("Đã cập nhật giám sát viên");
       }
-
       setSheetOpen(false);
-      await fetchSupervisors();
-    } catch (error: unknown) {
-      const axiosErr = error as AxiosError<{
-        error?: { message?: string };
-        message?: string;
-      }>;
-      const message =
-        axiosErr.response?.data?.error?.message ||
-        axiosErr.response?.data?.message ||
-        axiosErr.message ||
-        "Lưu giám sát viên thất bại";
-      toast.error(message);
-    } finally {
-      setIsSaving(false);
+    } catch {
+      // Hook's onError already shows toast
     }
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    setIsDeleting(true);
     setShouldRestoreSheet(false);
     try {
-      await supervisorApi.delete(deleteTarget.id);
-      toast.success(`Đã xóa ${deleteTarget.fullName}`);
+      await deleteMutation.mutateAsync(deleteTarget.id);
       setDeleteTarget(null);
       if (selected?.id === deleteTarget.id) {
         setSheetOpen(false);
         setSelected(null);
       }
-      await fetchSupervisors();
-    } catch (error: unknown) {
-      const axiosErr = error as AxiosError<{
-        error?: { message?: string };
-        message?: string;
-      }>;
-      const message =
-        axiosErr.response?.data?.error?.message ||
-        axiosErr.response?.data?.message ||
-        axiosErr.message ||
-        "Xóa giám sát viên thất bại";
-      toast.error(message);
-    } finally {
-      setIsDeleting(false);
+    } catch {
+      // Hook's onError already shows toast
     }
   };
 

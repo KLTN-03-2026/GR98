@@ -7,8 +7,8 @@ import {
   useUpdatePriceBoard,
   useTogglePriceBoardActive,
   useDeletePriceBoard,
-} from '@/client/hooks/use-queries';
-import type { PriceBoardResponse } from '@/client/lib/api-client';
+  type PriceBoardResponse,
+} from './api';
 import {
   Card,
   CardContent,

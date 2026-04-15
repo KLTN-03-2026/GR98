@@ -1,0 +1,57 @@
+import type { ApiSuccessResponse } from '@/client/lib/api-client';
+
+export type PlotCropType = 'ca-phe' | 'sau-rieng';
+
+export interface PlotResponse {
+  id: string;
+  lotCode: string;
+  plotName: string;
+  farmerName: string;
+  farmerPhone: string;
+  farmerCccd: string;
+  contractId: string;
+  province: string;
+  district: string;
+  areaHa: number;
+  cropType: PlotCropType;
+  progress: 'on-track' | 'attention';
+  lat: number;
+  lng: number;
+  updatedAt: string;
+  polygon?: Array<[number, number]>;
+  id_suppervisor?: string | null;
+  name_suppervisor?: string | null;
+}
+
+export interface PaginatedPlotsResponse {
+  data: PlotResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CreatePlotPayload {
+  plotName: string;
+  farmerId?: string;
+  farmerName?: string;
+  farmerPhone?: string;
+  farmerCccd?: string;
+  contractId?: string;
+  id_suppervisor?: string;
+  name_suppervisor?: string;
+  cropType: PlotCropType;
+  areaHa: number;
+  lat?: number;
+  lng?: number;
+  province?: string;
+  district?: string;
+  polygon?: Array<[number, number]>;
+}
+
+export interface UpdatePlotPayload {
+  id_suppervisor?: string;
+  name_suppervisor?: string;
+}
+
+export type { ApiSuccessResponse };

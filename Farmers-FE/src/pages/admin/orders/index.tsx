@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Eye, Search, Package, CheckCircle2, Truck, Clock, XCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { useOrders, useOrder, useUpdateOrder } from '@/client/hooks/use-queries';
+import { useOrders, useOrder, useUpdateOrder } from '@/client/api';
 import { formatPrice } from '@/client/data/mock-data';
 import {
   PAYMENT_STATUS_LABELS,

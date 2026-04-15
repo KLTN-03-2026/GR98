@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
@@ -42,9 +43,11 @@ import {
 import { cn } from "@/lib/utils";
 import {
   plotApi,
-  supervisorApi,
+  usePlots,
+  useUpdatePlot,
   type PlotResponse,
-} from "@/client/lib/api-client";
+} from "./api";
+import { useAllSupervisors } from "@/pages/admin/supervisors/api/use-supervisors";
 
 type CropType = "sau-rieng" | "ca-phe";
 
@@ -57,6 +60,7 @@ type PlotFieldOverride = {
   farmerPhone?: string;
   farmerCccd?: string;
   contractId?: string;
+  isDeleted?: boolean;
 };
 
 type SupervisorOption = {
@@ -73,22 +77,48 @@ const getCropBadgeClass = (crop: CropType) =>
     : "border-lime-300 bg-lime-50 text-lime-800";
 
 export default function PlotsPage() {
-  const [plots, setPlots] = useState<PlotItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [filter, setFilter] = useState<"all" | CropType>("all");
   const [supervisorFilterId, setSupervisorFilterId] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlotItem | null>(null);
   const [reopenSheetPlotId, setReopenSheetPlotId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingSupervisors, setIsLoadingSupervisors] = useState(false);
-  const [supervisors, setSupervisors] = useState<SupervisorOption[]>([]);
+
+  // TanStack Query Hooks
+  const { data: plotsData, isLoading } = usePlots({
+    page: currentPage,
+    limit: itemsPerPage,
+    search: keyword.trim() || undefined,
+    cropType: filter === "all" ? undefined : filter,
+    id_suppervisor: supervisorFilterId === "all" ? undefined : supervisorFilterId,
+  });
+
+  const { data: allSupervisorsData, isLoading: isLoadingSupervisors } = useAllSupervisors({
+    status: "ACTIVE",
+  });
+
+  const updateMutation = useUpdatePlot();
+  const queryClient = useQueryClient();
+
+  const plots = plotsData?.data ?? [];
+  const total = plotsData?.total ?? 0;
+  const totalPages = plotsData?.totalPages ?? 1;
+
+  const supervisors = useMemo(() => {
+    if (!allSupervisorsData) return [];
+    return allSupervisorsData
+      .filter((row) => Boolean(row.supervisorProfile?.id))
+      .map((row) => ({
+        id: row.supervisorProfile!.id,
+        name: row.fullName,
+        employeeCode: row.supervisorProfile?.employeeCode,
+      }));
+  }, [allSupervisorsData]);
+
   const [selectedSupervisorId, setSelectedSupervisorId] = useState("");
   const [sheet, setSheet] = useState<
     Pick<
@@ -138,108 +168,7 @@ export default function PlotsPage() {
     localStorage.setItem(LOCAL_PLOT_OVERRIDES_KEY, JSON.stringify(value));
   };
 
-  useEffect(() => {
-    const fetchPlots = async () => {
-      setIsLoading(true);
-      try {
-        const response = await plotApi.list({
-          page: currentPage,
-          limit: itemsPerPage,
-          search: keyword.trim() || undefined,
-          cropType: filter === "all" ? undefined : filter,
-          id_suppervisor:
-            supervisorFilterId === "all" ? undefined : supervisorFilterId,
-        });
-
-        const payload = response.data.data;
-        const overrides = readLocalOverrides();
-        setPlots(
-          payload.data.map((row) => ({
-            ...row,
-            ...(overrides[row.id] || {}),
-          })),
-        );
-        setTotal(payload.total);
-        setTotalPages(Math.max(1, payload.totalPages));
-      } catch (error) {
-        const message =
-          typeof error === "object" &&
-          error !== null &&
-          "message" in error &&
-          typeof (error as { message?: unknown }).message === "string"
-            ? ((error as { message?: string }).message ?? "")
-            : "Tải danh sách lô đất thất bại";
-        toast.error(message || "Tải danh sách lô đất thất bại");
-        setPlots([]);
-        setTotal(0);
-        setTotalPages(1);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void fetchPlots();
-  }, [currentPage, keyword, filter, supervisorFilterId]);
-
-  useEffect(() => {
-    if (!isLoading && currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages, isLoading]);
-
-  useEffect(() => {
-    const fetchSupervisors = async () => {
-      setIsLoadingSupervisors(true);
-      try {
-        const options: SupervisorOption[] = [];
-        let page = 1;
-        let totalPages = 1;
-
-        do {
-          const response = await supervisorApi.list({
-            page,
-            limit: 20,
-            status: "ACTIVE",
-          });
-
-          const payload = response.data.data;
-          payload.data
-            .filter((row) => Boolean(row.supervisorProfile?.id))
-            .forEach((row) => {
-              const id = row.supervisorProfile?.id;
-              if (!id) return;
-              options.push({
-                id,
-                name: row.fullName,
-                employeeCode: row.supervisorProfile?.employeeCode,
-              });
-            });
-
-          totalPages = Math.max(1, payload.totalPages || 1);
-          page += 1;
-        } while (page <= totalPages);
-
-        const deduped = Array.from(
-          new Map(options.map((item) => [item.id, item])).values(),
-        );
-        setSupervisors(deduped);
-      } catch (error) {
-        const message =
-          typeof error === "object" &&
-          error !== null &&
-          "message" in error &&
-          typeof (error as { message?: unknown }).message === "string"
-            ? ((error as { message?: string }).message ?? "")
-            : "Tải danh sách giám sát viên thất bại";
-        toast.error(message || "Tải danh sách giám sát viên thất bại");
-        setSupervisors([]);
-      } finally {
-        setIsLoadingSupervisors(false);
-      }
-    };
-
-    void fetchSupervisors();
-  }, []);
+  const isSaving = updateMutation.isPending;
 
   const openSheet = (plot: PlotItem) => {
     setEditingId(plot.id);
@@ -302,15 +231,14 @@ export default function PlotsPage() {
       return;
     }
 
-    setIsSaving(true);
-
     try {
-      const response = await plotApi.update(editingId, {
-        id_suppervisor: selectedSupervisorId,
-        name_suppervisor: selectedSupervisor.name,
+      await updateMutation.mutateAsync({
+        id: editingId,
+        data: {
+          id_suppervisor: selectedSupervisorId,
+          name_suppervisor: selectedSupervisor.name,
+        },
       });
-
-      const updatedPlotFromApi = response.data.data;
 
       const updatedOverrides = {
         ...readLocalOverrides(),
@@ -318,51 +246,27 @@ export default function PlotsPage() {
           plotName: sheet.plotName,
           farmerName: sheet.farmerName,
           contractId: sheet.contractId,
+          isDeleted: false,
         },
       };
       writeLocalOverrides(updatedOverrides);
 
-      setPlots((prev) =>
-        prev.map((item) =>
-          item.id === editingId
-            ? {
-                ...item,
-                ...updatedPlotFromApi,
-                ...sheet,
-                id_suppervisor: updatedPlotFromApi.id_suppervisor,
-                name_suppervisor: updatedPlotFromApi.name_suppervisor,
-                updatedAt: new Date().toLocaleString("vi-VN"),
-              }
-            : item,
-        ),
-      );
-      toast.success("Đã cập nhật giám sát viên cho lô đất");
       setSheetOpen(false);
-    } catch (error) {
-      const message =
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error &&
-        typeof (error as { message?: unknown }).message === "string"
-          ? ((error as { message?: string }).message ?? "")
-          : "Cập nhật giám sát viên thất bại";
-      toast.error(message || "Cập nhật giám sát viên thất bại");
-    } finally {
-      setIsSaving(false);
+    } catch {
+      // Error handled by mutation hook
     }
   };
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    setReopenSheetPlotId(null);
     const currentOverrides = readLocalOverrides();
-    if (deleteTarget.id in currentOverrides) {
-      delete currentOverrides[deleteTarget.id];
-      writeLocalOverrides(currentOverrides);
-    }
+    currentOverrides[deleteTarget.id] = {
+      ...(currentOverrides[deleteTarget.id] || {}),
+      isDeleted: true,
+    };
+    writeLocalOverrides(currentOverrides);
 
-    setPlots((prev) => prev.filter((item) => item.id !== deleteTarget.id));
-    setTotal((prev) => Math.max(0, prev - 1));
+    queryClient.invalidateQueries({ queryKey: ["plots"] });
     toast.success(`Đã xóa ${deleteTarget.plotName}`);
     setDeleteTarget(null);
     if (editingId === deleteTarget.id) {
@@ -861,7 +765,7 @@ export default function PlotsPage() {
           }
         }}
       >
-        <AlertDialogContent variant="error">
+        <AlertDialogContent className="sm:max-w-[425px]">
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa lô đất</AlertDialogTitle>
             <AlertDialogDescription>

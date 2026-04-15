@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ProductCard } from '@/client/components/product-card';
-import { useCategories } from '@/client/hooks/use-queries';
+import { useCategories } from '@/client/api';
 import {
   MOCK_PRODUCTS,
   CROP_TYPE_OPTIONS,

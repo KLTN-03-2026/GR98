@@ -8,13 +8,13 @@ import {
   GripVertical,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useCategories, type CategoryResponse } from '@/client/api';
 import {
-  useCategories,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
   useReorderCategories,
-} from '@/client/hooks/use-queries';
+} from './api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import type { CategoryResponse } from '@/client/lib/api-client';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

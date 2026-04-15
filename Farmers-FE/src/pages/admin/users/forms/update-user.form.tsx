@@ -9,6 +9,7 @@ import {
   UserIcon,
   ShieldCheckIcon,
   MapIcon,
+  MapPin,
   ToggleLeftIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -47,7 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { userApi, type UserResponse } from '@/client/lib/api-client';
+import { userApi, type UserResponse } from '@/pages/admin/users/api';
 import { userUpdateFormSchema, type UserUpdateFormInput } from '@/pages/admin/users/validation/create-user.validation';
 import FileUpload from '@/components/custom/file-upload';
 
@@ -371,7 +372,7 @@ export default function UpdateUserForm({
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className="flex items-center gap-1.5">
-                              <MapPinIcon className="size-3.5" />
+                              <MapPin className="size-3.5" />
                               Tỉnh / Thành phố
                             </FormLabel>
                             <FormControl>

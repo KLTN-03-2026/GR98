@@ -15,7 +15,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { authApi } from "@/client/lib/api-client";
+import { authApi } from "@/client/api/auth/auth-api";
 import type { ApiError } from "@/client/types";
 import { toast } from "sonner";
 import { AuthSplitShell } from "@/pages/auth/auth-split-shell";

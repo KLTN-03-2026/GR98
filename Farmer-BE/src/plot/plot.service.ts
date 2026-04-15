@@ -440,7 +440,7 @@ export class PlotService {
       plotCode = this.buildPlotCode(adminId);
     }
 
-    const created = await this.prisma.$transaction(async (tx) => {
+    const createdPlotId = await this.prisma.$transaction(async (tx) => {
       const newPlot = await tx.plot.create({
         data: {
           farmerId: farmer.id,
@@ -476,53 +476,55 @@ export class PlotService {
         });
       }
 
-      return tx.plot.findUniqueOrThrow({
-        where: { id: newPlot.id },
-        include: {
-          farmer: {
-            select: {
-              fullName: true,
-              phone: true,
-              cccd: true,
-              province: true,
+      return newPlot.id;
+    });
+
+    const created = await this.prisma.plot.findUniqueOrThrow({
+      where: { id: createdPlotId },
+      include: {
+        farmer: {
+          select: {
+            fullName: true,
+            phone: true,
+            cccd: true,
+            province: true,
+          },
+        },
+        zone: {
+          select: {
+            district: true,
+            province: true,
+          },
+        },
+        contracts: {
+          select: {
+            contractNo: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        assignments: {
+          where: {
+            status: {
+              in: [AssignStatus.PENDING, AssignStatus.ACTIVE],
             },
           },
-          zone: {
-            select: {
-              district: true,
-              province: true,
-            },
-          },
-          contracts: {
-            select: {
-              contractNo: true,
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-          assignments: {
-            where: {
-              status: {
-                in: [AssignStatus.PENDING, AssignStatus.ACTIVE],
-              },
-            },
-            orderBy: { assignedAt: 'desc' },
-            take: 1,
-            select: {
-              supervisorId: true,
-              supervisor: {
-                select: {
-                  user: {
-                    select: {
-                      fullName: true,
-                    },
+          orderBy: { assignedAt: 'desc' },
+          take: 1,
+          select: {
+            supervisorId: true,
+            supervisor: {
+              select: {
+                user: {
+                  select: {
+                    fullName: true,
                   },
                 },
               },
             },
           },
         },
-      });
+      },
     });
 
     return this.mapPlotToListItem(created);

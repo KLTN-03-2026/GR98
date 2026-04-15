@@ -1,4 +1,3 @@
-import { Card, CardContent } from "@/components/ui/card";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -224,11 +223,9 @@ const DashboardLayout: React.FC = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.1 }}
           >
-            <Card className="bg-card text-card-foreground rounded-xl border h-full w-full flex flex-col shadow-sm overflow-hidden">
-              <CardContent className="flex flex-col min-h-0 p-4 flex-1 overflow-hidden">
-                <Outlet />
-              </CardContent>
-            </Card>
+            <div className="h-full w-full min-h-0 overflow-hidden">
+              <Outlet />
+            </div>
           </motion.div>
         </div>
       </motion.main>

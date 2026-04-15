@@ -188,7 +188,12 @@ export default function UsersManagementPage() {
   const activeStatus = statusFilter === "ALL" ? undefined : statusFilter;
   const activeRole = roleFilter === "ALL" ? undefined : roleFilter;
 
-  const { data: queryData, isLoading, error: queryError, refetch } = useUsers({
+  const {
+    data: queryData,
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useUsers({
     page: currentPage,
     limit: itemsPerPage,
     search: debouncedSearch || undefined,
@@ -247,9 +252,9 @@ export default function UsersManagementPage() {
   }
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6">
+    <div className="h-full min-h-0 flex flex-col gap-3 px-2 pb-4 pt-0 sm:px-3 sm:pb-4 sm:pt-0">
       <Card className="border-dashed border-primary/40">
-        <CardContent className="space-y-3 p-4 sm:p-5">
+        <CardContent className="space-y-2.5 p-3 sm:p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="relative flex-1 lg:max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -261,7 +266,10 @@ export default function UsersManagementPage() {
               />
             </div>
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-              <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as UserRole)}>
+              <Select
+                value={roleFilter}
+                onValueChange={(value) => setRoleFilter(value as UserRole)}
+              >
                 <SelectTrigger className="h-9 w-[180px] rounded-full">
                   <SelectValue placeholder="Vai trò" />
                 </SelectTrigger>
@@ -291,7 +299,10 @@ export default function UsersManagementPage() {
                 </SelectContent>
               </Select>
 
-              <Button onClick={() => setIsCreateOpen(true)} className="rounded-full">
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="rounded-full"
+              >
                 <Plus className="h-4 w-4" />
                 Thêm người dùng
               </Button>
@@ -299,7 +310,9 @@ export default function UsersManagementPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Hiển thị {users.length} / {total} người dùng.</span>
+            <span>
+              Hiển thị {users.length} / {total} người dùng.
+            </span>
             <span>Đang hoạt động: {activeCount}</span>
             <span>Giới hạn mỗi trang: {itemsPerPage}</span>
           </div>
@@ -320,9 +333,11 @@ export default function UsersManagementPage() {
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {isLoading ? (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-                {Array.from({ length: Math.min(itemsPerPage, 12) }).map((_, index) => (
-                  <UserCardSkeleton key={`user-skeleton-${index}`} />
-                ))}
+                {Array.from({ length: Math.min(itemsPerPage, 12) }).map(
+                  (_, index) => (
+                    <UserCardSkeleton key={`user-skeleton-${index}`} />
+                  ),
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
@@ -343,7 +358,10 @@ export default function UsersManagementPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <Badge variant={getRoleBadgeVariant(user.role)} className="text-xs">
+                          <Badge
+                            variant={getRoleBadgeVariant(user.role)}
+                            className="text-xs"
+                          >
                             {getRoleLabel(user.role)}
                           </Badge>
                           <p className="mt-2 truncate text-base font-semibold text-slate-900">
@@ -359,8 +377,13 @@ export default function UsersManagementPage() {
                       </div>
 
                       <div className="mt-4 flex items-start gap-3">
-                        <Avatar className={cn("h-12 w-12 rounded-lg", tone.ring)}>
-                          <AvatarImage src={user.avatar ?? undefined} alt={user.fullName} />
+                        <Avatar
+                          className={cn("h-12 w-12 rounded-lg", tone.ring)}
+                        >
+                          <AvatarImage
+                            src={user.avatar ?? undefined}
+                            alt={user.fullName}
+                          />
                           <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-semibold">
                             {getInitials(user.fullName)}
                           </AvatarFallback>
@@ -375,18 +398,24 @@ export default function UsersManagementPage() {
                             <Phone className="h-4 w-4" />
                             {user.phone || "Chưa cập nhật"}
                           </p>
-                          {user.role === "ADMIN" && user.adminProfile?.businessName && (
-                            <p className="inline-flex items-center gap-2">
-                              <UserRound className="h-4 w-4" />
-                              <span className="truncate">{user.adminProfile.businessName}</span>
-                            </p>
-                          )}
-                          {user.role === "CLIENT" && user.clientProfile?.province && (
-                            <p className="inline-flex items-center gap-2">
-                              <UserRound className="h-4 w-4" />
-                              <span className="truncate">{user.clientProfile.province}</span>
-                            </p>
-                          )}
+                          {user.role === "ADMIN" &&
+                            user.adminProfile?.businessName && (
+                              <p className="inline-flex items-center gap-2">
+                                <UserRound className="h-4 w-4" />
+                                <span className="truncate">
+                                  {user.adminProfile.businessName}
+                                </span>
+                              </p>
+                            )}
+                          {user.role === "CLIENT" &&
+                            user.clientProfile?.province && (
+                              <p className="inline-flex items-center gap-2">
+                                <UserRound className="h-4 w-4" />
+                                <span className="truncate">
+                                  {user.clientProfile.province}
+                                </span>
+                              </p>
+                            )}
                         </div>
                       </div>
 
@@ -435,7 +464,9 @@ export default function UsersManagementPage() {
             <div className="mt-3 border-t bg-background pt-3">
               <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground">Hiển thị</span>
+                  <span className="text-xs text-muted-foreground">
+                    Hiển thị
+                  </span>
                   <Select
                     value={itemsPerPage.toString()}
                     onValueChange={(value) => {
@@ -476,7 +507,9 @@ export default function UsersManagementPage() {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs"
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(1, prev - 1))
+                      }
                       disabled={currentPage === 1}
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
@@ -485,7 +518,9 @@ export default function UsersManagementPage() {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs"
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                      }
                       disabled={currentPage === totalPages}
                     >
                       <ChevronRight className="h-3.5 w-3.5" />

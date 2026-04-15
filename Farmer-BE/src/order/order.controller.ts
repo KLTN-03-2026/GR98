@@ -64,15 +64,15 @@ export class OrderController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERVISOR)
+  @Roles(Role.ADMIN, Role.SUPERVISOR, Role.INVENTORY)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Cập nhật đơn hàng (ADMIN/SUPERVISOR)' })
+  @ApiOperation({ summary: 'Cập nhật đơn hàng (ADMIN/SUPERVISOR/INVENTORY)' })
   @ApiResponse({ status: 200, description: 'Cập nhật thành công' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy' })
   update(
     @Param('id') id: string,
     @Body() dto: UpdateOrderDto,
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
   ) {
     return this.orderService.update(id, dto, req.user.id);
   }

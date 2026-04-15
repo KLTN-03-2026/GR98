@@ -63,7 +63,7 @@ export class CategoriesController {
 
   @Get(':id')
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.INVENTORY)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Chi tiết danh mục theo id (Admin)' })
   @ApiResponse({ status: 200, description: 'Thông tin danh mục' })
@@ -76,7 +76,7 @@ export class CategoriesController {
 
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.INVENTORY)
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Tạo danh mục mới (Admin)' })
@@ -90,7 +90,7 @@ export class CategoriesController {
 
   @Patch('reorder')
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.INVENTORY)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sắp xếp thứ tự danh mục (Admin)' })
@@ -103,7 +103,7 @@ export class CategoriesController {
 
   @Patch(':id')
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.INVENTORY)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cập nhật danh mục (Admin)' })
@@ -117,7 +117,7 @@ export class CategoriesController {
 
   @Delete(':id')
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.INVENTORY)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Xóa danh mục (Admin)' })

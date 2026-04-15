@@ -50,7 +50,7 @@ export class PriceBoardController {
   }
 
   @Get()
-  @Roles(Role.ADMIN, Role.SUPERVISOR)
+  @Roles(Role.ADMIN, Role.SUPERVISOR, Role.INVENTORY)
   @ApiOperation({ summary: 'Danh sách bảng giá (phân trang)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -62,7 +62,7 @@ export class PriceBoardController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.SUPERVISOR)
+  @Roles(Role.ADMIN, Role.SUPERVISOR, Role.INVENTORY)
   @ApiOperation({ summary: 'Chi tiết bảng giá' })
   @ApiResponse({ status: 200, description: 'Thông tin bảng giá' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy' })

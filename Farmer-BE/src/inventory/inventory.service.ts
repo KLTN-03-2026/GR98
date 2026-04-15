@@ -640,4 +640,117 @@ export class InventoryService {
       return transaction;
     });
   }
+
+  async getSupplyDemand(
+    currentUser: InventoryUser,
+    filters: { cropType?: string; fromDate?: string; toDate?: string },
+  ) {
+    const adminId = await this.resolveAdminId(currentUser.id);
+    const inventoryProfileId = await this.resolveInventoryProfileId(
+      currentUser.id,
+    );
+    const warehouseIds = await this.getWarehouseIds(
+      adminId,
+      inventoryProfileId,
+    );
+
+    // 1. Fetch Expected Yield from Contracts (ACTIVE)
+    const activeContracts = await this.prisma.contract.findMany({
+      where: {
+        adminId,
+        status: 'ACTIVE',
+        ...(filters.cropType && { cropType: filters.cropType }),
+        ...(filters.fromDate && { createdAt: { gte: new Date(filters.fromDate) } }),
+        ...(filters.toDate && { createdAt: { lte: new Date(filters.toDate) } }),
+      },
+      select: { cropType: true, quantityKg: true },
+    });
+
+    // 2. Fetch Expected Yield from DailyReports (yieldEstimateKg)
+    const dailyReports = await this.prisma.dailyReport.findMany({
+      where: {
+        adminId,
+        yieldEstimateKg: { not: null },
+        plot: filters.cropType ? { cropType: filters.cropType } : {},
+        ...(filters.fromDate && { reportedAt: { gte: new Date(filters.fromDate) } }),
+        ...(filters.toDate && { reportedAt: { lte: new Date(filters.toDate) } }),
+      },
+      include: { plot: { select: { cropType: true } } },
+    });
+
+    // 3. Fetch Actual Stock from InventoryLot (within managed warehouses)
+    const inventoryLots = await this.prisma.inventoryLot.findMany({
+      where: {
+        warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['NONE'] },
+        product: filters.cropType ? { cropType: filters.cropType } : {},
+      },
+      include: { product: { select: { cropType: true } } },
+    });
+
+    // 4. Fetch Demand from Pending/Packing Orders
+    const pendingOrders = await this.prisma.order.findMany({
+      where: {
+        adminId,
+        fulfillStatus: { in: ['PENDING', 'PACKING'] },
+      },
+      include: {
+        orderItems: {
+          include: { product: { select: { cropType: true } } },
+        },
+      },
+    });
+
+    // Aggregation Logic
+    const summary: Record<
+      string,
+      { expected: number; stock: number; pending: number }
+    > = {};
+
+    activeContracts.forEach((c) => {
+      const type = c.cropType;
+      if (!summary[type]) summary[type] = { expected: 0, stock: 0, pending: 0 };
+      summary[type].expected += c.quantityKg;
+    });
+
+    dailyReports.forEach((r) => {
+      const type = r.plot.cropType;
+      if (!summary[type]) summary[type] = { expected: 0, stock: 0, pending: 0 };
+      summary[type].expected += r.yieldEstimateKg || 0;
+    });
+
+    inventoryLots.forEach((l) => {
+      const type = l.product.cropType;
+      if (!summary[type]) summary[type] = { expected: 0, stock: 0, pending: 0 };
+      summary[type].stock += l.quantityKg;
+    });
+
+    pendingOrders.forEach((o) => {
+      o.orderItems.forEach((item) => {
+        const type = item.product.cropType;
+        // Filter by cropType if provided
+        if (filters.cropType && type !== filters.cropType) return;
+
+        if (!summary[type])
+          summary[type] = { expected: 0, stock: 0, pending: 0 };
+        summary[type].pending += item.quantityKg;
+      });
+    });
+
+    const items = Object.entries(summary).map(([cropType, data]) => ({
+      cropType,
+      expectedKg: data.expected,
+      actualStockKg: data.stock,
+      pendingOrderKg: data.pending,
+    }));
+
+    return {
+      items,
+      chartData: {
+        labels: items.map((i) => i.cropType),
+        expected: items.map((i) => i.expectedKg),
+        stock: items.map((i) => i.actualStockKg),
+        pending: items.map((i) => i.pendingOrderKg),
+      },
+    };
+  }
 }

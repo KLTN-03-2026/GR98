@@ -141,4 +141,21 @@ export class InventoryController {
   createTransaction(@Request() req: { user: any }, @Body() data: any) {
     return this.inventoryService.createTransaction(req.user, data);
   }
+
+  @Get('supply-demand')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Báo cáo cung cầu' })
+  @ApiResponse({ status: 200, description: 'Dữ liệu báo cáo cung cầu' })
+  getSupplyDemand(
+    @Request() req: { user: any },
+    @Query('cropType') cropType?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    return this.inventoryService.getSupplyDemand(req.user, {
+      cropType,
+      fromDate,
+      toDate,
+    });
+  }
 }

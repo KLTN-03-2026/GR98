@@ -77,6 +77,19 @@ export class UserService {
   // ─── create ────────────────────────────────────────────────────────────────
 
   async create(dto: CreateUserDto, creatorId: string) {
+    if (dto.role === Role.ADMIN) {
+      const existingAdmin = await this.prisma.user.findFirst({
+        where: { role: Role.ADMIN },
+        select: { id: true },
+      });
+
+      if (existingAdmin) {
+        throw new ConflictException(
+          'Hệ thống chỉ cho phép 1 tài khoản Admin. Không thể tạo Admin thứ 2',
+        );
+      }
+    }
+
     // 1. Check email unique
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },

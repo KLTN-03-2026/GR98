@@ -40,6 +40,7 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
 
             // Identity & Access (People Management)
             { icon: ShieldCheck, label: 'Quản lý Tài khoản', category: 'people', path: `${basePath}/users` },
+            { icon: Users, label: 'Nông dân', category: 'people', path: `${basePath}/farmers` },
             
             // HRM & Business Area
             { icon: MapPinned, label: 'Quản lý Vùng trồng', category: 'management', path: `${basePath}/zones` },

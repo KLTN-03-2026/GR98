@@ -43,6 +43,14 @@ import UpdateUserForm from "./forms/update-user.form";
 
 type UserStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
 type UserRole = "ALL" | "ADMIN" | "SUPERVISOR" | "INVENTORY" | "CLIENT";
+type FixedUserRole = Exclude<UserRole, "ALL">;
+type UsersManagementPageProps = {
+  fixedRole?: FixedUserRole;
+  hideRoleSelector?: boolean;
+  pageTitle?: string;
+};
+
+const PAGE_LIMIT = 15;
 
 function getRoleLabel(role: string) {
   const map: Record<string, string> = {
@@ -154,13 +162,16 @@ function UserCardSkeleton() {
   );
 }
 
-export default function UsersManagementPage() {
+export default function UsersManagementPage({
+  fixedRole,
+  hideRoleSelector = false,
+  pageTitle = "người dùng",
+}: UsersManagementPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(16);
   const [statusFilter, setStatusFilter] = useState<"ALL" | UserStatus>("ALL");
-  const [roleFilter, setRoleFilter] = useState<UserRole>("ALL");
+  const [roleFilter, setRoleFilter] = useState<UserRole>(fixedRole ?? "ALL");
 
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -184,9 +195,14 @@ export default function UsersManagementPage() {
     setCurrentPage(1);
   }, [debouncedSearch, statusFilter, roleFilter]);
 
+  useEffect(() => {
+    if (!fixedRole) return;
+    setRoleFilter(fixedRole);
+  }, [fixedRole]);
+
   // ─── TanStack Query / Mutation hooks ─────────────────────────────────────
   const activeStatus = statusFilter === "ALL" ? undefined : statusFilter;
-  const activeRole = roleFilter === "ALL" ? undefined : roleFilter;
+  const activeRole = fixedRole ?? (roleFilter === "ALL" ? undefined : roleFilter);
 
   const {
     data: queryData,
@@ -195,7 +211,7 @@ export default function UsersManagementPage() {
     refetch,
   } = useUsers({
     page: currentPage,
-    limit: itemsPerPage,
+    limit: PAGE_LIMIT,
     search: debouncedSearch || undefined,
     status: activeStatus,
     role: activeRole,
@@ -208,26 +224,14 @@ export default function UsersManagementPage() {
     () => users.filter((item) => item.status === "ACTIVE").length,
     [users],
   );
-  const pageFrom = total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const pageTo = Math.min(currentPage * itemsPerPage, total);
+  const pageFrom = total === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
+  const pageTo = Math.min(currentPage * PAGE_LIMIT, total);
 
-  // Sync query data to local state (for compatibility with existing UI)
   useEffect(() => {
-    if (queryData) {
-      const raw = queryData as unknown as {
-        data?: {
-          data?: UserResponse[];
-          total?: number;
-          totalPages?: number;
-        };
-        total?: number;
-        totalPages?: number;
-      };
-      const payload = raw.data && Array.isArray(raw.data.data) ? raw.data : raw;
-      setUsers(Array.isArray(payload.data) ? payload.data : []);
-      setTotal(payload.total ?? 0);
-      setTotalPages(payload.totalPages ?? 0);
-    }
+    if (!queryData) return;
+    setUsers(Array.isArray(queryData.data) ? queryData.data : []);
+    setTotal(queryData.total ?? 0);
+    setTotalPages(queryData.totalPages ?? 0);
   }, [queryData]);
 
   function handleEdit(user: UserResponse) {
@@ -266,21 +270,23 @@ export default function UsersManagementPage() {
               />
             </div>
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-              <Select
-                value={roleFilter}
-                onValueChange={(value) => setRoleFilter(value as UserRole)}
-              >
-                <SelectTrigger className="h-9 w-[180px] rounded-full">
-                  <SelectValue placeholder="Vai trò" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Tất cả vai trò</SelectItem>
-                  <SelectItem value="ADMIN">Quản trị viên</SelectItem>
-                  <SelectItem value="SUPERVISOR">Giám sát viên</SelectItem>
-                  <SelectItem value="INVENTORY">Nhân viên kho</SelectItem>
-                  <SelectItem value="CLIENT">Khách hàng</SelectItem>
-                </SelectContent>
-              </Select>
+              {!hideRoleSelector && !fixedRole && (
+                <Select
+                  value={roleFilter}
+                  onValueChange={(value) => setRoleFilter(value as UserRole)}
+                >
+                  <SelectTrigger className="h-9 w-[180px] rounded-full">
+                    <SelectValue placeholder="Vai trò" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Tất cả vai trò</SelectItem>
+                    <SelectItem value="ADMIN">Quản trị viên</SelectItem>
+                    <SelectItem value="SUPERVISOR">Giám sát viên</SelectItem>
+                    <SelectItem value="INVENTORY">Nhân viên kho</SelectItem>
+                    <SelectItem value="CLIENT">Khách hàng</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
 
               <Select
                 value={statusFilter}
@@ -311,10 +317,10 @@ export default function UsersManagementPage() {
 
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>
-              Hiển thị {users.length} / {total} người dùng.
+              Hiển thị {users.length} / {total} {pageTitle}.
             </span>
             <span>Đang hoạt động: {activeCount}</span>
-            <span>Giới hạn mỗi trang: {itemsPerPage}</span>
+            <span>Giới hạn mỗi trang: {PAGE_LIMIT}</span>
           </div>
         </CardContent>
       </Card>
@@ -333,7 +339,7 @@ export default function UsersManagementPage() {
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {isLoading ? (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-                {Array.from({ length: Math.min(itemsPerPage, 12) }).map(
+                {Array.from({ length: Math.min(PAGE_LIMIT, 12) }).map(
                   (_, index) => (
                     <UserCardSkeleton key={`user-skeleton-${index}`} />
                   ),
@@ -465,26 +471,7 @@ export default function UsersManagementPage() {
               <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground">
-                    Hiển thị
-                  </span>
-                  <Select
-                    value={itemsPerPage.toString()}
-                    onValueChange={(value) => {
-                      setItemsPerPage(Number(value));
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger size="sm" className="h-7 w-16 px-2 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="8">8</SelectItem>
-                      <SelectItem value="12">12</SelectItem>
-                      <SelectItem value="16">16</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <span className="text-xs text-muted-foreground">
-                    {pageFrom}-{pageTo} / {total} người dùng
+                      Hiển thị {pageFrom}-{pageTo} / {total} {pageTitle}
                   </span>
                 </div>
 

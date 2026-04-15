@@ -55,7 +55,7 @@ type InventoryForm = {
   status: InventoryStatus;
 };
 
-const PAGE_LIMIT = 20;
+const PAGE_LIMIT = 15;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(\+84|0)[0-9]{9,10}$/;
 
@@ -102,7 +102,7 @@ export default function AdminInventoryStaffPage() {
     search: debouncedKeyword || undefined,
     status: statusFilter === 'ALL' ? undefined : statusFilter,
   });
-  const staffs = queryData?.data ?? [];
+  const staffs = useMemo(() => queryData?.data ?? [], [queryData]);
   const total = queryData?.total ?? 0;
   const totalPages = Math.max(1, queryData?.totalPages ?? 1);
 

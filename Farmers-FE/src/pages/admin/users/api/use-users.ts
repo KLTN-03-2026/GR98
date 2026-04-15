@@ -17,8 +17,7 @@ export function useUsers(params?: {
     queryKey: ['users', params],
     queryFn: async () => {
       const response = await userApi.list(params);
-      // userApi.list trả về PaginatedUsersResponse trực tiếp (không wrap ApiSuccessResponse)
-      return response.data;
+      return extractData<PaginatedUsersResponse>(response);
     },
     placeholderData: (prev) => prev,
   });
@@ -29,7 +28,7 @@ export function useUser(id: string) {
     queryKey: ['user', id],
     queryFn: async () => {
       const response = await userApi.getById(id);
-      return response.data;
+      return extractData<UserResponse>(response);
     },
     enabled: !!id,
   });
@@ -42,7 +41,7 @@ export function useCreateUser() {
   return useMutation({
     mutationFn: async (data: Parameters<typeof userApi.create>[0]) => {
       const response = await userApi.create(data);
-      return response.data;
+      return extractData<UserResponse>(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -65,7 +64,7 @@ export function useUpdateUser() {
       data: Parameters<typeof userApi.update>[1];
     }) => {
       const response = await userApi.update(id, data);
-      return response.data;
+      return extractData<UserResponse>(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -82,7 +81,7 @@ export function useDeleteUser() {
   return useMutation({
     mutationFn: async (id: string) => {
       const response = await userApi.delete(id);
-      return response.data;
+      return extractData<{ id: string; deletedAt: string }>(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });

@@ -1,4 +1,10 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from '@/client/lib/api-client';
+import {
+  apiDelete,
+  apiGet,
+  apiPatch,
+  apiPost,
+  type ApiSuccessResponse,
+} from '@/client/lib/api-client';
 import type { UserResponse, PaginatedUsersResponse } from './types';
 
 export const userApi = {
@@ -8,10 +14,10 @@ export const userApi = {
     search?: string;
     role?: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
     status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-  }) => apiGet<PaginatedUsersResponse>('/users', { params }),
+  }) => apiGet<ApiSuccessResponse<PaginatedUsersResponse>>('/users', { params }),
 
   getById: (id: string) =>
-    apiGet<UserResponse>(`/users/${id}`),
+    apiGet<ApiSuccessResponse<UserResponse>>(`/users/${id}`),
 
   create: (data: {
     email: string;
@@ -23,7 +29,7 @@ export const userApi = {
     province?: string;
     businessName?: string;
     defaultAddress?: string;
-  }) => apiPost<UserResponse>('/users', data),
+  }) => apiPost<ApiSuccessResponse<UserResponse>>('/users', data),
 
   update: (
     id: string,
@@ -40,8 +46,8 @@ export const userApi = {
       businessName: string;
       defaultAddress: string;
     }>,
-  ) => apiPatch<UserResponse>(`/users/${id}`, data),
+  ) => apiPatch<ApiSuccessResponse<UserResponse>>(`/users/${id}`, data),
 
   delete: (id: string) =>
-    apiDelete<{ id: string; deletedAt: string }>(`/users/${id}`),
+    apiDelete<ApiSuccessResponse<{ id: string; deletedAt: string }>>(`/users/${id}`),
 };

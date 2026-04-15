@@ -99,7 +99,7 @@ export default function UpdateUserForm({
         fullName: user.fullName,
         email: user.email,
         phone: user.phone ?? '',
-        role: user.role,
+        role: user.role === 'CLIENT' ? undefined : user.role,
         password: '',
         province: user.clientProfile?.province ?? '',
         defaultAddress: user.clientProfile?.defaultAddress ?? '',

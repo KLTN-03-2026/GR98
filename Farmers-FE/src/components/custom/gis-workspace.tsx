@@ -379,6 +379,7 @@ export default function GISWorkspace({
 
       setIsSaving(true);
       try {
+        const createdPolygon = isValidPolygon(polygonCoords) ? polygonCoords : [];
         const response = await plotApi.create({
           plotName: "GIS-POINT",
           cropType: "ca-phe",
@@ -390,8 +391,19 @@ export default function GISWorkspace({
 
         const created = {
           ...response.data.data,
-          polygon: [],
+          polygon: createdPolygon,
         };
+
+        if (createdPolygon.length > 0) {
+          setPlotPolygons((prev) => {
+            const nextPolygons = {
+              ...prev,
+              [created.id]: createdPolygon,
+            };
+            writeLocalPolygons(nextPolygons);
+            return nextPolygons;
+          });
+        }
 
         setLots((prev) => {
           const filtered = prev.filter((item) => item.id !== created.id);
@@ -1010,10 +1022,17 @@ export default function GISWorkspace({
     markerLayer.clearLayers();
 
     filteredLotsForMap
-      .filter((lot) => isValidPolygon(lot.polygon))
+      .filter((lot) => {
+        const hasPolygon = isValidPolygon(lot.polygon);
+        const hasPoint = lot.hasGis === true || lot.isGisMarked === true;
+        return hasPolygon || hasPoint;
+      })
       .forEach((lot) => {
         const isSelected = lot.id === selectedLot.id;
-        const markerPos = polygonCenter(lot.polygon as Array<[number, number]>);
+        const hasPolygon = isValidPolygon(lot.polygon);
+        const markerPos = hasPolygon
+          ? polygonCenter(lot.polygon as Array<[number, number]>)
+          : ([lot.lat, lot.lng] as [number, number]);
         const isDurian = lot.cropType === "sau-rieng";
 
         const baseBgColor = isDurian ? "#65a30d" : "#92400e";

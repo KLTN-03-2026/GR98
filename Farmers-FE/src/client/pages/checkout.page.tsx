@@ -56,7 +56,7 @@ export default function CheckoutPage() {
   const [formData, setFormData] = useState<ShippingAddress>({
     fullName: '',
     phone: '',
-    address: '',
+    addressLine: '',
     province: '',
     district: '',
     ward: '',
@@ -160,18 +160,16 @@ export default function CheckoutPage() {
           {/* Steps */}
           <div className="flex items-center gap-4 mt-4">
             <div className={`flex items-center gap-2 ${step === 'info' ? 'text-primary' : 'text-green-600'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                step === 'info' ? 'bg-primary text-primary-foreground' : 'bg-green-600 text-white'
-              }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step === 'info' ? 'bg-primary text-primary-foreground' : 'bg-green-600 text-white'
+                }`}>
                 {step === 'info' ? '1' : <CheckCircle2 className="h-4 w-4" />}
               </div>
               <span className="text-sm font-medium">Thông tin giao hàng</span>
             </div>
             <div className="flex-1 h-px bg-border" />
             <div className={`flex items-center gap-2 ${step === 'payment' ? 'text-primary' : 'text-muted-foreground'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                step === 'payment' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-              }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step === 'payment' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                }`}>
                 2
               </div>
               <span className="text-sm font-medium">Thanh toán</span>
@@ -218,12 +216,12 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="address">Địa chỉ cụ thể *</Label>
+                      <Label htmlFor="addressLine">Địa chỉ cụ thể *</Label>
                       <Input
-                        id="address"
-                        name="address"
+                        id="addressLine"
+                        name="addressLine"
                         placeholder="Số nhà, đường, phường/xã"
-                        value={formData.address}
+                        value={formData.addressLine ?? ''}
                         onChange={handleInputChange}
                       />
                     </div>
@@ -244,7 +242,7 @@ export default function CheckoutPage() {
                           id="district"
                           name="district"
                           placeholder="Quận 3"
-                          value={formData.district}
+                          value={formData.district ?? ''}
                           onChange={handleInputChange}
                         />
                       </div>
@@ -254,7 +252,7 @@ export default function CheckoutPage() {
                           id="ward"
                           name="ward"
                           placeholder="Phường 5"
-                          value={formData.ward}
+                          value={formData.ward ?? ''}
                           onChange={handleInputChange}
                         />
                       </div>
@@ -273,7 +271,7 @@ export default function CheckoutPage() {
                       size="lg"
                       className="w-full rounded-xl mt-2"
                       onClick={() => setStep('payment')}
-                      disabled={!formData.fullName || !formData.phone || !formData.address}
+                      disabled={!formData.fullName || !formData.phone || !formData.addressLine}
                     >
                       Tiếp tục thanh toán
                     </Button>
@@ -320,7 +318,7 @@ export default function CheckoutPage() {
                       <p className="text-sm text-muted-foreground">
                         {formData.fullName} - {formData.phone}
                         <br />
-                        {formData.address}, {formData.ward && `${formData.ward}, `}
+                        {formData.addressLine}, {formData.ward && `${formData.ward}, `}
                         {formData.district}, {formData.province}
                       </p>
                     </div>

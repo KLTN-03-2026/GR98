@@ -13,7 +13,6 @@ import {
   X,
   AlertTriangle,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import {
   useOrders,
   useOrder,
@@ -35,6 +34,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from '@/components/ui/sheet';
 import {
   Dialog,
@@ -330,11 +330,6 @@ function OrderDetailSheet({ orderId }: { orderId: string }) {
 // ─── Order Card ────────────────────────────────────────────────────────────
 
 function OrderCard({ order }: { order: Order }) {
-  const previewImage = order.orderItems[0]?.product?.imageUrls?.[0]
-    ?? order.orderItems[0]?.product?.thumbnailUrl
-    ?? order.orderItems[0]?.productImage
-    ?? null;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

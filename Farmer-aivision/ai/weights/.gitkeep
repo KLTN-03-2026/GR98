@@ -1,0 +1,3 @@
+# Place trained .pt model files here:
+# - durian_leaf_detector.pt  (YOLOv8 detector)
+# - durian_leaf_classifier.pt (ResNet18 classifier)

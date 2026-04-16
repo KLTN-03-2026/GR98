@@ -1,0 +1,82 @@
+{
+  "Healthy_leaf": {
+    "disease": "Healthy Leaf",
+    "benh": "Lá khỏe mạnh",
+    "tac_nhan": "Không có",
+    "do_nguy_hiem": "Không",
+    "xuc_tac": "Không có",
+    "dieu_tri": "Không cần xử lý. Tiếp tục chăm sóc bình thường.",
+    "phan_loai": "healthy",
+    "chi_tiet": "- Giai đoạn: Lá xanh tốt, màu sắc đồng đều phát triển bình thường.\n- ĐẶC TRƯNG: Không có đốm, vết cháy, không có nấm mốc hay bất kỳ tổn thương cơ học nào."
+  },
+  "Leaf_Phytophthora": {
+    "disease": "Phytophthora Leaf Blight",
+    "benh": "Bệnh thối lá Phytophthora",
+    "tac_nhan": "Phytophthora palmivora (nấm)",
+    "do_nguy_hiem": "Rất cao",
+    "xuc_tac": "Mưa dầm liên tục, vườn rậm rạp, đất ngập úng, độ ẩm >90%.",
+    "dieu_tri": "Metalaxyl 8WP, Fosetyl-Al 80WP, Phosphonate. Phun định kỳ hoặc tiêm thân khi mưa nhiều.",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Ban đầu: Đốm nhỏ màu nâu sẫm, trông ướt sũng nước (water-soaked) xuất hiện trên phiến lá.\n- Nặng: Vết bệnh lan rất nhanh làm toàn bộ lá nhũn đen. Gây hiện tượng rụng lá hàng loạt khi lá phần lớn vẫn còn xanh.\n- ĐẶC TRƯNG: Vết thối ướt, nhũn mềm (khác biệt hoàn toàn với các vết cháy khô)."
+  },
+  "leaf_blight_anthracnose": {
+    "disease": "Anthracnose (Leaf Blight)",
+    "benh": "Bệnh thán thư",
+    "tac_nhan": "Colletotrichum spp. (nấm)",
+    "do_nguy_hiem": "Cao",
+    "xuc_tac": "Độ ẩm không khí cao, sương mù nhiều, cây suy yếu, thiếu Kali.",
+    "dieu_tri": "Azoxystrobin, Difenoconazole, Propiconazole. Cắt tỉa cành thông thoáng.",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Ban đầu: Đốm cháy nhỏ màu nâu đen bắt đầu từ chóp hoặc mép lá, ranh giới giữa vùng bệnh và vùng khỏe rất rõ ràng.\n- Nặng: Vết cháy lan rộng sâu vào trong phiến lá làm lá khô giòn, rụng nhiều. Trời ẩm ướt có thể thấy khối bào tử màu hồng cam.\n- ĐẶC TRƯNG: Vết bệnh có các vòng tròn đồng tâm, có đường viền ranh giới màu nâu đỏ sậm."
+  },
+  "leaf_blight_phyllosticta": {
+    "disease": "Phyllosticta Leaf Blight",
+    "benh": "Bệnh cháy/đốm lá Phyllosticta",
+    "tac_nhan": "Phyllosticta spp. (nấm)",
+    "do_nguy_hiem": "Trung bình",
+    "xuc_tac": "Sau các đợt mưa lớn hoặc khi cây bị stress do thời tiết bất lợi.",
+    "dieu_tri": "Mancozeb, Thuốc gốc Đồng (Copper oxychloride). Thu gom lá bệnh tiêu hủy.",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Ban đầu: Các đốm nhỏ hoặc mảng cháy xém màu nâu nhạt xuất hiện, thường bắt đầu từ mép và chóp lá.\n- Nặng: Vết cháy mở rộng, phần mô chết đổi sang màu xám tro, khô và giòn. Các chấm đen li ti (ổ bào tử) xuất hiện rải rác trên nền vết cháy xám.\n- ĐẶC TRƯNG: Vết bệnh ở mép lá phẳng, giòn, có các chấm đen như hạt tiêu rắc lên."
+  },
+  "leaf_blight_rhizoctonia": {
+    "disease": "Rhizoctonia Leaf Blight",
+    "benh": "Bệnh cháy lá chết ngọn (Rhizoctonia)",
+    "tac_nhan": "Rhizoctonia solani (nấm)",
+    "do_nguy_hiem": "Cao",
+    "xuc_tac": "Tán lá rậm rạp, thiếu ánh sáng, tơ nấm lây lan mạnh khi mưa dầm.",
+    "dieu_tri": "Hexaconazole, Validamycin. Vệ sinh đồng ruộng, dọn sạch mùn rác quanh gốc.",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Ban đầu: Vết bệnh loang lổ như bị dội nước sôi xuất hiện rời rạc trên một vài phiến lá non hoặc lá bánh tẻ.\n- Nặng: Nấm lan nhanh, tạo tơ trắng làm các lá xung quanh dính bết lại với nhau thành chùm. Ngọn và cành non chết khô.\n- ĐẶC TRƯNG: Các lá co rúm, dính chùm lại với nhau bằng các sợi tơ nấm trắng mờ."
+  },
+  "Leaf_Phomopsis": {
+    "disease": "Phomopsis Leaf Spot",
+    "benh": "Bệnh đốm lá Phomopsis",
+    "tac_nhan": "Phomopsis durionis (nấm)",
+    "do_nguy_hiem": "Trung bình",
+    "xuc_tac": "Chăm sóc kém, vườn rậm rạp, thiếu vi lượng.",
+    "dieu_tri": "Mancozeb, Chlorothalonil. Phun phòng khi lá non vừa mở.",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Ban đầu: Xuất hiện các đốm nhỏ hình tròn hoặc bầu dục màu nâu sáng phân bố lác đác trên phiến lá.\n- Nặng: Các đốm lớn dần, khô lại, xung quanh có một quầng màu vàng rõ rệt. Đốm có thể liên kết với nhau nhưng hiếm khi làm rụng lá ồ ạt.\n- ĐẶC TRƯNG: Vết đốm nâu tròn độc lập, bề mặt phẳng, luôn kèm theo quầng vàng bao quanh."
+  },
+  "leaf_rust": {
+    "disease": "Rust Disease",
+    "benh": "Bệnh rỉ sắt",
+    "tac_nhan": "Uredo durionis (nấm)",
+    "do_nguy_hiem": "Trung bình",
+    "xuc_tac": "Chênh lệch nhiệt độ ngày đêm cao, sương đêm nhiều, thiếu nắng.",
+    "dieu_tri": "Hexaconazole, Propiconazole, Thuốc gốc lưu huỳnh.",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Ban đầu: Các chấm nhỏ li ti màu vàng nhạt xuất hiện rải rác trên cả hai mặt lá.\n- Nặng: Tâm đốm chuyển màu nâu sẫm, quầng vàng rực rỡ xung quanh. Mặt dưới lá lồi lên các khối bào tử vỡ ra thành bột mịn. Lá vàng và rụng sớm.\n- ĐẶC TRƯNG: Mặt dưới lá tương ứng với vết đốm lồi lên các ổ bào tử dạng bột mịn có màu cam hoặc nâu đỏ (giống màu gỉ sắt)."
+  },
+  "leaf_spot_algal": {
+    "disease": "Algal Leaf Spot",
+    "benh": "Bệnh đốm rong",
+    "tac_nhan": "Cephaleuros virescens (tảo)",
+    "do_nguy_hiem": "Thấp",
+    "xuc_tac": "Trồng mật độ quá dày, độ ẩm không khí cao xuyên suốt, cây suy kiệt.",
+    "dieu_tri": "Thuốc gốc Đồng (Copper hydroxide). Cạo rửa thân cành, tỉa tán mở sáng.",
+    "phan_loai": "algal",
+    "chi_tiet": "- Ban đầu: Vết lốm đốm nhỏ màu xám xanh hoặc hơi vàng nhạt xuất hiện trên mặt trên của các lá già.\n- Nặng: Vết đốm lớn dần, nhô cao lên như một lớp nhung sần sùi, đổi sang màu cam hoặc nâu đỏ tía. Bệnh không làm thủng lá nhưng làm giảm quang hợp.\n- ĐẶC TRƯNG: Vết đốm nhô lên có kết cấu như lớp nhung (giống rong rêu bám), bề mặt sần sùi."
+  }
+}

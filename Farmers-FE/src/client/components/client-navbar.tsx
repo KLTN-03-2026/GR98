@@ -113,7 +113,7 @@ export default function ClientNavbar() {
           >
             {/* Logo */}
             <Link to="/" className="flex items-center shrink-0 hover:opacity-80 transition-opacity">
-              <AppLogo height={40} />
+              <AppLogo />
             </Link>
 
             {/* Desktop Navigation */}

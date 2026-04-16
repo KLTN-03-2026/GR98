@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Camera, Upload, Leaf, AlertTriangle, CheckCircle, 
-  XCircle, Loader2, ArrowLeft, RotateCcw, Info, X, FlipHorizontal
+import {
+  Camera, Upload, Leaf, AlertTriangle, CheckCircle,
+  XCircle, Loader2, ArrowLeft, RotateCcw, HelpCircle, X, FlipHorizontal
 } from 'lucide-react';
 import { analyzeLeafImage, type AIVisionResult } from '../services/aiVision';
 
@@ -13,7 +13,7 @@ export default function AIVisionPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   const [inputMode, setInputMode] = useState<InputMode>('upload');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -42,7 +42,7 @@ export default function AIVisionPage() {
   const startCamera = useCallback(async () => {
     try {
       setCameraError(null);
-      
+
       // Stop existing stream if any
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
@@ -67,17 +67,17 @@ export default function AIVisionPage() {
 
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(mediaStream);
-      
+
       // Wait for video element to be ready
       setTimeout(() => {
         if (videoRef.current && mediaStream.active) {
           videoRef.current.srcObject = mediaStream;
         }
       }, 100);
-      
+
     } catch (err: any) {
       console.error('Camera error:', err);
-      
+
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setCameraError('Quyền camera bị từ chối. Vui lòng cho phép truy cập camera trong cài đặt trình duyệt.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
@@ -118,7 +118,7 @@ export default function AIVisionPage() {
   // Toggle camera mode
   const handleToggleMode = (mode: InputMode) => {
     if (mode === inputMode) return;
-    
+
     if (inputMode === 'camera') {
       stopCamera();
     }
@@ -161,26 +161,26 @@ export default function AIVisionPage() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
-    
+
     if (!context) return;
 
     canvas.width = video.videoWidth || 1280;
     canvas.height = video.videoHeight || 720;
-    
+
     context.drawImage(video, 0, 0);
-    
+
     canvas.toBlob((blob) => {
       if (!blob) return;
-      
+
       const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
       setImageFile(file);
-      
+
       const reader = new FileReader();
       reader.onload = (e) => {
         setSelectedImage(e.target?.result as string);
       };
       reader.readAsDataURL(file);
-      
+
       stopCamera();
       setInputMode('upload');
     }, 'image/jpeg', 0.9);
@@ -203,7 +203,7 @@ export default function AIVisionPage() {
     setImageFile(file);
     setResult(null);
     setError(null);
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
       setSelectedImage(e.target?.result as string);
@@ -227,7 +227,7 @@ export default function AIVisionPage() {
 
   const handleAnalyze = async () => {
     if (!imageFile) return;
-    
+
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -265,7 +265,7 @@ export default function AIVisionPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <canvas ref={canvasRef} className="hidden" />
-      
+
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -280,25 +280,23 @@ export default function AIVisionPage() {
               <h1 className="font-semibold text-gray-900">AI Vision</h1>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => handleToggleMode('upload')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                inputMode === 'upload' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${inputMode === 'upload'
+                  ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Upload
             </button>
             <button
               onClick={() => handleToggleMode('camera')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                inputMode === 'camera' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${inputMode === 'camera'
+                  ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Camera
             </button>
@@ -339,7 +337,7 @@ export default function AIVisionPage() {
                     muted
                     className="w-full h-full object-cover"
                   />
-                  
+
                   <button
                     onClick={toggleCamera}
                     className="absolute top-3 right-3 p-2 bg-black/50 backdrop-blur rounded-full text-white hover:bg-black/70 transition"
@@ -347,7 +345,7 @@ export default function AIVisionPage() {
                   >
                     <FlipHorizontal className="w-5 h-5" />
                   </button>
-                  
+
                   {stream && (
                     <div className="absolute top-3 left-3 px-2 py-1 bg-green-500/80 backdrop-blur rounded-full text-white text-xs font-medium">
                       Camera đang hoạt động
@@ -356,7 +354,7 @@ export default function AIVisionPage() {
                 </>
               )}
             </div>
-            
+
             {stream && !cameraError && (
               <button
                 onClick={handleCapture}
@@ -366,7 +364,7 @@ export default function AIVisionPage() {
                 Chụp ảnh
               </button>
             )}
-            
+
             <p className="text-xs text-gray-400 text-center">
               Nhấn nút để chụp ảnh lá sầu riêng cần phân tích
             </p>
@@ -449,7 +447,7 @@ export default function AIVisionPage() {
                 </p>
               )}
             </div>
-            
+
             <div className="p-4 space-y-5">
               {/* Disease Name & Danger */}
               <div className={`${dangerInfo.bg} rounded-xl p-4`}>
@@ -522,11 +520,10 @@ export default function AIVisionPage() {
                   <span className="text-gray-500">Độ chính xác</span>
                   <div className="flex items-center gap-2">
                     <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${
-                          result.benh.do_chinh_xac >= 0.7 ? 'bg-green-500' : 
-                          result.benh.do_chinh_xac >= 0.4 ? 'bg-amber-500' : 'bg-red-500'
-                        }`}
+                      <div
+                        className={`h-full rounded-full ${result.benh.do_chinh_xac >= 0.7 ? 'bg-green-500' :
+                            result.benh.do_chinh_xac >= 0.4 ? 'bg-amber-500' : 'bg-red-500'
+                          }`}
                         style={{ width: `${result.benh.do_chinh_xac * 100}%` }}
                       />
                     </div>

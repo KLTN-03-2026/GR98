@@ -189,7 +189,7 @@ function AlertDialogAction({
   const contextVariant = React.useContext(AlertDialogVariantContext)
   const finalVariant = variant || contextVariant
 
-  let buttonVariant: "warning" | "info" | "destructive" | "default" = "default"
+  let buttonVariant: "warning" | "info" | "destructive" | "primary" = "primary"
   
   if (finalVariant === "warning") {
     buttonVariant = "warning"

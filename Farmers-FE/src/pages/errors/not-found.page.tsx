@@ -6,7 +6,7 @@ export default function NotFoundPage() {
     <main className="min-h-screen bg-[var(--background)] px-6 py-10 text-[var(--foreground)]">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-3xl flex-col items-center justify-center rounded-3xl border border-[var(--primary-200)] bg-gradient-to-b from-[var(--primary-50)] via-[var(--background)] to-[var(--secondary-50)] p-8 text-center shadow-[var(--shadow-lg)]">
         <div className="mb-6 rounded-full border border-[var(--secondary-200)] bg-[var(--background)] p-4 shadow-[var(--shadow-md)]">
-          <AppLogo height={48} alt="Agri Integration" />
+          <AppLogo alt="Agri Integration" />
         </div>
 
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--secondary-600)]">Error 404</p>

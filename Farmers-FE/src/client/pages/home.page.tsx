@@ -37,7 +37,6 @@ function HeroCarousel() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const next = () => setCurrent((c) => (c + 1) % banners.length);
-  const prev = () => setCurrent((c) => (c - 1 + banners.length) % banners.length);
 
   useEffect(() => {
     if (isPaused) return;

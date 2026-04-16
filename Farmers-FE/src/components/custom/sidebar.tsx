@@ -304,12 +304,12 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
       <div className="flex items-center justify-center px-2 py-1 bg-card/50 overflow-visible">
         {!collapsed && (
           <div className="flex items-center justify-center w-full transition-opacity duration-150">
-            <AppLogo height={120} />
+            <AppLogo />
           </div>
         )}
         {collapsed && !isMobile && (
           <div className="flex justify-center flex-1">
-            <AppLogo height={64} />
+            <AppLogo />
           </div>
         )}
       </div>

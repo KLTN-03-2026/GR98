@@ -59,6 +59,18 @@ type DraftForm = {
   harvestDue: string;
 };
 
+const CROP_OPTIONS = [
+  { value: 'ca-phe', label: 'Cà phê' },
+  { value: 'sau-rieng', label: 'Sầu riêng' },
+] as const;
+
+function normalizeContractCropType(value?: string | null) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'ca-phe' || normalized === 'cà phê') return 'ca-phe';
+  if (normalized === 'sau-rieng' || normalized === 'sầu riêng') return 'sau-rieng';
+  return '';
+}
+
 function toInputDate(value?: string | null) {
   if (!value) return '';
   const d = new Date(value);
@@ -103,7 +115,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
       plotDraftProvince: contract.plotDraftProvince ?? '',
       plotDraftDistrict: contract.plotDraftDistrict ?? '',
       plotDraftAreaHa: String(contract.plotDraftAreaHa ?? ''),
-      cropType: contract.cropType,
+      cropType: normalizeContractCropType(contract.cropType),
       grade: contract.grade,
       signedAt: toInputDate(contract.signedAt),
       harvestDue: toInputDate(contract.harvestDue),
@@ -125,7 +137,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
           : !draftForm.plotDraftAreaHa || Number(draftForm.plotDraftAreaHa) <= 0
         ? 'Diện tích chuẩn không hợp lệ'
         : !draftForm.cropType.trim()
-          ? 'Nhập loại cây'
+          ? 'Chọn loại cây trồng'
           : null;
     if (err) {
       setDraftError(err);
@@ -445,12 +457,20 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
             </div>
             <div className="space-y-2">
               <Label>Loại cây</Label>
-              <Input
+              <select
                 value={draftForm.cropType}
                 onChange={(e) =>
                   setDraftForm((prev) => (prev ? { ...prev, cropType: e.target.value } : prev))
                 }
-              />
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Chọn loại cây trồng</option>
+                {CROP_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <Label>Grade</Label>

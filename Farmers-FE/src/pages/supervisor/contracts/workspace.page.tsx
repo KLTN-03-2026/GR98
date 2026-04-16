@@ -56,6 +56,15 @@ const defaultForm: FormState = {
   signatureUrl: '',
 };
 
+const CROP_OPTIONS = [
+  { value: "ca-phe", label: "Cà phê" },
+  { value: "sau-rieng", label: "Sầu riêng" },
+] as const;
+
+function getCropLabel(value: string) {
+  return CROP_OPTIONS.find((item) => item.value === value)?.label ?? "Chưa chọn loại cây";
+}
+
 function toPayload(form: FormState, farmerId: string | undefined): CreateContractPayload {
   return {
     farmerId: farmerId || undefined,
@@ -124,7 +133,7 @@ function SupervisorContractCreateWorkspace() {
     if (!form.plotDraftAreaHa || Number(form.plotDraftAreaHa) <= 0) {
       return 'Diện tích chuẩn lô đất phải lớn hơn 0';
     }
-    if (!form.cropType.trim()) return 'Nhập loại cây trồng';
+    if (!form.cropType.trim()) return 'Chọn loại cây trồng';
     return null;
   };
 
@@ -204,7 +213,7 @@ function SupervisorContractCreateWorkspace() {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>Grade: {form.grade}</span>
             <span className="h-1 w-1 rounded-full bg-primary/50" />
-            <span>{form.cropType.trim() || 'Chưa chọn loại cây'}</span>
+            <span>{getCropLabel(form.cropType)}</span>
           </div>
         </div>
         <div className="rounded-xl border border-emerald-300/40 bg-linear-to-r from-emerald-100/70 via-emerald-50 to-transparent p-3 dark:from-emerald-950/40 dark:via-emerald-950/20">
@@ -383,11 +392,18 @@ function SupervisorContractCreateWorkspace() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Loại cây trồng</Label>
-              <Input
+              <select
                 value={form.cropType}
                 onChange={(e) => setForm((prev) => ({ ...prev, cropType: e.target.value }))}
-                placeholder="Cà phê / Sầu riêng"
-              />
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Chọn loại cây trồng</option>
+                {CROP_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <Label>Grade</Label>

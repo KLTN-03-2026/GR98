@@ -1,0 +1,8 @@
+# Training dependencies — only needed when training models.
+# Install alongside requirements.txt:  pip install -r requirements-train.txt
+-r requirements.txt
+
+# ── Training extras ───────────────────────────────────────────────
+tqdm>=4.66.0
+torch>=2.2.0
+torchvision>=0.17.0

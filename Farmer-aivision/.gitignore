@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pkl
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual env & secrets
+venv/
+.venv/
+env/
+.env
+.env.local
+
+# Ruff
+.ruff_cache/
+
+# AI
+*.pth
+*.onnx
+ai/datasets/
+ai/runs/
+wandb/
+mlruns/
+"dataset dowload"/
+
+# ── ai/weights/ model files: negate dir → re-ignore *.pt → keep selected files ──
+!ai/weights/
+ai/weights/*.pt
+!ai/weights/.gitkeep
+!ai/weights/durian_leaf_detector.pt
+
+# Uploads & outputs
+/tmp/
+uploads/
+outputs/
+
+# Logs
+*.log
+logs/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Misc
+*.tmp
+*.bak

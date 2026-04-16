@@ -1,4 +1,12 @@
-import { PrismaClient, Role } from '@prisma/client';
+import {
+  AssignStatus,
+  ContractStatus,
+  PlotStatus,
+  Prisma,
+  PrismaClient,
+  QualityGrade,
+  Role,
+} from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -281,8 +289,10 @@ async function upsertFarmers(params: {
   adminProfileId: string;
   supervisorProfileId: string;
 }) {
+  const farmerIds: string[] = [];
+
   for (const farmer of FARMERS) {
-    await prisma.farmer.upsert({
+    const saved = await prisma.farmer.upsert({
       where: { cccd: farmer.cccd },
       update: {
         adminId: params.adminProfileId,
@@ -308,9 +318,109 @@ async function upsertFarmers(params: {
           : null,
       },
     });
+    farmerIds.push(saved.id);
   }
 
   console.log(`[SEED] Farmers are ready: ${FARMERS.length} records`);
+  return farmerIds;
+}
+
+async function seedDemoContracts(params: {
+  adminProfileId: string;
+  supervisorProfileId: string;
+  farmerIds: string[];
+}) {
+  if (!params.farmerIds.length) return;
+
+  const mainZone = await prisma.zone.create({
+    data: {
+      adminId: params.adminProfileId,
+      name: 'Khu vực trung tâm',
+      province: 'Ha Noi',
+      district: 'Dong Anh',
+      totalAreaHa: 12.5,
+    },
+  });
+
+  const plotOne = await prisma.plot.create({
+    data: {
+      adminId: params.adminProfileId,
+      farmerId: params.farmerIds[0],
+      zoneId: mainZone.id,
+      plotCode: `PL-SEED-${Date.now()}-01`,
+      cropType: 'Cà phê',
+      areaHa: 2.8,
+      status: PlotStatus.CONTRACTED,
+      estimatedYieldKg: 12000,
+    },
+  });
+
+  const plotTwo = await prisma.plot.create({
+    data: {
+      adminId: params.adminProfileId,
+      farmerId: params.farmerIds[1] ?? params.farmerIds[0],
+      zoneId: mainZone.id,
+      plotCode: `PL-SEED-${Date.now()}-02`,
+      cropType: 'Sầu riêng',
+      areaHa: 1.6,
+      status: PlotStatus.ACTIVE,
+      estimatedYieldKg: 8000,
+    },
+  });
+
+  await prisma.assignment.createMany({
+    data: [
+      {
+        adminId: params.adminProfileId,
+        supervisorId: params.supervisorProfileId,
+        plotId: plotOne.id,
+        status: AssignStatus.ACTIVE,
+      },
+      {
+        adminId: params.adminProfileId,
+        supervisorId: params.supervisorProfileId,
+        plotId: plotTwo.id,
+        status: AssignStatus.ACTIVE,
+      },
+    ],
+  });
+
+  const demoContracts = [
+    {
+      adminId: params.adminProfileId,
+      supervisorId: params.supervisorProfileId,
+      farmerId: params.farmerIds[0],
+      plotId: plotOne.id,
+      contractNo: `HDLK-SEED-${Date.now()}-01`,
+      cropType: 'Cà phê',
+      quantityKg: 12000,
+      pricePerKg: 65000,
+      totalAmount: 780000000,
+      grade: QualityGrade.A,
+      status: ContractStatus.SIGNED,
+      signatureUrl: 'https://example.com/signature-seed-01.jpg',
+      submittedAt: new Date(),
+      traceabilityQr: 'https://agri-integrator.local/trace/seed-01',
+    },
+    {
+      adminId: params.adminProfileId,
+      supervisorId: params.supervisorProfileId,
+      farmerId: params.farmerIds[1] ?? params.farmerIds[0],
+      plotId: plotTwo.id,
+      contractNo: `HDLK-SEED-${Date.now()}-02`,
+      cropType: 'Sầu riêng',
+      quantityKg: 8000,
+      pricePerKg: 92000,
+      totalAmount: 736000000,
+      grade: QualityGrade.B,
+      status: ContractStatus.DRAFT,
+      traceabilityQr: 'https://agri-integrator.local/trace/seed-02',
+    },
+  ] as unknown as Prisma.ContractCreateManyInput[];
+
+  await prisma.contract.createMany({ data: demoContracts });
+
+  console.log('[SEED] Demo contracts are ready for US07/US18 flow');
 }
 
 async function main() {
@@ -322,9 +432,14 @@ async function main() {
   console.log('[SEED] Cleared non-auth tables');
 
   const authContext = await upsertLoginUsersOnly();
-  await upsertFarmers({
+  const farmerIds = await upsertFarmers({
     adminProfileId: authContext.adminProfile.id,
     supervisorProfileId: authContext.supervisorProfile.id,
+  });
+  await seedDemoContracts({
+    adminProfileId: authContext.adminProfile.id,
+    supervisorProfileId: authContext.supervisorProfile.id,
+    farmerIds,
   });
 
   console.log('\n========================================');

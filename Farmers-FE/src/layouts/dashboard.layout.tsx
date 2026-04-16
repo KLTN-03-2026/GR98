@@ -219,11 +219,11 @@ const DashboardLayout: React.FC = () => {
 
           {/* Content container - đảm bảo chiếm hết không gian còn lại */}
           <motion.div
-            className="flex-1 min-h-0 w-full overflow-hidden"
+            className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden"
             animate={{ opacity: 1 }}
             transition={{ duration: 0.1 }}
           >
-            <div className="h-full w-full min-h-0 overflow-hidden">
+            <div className="w-full">
               <Outlet />
             </div>
           </motion.div>

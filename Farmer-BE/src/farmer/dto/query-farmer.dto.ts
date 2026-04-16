@@ -13,7 +13,7 @@ export class QueryFarmerDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(20)
+  @Max(200)
   limit?: number = 15;
 
   @IsOptional()

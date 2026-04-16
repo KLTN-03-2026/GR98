@@ -4,6 +4,8 @@ export type PlotCropType = 'ca-phe' | 'sau-rieng';
 
 export interface PlotResponse {
   id: string;
+  /** Gắn với nông dân — dùng lọc cascade lô theo nông dân */
+  farmerId: string;
   lotCode: string;
   plotName: string;
   farmerName: string;

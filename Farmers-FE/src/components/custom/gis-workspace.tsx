@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
@@ -315,7 +315,7 @@ export default function GISWorkspace({
     [supervisorOptions, selectedSupervisorId],
   );
 
-  const focusLot = (
+  const focusLot = useCallback((
     lot: LotPoint,
     options?: {
       flyTo?: boolean;
@@ -328,14 +328,15 @@ export default function GISWorkspace({
     setSelectedLotId(lot.id);
     if (shouldSyncForm) {
       setSelectedSupervisorId(lot.id_suppervisor || "");
-      setSheet({
+      setSheet((prev) => ({
         plotName: lot.plotName,
         farmerName: lot.farmerName,
         farmerPhone: lot.farmerPhone || "",
         farmerCccd: lot.farmerCccd || "",
-        contractId: lot.contractId,
+        contractId:
+          roleLabel === "SUPERVISOR" ? prev.contractId : lot.contractId,
         cropType: lot.cropType,
-      });
+      }));
     }
 
     const map = mapRef.current;
@@ -344,7 +345,7 @@ export default function GISWorkspace({
         duration: 0.35,
       });
     }
-  };
+  }, [roleLabel]);
 
   const handleSelectLot = (lot: LotPoint) => {
     focusLot(lot);
@@ -352,6 +353,80 @@ export default function GISWorkspace({
   };
 
   const handleCreatePlot = async () => {
+    const contractId = sheet.contractId.trim();
+
+    if (roleLabel === "SUPERVISOR") {
+      if (!contractId) {
+        toast.error("Vui lòng nhập mã hợp đồng");
+        return;
+      }
+
+      if (/^PL-/i.test(contractId)) {
+        toast.error(
+          "Bạn đang nhập mã lô đất. Vui lòng nhập đúng mã hợp đồng (HDLK-...).",
+        );
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        const response = await plotApi.create({
+          plotName: "GIS-POINT",
+          cropType: "ca-phe",
+          areaHa: 0.01,
+          contractId,
+          lat: mapCenter.lat,
+          lng: mapCenter.lng,
+        });
+
+        const created = {
+          ...response.data.data,
+          polygon: [],
+        };
+
+        setLots((prev) => {
+          const filtered = prev.filter((item) => item.id !== created.id);
+          return [created, ...filtered];
+        });
+        focusLot(created);
+        hidePreviewPolygon();
+        drawnItemsRef.current?.clearLayers();
+        setSheetOpen(false);
+
+        void (async () => {
+          try {
+            const cachedPolygons = readLocalPolygons();
+            const overrides = readLocalOverrides();
+            const fresh = await plotApi.list({ page: 1, limit: 200 });
+            const rows = fresh.data.data.data.map((row) => ({
+              ...row,
+              polygon: isValidPolygon(row.polygon)
+                ? row.polygon
+                : (cachedPolygons[row.id] ?? []),
+              ...(overrides[row.id] || {}),
+            }));
+            setLots(rows);
+          } catch {
+            // Ignore refresh failure because local optimistic state is already shown.
+          }
+        })();
+
+        toast.success("Đã gán point theo mã hợp đồng");
+      } catch (error) {
+        const message =
+          typeof error === "object" &&
+          error !== null &&
+          "message" in error &&
+          typeof (error as { message?: unknown }).message === "string"
+            ? ((error as { message?: string }).message ?? "")
+            : "Gán point thất bại";
+        toast.error(message || "Gán point thất bại");
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
     const plotName = sheet.plotName.trim();
     const farmerName = sheet.farmerName.trim();
     const farmerPhone = sheet.farmerPhone.trim();
@@ -402,7 +477,7 @@ export default function GISWorkspace({
         farmerName,
         farmerPhone,
         farmerCccd,
-        contractId: sheet.contractId.trim() || undefined,
+        contractId: contractId || undefined,
         cropType: sheet.cropType,
         areaHa,
         lat: mapCenter.lat,
@@ -426,7 +501,7 @@ export default function GISWorkspace({
         farmerName,
         farmerPhone,
         farmerCccd,
-        contractId: sheet.contractId.trim(),
+        contractId,
         id_suppervisor: created.id_suppervisor ?? supervisorIdPayload ?? null,
         name_suppervisor:
           created.name_suppervisor ?? supervisorNamePayload ?? null,
@@ -439,7 +514,7 @@ export default function GISWorkspace({
           farmerName,
           farmerPhone,
           farmerCccd,
-          contractId: sheet.contractId.trim(),
+          contractId,
         },
       };
       writeLocalOverrides(updatedOverrides);
@@ -515,7 +590,10 @@ export default function GISWorkspace({
             farmerName: prev.farmerName || first.farmerName,
             farmerPhone: prev.farmerPhone || first.farmerPhone || "",
             farmerCccd: prev.farmerCccd || first.farmerCccd || "",
-            contractId: prev.contractId || first.contractId,
+            contractId:
+              roleLabel === "SUPERVISOR"
+                ? prev.contractId
+                : (prev.contractId || first.contractId),
             cropType: prev.cropType || first.cropType,
           }));
         }
@@ -533,7 +611,7 @@ export default function GISWorkspace({
     };
 
     void loadPlots();
-  }, []);
+  }, [roleLabel]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -961,7 +1039,7 @@ export default function GISWorkspace({
           })
           .addTo(markerLayer);
       });
-  }, [filteredLotsForMap, selectedLot]);
+  }, [filteredLotsForMap, selectedLot, focusLot]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1241,20 +1319,22 @@ export default function GISWorkspace({
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sheet-lot-name">Tên lô đất</Label>
-              <Input
-                id="sheet-lot-name"
-                value={sheet.plotName}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    plotName: event.target.value,
-                  }))
-                }
-                placeholder="Nhập tên lô bạn muốn đặt"
-              />
-            </div>
+            {roleLabel !== "SUPERVISOR" && (
+              <div className="space-y-2">
+                <Label htmlFor="sheet-lot-name">Tên lô đất</Label>
+                <Input
+                  id="sheet-lot-name"
+                  value={sheet.plotName}
+                  onChange={(event) =>
+                    setSheet((prev) => ({
+                      ...prev,
+                      plotName: event.target.value,
+                    }))
+                  }
+                  placeholder="Nhập tên lô bạn muốn đặt"
+                />
+              </div>
+            )}
 
             <div className="rounded-xl border border-dashed border-emerald-200 p-3">
               <p className="text-xs text-muted-foreground">
@@ -1268,50 +1348,54 @@ export default function GISWorkspace({
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sheet-farmer">Nông dân phụ trách</Label>
-              <Input
-                id="sheet-farmer"
-                value={sheet.farmerName}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    farmerName: event.target.value,
-                  }))
-                }
-                placeholder="Nhập tên nông dân"
-              />
-            </div>
+            {roleLabel !== "SUPERVISOR" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="sheet-farmer">Nông dân phụ trách</Label>
+                  <Input
+                    id="sheet-farmer"
+                    value={sheet.farmerName}
+                    onChange={(event) =>
+                      setSheet((prev) => ({
+                        ...prev,
+                        farmerName: event.target.value,
+                      }))
+                    }
+                    placeholder="Nhập tên nông dân"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sheet-farmer-phone">Số điện thoại nông dân</Label>
-              <Input
-                id="sheet-farmer-phone"
-                value={sheet.farmerPhone}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    farmerPhone: event.target.value,
-                  }))
-                }
-                placeholder="Nhập số điện thoại"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sheet-farmer-phone">Số điện thoại nông dân</Label>
+                  <Input
+                    id="sheet-farmer-phone"
+                    value={sheet.farmerPhone}
+                    onChange={(event) =>
+                      setSheet((prev) => ({
+                        ...prev,
+                        farmerPhone: event.target.value,
+                      }))
+                    }
+                    placeholder="Nhập số điện thoại"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sheet-farmer-cccd">CCCD nông dân</Label>
-              <Input
-                id="sheet-farmer-cccd"
-                value={sheet.farmerCccd}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    farmerCccd: event.target.value,
-                  }))
-                }
-                placeholder="Nhập CCCD 12 chữ số"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sheet-farmer-cccd">CCCD nông dân</Label>
+                  <Input
+                    id="sheet-farmer-cccd"
+                    value={sheet.farmerCccd}
+                    onChange={(event) =>
+                      setSheet((prev) => ({
+                        ...prev,
+                        farmerCccd: event.target.value,
+                      }))
+                    }
+                    placeholder="Nhập CCCD 12 chữ số"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="sheet-contract">Mã hợp đồng</Label>
@@ -1326,62 +1410,64 @@ export default function GISWorkspace({
                 }
                 placeholder="Nhập mã hợp đồng"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sheet-supervisor">Giám sát viên phụ trách</Label>
-              <select
-                id="sheet-supervisor"
-                value={selectedSupervisorId}
-                onChange={(event) =>
-                  setSelectedSupervisorId(event.target.value)
-                }
-                disabled={
-                  roleLabel === "SUPERVISOR" ||
-                  isLoadingSupervisors ||
-                  supervisorOptions.length === 0
-                }
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted"
-              >
-                {supervisorOptions.length === 0 && (
-                  <option value="">
-                    {isLoadingSupervisors
-                      ? "Đang tải danh sách giám sát viên..."
-                      : "Chưa có giám sát viên khả dụng"}
-                  </option>
-                )}
-
-                {supervisorOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                    {item.meta ? ` (${item.meta})` : ""}
-                  </option>
-                ))}
-              </select>
               {roleLabel === "SUPERVISOR" && (
                 <p className="text-xs text-muted-foreground">
-                  Role SUPERVISOR chỉ được tạo lô cho chính mình.
+                  Ví dụ mã hợp đồng: HDLK-20260416-001.
                 </p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sheet-crop">Loại cây trồng</Label>
-              <select
-                id="sheet-crop"
-                value={sheet.cropType}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    cropType: event.target.value as CropType,
-                  }))
-                }
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="sau-rieng">Sầu riêng</option>
-                <option value="ca-phe">Cà phê</option>
-              </select>
-            </div>
+            {roleLabel !== "SUPERVISOR" && (
+              <div className="space-y-2">
+                <Label htmlFor="sheet-supervisor">Giám sát viên phụ trách</Label>
+                <select
+                  id="sheet-supervisor"
+                  value={selectedSupervisorId}
+                  onChange={(event) =>
+                    setSelectedSupervisorId(event.target.value)
+                  }
+                  disabled={
+                    isLoadingSupervisors || supervisorOptions.length === 0
+                  }
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted"
+                >
+                  {supervisorOptions.length === 0 && (
+                    <option value="">
+                      {isLoadingSupervisors
+                        ? "Đang tải danh sách giám sát viên..."
+                        : "Chưa có giám sát viên khả dụng"}
+                    </option>
+                  )}
+
+                  {supervisorOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                      {item.meta ? ` (${item.meta})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {roleLabel !== "SUPERVISOR" && (
+              <div className="space-y-2">
+                <Label htmlFor="sheet-crop">Loại cây trồng</Label>
+                <select
+                  id="sheet-crop"
+                  value={sheet.cropType}
+                  onChange={(event) =>
+                    setSheet((prev) => ({
+                      ...prev,
+                      cropType: event.target.value as CropType,
+                    }))
+                  }
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="sau-rieng">Sầu riêng</option>
+                  <option value="ca-phe">Cà phê</option>
+                </select>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-dashed p-3">
               <div>
@@ -1396,13 +1482,21 @@ export default function GISWorkspace({
                   {selectedLot.updatedAt}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Giống cây</p>
-                <p className="font-semibold text-emerald-900">
-                  {getCropLabel(sheet.cropType)}
-                </p>
-              </div>
+              {roleLabel !== "SUPERVISOR" && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Giống cây</p>
+                  <p className="font-semibold text-emerald-900">
+                    {getCropLabel(sheet.cropType)}
+                  </p>
+                </div>
+              )}
             </div>
+
+            {roleLabel === "SUPERVISOR" && (
+              <p className="text-xs text-muted-foreground">
+                Supervisor chỉ cần nhập mã hợp đồng hợp lệ để gán point trên GIS.
+              </p>
+            )}
           </div>
 
           <SheetFooter>
@@ -1412,7 +1506,11 @@ export default function GISWorkspace({
               disabled={isSaving}
             >
               <Sprout className="mr-2 h-4 w-4" />
-              {isSaving ? "Đang lưu..." : "Lưu cập nhật vào luồng GIS"}
+              {isSaving
+                ? "Đang lưu..."
+                : roleLabel === "SUPERVISOR"
+                  ? "Gán point theo mã hợp đồng"
+                  : "Lưu cập nhật vào luồng GIS"}
             </Button>
           </SheetFooter>
         </SheetContent>

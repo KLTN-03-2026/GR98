@@ -236,6 +236,7 @@ model SupervisorProfile {
   assignments  Assignment[]
   dailyReports DailyReport[]
   farmers      Farmer[]
+  contracts    Contract[]
 
   @@map("SupervisorProfiles")
 }
@@ -412,6 +413,7 @@ model PriceBoard {
 model Contract {
   id           String         @id @default(cuid())
   adminId      String // TENANT KEY
+  supervisorId String
   farmerId     String
   plotId       String
   priceBoardId String?
@@ -425,9 +427,15 @@ model Contract {
   signedAt     DateTime?
   harvestDue   DateTime?
   signatureUrl String?
+  traceabilityQr String?
+  submittedAt  DateTime?
+  approvedAt   DateTime?
+  approvedBy   String?
+  rejectedReason String?      @db.Text
   createdAt    DateTime       @default(now())
 
   admin         AdminProfile   @relation(fields: [adminId], references: [id])
+  supervisor    SupervisorProfile @relation(fields: [supervisorId], references: [id])
   farmer        Farmer         @relation(fields: [farmerId], references: [id])
   plot          Plot           @relation(fields: [plotId], references: [id])
   priceBoard    PriceBoard?    @relation(fields: [priceBoardId], references: [id])

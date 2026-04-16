@@ -16,7 +16,10 @@ import { PaginatedResponse } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { QueryContractDto } from './dto/query-contract.dto';
-import { RejectContractDto, UpdateContractDto } from './dto/update-contract.dto';
+import {
+  RejectContractDto,
+  UpdateContractDto,
+} from './dto/update-contract.dto';
 
 type ActorContext = {
   userId: string;
@@ -29,7 +32,9 @@ type ActorContext = {
 export class ContractService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async resolveActorContext(currentUserId: string): Promise<ActorContext> {
+  private async resolveActorContext(
+    currentUserId: string,
+  ): Promise<ActorContext> {
     const user = await this.prisma.user.findUnique({
       where: { id: currentUserId },
       select: { id: true, role: true, status: true },
@@ -129,14 +134,19 @@ export class ContractService {
     }
   }
 
-  private async ensurePriceBoardInTenant(adminId: string, priceBoardId?: string) {
+  private async ensurePriceBoardInTenant(
+    adminId: string,
+    priceBoardId?: string,
+  ) {
     if (!priceBoardId) return;
     const priceBoard = await this.prisma.priceBoard.findFirst({
       where: { id: priceBoardId, adminId },
       select: { id: true },
     });
     if (!priceBoard) {
-      throw new NotFoundException('Bảng giá không tồn tại trong đơn vị quản lý');
+      throw new NotFoundException(
+        'Bảng giá không tồn tại trong đơn vị quản lý',
+      );
     }
   }
 
@@ -267,7 +277,9 @@ export class ContractService {
   }
 
   private mapContract(
-    item: Prisma.ContractGetPayload<{ select: ReturnType<ContractService['getSelectContractDetail']> }>,
+    item: Prisma.ContractGetPayload<{
+      select: ReturnType<ContractService['getSelectContractDetail']>;
+    }>,
   ) {
     return {
       id: item.id,
@@ -390,7 +402,9 @@ export class ContractService {
   async findAll(query: QueryContractDto, currentUserId: string) {
     const actor = await this.resolveActorContext(currentUserId);
 
-    const andConditions: Prisma.ContractWhereInput[] = [{ adminId: actor.adminId }];
+    const andConditions: Prisma.ContractWhereInput[] = [
+      { adminId: actor.adminId },
+    ];
 
     if (actor.role === Role.SUPERVISOR && actor.supervisorProfileId) {
       andConditions.push({ supervisorId: actor.supervisorProfileId });
@@ -492,7 +506,9 @@ export class ContractService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Hợp đồng không tồn tại trong phạm vi phụ trách');
+      throw new NotFoundException(
+        'Hợp đồng không tồn tại trong phạm vi phụ trách',
+      );
     }
 
     if (existing.status !== ContractStatus.DRAFT) {
@@ -527,7 +543,9 @@ export class ContractService {
 
     const nextQuantityKg = dto.quantityKg ?? existing.quantityKg;
     const nextPricePerKg = dto.pricePerKg ?? existing.pricePerKg;
-    const nextTotalAmount = Number((nextQuantityKg * nextPricePerKg).toFixed(2));
+    const nextTotalAmount = Number(
+      (nextQuantityKg * nextPricePerKg).toFixed(2),
+    );
 
     const updateData: Prisma.ContractUpdateInput = {
       farmer: { connect: { id: nextFarmerId } },
@@ -584,7 +602,9 @@ export class ContractService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Hợp đồng không tồn tại trong phạm vi phụ trách');
+      throw new NotFoundException(
+        'Hợp đồng không tồn tại trong phạm vi phụ trách',
+      );
     }
     if (existing.status !== ContractStatus.DRAFT) {
       throw new BadRequestException(
@@ -592,7 +612,9 @@ export class ContractService {
       );
     }
     if (!existing.signatureUrl?.trim()) {
-      throw new BadRequestException('Cần tải lên ảnh hợp đồng đã ký trước khi gửi');
+      throw new BadRequestException(
+        'Cần tải lên ảnh hợp đồng đã ký trước khi gửi',
+      );
     }
 
     await this.prisma.contract.update({
@@ -620,10 +642,14 @@ export class ContractService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Hợp đồng không tồn tại trong đơn vị quản lý');
+      throw new NotFoundException(
+        'Hợp đồng không tồn tại trong đơn vị quản lý',
+      );
     }
     if (existing.status !== ContractStatus.SIGNED) {
-      throw new BadRequestException('Chỉ hợp đồng chờ phê duyệt mới được phê duyệt');
+      throw new BadRequestException(
+        'Chỉ hợp đồng chờ phê duyệt mới được phê duyệt',
+      );
     }
 
     await this.prisma.contract.update({
@@ -655,10 +681,14 @@ export class ContractService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Hợp đồng không tồn tại trong đơn vị quản lý');
+      throw new NotFoundException(
+        'Hợp đồng không tồn tại trong đơn vị quản lý',
+      );
     }
     if (existing.status !== ContractStatus.SIGNED) {
-      throw new BadRequestException('Chỉ hợp đồng chờ phê duyệt mới được từ chối');
+      throw new BadRequestException(
+        'Chỉ hợp đồng chờ phê duyệt mới được từ chối',
+      );
     }
 
     await this.prisma.contract.update({

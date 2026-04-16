@@ -115,10 +115,7 @@ export class UserController {
     type: Boolean,
     description: 'Ẩn role CLIENT khỏi danh sách (dùng cho tab users nội bộ)',
   })
-  findAll(
-    @Query() query: ListUsersQueryDto,
-    @Request() req: any,
-  ) {
+  findAll(@Query() query: ListUsersQueryDto, @Request() req: any) {
     const excludeClient = query.excludeClient ?? query.xcludeClient;
 
     return this.userService.findAll(query, req.user.id, {

@@ -25,7 +25,9 @@ export class FarmerService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Ghi dữ liệu: ADMIN thao tác toàn tenant; SUPERVISOR chỉ thao tác nông dân của mình */
-  private async resolveFarmerWriteActor(currentUserId: string): Promise<FarmerWriteActor> {
+  private async resolveFarmerWriteActor(
+    currentUserId: string,
+  ): Promise<FarmerWriteActor> {
     const user = await this.prisma.user.findUnique({
       where: { id: currentUserId },
       select: { id: true, role: true, status: true },
@@ -65,7 +67,9 @@ export class FarmerService {
   }
 
   /** Đọc danh sách / chi tiết: ADMIN toàn tenant; SUPERVISOR chỉ nông dân được gán cho mình. */
-  private async resolveFarmerReadActor(currentUserId: string): Promise<FarmerReadActor> {
+  private async resolveFarmerReadActor(
+    currentUserId: string,
+  ): Promise<FarmerReadActor> {
     const user = await this.prisma.user.findUnique({
       where: { id: currentUserId },
       select: { id: true, role: true, status: true },
@@ -104,7 +108,10 @@ export class FarmerService {
     throw new ForbiddenException('Bạn không có quyền xem danh sách nông dân');
   }
 
-  private async ensureSupervisorInTenant(adminId: string, supervisorId?: string | null) {
+  private async ensureSupervisorInTenant(
+    adminId: string,
+    supervisorId?: string | null,
+  ) {
     if (supervisorId === undefined) {
       return undefined;
     }
@@ -129,11 +136,15 @@ export class FarmerService {
     });
 
     if (!supervisor) {
-      throw new NotFoundException('Giám sát viên không tồn tại trong đơn vị quản lý');
+      throw new NotFoundException(
+        'Giám sát viên không tồn tại trong đơn vị quản lý',
+      );
     }
 
     if (supervisor.user.status !== 'ACTIVE') {
-      throw new BadRequestException('Giám sát viên không ở trạng thái hoạt động');
+      throw new BadRequestException(
+        'Giám sát viên không ở trạng thái hoạt động',
+      );
     }
 
     return supervisor.id;
@@ -205,7 +216,9 @@ export class FarmerService {
       select: { id: true },
     });
     if (duplicatePhone) {
-      throw new ConflictException('Số điện thoại đã tồn tại trong đơn vị quản lý');
+      throw new ConflictException(
+        'Số điện thoại đã tồn tại trong đơn vị quản lý',
+      );
     }
 
     const supervisorId =
@@ -364,7 +377,9 @@ export class FarmerService {
     });
 
     if (!item) {
-      throw new NotFoundException('Nông dân không tồn tại hoặc bạn không có quyền truy cập');
+      throw new NotFoundException(
+        'Nông dân không tồn tại hoặc bạn không có quyền truy cập',
+      );
     }
 
     return this.mapFarmer(item);
@@ -390,7 +405,9 @@ export class FarmerService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Nông dân không tồn tại hoặc bạn không có quyền cập nhật');
+      throw new NotFoundException(
+        'Nông dân không tồn tại hoặc bạn không có quyền cập nhật',
+      );
     }
 
     const normalizedCccd = dto.cccd?.trim();
@@ -415,7 +432,9 @@ export class FarmerService {
         select: { id: true },
       });
       if (duplicatePhone) {
-        throw new ConflictException('Số điện thoại đã tồn tại trong đơn vị quản lý');
+        throw new ConflictException(
+          'Số điện thoại đã tồn tại trong đơn vị quản lý',
+        );
       }
     }
 
@@ -423,15 +442,23 @@ export class FarmerService {
     if (dto.fullName !== undefined) updateData.fullName = dto.fullName.trim();
     if (dto.phone !== undefined) updateData.phone = dto.phone.trim();
     if (dto.cccd !== undefined) updateData.cccd = dto.cccd.trim();
-    if (dto.bankAccount !== undefined) updateData.bankAccount = dto.bankAccount?.trim() || null;
-    if (dto.address !== undefined) updateData.address = dto.address?.trim() || null;
-    if (dto.province !== undefined) updateData.province = dto.province?.trim() || null;
+    if (dto.bankAccount !== undefined)
+      updateData.bankAccount = dto.bankAccount?.trim() || null;
+    if (dto.address !== undefined)
+      updateData.address = dto.address?.trim() || null;
+    if (dto.province !== undefined)
+      updateData.province = dto.province?.trim() || null;
     if (dto.status !== undefined) updateData.status = dto.status;
 
     if (dto.supervisorId !== undefined) {
       if (actor.role === 'SUPERVISOR') {
-        if (dto.supervisorId && dto.supervisorId !== actor.supervisorProfileId) {
-          throw new ForbiddenException('Bạn không thể chuyển nông dân sang giám sát viên khác');
+        if (
+          dto.supervisorId &&
+          dto.supervisorId !== actor.supervisorProfileId
+        ) {
+          throw new ForbiddenException(
+            'Bạn không thể chuyển nông dân sang giám sát viên khác',
+          );
         }
         updateData.supervisor = { connect: { id: actor.supervisorProfileId } };
       } else {
@@ -477,11 +504,15 @@ export class FarmerService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Nông dân không tồn tại hoặc bạn không có quyền xóa');
+      throw new NotFoundException(
+        'Nông dân không tồn tại hoặc bạn không có quyền xóa',
+      );
     }
 
     if (existing._count.plots > 0 || existing._count.contracts > 0) {
-      throw new BadRequestException('Không thể xóa nông dân đã phát sinh lô đất hoặc hợp đồng');
+      throw new BadRequestException(
+        'Không thể xóa nông dân đã phát sinh lô đất hoặc hợp đồng',
+      );
     }
 
     await this.prisma.farmer.delete({ where: { id } });

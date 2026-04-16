@@ -411,7 +411,7 @@ export class InventoryService {
           expiryDate: data.expiryDate
             ? new Date(data.expiryDate as string)
             : null,
-          qualityGrade: data.qualityGrade as any,
+          qualityGrade: data.qualityGrade,
         },
       });
 
@@ -660,7 +660,9 @@ export class InventoryService {
         adminId,
         status: 'ACTIVE',
         ...(filters.cropType && { cropType: filters.cropType }),
-        ...(filters.fromDate && { createdAt: { gte: new Date(filters.fromDate) } }),
+        ...(filters.fromDate && {
+          createdAt: { gte: new Date(filters.fromDate) },
+        }),
         ...(filters.toDate && { createdAt: { lte: new Date(filters.toDate) } }),
       },
       select: { cropType: true, quantityKg: true },
@@ -672,8 +674,12 @@ export class InventoryService {
         adminId,
         yieldEstimateKg: { not: null },
         plot: filters.cropType ? { cropType: filters.cropType } : {},
-        ...(filters.fromDate && { reportedAt: { gte: new Date(filters.fromDate) } }),
-        ...(filters.toDate && { reportedAt: { lte: new Date(filters.toDate) } }),
+        ...(filters.fromDate && {
+          reportedAt: { gte: new Date(filters.fromDate) },
+        }),
+        ...(filters.toDate && {
+          reportedAt: { lte: new Date(filters.toDate) },
+        }),
       },
       include: { plot: { select: { cropType: true } } },
     });

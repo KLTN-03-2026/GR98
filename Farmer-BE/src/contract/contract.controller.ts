@@ -25,7 +25,10 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { ContractService } from './contract.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { QueryContractDto } from './dto/query-contract.dto';
-import { RejectContractDto, UpdateContractDto } from './dto/update-contract.dto';
+import {
+  RejectContractDto,
+  UpdateContractDto,
+} from './dto/update-contract.dto';
 
 @ApiTags('contracts')
 @ApiBearerAuth()

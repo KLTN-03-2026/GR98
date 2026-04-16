@@ -2,9 +2,8 @@ import axios from 'axios';
 
 const AI_VISION_API_URL = import.meta.env.VITE_AI_VISION_API_URL || 'http://localhost:8000';
 
-// Proxy path for Vite dev server (avoids mixed content CORS issues)
-const USE_PROXY = AI_VISION_API_URL.startsWith('http://') && window.location.protocol === 'https:';
-const API_BASE = USE_PROXY ? '/api/ai-vision' : AI_VISION_API_URL;
+// Luôn dùng proxy /api/ai-vision trong dev để tránh CORS
+const API_BASE = '/api/ai-vision';
 
 export interface BenhInfo {
   disease: string;

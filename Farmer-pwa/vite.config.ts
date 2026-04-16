@@ -13,10 +13,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'robots.txt'],
       manifest: {
-        name: 'Agri Supervisor PWA',
-        short_name: 'AgriSupervisor',
-        description: 'PWA cho Supervisor - AI Vision & Chatbot',
-        theme_color: '#22c55e',
+        name: 'Vietnam Farmer',
+        short_name: 'Farmer',
+        description: 'Vietnam Farmer - Nang cao nong san Viet',
+        theme_color: '#7BAE3C',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
@@ -63,7 +63,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5173,
+    port: 5174,
     host: true,
     https: true,
     proxy: {
@@ -72,6 +72,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api\/ai-vision/, ''),
+      },
+      '/api': {
+        target: 'http://localhost:9933',
+        changeOrigin: true,
+        secure: false,
       },
     },
   },

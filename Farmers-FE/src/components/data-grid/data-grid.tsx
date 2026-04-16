@@ -25,6 +25,7 @@ export function DataGrid<TItem>({
 }: DataGridProps<TItem>) {
   const minCardWidth = layout?.minCardWidth ?? 280;
   const gapClassName = layout?.gapClassName ?? "gap-4";
+  const equalHeightCards = layout?.equalHeightCards ?? false;
   const resolvedSkeletonCount = skeleton?.count ?? pagination?.pageSize ?? 8;
   const useManagementAppearance = appearance === "management";
 
@@ -105,7 +106,16 @@ export function DataGrid<TItem>({
               }}
             >
               {items.map((item, index) => (
-                <div key={keyExtractor(item, index)}>{renderCard(item, index)}</div>
+                <div
+                  key={keyExtractor(item, index)}
+                  className={cn(
+                    "min-w-0",
+                    equalHeightCards && "flex h-full",
+                    layout?.itemWrapperClassName,
+                  )}
+                >
+                  {renderCard(item, index)}
+                </div>
               ))}
             </div>
           )}

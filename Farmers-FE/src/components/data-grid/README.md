@@ -37,6 +37,26 @@ Khung `GridView` đa năng dùng chung cho các trang quản lý dạng card-gri
   - page tự filter/slice dữ liệu rồi truyền `items`
   - `toolbar.onResetFilters` dùng để reset local filter/search/page về mặc định.
 
+## Dùng cho card nhiều thông tin (avatar + badge + action)
+
+`DataGrid` đã đủ để render kiểu card như `dashboard/users` (avatar, role badge, status badge, metadata và action icon), vì phần card được truyền qua `renderCard`.
+
+Khi muốn card cao đều và không bị lệch hàng:
+
+- bật `layout.equalHeightCards: true`
+- để root card trong `renderCard` dùng `h-full w-full`
+- với text dài, dùng `truncate` hoặc `line-clamp-*`
+
+Ví dụ:
+
+```tsx
+layout={{
+  minCardWidth: 300,
+  equalHeightCards: true,
+  itemWrapperClassName: "items-stretch",
+}}
+```
+
 ## Ví dụ nhanh
 
 ```tsx

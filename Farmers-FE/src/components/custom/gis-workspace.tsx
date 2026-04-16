@@ -62,6 +62,7 @@ const EMPTY_LOT: LotPoint = {
   farmerId: "empty-farmer",
   lotCode: "N/A",
   plotName: "Lô mới",
+  farmerId: "",
   farmerName: "Chưa gán",
   farmerPhone: "",
   farmerCccd: "",
@@ -86,6 +87,8 @@ const DEFAULT_POLYGON_META =
   "Chưa có polygon. Dùng công cụ vẽ trên map để mở Sheet chỉnh sửa.";
 const LOCAL_POLYGON_KEY = "gis_plot_polygons_v1";
 const LOCAL_PLOT_OVERRIDES_KEY = "gis_plot_overrides_v1";
+const GIS_MIN_HEIGHT_PX = 560;
+const GIS_VIEWPORT_HEIGHT = `clamp(${GIS_MIN_HEIGHT_PX}px, calc(100dvh - 170px), 920px)`;
 
 type PlotFieldOverride = {
   plotName?: string;
@@ -821,6 +824,23 @@ export default function GISWorkspace({
   }, []);
 
   useEffect(() => {
+    const map = mapRef.current;
+    const container = mapContainerRef.current;
+    if (!map || !container || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (container.clientHeight > 0 && container.clientWidth > 0) {
+        map.invalidateSize();
+      }
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     const loadData = async () => {
       try {
         const response = await fetch("/data.json", { cache: "no-store" });
@@ -1038,8 +1058,14 @@ export default function GISWorkspace({
 
   return (
     <>
-      <section className="h-full min-h-0">
-        <div className="relative isolate h-full min-h-[740px] overflow-hidden rounded-2xl border border-emerald-200 shadow-sm">
+      <section
+        className="min-h-0"
+        style={{
+          minHeight: `${GIS_MIN_HEIGHT_PX}px`,
+          height: GIS_VIEWPORT_HEIGHT,
+        }}
+      >
+        <div className="relative isolate h-full overflow-hidden rounded-2xl border border-emerald-200 shadow-sm">
           <div ref={mapContainerRef} className="gis-map h-full w-full" />
 
           <div className="absolute left-18 right-4 top-4 z-1100">

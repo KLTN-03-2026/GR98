@@ -35,7 +35,6 @@ import {
   useRejectContract,
   useSubmitContractForApproval,
   useUpdateContract,
-  type ContractStatus,
   type CreateContractPayload,
   type QualityGrade,
 } from '@/pages/admin/contracts/api';

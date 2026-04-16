@@ -42,7 +42,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import {
-  plotApi,
   usePlots,
   useUpdatePlot,
   type PlotResponse,
@@ -63,11 +62,7 @@ type PlotFieldOverride = {
   isDeleted?: boolean;
 };
 
-type SupervisorOption = {
-  id: string;
-  name: string;
-  employeeCode?: string;
-};
+
 
 const getCropLabel = (crop: CropType) =>
   crop === "sau-rieng" ? "Sầu riêng" : "Cà phê";

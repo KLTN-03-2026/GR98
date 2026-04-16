@@ -59,6 +59,7 @@ interface SupervisorOption {
 
 const EMPTY_LOT: LotPoint = {
   id: "empty",
+  farmerId: "empty-farmer",
   lotCode: "N/A",
   plotName: "Lô mới",
   farmerName: "Chưa gán",

@@ -1,0 +1,31 @@
+# Exclude large files not needed in Docker image
+*.pt
+*.pth
+*.ckpt
+*.pth.tar
+
+# Exclude training scripts and test scripts
+scripts/
+tests/
+dataset*/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+ruff_cache/
+.git/
+.gitignore
+.env
+README.md
+*.md
+
+# Exclude Docker build artifacts
+Dockerfile
+.dockerignore
+
+# Exclude datasets
+*.zip
+*.tar.gz
+*.rar
+*.7z

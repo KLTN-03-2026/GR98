@@ -1,0 +1,20 @@
+{
+  "weights_file": "ai\\weights\\durian_leaf_classifier.pt",
+  "class_names": [
+    "Leaf_Algal",
+    "Leaf_Blight",
+    "Leaf_Colletotrichum",
+    "Leaf_Healthy",
+    "Leaf_Phomopsis",
+    "Leaf_Rhizoctonia"
+  ],
+  "class_to_idx": {
+    "Leaf_Algal": 0,
+    "Leaf_Blight": 1,
+    "Leaf_Colletotrichum": 2,
+    "Leaf_Healthy": 3,
+    "Leaf_Phomopsis": 4,
+    "Leaf_Rhizoctonia": 5
+  },
+  "note": "ImageFolder sorts folders alphabetically; indices match training order."
+}

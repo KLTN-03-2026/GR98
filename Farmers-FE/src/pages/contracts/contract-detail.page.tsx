@@ -118,7 +118,11 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
   const saveDraft = async () => {
     if (!contract || !draftForm) return;
     const err =
-      !draftForm.plotDraftAreaHa || Number(draftForm.plotDraftAreaHa) <= 0
+      !draftForm.plotDraftProvince.trim()
+        ? 'Nhập Tỉnh/Thành của lô đất'
+        : !draftForm.plotDraftDistrict.trim()
+          ? 'Nhập Quận/Huyện của lô đất'
+          : !draftForm.plotDraftAreaHa || Number(draftForm.plotDraftAreaHa) <= 0
         ? 'Diện tích chuẩn không hợp lệ'
         : !draftForm.cropType.trim()
           ? 'Nhập loại cây'

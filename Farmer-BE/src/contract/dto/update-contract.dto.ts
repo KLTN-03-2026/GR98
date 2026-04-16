@@ -55,6 +55,5 @@ export class UpdateContractDto {
 
 export class RejectContractDto {
   @IsString()
-  @IsOptional()
-  rejectedReason?: string;
+  rejectedReason: string;
 }

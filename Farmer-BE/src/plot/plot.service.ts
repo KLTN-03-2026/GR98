@@ -317,6 +317,9 @@ export class PlotService {
         contracts: {
           select: {
             contractNo: true,
+            plotDraftProvince: true,
+            plotDraftDistrict: true,
+            plotDraftAreaHa: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -372,7 +375,12 @@ export class PlotService {
       province: string | null;
     };
     zone: { district: string; province: string } | null;
-    contracts: Array<{ contractNo: string }>;
+    contracts: Array<{
+      contractNo: string;
+      plotDraftProvince: string | null;
+      plotDraftDistrict: string | null;
+      plotDraftAreaHa: number | null;
+    }>;
     assignments: Array<{
       supervisorId: string;
       supervisor: {
@@ -383,6 +391,7 @@ export class PlotService {
     }>;
   }) {
     const activeAssignment = plot.assignments[0] ?? null;
+    const latestContract = plot.contracts[0] ?? null;
     const hasGis =
       plot.lat !== null && plot.lng !== null && Number.isFinite(plot.lat) && Number.isFinite(plot.lng);
 
@@ -394,10 +403,14 @@ export class PlotService {
       farmerName: plot.farmer?.fullName ?? 'Chưa gán',
       farmerPhone: plot.farmer?.phone ?? '',
       farmerCccd: plot.farmer?.cccd ?? '',
-      contractId: plot.contracts[0]?.contractNo ?? 'Chưa có hợp đồng',
-      province: plot.zone?.province ?? plot.farmer?.province ?? 'N/A',
-      district: plot.zone?.district ?? 'N/A',
-      areaHa: plot.areaHa,
+      contractId: latestContract?.contractNo ?? 'Chưa có hợp đồng',
+      province:
+        plot.zone?.province ??
+        latestContract?.plotDraftProvince ??
+        plot.farmer?.province ??
+        'N/A',
+      district: plot.zone?.district ?? latestContract?.plotDraftDistrict ?? 'N/A',
+      areaHa: latestContract?.plotDraftAreaHa ?? plot.areaHa,
       cropType: this.toCropTypeForUi(plot.cropType),
       progress: plot.status === PlotStatus.ACTIVE ? 'on-track' : 'attention',
       lat: plot.lat ?? 16.2,
@@ -505,6 +518,9 @@ export class PlotService {
         contracts: {
           select: {
             contractNo: true,
+            plotDraftProvince: true,
+            plotDraftDistrict: true,
+            plotDraftAreaHa: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -556,6 +572,20 @@ export class PlotService {
         { farmer: { fullName: { contains: search, mode: 'insensitive' } } },
         { zone: { district: { contains: search, mode: 'insensitive' } } },
         { zone: { province: { contains: search, mode: 'insensitive' } } },
+        {
+          contracts: {
+            some: {
+              plotDraftDistrict: { contains: search, mode: 'insensitive' },
+            },
+          },
+        },
+        {
+          contracts: {
+            some: {
+              plotDraftProvince: { contains: search, mode: 'insensitive' },
+            },
+          },
+        },
         {
           assignments: {
             some: {
@@ -612,6 +642,9 @@ export class PlotService {
           contracts: {
             select: {
               contractNo: true,
+              plotDraftProvince: true,
+              plotDraftDistrict: true,
+              plotDraftAreaHa: true,
             },
             orderBy: { createdAt: 'desc' },
             take: 1,

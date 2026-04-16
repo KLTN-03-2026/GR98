@@ -119,6 +119,8 @@ function SupervisorContractCreateWorkspace() {
 
   const validate = () => {
     if (!farmerId) return 'Chọn nông dân phụ trách';
+    if (!form.plotDraftProvince.trim()) return 'Nhập Tỉnh/Thành của lô đất';
+    if (!form.plotDraftDistrict.trim()) return 'Nhập Quận/Huyện của lô đất';
     if (!form.plotDraftAreaHa || Number(form.plotDraftAreaHa) <= 0) {
       return 'Diện tích chuẩn lô đất phải lớn hơn 0';
     }

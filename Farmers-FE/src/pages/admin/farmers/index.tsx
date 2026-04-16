@@ -428,6 +428,10 @@ function FarmerManagementPage() {
                           "Chưa gán giám sát viên"}
                       </span>
                     </p>
+                    <p className="truncate text-xs">
+                      NH: {row.bankName || "Chưa cập nhật"}{" "}
+                      {row.bankBranch ? `- ${row.bankBranch}` : ""}
+                    </p>
                   </div>
 
                   <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">

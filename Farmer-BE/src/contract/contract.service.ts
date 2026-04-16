@@ -8,13 +8,13 @@ import {
 import {
   AssignStatus,
   ContractStatus,
+  PlotStatus,
   Prisma,
   Role,
   UserStatus,
 } from '@prisma/client';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { PlotService } from '../plot/plot.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { QueryContractDto } from './dto/query-contract.dto';
 import {
@@ -29,12 +29,16 @@ type ActorContext = {
   supervisorProfileId?: string;
 };
 
+type DraftPlotInput = {
+  plotId: string | null;
+  plotDraftProvince: string | null;
+  plotDraftDistrict: string | null;
+  plotDraftAreaHa: number | null;
+};
+
 @Injectable()
 export class ContractService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly plotService: PlotService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   private async resolveActorContext(
     currentUserId: string,
@@ -87,6 +91,46 @@ export class ContractService {
   private buildTraceabilityQr(contractNo: string) {
     const baseUrl = process.env.APP_WEB_URL || 'http://localhost:5173';
     return `${baseUrl}/trace/contracts/${contractNo}`;
+  }
+
+  private normalizeOptionalString(value?: string | null) {
+    if (value === undefined || value === null) return null;
+    const normalized = value.trim();
+    return normalized.length ? normalized : null;
+  }
+
+  private normalizeCropTypeForPlot(cropType: string) {
+    const normalized = cropType.trim().toLowerCase();
+    if (normalized === 'ca-phe') return 'Cà phê';
+    if (normalized === 'sau-rieng') return 'Sầu riêng';
+    return cropType.trim();
+  }
+
+  private buildPlotCode(adminId: string): string {
+    const date = new Date();
+    const ymd = date.toISOString().slice(0, 10).replace(/-/g, '');
+    const rand = Math.floor(Math.random() * 999)
+      .toString()
+      .padStart(3, '0');
+    return `PL-${ymd}-${adminId.slice(-3).toUpperCase()}${rand}`;
+  }
+
+  private assertDraftPlotInput(input: DraftPlotInput) {
+    if (input.plotId) {
+      return;
+    }
+
+    if (!input.plotDraftProvince || !input.plotDraftDistrict) {
+      throw new BadRequestException(
+        'Thiếu thông tin lô đất nháp (tỉnh/thành và quận/huyện)',
+      );
+    }
+
+    if (!input.plotDraftAreaHa || input.plotDraftAreaHa <= 0) {
+      throw new BadRequestException(
+        'Thiếu hoặc sai diện tích lô đất (plotDraftAreaHa)',
+      );
+    }
   }
 
   private async ensureFarmerAndPlotInTenant(
@@ -351,13 +395,22 @@ export class ContractService {
       throw new ForbiddenException('Bạn không có quyền tạo hợp đồng');
     }
 
-    const hasPlot = Boolean(dto.plotId);
+    const normalizedPlotId = this.normalizeOptionalString(dto.plotId);
+    const draftPlotInput: DraftPlotInput = {
+      plotId: normalizedPlotId,
+      plotDraftProvince: this.normalizeOptionalString(dto.plotDraftProvince),
+      plotDraftDistrict: this.normalizeOptionalString(dto.plotDraftDistrict),
+      plotDraftAreaHa: dto.plotDraftAreaHa ?? null,
+    };
+    this.assertDraftPlotInput(draftPlotInput);
+
+    const hasPlot = Boolean(normalizedPlotId);
 
     const resolvedFarmerId = hasPlot
       ? await this.ensureFarmerAndPlotInTenant(
           actor.adminId,
           dto.farmerId,
-          dto.plotId as string,
+          normalizedPlotId as string,
         )
       : await this.ensureFarmerInTenant(actor.adminId, dto.farmerId);
 
@@ -365,7 +418,7 @@ export class ContractService {
       await this.ensureSupervisorCanManagePlot(
         actor.supervisorProfileId,
         actor.adminId,
-        dto.plotId as string,
+        normalizedPlotId as string,
       );
     }
 
@@ -376,12 +429,12 @@ export class ContractService {
         adminId: actor.adminId,
         supervisorId: actor.supervisorProfileId,
         farmerId: resolvedFarmerId,
-        plotId: dto.plotId || null,
+        plotId: normalizedPlotId,
         contractNo,
         cropType: dto.cropType.trim(),
-        plotDraftProvince: dto.plotDraftProvince || null,
-        plotDraftDistrict: dto.plotDraftDistrict || null,
-        plotDraftAreaHa: dto.plotDraftAreaHa ?? null,
+        plotDraftProvince: hasPlot ? null : draftPlotInput.plotDraftProvince,
+        plotDraftDistrict: hasPlot ? null : draftPlotInput.plotDraftDistrict,
+        plotDraftAreaHa: hasPlot ? null : draftPlotInput.plotDraftAreaHa,
         grade: dto.grade,
         status: ContractStatus.DRAFT,
         signedAt: dto.signedAt ? new Date(dto.signedAt) : null,
@@ -503,6 +556,9 @@ export class ContractService {
         id: true,
         farmerId: true,
         plotId: true,
+        plotDraftProvince: true,
+        plotDraftDistrict: true,
+        plotDraftAreaHa: true,
         status: true,
       },
     });
@@ -520,7 +576,30 @@ export class ContractService {
     }
 
     let nextFarmerId = dto.farmerId ?? existing.farmerId;
-    const nextPlotId = dto.plotId !== undefined ? dto.plotId : existing.plotId;
+    const inputPlotId =
+      dto.plotId !== undefined
+        ? this.normalizeOptionalString(dto.plotId)
+        : undefined;
+    const nextPlotId = inputPlotId !== undefined ? inputPlotId : existing.plotId;
+    const nextPlotDraftProvince =
+      dto.plotDraftProvince !== undefined
+        ? this.normalizeOptionalString(dto.plotDraftProvince)
+        : existing.plotDraftProvince;
+    const nextPlotDraftDistrict =
+      dto.plotDraftDistrict !== undefined
+        ? this.normalizeOptionalString(dto.plotDraftDistrict)
+        : existing.plotDraftDistrict;
+    const nextPlotDraftAreaHa =
+      dto.plotDraftAreaHa !== undefined
+        ? dto.plotDraftAreaHa ?? null
+        : existing.plotDraftAreaHa;
+
+    this.assertDraftPlotInput({
+      plotId: nextPlotId ?? null,
+      plotDraftProvince: nextPlotDraftProvince ?? null,
+      plotDraftDistrict: nextPlotDraftDistrict ?? null,
+      plotDraftAreaHa: nextPlotDraftAreaHa,
+    });
 
     if (dto.farmerId || dto.plotId !== undefined) {
       if (nextPlotId) {
@@ -538,11 +617,11 @@ export class ContractService {
       }
     }
 
-    if (dto.plotId && dto.plotId !== existing.plotId) {
+    if (nextPlotId && nextPlotId !== existing.plotId) {
       await this.ensureSupervisorCanManagePlot(
         actor.supervisorProfileId,
         actor.adminId,
-        dto.plotId,
+        nextPlotId,
       );
     }
 
@@ -552,17 +631,13 @@ export class ContractService {
 
     if (nextPlotId) {
       updateData.plot = { connect: { id: nextPlotId } };
+    } else if (existing.plotId) {
+      updateData.plot = { disconnect: true };
     }
 
-    if (dto.plotDraftProvince !== undefined) {
-      updateData.plotDraftProvince = dto.plotDraftProvince || null;
-    }
-    if (dto.plotDraftDistrict !== undefined) {
-      updateData.plotDraftDistrict = dto.plotDraftDistrict || null;
-    }
-    if (dto.plotDraftAreaHa !== undefined) {
-      updateData.plotDraftAreaHa = dto.plotDraftAreaHa ?? null;
-    }
+    updateData.plotDraftProvince = nextPlotId ? null : nextPlotDraftProvince;
+    updateData.plotDraftDistrict = nextPlotId ? null : nextPlotDraftDistrict;
+    updateData.plotDraftAreaHa = nextPlotId ? null : nextPlotDraftAreaHa;
 
     if (dto.cropType !== undefined) updateData.cropType = dto.cropType.trim();
     if (dto.grade !== undefined) updateData.grade = dto.grade;
@@ -601,6 +676,10 @@ export class ContractService {
         id: true,
         status: true,
         signatureUrl: true,
+        plotId: true,
+        plotDraftProvince: true,
+        plotDraftDistrict: true,
+        plotDraftAreaHa: true,
         contractNo: true,
       },
     });
@@ -621,6 +700,13 @@ export class ContractService {
       );
     }
 
+    this.assertDraftPlotInput({
+      plotId: existing.plotId,
+      plotDraftProvince: existing.plotDraftProvince,
+      plotDraftDistrict: existing.plotDraftDistrict,
+      plotDraftAreaHa: existing.plotDraftAreaHa,
+    });
+
     await this.prisma.contract.update({
       where: { id },
       data: {
@@ -640,65 +726,121 @@ export class ContractService {
       throw new ForbiddenException('Bạn không có quyền phê duyệt hợp đồng');
     }
 
-    const existing = await this.prisma.contract.findFirst({
-      where: { id, adminId: actor.adminId },
-      select: {
-        id: true,
-        status: true,
-        plotId: true,
-        contractNo: true,
-        cropType: true,
-        farmerId: true,
-        supervisorId: true,
-        plotDraftProvince: true,
-        plotDraftDistrict: true,
-        plotDraftAreaHa: true,
-      },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.contract.findFirst({
+        where: { id, adminId: actor.adminId },
+        select: {
+          id: true,
+          status: true,
+          plotId: true,
+          contractNo: true,
+          cropType: true,
+          farmerId: true,
+          supervisorId: true,
+          plotDraftProvince: true,
+          plotDraftDistrict: true,
+          plotDraftAreaHa: true,
+        },
+      });
 
-    if (!existing) {
-      throw new NotFoundException(
-        'Hợp đồng không tồn tại trong đơn vị quản lý',
-      );
-    }
-    if (existing.status !== ContractStatus.SIGNED) {
-      throw new BadRequestException(
-        'Chỉ hợp đồng chờ phê duyệt mới được phê duyệt',
-      );
-    }
-
-    let nextPlotId = existing.plotId ?? null;
-
-    if (!existing.plotId) {
-      if (!existing.plotDraftAreaHa || existing.plotDraftAreaHa <= 0) {
-        throw new BadRequestException('Thiếu hoặc sai diện tích lô đất (plotDraftAreaHa)');
+      if (!existing) {
+        throw new NotFoundException(
+          'Hợp đồng không tồn tại trong đơn vị quản lý',
+        );
+      }
+      if (existing.status !== ContractStatus.SIGNED) {
+        throw new BadRequestException(
+          'Chỉ hợp đồng chờ phê duyệt mới được phê duyệt',
+        );
       }
 
-      const createdPlot = await this.plotService.create(
-        {
-          plotName: existing.contractNo,
-          farmerId: existing.farmerId,
-          cropType: existing.cropType,
-          areaHa: existing.plotDraftAreaHa,
-          province: existing.plotDraftProvince ?? undefined,
-          district: existing.plotDraftDistrict ?? undefined,
-          id_suppervisor: existing.supervisorId,
+      let nextPlotId = existing.plotId ?? null;
+
+      if (!nextPlotId) {
+        this.assertDraftPlotInput({
+          plotId: null,
+          plotDraftProvince: existing.plotDraftProvince,
+          plotDraftDistrict: existing.plotDraftDistrict,
+          plotDraftAreaHa: existing.plotDraftAreaHa,
+        });
+
+        let plotCode = this.buildPlotCode(actor.adminId);
+        for (let i = 0; i < 4; i += 1) {
+          const duplicate = await tx.plot.findUnique({ where: { plotCode } });
+          if (!duplicate) break;
+          plotCode = this.buildPlotCode(actor.adminId);
+        }
+
+        const zone = await tx.zone.findFirst({
+          where: {
+            adminId: actor.adminId,
+            ...(existing.plotDraftProvince
+              ? {
+                  province: {
+                    contains: existing.plotDraftProvince,
+                    mode: 'insensitive',
+                  },
+                }
+              : {}),
+            ...(existing.plotDraftDistrict
+              ? {
+                  district: {
+                    contains: existing.plotDraftDistrict,
+                    mode: 'insensitive',
+                  },
+                }
+              : {}),
+          },
+          orderBy: { name: 'asc' },
+        });
+
+        const createdPlot = await tx.plot.create({
+          data: {
+            farmerId: existing.farmerId,
+            adminId: actor.adminId,
+            zoneId: zone?.id,
+            plotCode,
+            cropType: this.normalizeCropTypeForPlot(existing.cropType),
+            areaHa: existing.plotDraftAreaHa as number,
+            lat: null,
+            lng: null,
+            status: PlotStatus.CONTRACTED,
+          },
+          select: { id: true },
+        });
+
+        await tx.assignment.create({
+          data: {
+            supervisorId: existing.supervisorId,
+            plotId: createdPlot.id,
+            adminId: actor.adminId,
+            status: AssignStatus.ACTIVE,
+          },
+        });
+
+        await tx.farmer.updateMany({
+          where: {
+            id: existing.farmerId,
+            adminId: actor.adminId,
+          },
+          data: {
+            supervisorId: existing.supervisorId,
+          },
+        });
+
+        nextPlotId = createdPlot.id;
+      }
+
+      await tx.contract.update({
+        where: { id },
+        data: {
+          plotId: nextPlotId,
+          status: ContractStatus.ACTIVE,
+          approvedAt: new Date(),
+          approvedBy: actor.userId,
+          rejectedReason: null,
         },
-        currentUserId,
-      );
-
-      nextPlotId = createdPlot.id;
-    }
-
-    await this.prisma.contract.update({
-      where: { id },
-      data: {
-        plotId: nextPlotId,
-        status: ContractStatus.ACTIVE,
-        approvedAt: new Date(),
-        approvedBy: actor.userId,
-        rejectedReason: null,
-      },
+      });
     });
 
     return this.findOne(id, currentUserId);

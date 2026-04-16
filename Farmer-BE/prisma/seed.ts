@@ -1,12 +1,4 @@
-import {
-  AssignStatus,
-  ContractStatus,
-  PlotStatus,
-  Prisma,
-  PrismaClient,
-  QualityGrade,
-  Role,
-} from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -18,16 +10,6 @@ type LoginSeedAccount = {
   fullName: string;
   phone: string;
   role: Role;
-};
-
-type FarmerSeedRecord = {
-  fullName: string;
-  phone: string;
-  cccd: string;
-  bankAccount?: string;
-  address?: string;
-  province?: string;
-  assignToSupervisor?: boolean;
 };
 
 const ACCOUNTS: LoginSeedAccount[] = [
@@ -54,45 +36,6 @@ const ACCOUNTS: LoginSeedAccount[] = [
     fullName: 'Khách Hàng',
     phone: '0987654321',
     role: Role.CLIENT,
-  },
-];
-
-const FARMERS: FarmerSeedRecord[] = [
-  {
-    fullName: 'Nguyen Van Khoa',
-    phone: '0903000001',
-    cccd: '079123456701',
-    bankAccount: '9704361234567890',
-    address: 'Thon Dong, Dong Anh',
-    province: 'Ha Noi',
-    assignToSupervisor: true,
-  },
-  {
-    fullName: 'Tran Thi Lan',
-    phone: '0903000002',
-    cccd: '079123456702',
-    bankAccount: '9704361234567891',
-    address: 'Xa Phu Cuong, Soc Son',
-    province: 'Ha Noi',
-    assignToSupervisor: true,
-  },
-  {
-    fullName: 'Le Van Binh',
-    phone: '0903000003',
-    cccd: '079123456703',
-    bankAccount: '9704361234567892',
-    address: 'Xa Yen Bai, Ba Vi',
-    province: 'Ha Noi',
-    assignToSupervisor: false,
-  },
-  {
-    fullName: 'Pham Thi Hoa',
-    phone: '0903000004',
-    cccd: '079123456704',
-    bankAccount: '9704361234567893',
-    address: 'Xa Nguyen Khe, Dong Anh',
-    province: 'Ha Noi',
-    assignToSupervisor: false,
   },
 ];
 
@@ -239,7 +182,9 @@ async function upsertLoginUsersOnly() {
     },
   });
 
-  const clientAccount = ACCOUNTS.find((account) => account.role === Role.CLIENT);
+  const clientAccount = ACCOUNTS.find(
+    (account) => account.role === Role.CLIENT,
+  );
   if (!clientAccount) {
     throw new Error('Client account seed config is missing');
   }
@@ -276,151 +221,12 @@ async function upsertLoginUsersOnly() {
 
   console.log('[SEED] Login accounts are ready:');
   for (const account of ACCOUNTS) {
-    console.log(`       ${account.role} -> ${account.email} / ${DEFAULT_PASSWORD}`);
+    console.log(
+      `       ${account.role} -> ${account.email} / ${DEFAULT_PASSWORD}`,
+    );
   }
 
-  return {
-    adminProfile,
-    supervisorProfile,
-  };
-}
-
-async function upsertFarmers(params: {
-  adminProfileId: string;
-  supervisorProfileId: string;
-}) {
-  const farmerIds: string[] = [];
-
-  for (const farmer of FARMERS) {
-    const saved = await prisma.farmer.upsert({
-      where: { cccd: farmer.cccd },
-      update: {
-        adminId: params.adminProfileId,
-        fullName: farmer.fullName,
-        phone: farmer.phone,
-        bankAccount: farmer.bankAccount,
-        address: farmer.address,
-        province: farmer.province,
-        supervisorId: farmer.assignToSupervisor
-          ? params.supervisorProfileId
-          : null,
-      },
-      create: {
-        adminId: params.adminProfileId,
-        fullName: farmer.fullName,
-        phone: farmer.phone,
-        cccd: farmer.cccd,
-        bankAccount: farmer.bankAccount,
-        address: farmer.address,
-        province: farmer.province,
-        supervisorId: farmer.assignToSupervisor
-          ? params.supervisorProfileId
-          : null,
-      },
-    });
-    farmerIds.push(saved.id);
-  }
-
-  console.log(`[SEED] Farmers are ready: ${FARMERS.length} records`);
-  return farmerIds;
-}
-
-async function seedDemoContracts(params: {
-  adminProfileId: string;
-  supervisorProfileId: string;
-  farmerIds: string[];
-}) {
-  if (!params.farmerIds.length) return;
-
-  const mainZone = await prisma.zone.create({
-    data: {
-      adminId: params.adminProfileId,
-      name: 'Khu vực trung tâm',
-      province: 'Ha Noi',
-      district: 'Dong Anh',
-      totalAreaHa: 12.5,
-    },
-  });
-
-  const plotOne = await prisma.plot.create({
-    data: {
-      adminId: params.adminProfileId,
-      farmerId: params.farmerIds[0],
-      zoneId: mainZone.id,
-      plotCode: `PL-SEED-${Date.now()}-01`,
-      cropType: 'Cà phê',
-      areaHa: 2.8,
-      status: PlotStatus.CONTRACTED,
-      estimatedYieldKg: 12000,
-    },
-  });
-
-  const plotTwo = await prisma.plot.create({
-    data: {
-      adminId: params.adminProfileId,
-      farmerId: params.farmerIds[1] ?? params.farmerIds[0],
-      zoneId: mainZone.id,
-      plotCode: `PL-SEED-${Date.now()}-02`,
-      cropType: 'Sầu riêng',
-      areaHa: 1.6,
-      status: PlotStatus.ACTIVE,
-      estimatedYieldKg: 8000,
-    },
-  });
-
-  await prisma.assignment.createMany({
-    data: [
-      {
-        adminId: params.adminProfileId,
-        supervisorId: params.supervisorProfileId,
-        plotId: plotOne.id,
-        status: AssignStatus.ACTIVE,
-      },
-      {
-        adminId: params.adminProfileId,
-        supervisorId: params.supervisorProfileId,
-        plotId: plotTwo.id,
-        status: AssignStatus.ACTIVE,
-      },
-    ],
-  });
-
-  const demoContracts = [
-    {
-      adminId: params.adminProfileId,
-      supervisorId: params.supervisorProfileId,
-      farmerId: params.farmerIds[0],
-      plotId: plotOne.id,
-      contractNo: `HDLK-SEED-${Date.now()}-01`,
-      cropType: 'Cà phê',
-      quantityKg: 12000,
-      pricePerKg: 65000,
-      totalAmount: 780000000,
-      grade: QualityGrade.A,
-      status: ContractStatus.SIGNED,
-      signatureUrl: 'https://example.com/signature-seed-01.jpg',
-      submittedAt: new Date(),
-      traceabilityQr: 'https://agri-integrator.local/trace/seed-01',
-    },
-    {
-      adminId: params.adminProfileId,
-      supervisorId: params.supervisorProfileId,
-      farmerId: params.farmerIds[1] ?? params.farmerIds[0],
-      plotId: plotTwo.id,
-      contractNo: `HDLK-SEED-${Date.now()}-02`,
-      cropType: 'Sầu riêng',
-      quantityKg: 8000,
-      pricePerKg: 92000,
-      totalAmount: 736000000,
-      grade: QualityGrade.B,
-      status: ContractStatus.DRAFT,
-      traceabilityQr: 'https://agri-integrator.local/trace/seed-02',
-    },
-  ] as unknown as Prisma.ContractCreateManyInput[];
-
-  await prisma.contract.createMany({ data: demoContracts });
-
-  console.log('[SEED] Demo contracts are ready for US07/US18 flow');
+  return { adminProfile, supervisorProfile };
 }
 
 async function main() {
@@ -431,16 +237,7 @@ async function main() {
   await clearNonAuthData();
   console.log('[SEED] Cleared non-auth tables');
 
-  const authContext = await upsertLoginUsersOnly();
-  const farmerIds = await upsertFarmers({
-    adminProfileId: authContext.adminProfile.id,
-    supervisorProfileId: authContext.supervisorProfile.id,
-  });
-  await seedDemoContracts({
-    adminProfileId: authContext.adminProfile.id,
-    supervisorProfileId: authContext.supervisorProfile.id,
-    farmerIds,
-  });
+  await upsertLoginUsersOnly();
 
   console.log('\n========================================');
   console.log('  SEED COMPLETE');

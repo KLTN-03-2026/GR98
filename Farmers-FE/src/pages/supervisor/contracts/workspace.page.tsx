@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -21,13 +21,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useMe } from '@/client/api/auth/use-me';
 import { useFarmers } from '@/pages/admin/farmers/api';
-import { usePlots } from '@/pages/admin/plots/api';
 import {
   useCreateContract,
   type CreateContractPayload,
   type QualityGrade,
 } from '@/pages/admin/contracts/api';
-import { usePriceBoards } from '@/pages/inventory/price-boards/api';
 import ContractDetailPage from '@/pages/contracts/contract-detail.page';
 import { ContractLegalTemplate } from '@/pages/contracts/components/contract-legal-template';
 import {
@@ -37,11 +35,10 @@ import {
 import '@/pages/contracts/contract-print.css';
 
 type FormState = {
-  plotId: string;
-  priceBoardId: string;
+  plotDraftProvince: string;
+  plotDraftDistrict: string;
+  plotDraftAreaHa: string;
   cropType: string;
-  quantityKg: string;
-  pricePerKg: string;
   grade: QualityGrade;
   signedAt: string;
   harvestDue: string;
@@ -49,11 +46,10 @@ type FormState = {
 };
 
 const defaultForm: FormState = {
-  plotId: '',
-  priceBoardId: '',
+  plotDraftProvince: '',
+  plotDraftDistrict: '',
+  plotDraftAreaHa: '',
   cropType: '',
-  quantityKg: '',
-  pricePerKg: '',
   grade: 'A',
   signedAt: '',
   harvestDue: '',
@@ -62,12 +58,11 @@ const defaultForm: FormState = {
 
 function toPayload(form: FormState, farmerId: string | undefined): CreateContractPayload {
   return {
-    plotId: form.plotId,
     farmerId: farmerId || undefined,
-    priceBoardId: form.priceBoardId || undefined,
+    plotDraftProvince: form.plotDraftProvince.trim() || undefined,
+    plotDraftDistrict: form.plotDraftDistrict.trim() || undefined,
+    plotDraftAreaHa: form.plotDraftAreaHa ? Number(form.plotDraftAreaHa) : undefined,
     cropType: form.cropType.trim(),
-    quantityKg: Number(form.quantityKg),
-    pricePerKg: Number(form.pricePerKg),
     grade: form.grade,
     signedAt: form.signedAt || undefined,
     harvestDue: form.harvestDue || undefined,
@@ -91,39 +86,14 @@ function SupervisorContractCreateWorkspace() {
     enabled: !!supervisorProfileId,
   });
 
-  const { data: plotsData } = usePlots({
-    page: 1,
-    limit: 200,
-    ...(supervisorProfileId ? { id_suppervisor: supervisorProfileId } : {}),
-    enabled: !!supervisorProfileId,
-  });
-
-  const { data: priceBoardsData } = usePriceBoards({ page: 1, limit: 50, isActive: 'true' });
   const createMutation = useCreateContract();
 
   const farmers = farmersData?.data ?? [];
-  const plots = plotsData?.data ?? [];
-  const priceBoards = priceBoardsData?.data ?? [];
 
   const selectedFarmer = useMemo(
     () => farmers.find((f) => f.id === farmerId) ?? null,
     [farmers, farmerId],
   );
-
-  const plotsForFarmer = useMemo(() => {
-    if (!farmerId) return [];
-    return plots.filter((p) => p.farmerId === farmerId);
-  }, [plots, farmerId]);
-
-  const selectedPlot = plotsForFarmer.find((p) => p.id === form.plotId) ?? null;
-
-  useEffect(() => {
-    if (!form.plotId || !farmerId) return;
-    const stillOk = plotsForFarmer.some((p) => p.id === form.plotId);
-    if (!stillOk) {
-      setForm((prev) => ({ ...prev, plotId: '' }));
-    }
-  }, [farmerId, form.plotId, plotsForFarmer]);
 
   const draftVm = useMemo(
     () =>
@@ -132,27 +102,29 @@ function SupervisorContractCreateWorkspace() {
         supervisorProfileId,
         supervisorName,
         farmer: selectedFarmer,
-        plot: selectedPlot,
         form: {
+          plotDraftProvince: form.plotDraftProvince,
+          plotDraftDistrict: form.plotDraftDistrict,
+          plotDraftAreaHa: form.plotDraftAreaHa,
           cropType: form.cropType,
-          quantityKg: form.quantityKg,
-          pricePerKg: form.pricePerKg,
           grade: form.grade,
           signedAt: form.signedAt,
           harvestDue: form.harvestDue,
         },
       }),
-    [me, supervisorProfileId, supervisorName, selectedFarmer, selectedPlot, form],
+    [me, supervisorProfileId, supervisorName, selectedFarmer, form],
   );
 
   const partyA = PARTY_A_DOCUMENT_DEFAULTS;
 
   const validate = () => {
     if (!farmerId) return 'Chọn nông dân phụ trách';
-    if (!form.plotId) return 'Chọn lô đất của nông dân';
+    if (!form.plotDraftProvince.trim()) return 'Nhập Tỉnh/Thành của lô đất';
+    if (!form.plotDraftDistrict.trim()) return 'Nhập Quận/Huyện của lô đất';
+    if (!form.plotDraftAreaHa || Number(form.plotDraftAreaHa) <= 0) {
+      return 'Diện tích chuẩn lô đất phải lớn hơn 0';
+    }
     if (!form.cropType.trim()) return 'Nhập loại cây trồng';
-    if (!form.quantityKg || Number(form.quantityKg) <= 0) return 'Sản lượng khoán phải lớn hơn 0';
-    if (!form.pricePerKg || Number(form.pricePerKg) <= 0) return 'Giá sàn phải lớn hơn 0';
     return null;
   };
 
@@ -245,14 +217,14 @@ function SupervisorContractCreateWorkspace() {
                 Trạng thái dữ liệu
               </p>
               <p className="text-sm text-foreground">
-                {farmerId && form.plotId
+                {farmerId && form.plotDraftAreaHa
                   ? 'Đủ dữ liệu cơ bản để lưu nháp'
-                  : 'Cần chọn nông dân và lô đất'}
+                  : 'Cần chọn nông dân và điền thông tin lô đất'}
               </p>
             </div>
           </div>
           <div className="mt-2 text-xs text-muted-foreground">
-            Chọn đầy đủ lô đất, sản lượng và giá để lưu nháp ngay.
+            Điền thông tin lô đất và loại cây để lưu nháp ngay.
           </div>
         </div>
       </div>
@@ -312,7 +284,6 @@ function SupervisorContractCreateWorkspace() {
                 value={farmerId}
                 onChange={(e) => {
                   setFarmerId(e.target.value);
-                  setForm((prev) => ({ ...prev, plotId: '' }));
                 }}
                 disabled={farmersLoading}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -356,56 +327,44 @@ function SupervisorContractCreateWorkspace() {
                     <Landmark className="h-3.5 w-3.5" />
                     Ngân hàng
                   </p>
-                  <p className="text-xs">{selectedFarmer?.bankAccount || 'Chưa khai báo'}</p>
+                  <p className="text-xs">
+                    {selectedFarmer?.bankName || 'Chưa khai báo'} - {selectedFarmer?.bankBranch || '---'} -{' '}
+                    {selectedFarmer?.bankAccount || 'Chưa có số tài khoản'}
+                  </p>
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label>Lô đất</Label>
-              <select
-                value={form.plotId}
-                disabled={!farmerId}
-                onChange={(e) => {
-                  const plotId = e.target.value;
-                  const plot = plotsForFarmer.find((item) => item.id === plotId);
-                  setForm((prev) => ({
-                    ...prev,
-                    plotId,
-                    cropType:
-                      plot?.cropType === 'sau-rieng'
-                        ? 'Sầu riêng'
-                        : plot?.cropType === 'ca-phe'
-                          ? 'Cà phê'
-                          : prev.cropType,
-                  }));
-                }}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
-              >
-                <option value="">{farmerId ? 'Chọn lô' : 'Chọn nông dân trước'}</option>
-                {plotsForFarmer.map((plot) => (
-                  <option key={plot.id} value={plot.id}>
-                    {plot.plotName} ({plot.lotCode})
-                  </option>
-                ))}
-              </select>
-              {farmerId && plotsForFarmer.length === 0 && (
-                <p className="text-xs text-amber-700 dark:text-amber-500">
-                  Chưa có lô nào gắn nông dân này trong phạm vi phân công của bạn.
-                </p>
-              )}
-              {selectedPlot && (
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary">
-                    <MapPin className="h-3.5 w-3.5" />
-                    Mã lô: {selectedPlot.lotCode}
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                    <Wheat className="h-3.5 w-3.5" />
-                    Diện tích: {selectedPlot.areaHa.toLocaleString('vi-VN')} ha
-                  </span>
+              <Label>Thông tin lô đất</Label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  value={form.plotDraftProvince}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, plotDraftProvince: e.target.value }))
+                  }
+                  placeholder="Tỉnh / thành"
+                />
+                <Input
+                  value={form.plotDraftDistrict}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, plotDraftDistrict: e.target.value }))
+                  }
+                  placeholder="Quận / huyện"
+                />
+                <div className="sm:col-span-2">
+                  <Input
+                    type="number"
+                    min={0.01}
+                    step="0.01"
+                    value={form.plotDraftAreaHa}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, plotDraftAreaHa: e.target.value }))
+                    }
+                    placeholder="Diện tích chuẩn (ha)"
+                  />
                 </div>
-              )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -417,25 +376,10 @@ function SupervisorContractCreateWorkspace() {
             <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-primary">
               <Wheat className="h-4 w-4" />
             </span>
-            Điều kiện khoán
+            Thông tin hợp đồng
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Bảng giá (tuỳ chọn)</Label>
-            <select
-              value={form.priceBoardId}
-              onChange={(e) => setForm((prev) => ({ ...prev, priceBoardId: e.target.value }))}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Không gắn</option>
-              {priceBoards.map((pb) => (
-                <option key={pb.id} value={pb.id}>
-                  {pb.cropType} — Grade {pb.grade}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Loại cây trồng</Label>
@@ -459,28 +403,6 @@ function SupervisorContractCreateWorkspace() {
                 <option value="C">C</option>
                 <option value="REJECT">REJECT</option>
               </select>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Sản lượng khoán (kg)</Label>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.quantityKg}
-                onChange={(e) => setForm((prev) => ({ ...prev, quantityKg: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Giá sàn cố định (VNĐ/kg)</Label>
-              <Input
-                type="number"
-                min={0.01}
-                step="1"
-                value={form.pricePerKg}
-                onChange={(e) => setForm((prev) => ({ ...prev, pricePerKg: e.target.value }))}
-              />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

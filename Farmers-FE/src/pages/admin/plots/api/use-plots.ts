@@ -102,3 +102,20 @@ export function useUpdatePlot() {
     },
   });
 }
+
+export function useDeletePlot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await plotApi.remove(id);
+      return extractData<{ id: string; deletedAt: string }>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plots'] });
+      toast.success('Đã xóa lô đất');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không xóa được lô đất');
+    },
+  });
+}

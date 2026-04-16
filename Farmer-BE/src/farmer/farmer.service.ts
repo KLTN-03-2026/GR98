@@ -157,6 +157,8 @@ export class FarmerService {
     phone: string;
     cccd: string;
     bankAccount: string | null;
+    bankName: string | null;
+    bankBranch: string | null;
     address: string | null;
     province: string | null;
     status: FarmerStatus;
@@ -183,6 +185,8 @@ export class FarmerService {
       phone: item.phone,
       cccd: item.cccd,
       bankAccount: item.bankAccount,
+      bankName: item.bankName,
+      bankBranch: item.bankBranch,
       address: item.address,
       province: item.province,
       status: item.status,
@@ -233,6 +237,8 @@ export class FarmerService {
         phone: normalizedPhone,
         cccd: normalizedCccd,
         bankAccount: dto.bankAccount?.trim() || null,
+        bankName: dto.bankName?.trim() || null,
+        bankBranch: dto.bankBranch?.trim() || null,
         address: dto.address?.trim() || null,
         province: dto.province?.trim() || null,
         status: dto.status ?? FarmerStatus.ACTIVE,
@@ -297,6 +303,8 @@ export class FarmerService {
           phone: true,
           cccd: true,
           bankAccount: true,
+          bankName: true,
+          bankBranch: true,
           address: true,
           province: true,
           status: true,
@@ -349,6 +357,8 @@ export class FarmerService {
         phone: true,
         cccd: true,
         bankAccount: true,
+        bankName: true,
+        bankBranch: true,
         address: true,
         province: true,
         status: true,
@@ -444,6 +454,10 @@ export class FarmerService {
     if (dto.cccd !== undefined) updateData.cccd = dto.cccd.trim();
     if (dto.bankAccount !== undefined)
       updateData.bankAccount = dto.bankAccount?.trim() || null;
+    if (dto.bankName !== undefined)
+      updateData.bankName = dto.bankName?.trim() || null;
+    if (dto.bankBranch !== undefined)
+      updateData.bankBranch = dto.bankBranch?.trim() || null;
     if (dto.address !== undefined)
       updateData.address = dto.address?.trim() || null;
     if (dto.province !== undefined)

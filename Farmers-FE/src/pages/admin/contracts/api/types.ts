@@ -17,11 +17,11 @@ export interface ContractResponse {
   supervisorId: string;
   contractNo: string;
   cropType: string;
-  quantityKg: number;
-  pricePerKg: number;
-  totalAmount: number;
   grade: QualityGrade;
   status: ContractStatus;
+  plotDraftProvince: string | null;
+  plotDraftDistrict: string | null;
+  plotDraftAreaHa: number | null;
   signedAt: string | null;
   harvestDue: string | null;
   signatureUrl: string | null;
@@ -37,6 +37,8 @@ export interface ContractResponse {
     phone: string;
     cccd: string;
     bankAccount: string | null;
+    bankName: string | null;
+    bankBranch: string | null;
     address: string | null;
     province: string | null;
   };
@@ -72,15 +74,6 @@ export interface ContractResponse {
     taxCode: string | null;
     bankAccount: string | null;
   };
-  priceBoard: {
-    id: string;
-    cropType: string;
-    grade: QualityGrade;
-    buyPrice: number;
-    sellPrice: number;
-    effectiveDate: string;
-    isActive: boolean;
-  } | null;
 }
 
 export interface PaginatedContractsResponse {
@@ -93,11 +86,11 @@ export interface PaginatedContractsResponse {
 
 export interface CreateContractPayload {
   farmerId?: string;
-  plotId: string;
-  priceBoardId?: string;
+  plotId?: string;
+  plotDraftProvince?: string;
+  plotDraftDistrict?: string;
+  plotDraftAreaHa?: number;
   cropType: string;
-  quantityKg: number;
-  pricePerKg: number;
   grade: QualityGrade;
   signedAt?: string;
   harvestDue?: string;

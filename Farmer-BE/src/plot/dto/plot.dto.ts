@@ -173,4 +173,16 @@ export class UpdatePlotDto {
   @IsOptional()
   @IsString()
   name_suppervisor?: string;
+
+  @ApiPropertyOptional({ example: 20.84, description: 'Tọa độ GPS (điểm trung tâm/map center)' })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null ? undefined : Number(value)))
+  @IsLatitude()
+  lat?: number;
+
+  @ApiPropertyOptional({ example: 104.74, description: 'Tọa độ GPS (điểm trung tâm/map center)' })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null ? undefined : Number(value)))
+  @IsLongitude()
+  lng?: number;
 }

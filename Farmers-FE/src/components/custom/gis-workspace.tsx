@@ -81,6 +81,7 @@ interface GISWorkspaceProps {
   title: string;
   roleLabel: string;
   description: string;
+  initialPlotId?: string;
 }
 
 const DEFAULT_POLYGON_META =
@@ -127,6 +128,7 @@ export default function GISWorkspace({
   title,
   roleLabel,
   description,
+  initialPlotId,
 }: GISWorkspaceProps) {
   void title;
   void description;
@@ -357,6 +359,75 @@ export default function GISWorkspace({
     const farmerName = sheet.farmerName.trim();
     const farmerPhone = sheet.farmerPhone.trim();
     const farmerCccd = sheet.farmerCccd.trim();
+
+    // SUP chỉ cập nhật GIS cho lô đã chọn, không tạo lô mới.
+    if (roleLabel === "SUPERVISOR") {
+      if (!selectedLot?.id || selectedLot.id === "empty") {
+        toast.error("Vui lòng chọn lô đất trước khi lưu GIS");
+        return;
+      }
+
+      if (!isValidPolygon(polygonCoords)) {
+        toast.error("Chỉ được lưu khi đã vẽ polygon hợp lệ");
+        return;
+      }
+
+      const areaHa = polygonAreaHa;
+      if (!areaHa || areaHa <= 0) {
+        toast.error("Diện tích polygon chưa hợp lệ, vui lòng vẽ lại");
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        const [centerLat, centerLng] = polygonCenter(polygonCoords);
+        const response = await plotApi.update(selectedLot.id, {
+          lat: centerLat,
+          lng: centerLng,
+        });
+
+        const updated = response.data.data;
+        const updatedWithPolygon = {
+          ...updated,
+          polygon: polygonCoords,
+          hasGis: true,
+        };
+
+        setPlotPolygons((prev) => {
+          const nextPolygons = {
+            ...prev,
+            [selectedLot.id]: polygonCoords,
+          };
+          writeLocalPolygons(nextPolygons);
+          return nextPolygons;
+        });
+
+        setLots((prev) =>
+          prev.map((lot) =>
+            lot.id === selectedLot.id ? { ...lot, ...updatedWithPolygon } : lot,
+          ),
+        );
+
+        focusLot({ ...selectedLot, ...updatedWithPolygon }, { flyTo: true });
+        showOnlyPolygon({ ...selectedLot, ...updatedWithPolygon });
+        drawnItemsRef.current?.clearLayers();
+        setSheetOpen(false);
+        toast.success("Đã lưu GIS cho lô đất");
+      } catch (error) {
+        const message =
+          typeof error === "object" &&
+          error !== null &&
+          "message" in error &&
+          typeof (error as { message?: unknown }).message === "string"
+            ? ((error as { message?: string }).message ?? "")
+            : "Lưu GIS thất bại";
+        toast.error(message || "Lưu GIS thất bại");
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
     if (!plotName) {
       toast.error("Vui lòng nhập tên lô đất");
       return;
@@ -509,15 +580,20 @@ export default function GISWorkspace({
         setLots(rows);
 
         if (rows.length > 0) {
-          const first = rows[0];
-          setSelectedLotId((prev) => prev || first.id);
+          const preferredLot =
+            (initialPlotId
+              ? rows.find((item) => item.id === initialPlotId)
+              : null) ?? rows[0];
+          setSelectedLotId((prev) =>
+            initialPlotId ? preferredLot.id : prev || preferredLot.id,
+          );
           setSheet((prev) => ({
-            plotName: prev.plotName || first.plotName,
-            farmerName: prev.farmerName || first.farmerName,
-            farmerPhone: prev.farmerPhone || first.farmerPhone || "",
-            farmerCccd: prev.farmerCccd || first.farmerCccd || "",
-            contractId: prev.contractId || first.contractId,
-            cropType: prev.cropType || first.cropType,
+            plotName: prev.plotName || preferredLot.plotName,
+            farmerName: prev.farmerName || preferredLot.farmerName,
+            farmerPhone: prev.farmerPhone || preferredLot.farmerPhone || "",
+            farmerCccd: prev.farmerCccd || preferredLot.farmerCccd || "",
+            contractId: prev.contractId || preferredLot.contractId,
+            cropType: prev.cropType || preferredLot.cropType,
           }));
         }
       } catch (error) {
@@ -535,6 +611,13 @@ export default function GISWorkspace({
 
     void loadPlots();
   }, []);
+
+  useEffect(() => {
+    if (!initialPlotId) return;
+    const targetLot = lots.find((lot) => lot.id === initialPlotId);
+    if (!targetLot) return;
+    focusLot(targetLot);
+  }, [initialPlotId, lots]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -756,14 +839,22 @@ export default function GISWorkspace({
       const drawEvent = event as L.DrawEvents.Created;
       drawnItems.clearLayers();
       drawnItems.addLayer(drawEvent.layer);
-      setSheet((prev) => ({
-        ...prev,
-        plotName: "",
-        farmerName: "",
-        farmerPhone: "",
-        farmerCccd: "",
-        contractId: "",
-      }));
+      setSheet((prev) => {
+        // SUP giữ nguyên thông tin lô đang chọn để không cần nhập tay lại.
+        if (roleLabel === "SUPERVISOR") {
+          return prev;
+        }
+
+        // ADMIN tạo mới thì vẫn reset form như flow hiện tại.
+        return {
+          ...prev,
+          plotName: "",
+          farmerName: "",
+          farmerPhone: "",
+          farmerCccd: "",
+          contractId: "",
+        };
+      });
       setPolygonMeta(toAreaText(drawEvent.layer));
       setSheetOpen(true);
     };

@@ -317,6 +317,9 @@ export class PlotService {
         contracts: {
           select: {
             contractNo: true,
+            plotDraftProvince: true,
+            plotDraftDistrict: true,
+            plotDraftAreaHa: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -364,6 +367,7 @@ export class PlotService {
     lng: number | null;
     createdAt: Date;
     status: PlotStatus;
+    hasGis?: boolean;
     farmer: {
       fullName: string;
       phone: string;
@@ -371,7 +375,12 @@ export class PlotService {
       province: string | null;
     };
     zone: { district: string; province: string } | null;
-    contracts: Array<{ contractNo: string }>;
+    contracts: Array<{
+      contractNo: string;
+      plotDraftProvince: string | null;
+      plotDraftDistrict: string | null;
+      plotDraftAreaHa: number | null;
+    }>;
     assignments: Array<{
       supervisorId: string;
       supervisor: {
@@ -382,6 +391,9 @@ export class PlotService {
     }>;
   }) {
     const activeAssignment = plot.assignments[0] ?? null;
+    const latestContract = plot.contracts[0] ?? null;
+    const hasGis =
+      plot.lat !== null && plot.lng !== null && Number.isFinite(plot.lat) && Number.isFinite(plot.lng);
 
     return {
       id: plot.id,
@@ -391,16 +403,21 @@ export class PlotService {
       farmerName: plot.farmer?.fullName ?? 'Chưa gán',
       farmerPhone: plot.farmer?.phone ?? '',
       farmerCccd: plot.farmer?.cccd ?? '',
-      contractId: plot.contracts[0]?.contractNo ?? 'Chưa có hợp đồng',
-      province: plot.zone?.province ?? plot.farmer?.province ?? 'N/A',
-      district: plot.zone?.district ?? 'N/A',
-      areaHa: plot.areaHa,
+      contractId: latestContract?.contractNo ?? 'Chưa có hợp đồng',
+      province:
+        plot.zone?.province ??
+        latestContract?.plotDraftProvince ??
+        plot.farmer?.province ??
+        'N/A',
+      district: plot.zone?.district ?? latestContract?.plotDraftDistrict ?? 'N/A',
+      areaHa: latestContract?.plotDraftAreaHa ?? plot.areaHa,
       cropType: this.toCropTypeForUi(plot.cropType),
       progress: plot.status === PlotStatus.ACTIVE ? 'on-track' : 'attention',
       lat: plot.lat ?? 16.2,
       lng: plot.lng ?? 106.2,
       updatedAt: this.formatDateTime(plot.createdAt),
       polygon: [],
+      hasGis,
       id_suppervisor: activeAssignment?.supervisorId ?? null,
       name_suppervisor: activeAssignment?.supervisor.user.fullName ?? null,
     };
@@ -501,6 +518,9 @@ export class PlotService {
         contracts: {
           select: {
             contractNo: true,
+            plotDraftProvince: true,
+            plotDraftDistrict: true,
+            plotDraftAreaHa: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -552,6 +572,20 @@ export class PlotService {
         { farmer: { fullName: { contains: search, mode: 'insensitive' } } },
         { zone: { district: { contains: search, mode: 'insensitive' } } },
         { zone: { province: { contains: search, mode: 'insensitive' } } },
+        {
+          contracts: {
+            some: {
+              plotDraftDistrict: { contains: search, mode: 'insensitive' },
+            },
+          },
+        },
+        {
+          contracts: {
+            some: {
+              plotDraftProvince: { contains: search, mode: 'insensitive' },
+            },
+          },
+        },
         {
           assignments: {
             some: {
@@ -608,6 +642,9 @@ export class PlotService {
           contracts: {
             select: {
               contractNo: true,
+              plotDraftProvince: true,
+              plotDraftDistrict: true,
+              plotDraftAreaHa: true,
             },
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -667,6 +704,26 @@ export class PlotService {
       );
     }
 
+    // If SUPERVISOR updates GIS, ensure they are assigned to this plot.
+    if (actor.role === Role.SUPERVISOR) {
+      const assignment = await this.prisma.assignment.findFirst({
+        where: {
+          adminId,
+          plotId: plot.id,
+          supervisorId: actor.supervisorProfileId ?? undefined,
+          status: {
+            in: [AssignStatus.PENDING, AssignStatus.ACTIVE],
+          },
+        },
+        select: { id: true },
+      });
+      if (!assignment) {
+        throw new ForbiddenException(
+          'Bạn chỉ được cập nhật GIS cho các lô đất mình phụ trách',
+        );
+      }
+    }
+
     const requestedSupervisor = await this.resolveSupervisorForCreate(
       {
         plotName: 'update-plot',
@@ -703,8 +760,8 @@ export class PlotService {
     const shouldChangeAssignment =
       requestedSupervisorId !== currentSupervisorId;
 
-    if (shouldChangeAssignment) {
-      await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
+      if (shouldChangeAssignment) {
         if (currentActiveAssignment) {
           await tx.assignment.updateMany({
             where: {
@@ -741,10 +798,81 @@ export class PlotService {
             },
           });
         }
-      });
-    }
+      }
+
+      // GIS fields (SUP vẽ) update
+      const nextData: Prisma.PlotUpdateInput = {};
+      if (dto.lat !== undefined) nextData.lat = dto.lat;
+      if (dto.lng !== undefined) nextData.lng = dto.lng;
+
+      if (Object.keys(nextData).length > 0) {
+        await tx.plot.update({
+          where: { id: plot.id },
+          data: nextData,
+        });
+      }
+    });
 
     const refreshed = await this.findPlotByIdForListItem(plot.id, adminId);
     return this.mapPlotToListItem(refreshed);
+  }
+
+  async remove(plotId: string, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (!actor?.adminId || actor.role !== Role.ADMIN) {
+      throw new ForbiddenException('Chỉ Admin mới có quyền xóa lô đất');
+    }
+
+    const adminId = actor.adminId;
+    const plot = await this.prisma.plot.findFirst({
+      where: {
+        id: plotId,
+        adminId,
+      },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            contracts: true,
+            dailyReports: true,
+            products: true,
+          },
+        },
+      },
+    });
+
+    if (!plot) {
+      throw new NotFoundException(
+        'Lô đất không tồn tại hoặc bạn không có quyền',
+      );
+    }
+
+    if (
+      plot._count.contracts > 0 ||
+      plot._count.dailyReports > 0 ||
+      plot._count.products > 0
+    ) {
+      throw new BadRequestException(
+        'Không thể xóa lô đất đã phát sinh hợp đồng/báo cáo/sản phẩm',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.assignment.deleteMany({
+        where: {
+          plotId: plot.id,
+          adminId,
+        },
+      });
+
+      await tx.plot.delete({
+        where: { id: plot.id },
+      });
+    });
+
+    return {
+      id: plot.id,
+      deletedAt: new Date().toISOString(),
+    };
   }
 }

@@ -5,7 +5,7 @@ type Props = {
 };
 
 function shouldShowContractRef(vm: ContractLegalViewModel) {
-  return !(vm.contractId === '—' && vm.contractNo === 'BẢN NHÁP');
+  return vm.contractNo !== 'BẢN NHÁP';
 }
 
 /** Mẫu văn bản pháp lý — dùng chung màn hình + vùng in (#contract-print-root) */
@@ -21,7 +21,7 @@ export function ContractLegalTemplate({ vm }: Props) {
         </h1>
         {shouldShowContractRef(vm) && (
           <p className="mt-1 font-semibold">
-            Số: {vm.contractId} / {vm.contractNo} — {vm.versionLabel}
+            Số: {vm.contractNo}
           </p>
         )}
       </header>
@@ -44,8 +44,7 @@ export function ContractLegalTemplate({ vm }: Props) {
             <strong>Đại diện pháp luật:</strong> {vm.legalRepresentative} — Chức vụ: Giám đốc
           </li>
           <li>
-            <strong>Người thực hiện &amp; giám sát (supervisorId):</strong> {vm.supervisorId} —{' '}
-            {vm.supervisorName}
+            <strong>Người thực hiện &amp; giám sát:</strong> {vm.supervisorName}
           </li>
           <li>
             <strong>Tài khoản ngân hàng Bên A:</strong> {vm.companyBank} — Tại: {vm.companyBankPlace}
@@ -63,8 +62,7 @@ export function ContractLegalTemplate({ vm }: Props) {
             <strong>Điện thoại:</strong> {vm.farmerPhone}
           </li>
           <li>
-            <strong>Định danh vùng trồng (plotId):</strong> {vm.plotGisId} — <strong>Mã lô:</strong>{' '}
-            {vm.plotCode}
+            <strong>Mã lô:</strong> {vm.plotCode}
           </li>
           <li>
             <strong>Khu vực lô đất dự thảo:</strong> {vm.plotDraftDistrict}, {vm.plotDraftProvince}

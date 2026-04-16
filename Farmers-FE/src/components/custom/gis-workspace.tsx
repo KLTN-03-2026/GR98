@@ -1285,19 +1285,25 @@ export default function GISWorkspace({
 
             <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white px-2 py-1.5 shadow-xs">
               <Users className="h-4 w-4 text-emerald-700" />
-              <select
-                value={supervisorViewId}
-                onChange={(event) => setSupervisorViewId(event.target.value)}
-                disabled={isLoadingSupervisors}
-                className="h-8 min-w-48 rounded-md border border-emerald-200 bg-white px-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <option value="all">Xem tất cả giám sát viên</option>
-                {supervisorOptions.map((item) => (
-                  <option key={`supervisor-view-${item.id}`} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+              {roleLabel === "SUPERVISOR" ? (
+                <span className="min-w-48 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-sm font-medium text-emerald-800">
+                  {supervisorOptions[0]?.name || selectedLot.name_suppervisor || "Giám sát viên"}
+                </span>
+              ) : (
+                <select
+                  value={supervisorViewId}
+                  onChange={(event) => setSupervisorViewId(event.target.value)}
+                  disabled={isLoadingSupervisors}
+                  className="h-8 min-w-48 rounded-md border border-emerald-200 bg-white px-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <option value="all">Xem tất cả giám sát viên</option>
+                  {supervisorOptions.map((item) => (
+                    <option key={`supervisor-view-${item.id}`} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>
@@ -1333,6 +1339,17 @@ export default function GISWorkspace({
               </p>
             </div>
 
+<<<<<<< HEAD
+            <div className="space-y-2">
+              <Label htmlFor="sheet-lot-name">Tên lô đất</Label>
+              <Input
+                id="sheet-lot-name"
+                value={selectedLot.plotName}
+                readOnly
+                className="border-slate-200 bg-white text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+=======
             {roleLabel !== "SUPERVISOR" && (
               <div className="space-y-2">
                 <Label htmlFor="sheet-lot-name">Tên lô đất</Label>
@@ -1349,6 +1366,7 @@ export default function GISWorkspace({
                 />
               </div>
             )}
+>>>>>>> thanhtai
 
             <div className="rounded-xl border border-dashed border-emerald-200 p-3">
               <p className="text-xs text-muted-foreground">
@@ -1362,6 +1380,37 @@ export default function GISWorkspace({
               </p>
             </div>
 
+<<<<<<< HEAD
+            <div className="space-y-2">
+              <Label htmlFor="sheet-farmer">Nông dân phụ trách</Label>
+              <Input
+                id="sheet-farmer"
+                value={selectedLot.farmerName}
+                readOnly
+                className="border-slate-200 bg-white text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sheet-farmer-phone">Số điện thoại nông dân</Label>
+              <Input
+                id="sheet-farmer-phone"
+                value={selectedLot.farmerPhone || ""}
+                readOnly
+                className="border-slate-200 bg-white text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sheet-farmer-cccd">CCCD nông dân</Label>
+              <Input
+                id="sheet-farmer-cccd"
+                value={selectedLot.farmerCccd || ""}
+                readOnly
+                className="border-slate-200 bg-white text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+=======
             {roleLabel !== "SUPERVISOR" && (
               <>
                 <div className="space-y-2">
@@ -1410,20 +1459,29 @@ export default function GISWorkspace({
                 </div>
               </>
             )}
+>>>>>>> thanhtai
 
             <div className="space-y-2">
               <Label htmlFor="sheet-contract">Mã hợp đồng</Label>
               <Input
                 id="sheet-contract"
-                value={sheet.contractId}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    contractId: event.target.value,
-                  }))
-                }
-                placeholder="Nhập mã hợp đồng"
+                value={selectedLot.contractId}
+                readOnly
+                className="border-slate-200 bg-white text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
+<<<<<<< HEAD
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sheet-supervisor">Giám sát viên phụ trách</Label>
+              <div
+                id="sheet-supervisor"
+                className="flex h-10 w-full items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-500"
+              >
+                {selectedSupervisor?.name || supervisorOptions[0]?.name || selectedLot.name_suppervisor || "Giám sát viên"}
+              </div>
+=======
+>>>>>>> thanhtai
               {roleLabel === "SUPERVISOR" && (
                 <p className="text-xs text-muted-foreground">
                   Ví dụ mã hợp đồng: HDLK-20260416-001.
@@ -1431,6 +1489,17 @@ export default function GISWorkspace({
               )}
             </div>
 
+<<<<<<< HEAD
+            <div className="space-y-2">
+              <Label htmlFor="sheet-crop">Loại cây trồng</Label>
+              <div
+                id="sheet-crop"
+                className="flex h-10 w-full items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-500"
+              >
+                {getCropLabel(selectedLot.cropType)}
+              </div>
+            </div>
+=======
             {roleLabel !== "SUPERVISOR" && (
               <div className="space-y-2">
                 <Label htmlFor="sheet-supervisor">Giám sát viên phụ trách</Label>
@@ -1482,6 +1551,7 @@ export default function GISWorkspace({
                 </select>
               </div>
             )}
+>>>>>>> thanhtai
 
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-dashed p-3">
               <div>
@@ -1496,6 +1566,14 @@ export default function GISWorkspace({
                   {selectedLot.updatedAt}
                 </p>
               </div>
+<<<<<<< HEAD
+              <div>
+                <p className="text-xs text-muted-foreground">Giống cây</p>
+                <p className="font-semibold text-emerald-900">
+                  {getCropLabel(selectedLot.cropType)}
+                </p>
+              </div>
+=======
               {roleLabel !== "SUPERVISOR" && (
                 <div>
                   <p className="text-xs text-muted-foreground">Giống cây</p>
@@ -1504,6 +1582,7 @@ export default function GISWorkspace({
                   </p>
                 </div>
               )}
+>>>>>>> thanhtai
             </div>
 
             {roleLabel === "SUPERVISOR" && (

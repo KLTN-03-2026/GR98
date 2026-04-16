@@ -1,0 +1,39 @@
+/* In / Xuất PDF: chỉ hiện nội dung hợp đồng pháp lý, chữ đen nền trắng */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #contract-print-root,
+  #contract-print-root * {
+    visibility: visible;
+  }
+
+  #contract-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    background: #fff;
+    font-size: 11pt;
+    line-height: 1.35;
+  }
+
+  #contract-print-root * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  #contract-print-root table {
+    break-inside: avoid;
+  }
+}

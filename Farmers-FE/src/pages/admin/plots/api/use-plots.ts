@@ -25,11 +25,14 @@ export function usePlots(params?: {
   search?: string;
   cropType?: PlotCropType;
   id_suppervisor?: string;
+  enabled?: boolean;
 }) {
+  const { enabled = true, ...queryParams } = params ?? {};
   return useQuery({
-    queryKey: ['plots', params],
+    queryKey: ['plots', queryParams],
+    enabled,
     queryFn: async () => {
-      const response = await plotApi.list(params);
+      const response = await plotApi.list(queryParams);
       return extractData<PaginatedPlotsResponse>(response);
     },
     select: (data) => {

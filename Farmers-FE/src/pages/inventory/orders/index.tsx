@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Eye, Search, Package, CheckCircle2, Truck, Clock, XCircle, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
 import { useOrders, useOrder, useUpdateOrder, type UpdateOrderPayload } from '@/client/api';
 import { formatPrice } from '@/client/data/mock-data';
 import {

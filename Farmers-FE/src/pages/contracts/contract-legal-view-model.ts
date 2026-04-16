@@ -3,7 +3,6 @@ import type {
   QualityGrade,
 } from '@/pages/admin/contracts/api/types';
 import type { FarmerResponse } from '@/pages/admin/farmers/api/types';
-import type { PlotResponse } from '@/pages/admin/plots/api/types';
 
 /** Dữ liệu hiển thị cho mẫu hợp đồng pháp lý + in PDF */
 export type ContractLegalViewModel = {
@@ -22,9 +21,10 @@ export type ContractLegalViewModel = {
   plotGisId: string;
   plotCode: string;
   areaM2: string;
+  plotDraftProvince: string;
+  plotDraftDistrict: string;
+  plotDraftAreaHa: string;
   cropType: string;
-  quantityKg: string;
-  floorPricePerKg: string;
   materialDebtVnd: string;
   termLabel: string;
   termFromTo: string;
@@ -112,9 +112,10 @@ export function buildContractLegalViewModel(c: ContractResponse): ContractLegalV
     plotGisId: c.plot.id,
     plotCode: c.plot.plotCode,
     areaM2,
+    plotDraftProvince: c.plotDraftProvince || '—',
+    plotDraftDistrict: c.plotDraftDistrict || '—',
+    plotDraftAreaHa: c.plotDraftAreaHa ? `${c.plotDraftAreaHa} ha` : '—',
     cropType: c.cropType,
-    quantityKg: c.quantityKg.toLocaleString('vi-VN'),
-    floorPricePerKg: c.pricePerKg.toLocaleString('vi-VN'),
     materialDebtVnd: 'Chưa khai báo trên hệ thống',
     termLabel: 'Theo thời hạn ghi nhận trên hệ thống / thỏa thuận bổ sung',
     termFromTo: `${formatDateVi(c.signedAt)} — ${formatDateVi(c.harvestDue)}`,
@@ -131,9 +132,10 @@ export function buildContractLegalViewModel(c: ContractResponse): ContractLegalV
 }
 
 export type DraftLegalFormInput = {
+  plotDraftProvince: string;
+  plotDraftDistrict: string;
+  plotDraftAreaHa: string;
   cropType: string;
-  quantityKg: string;
-  pricePerKg: string;
   grade: QualityGrade;
   signedAt: string;
   harvestDue: string;
@@ -141,7 +143,14 @@ export type DraftLegalFormInput = {
 
 type DraftFarmerPreview = Pick<
   FarmerResponse,
-  'fullName' | 'phone' | 'cccd' | 'province' | 'address' | 'bankAccount'
+  | 'fullName'
+  | 'phone'
+  | 'cccd'
+  | 'province'
+  | 'address'
+  | 'bankAccount'
+  | 'bankName'
+  | 'bankBranch'
 >;
 
 /** View-model khi tạo nháp (chưa lưu) — đủ số liệu để in xem trước */
@@ -150,21 +159,12 @@ export function buildContractLegalViewModelFromDraft(input: {
   supervisorProfileId: string;
   supervisorName: string;
   farmer: DraftFarmerPreview | null;
-  plot: PlotResponse | null;
   form: DraftLegalFormInput;
 }): ContractLegalViewModel {
   const partyA = getPartyADocumentProfile();
-  const qty = Number(input.form.quantityKg);
-  const price = Number(input.form.pricePerKg);
-  const qtyStr = Number.isFinite(qty) && qty > 0 ? qty.toLocaleString('vi-VN') : '—';
-  const priceStr = Number.isFinite(price) && price >= 0 ? price.toLocaleString('vi-VN') : '—';
-
-  const areaHa =
-    input.plot && typeof input.plot.areaHa === 'number' && Number.isFinite(input.plot.areaHa)
-      ? input.plot.areaHa
-      : null;
+  const areaHa = Number(input.form.plotDraftAreaHa);
   const areaM2 =
-    areaHa !== null
+    Number.isFinite(areaHa) && areaHa > 0
       ? (areaHa * 10_000).toLocaleString('vi-VN', { maximumFractionDigits: 0 })
       : '—';
 
@@ -186,12 +186,14 @@ export function buildContractLegalViewModelFromDraft(input: {
     farmerName: input.farmer?.fullName?.trim() || '—',
     farmerCccd: input.farmer?.cccd?.trim() || '—',
     farmerPhone: input.farmer?.phone?.trim() || '—',
-    plotGisId: input.plot?.id ?? '—',
-    plotCode: input.plot?.lotCode?.trim() || input.plot?.plotName?.trim() || '—',
+    plotGisId: '—',
+    plotCode: '—',
     areaM2,
+    plotDraftProvince: input.form.plotDraftProvince.trim() || '—',
+    plotDraftDistrict: input.form.plotDraftDistrict.trim() || '—',
+    plotDraftAreaHa:
+      Number.isFinite(areaHa) && areaHa > 0 ? `${areaHa.toLocaleString('vi-VN')} ha` : '—',
     cropType: input.form.cropType.trim() || '—',
-    quantityKg: qtyStr,
-    floorPricePerKg: priceStr,
     materialDebtVnd: 'Chưa khai báo trên hệ thống',
     termLabel: 'Theo ngày ký và ngày kết thúc hợp đồng đã nhập',
     termFromTo: `${formatDateVi(signed || null)} — ${formatDateVi(harvest || null)}`,

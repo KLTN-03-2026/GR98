@@ -306,6 +306,8 @@ model Farmer {
   phone        String
   cccd         String       @unique // Số CCCD
   bankAccount  String?
+  bankName     String?
+  bankBranch   String?
   address      String?
   province     String?
   status       FarmerStatus @default(ACTIVE)
@@ -400,8 +402,7 @@ model PriceBoard {
   effectiveDate DateTime     @default(now())
   isActive      Boolean      @default(true)
 
-  admin     AdminProfile @relation(fields: [adminId], references: [id])
-  contracts Contract[]
+  admin AdminProfile @relation(fields: [adminId], references: [id])
 
   @@map("PriceBoards")
 }
@@ -415,13 +416,9 @@ model Contract {
   adminId      String // TENANT KEY
   supervisorId String
   farmerId     String
-  plotId       String
-  priceBoardId String?
+  plotId       String?
   contractNo   String         @unique
   cropType     String
-  quantityKg   Float
-  pricePerKg   Float
-  totalAmount  Float
   grade        QualityGrade
   status       ContractStatus @default(DRAFT)
   signedAt     DateTime?
@@ -432,13 +429,18 @@ model Contract {
   approvedAt   DateTime?
   approvedBy   String?
   rejectedReason String?      @db.Text
+
+  // Draft thông tin lô đất (dùng để ADMIN tạo Plot sau khi approve)
+  plotDraftProvince String?
+  plotDraftDistrict String?
+  plotDraftAreaHa   Float?
+
   createdAt    DateTime       @default(now())
 
   admin         AdminProfile   @relation(fields: [adminId], references: [id])
   supervisor    SupervisorProfile @relation(fields: [supervisorId], references: [id])
   farmer        Farmer         @relation(fields: [farmerId], references: [id])
-  plot          Plot           @relation(fields: [plotId], references: [id])
-  priceBoard    PriceBoard?    @relation(fields: [priceBoardId], references: [id])
+  plot          Plot?          @relation(fields: [plotId], references: [id])
   product       Product?
   inventoryLots InventoryLot[]
 

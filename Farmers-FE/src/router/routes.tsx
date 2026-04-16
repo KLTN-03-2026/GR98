@@ -19,6 +19,7 @@ import AdminWarehousesPage from '@/pages/admin/warehouses';
 import SupervisorOverviewPage from '@/pages/supervisor/overview';
 import SupervisorFarmersPage from '@/pages/supervisor/farmers';
 import SupervisorPlotsPage from '@/pages/supervisor/plots';
+import SupervisorZonesPage from '@/pages/supervisor/zones';
 import SupervisorContractsPage from '@/pages/supervisor/contracts';
 import SupervisorContractWorkspacePage from '@/pages/supervisor/contracts/workspace.page';
 import SupervisorAIAnalysisPage from '@/pages/supervisor/ai-analysis';
@@ -268,6 +269,10 @@ const supervisorDashboard: RouteObject = {
     {
       path: 'plots',
       element: <SupervisorPlotsPage />,
+    },
+    {
+      path: 'zones',
+      element: <SupervisorZonesPage />,
     },
     {
       path: 'contracts/new',

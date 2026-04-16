@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft,
   ChevronRight,
@@ -37,6 +38,7 @@ const getCropBadgeClass = (crop: PlotCropType) =>
     : 'border-lime-300 bg-lime-50 text-lime-800';
 
 export default function SupervisorPlotsPage() {
+  const navigate = useNavigate();
   const { data: me } = useMe();
   const supervisorProfileId = me?.supervisorProfile?.id ?? '';
 
@@ -356,6 +358,18 @@ export default function SupervisorPlotsPage() {
               <div className="space-y-2">
                 <Label>Giám sát viên</Label>
                 <Input value={selectedPlot.name_suppervisor || me?.fullName || '-'} disabled />
+              </div>
+
+              <div className="pt-4">
+                <Button
+                  className="w-full"
+                  onClick={() =>
+                    navigate(`/supervisor/zones?plotId=${encodeURIComponent(selectedPlot.id)}`)
+                  }
+                >
+                  <MapPin className="mr-2 h-4 w-4" />
+                  Vào bản đồ để vẽ
+                </Button>
               </div>
             </div>
           ) : (

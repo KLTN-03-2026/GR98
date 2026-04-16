@@ -1,4 +1,10 @@
-import { apiGet, apiPost, apiPatch, type ApiSuccessResponse } from '@/client/lib/api-client';
+import {
+  apiDelete,
+  apiGet,
+  apiPost,
+  apiPatch,
+  type ApiSuccessResponse,
+} from '@/client/lib/api-client';
 import type {
   PlotCropType,
   PlotResponse,
@@ -21,4 +27,7 @@ export const plotApi = {
 
   update: (id: string, data: UpdatePlotPayload) =>
     apiPatch<ApiSuccessResponse<PlotResponse>>(`/plots/${id}`, data),
+
+  remove: (id: string) =>
+    apiDelete<ApiSuccessResponse<{ id: string; deletedAt: string }>>(`/plots/${id}`),
 };

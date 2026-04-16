@@ -20,23 +20,21 @@ export class UpdateContractDto {
 
   @IsOptional()
   @IsString()
-  priceBoardId?: string;
+  plotDraftProvince?: string;
+
+  @IsOptional()
+  @IsString()
+  plotDraftDistrict?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.01, { message: 'Diện tích chuẩn phải lớn hơn 0' })
+  plotDraftAreaHa?: number;
 
   @IsOptional()
   @IsString()
   cropType?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01, { message: 'Sản lượng phải lớn hơn 0' })
-  quantityKg?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01, { message: 'Giá sàn phải lớn hơn 0' })
-  pricePerKg?: number;
 
   @IsOptional()
   @IsEnum(QualityGrade, { message: 'Phân hạng chất lượng không hợp lệ' })
@@ -57,6 +55,5 @@ export class UpdateContractDto {
 
 export class RejectContractDto {
   @IsString()
-  @IsOptional()
-  rejectedReason?: string;
+  rejectedReason: string;
 }

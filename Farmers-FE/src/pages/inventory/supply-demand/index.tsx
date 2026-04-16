@@ -5,7 +5,6 @@ import {
   ShoppingCart,
   TrendingDown,
   ChevronRight,
-  Filter,
   RefreshCcw,
   Search,
   FileText,

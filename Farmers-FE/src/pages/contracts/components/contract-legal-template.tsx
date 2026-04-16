@@ -67,7 +67,10 @@ export function ContractLegalTemplate({ vm }: Props) {
             {vm.plotCode}
           </li>
           <li>
-            <strong>Diện tích canh tác:</strong> {vm.areaM2} m²
+            <strong>Khu vực lô đất dự thảo:</strong> {vm.plotDraftDistrict}, {vm.plotDraftProvince}
+          </li>
+          <li>
+            <strong>Diện tích chuẩn kê khai:</strong> {vm.plotDraftAreaHa} (xấp xỉ {vm.areaM2} m²)
           </li>
         </ul>
       </section>
@@ -89,16 +92,11 @@ export function ContractLegalTemplate({ vm }: Props) {
               <td className="border border-black px-2 py-1">Áp dụng suốt thời hạn HĐ</td>
             </tr>
             <tr>
-              <td className="border border-black px-2 py-1 font-semibold">Sản lượng khoán</td>
-              <td className="border border-black px-2 py-1 font-semibold">{vm.quantityKg} kg</td>
-              <td className="border border-black px-2 py-1">Căn cứ tính phạt vi phạm</td>
-            </tr>
-            <tr>
-              <td className="border border-black px-2 py-1 font-semibold">Giá sàn bảo hiểm</td>
-              <td className="border border-black px-2 py-1 font-semibold">
-                {vm.floorPricePerKg} VNĐ/kg
+              <td className="border border-black px-2 py-1 font-semibold">Khu vực lô đất dự thảo</td>
+              <td className="border border-black px-2 py-1">
+                {vm.plotDraftDistrict}, {vm.plotDraftProvince}
               </td>
-              <td className="border border-black px-2 py-1">Giá mua tối thiểu suốt HĐ</td>
+              <td className="border border-black px-2 py-1">Dùng để tạo plot sau khi Admin duyệt</td>
             </tr>
             <tr>
               <td className="border border-black px-2 py-1 font-semibold">Phân hạng (grade)</td>
@@ -120,7 +118,7 @@ export function ContractLegalTemplate({ vm }: Props) {
       </section>
 
       <section className="space-y-2 text-xs">
-        <h2 className="font-bold uppercase">Điều 1: Đối tượng, thời hạn, sản lượng khoán</h2>
+        <h2 className="font-bold uppercase">Điều 1: Đối tượng và thời hạn hợp đồng</h2>
         <p>
           <strong>1.1. Đối tượng:</strong> Nông sản {vm.cropType} được thu hoạch tại vùng trồng plotId nêu
           trên.
@@ -131,14 +129,16 @@ export function ContractLegalTemplate({ vm }: Props) {
           thống: ký {vm.signedAtLine}, ngày kết thúc hợp đồng {vm.harvestDueLine}, tạo hồ sơ {vm.createdAtLine})
         </p>
         <p>
-          <strong>1.3. Sản lượng khoán cam kết:</strong> Bên B cam kết nỗ lực tối đa để đạt sản lượng là{' '}
-          <strong>{vm.quantityKg} kg</strong>. Sản lượng này là căn cứ để Bên A lên kế hoạch thu mua và
-          tính toán việc thu hồi nợ vật tư. Trường hợp sản lượng thực tế thấp hơn do thiên tai, dịch bệnh
-          thì áp dụng điều khoản về bất khả kháng theo thỏa thuận chung.
+          <strong>1.3. Thông tin lô đất dự thảo:</strong> Bên B kê khai khu vực lô đất tại{' '}
+          <strong>
+            {vm.plotDraftDistrict}, {vm.plotDraftProvince}
+          </strong>{' '}
+          với diện tích chuẩn <strong>{vm.plotDraftAreaHa}</strong> để làm căn cứ tạo lô đất chính thức sau
+          khi hợp đồng được phê duyệt.
         </p>
         <p>
-          <strong>1.4. Nghĩa vụ thu mua:</strong> Bên A cam kết thu mua toàn bộ sản lượng đạt chuẩn của Bên
-          B theo mức giá quy định tại Điều 4.
+          <strong>1.4. Nghĩa vụ thu mua:</strong> Bên A cam kết thu mua sản lượng đạt chuẩn của Bên B theo
+          cơ chế giá vận hành nội bộ tại thời điểm thu mua.
         </p>
         <p>
           <strong>1.5. Lịch thu mua dự kiến:</strong> (Chi tiết lịch đợt thu mua chưa khai báo trên hệ
@@ -190,19 +190,7 @@ export function ContractLegalTemplate({ vm }: Props) {
         </p>
       </section>
 
-      <section className="space-y-2 text-xs">
-        <h2 className="font-bold uppercase">Điều 4: Cơ chế giá thu mua</h2>
-        <p>
-          <strong>4.1. Giá sàn cố định:</strong> Bên A bảo đảm giá thu mua tối thiểu cho sản phẩm đạt chuẩn
-          là <strong>{vm.floorPricePerKg} VNĐ/kg</strong>. Giá này không thay đổi trong suốt thời hạn hợp
-          đồng trừ khi hai bên thỏa thuận bằng văn bản phụ lục.
-        </p>
-        <p>
-          <strong>4.2. Giá thu mua thực tế:</strong> Nếu giá thị trường tại thời điểm thu mua cao hơn giá
-          sàn, Bên A sẽ thu mua theo giá thị trường hoặc mức giá thỏa thuận. Nếu giá thị trường thấp hơn
-          giá sàn, Bên A vẫn thu mua theo giá sàn đã chốt.
-        </p>
-      </section>
+      {/* Điều 4 cũ về giá sàn cố định được lược bỏ theo flow mới. */}
 
       <section className="space-y-2 text-xs">
         <h2 className="font-bold uppercase">Điều 5: Thanh toán và khấu trừ</h2>

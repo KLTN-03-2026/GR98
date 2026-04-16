@@ -65,7 +65,7 @@ export default defineConfig({
   server: {
     port: 5174,
     host: true,
-    https: true,
+    https: {},
     proxy: {
       '/api/ai-vision': {
         target: 'http://localhost:8000',

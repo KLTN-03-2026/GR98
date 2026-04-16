@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -52,6 +53,15 @@ export class PlotController {
     @Request() req: any,
   ) {
     return this.plotService.update(id, dto, req.user.id);
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xóa lô đất (chỉ ADMIN)' })
+  @ApiResponse({ status: 200, description: 'Xóa thành công' })
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.plotService.remove(id, req.user.id);
   }
 
   @Get()

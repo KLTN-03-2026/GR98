@@ -9,6 +9,8 @@ export interface FarmerResponse {
   phone: string;
   cccd: string;
   bankAccount: string | null;
+  bankName: string | null;
+  bankBranch: string | null;
   address: string | null;
   province: string | null;
   status: FarmerStatus;

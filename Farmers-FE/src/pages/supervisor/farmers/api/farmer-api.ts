@@ -21,6 +21,8 @@ export const supervisorFarmerApi = {
     phone: string;
     cccd: string;
     bankAccount?: string;
+    bankName?: string;
+    bankBranch?: string;
     address?: string;
     province?: string;
     status?: 'ACTIVE' | 'INACTIVE';
@@ -33,6 +35,8 @@ export const supervisorFarmerApi = {
       phone: string;
       cccd: string;
       bankAccount: string;
+      bankName: string;
+      bankBranch: string;
       address: string;
       province: string;
       status: 'ACTIVE' | 'INACTIVE';

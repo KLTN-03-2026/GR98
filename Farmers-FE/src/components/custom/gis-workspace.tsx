@@ -80,6 +80,7 @@ interface GISWorkspaceProps {
   title: string;
   roleLabel: string;
   description: string;
+  initialPlotId?: string;
 }
 
 const DEFAULT_POLYGON_META =
@@ -126,6 +127,7 @@ export default function GISWorkspace({
   title,
   roleLabel,
   description,
+  initialPlotId,
 }: GISWorkspaceProps) {
   void title;
   void description;
@@ -583,18 +585,23 @@ export default function GISWorkspace({
         setLots(rows);
 
         if (rows.length > 0) {
-          const first = rows[0];
-          setSelectedLotId((prev) => prev || first.id);
+          const preferredLot =
+            (initialPlotId
+              ? rows.find((item) => item.id === initialPlotId)
+              : null) ?? rows[0];
+          setSelectedLotId((prev) =>
+            initialPlotId ? preferredLot.id : prev || preferredLot.id,
+          );
           setSheet((prev) => ({
-            plotName: prev.plotName || first.plotName,
-            farmerName: prev.farmerName || first.farmerName,
-            farmerPhone: prev.farmerPhone || first.farmerPhone || "",
-            farmerCccd: prev.farmerCccd || first.farmerCccd || "",
+            plotName: prev.plotName || preferredLot.plotName,
+            farmerName: prev.farmerName || preferredLot.farmerName,
+            farmerPhone: prev.farmerPhone || preferredLot.farmerPhone || "",
+            farmerCccd: prev.farmerCccd || preferredLot.farmerCccd || "",
             contractId:
               roleLabel === "SUPERVISOR"
                 ? prev.contractId
-                : (prev.contractId || first.contractId),
-            cropType: prev.cropType || first.cropType,
+                : (prev.contractId || preferredLot.contractId),
+            cropType: prev.cropType || preferredLot.cropType,
           }));
         }
       } catch (error) {
@@ -611,7 +618,14 @@ export default function GISWorkspace({
     };
 
     void loadPlots();
-  }, [roleLabel]);
+  }, [roleLabel, initialPlotId]);
+
+  useEffect(() => {
+    if (!initialPlotId) return;
+    const targetLot = lots.find((lot) => lot.id === initialPlotId);
+    if (!targetLot) return;
+    focusLot(targetLot);
+  }, [initialPlotId, lots, focusLot]);
 
   useEffect(() => {
     let isDisposed = false;

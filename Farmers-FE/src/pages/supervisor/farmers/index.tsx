@@ -55,6 +55,8 @@ type FarmerForm = {
   cccd: string;
   province: string;
   address: string;
+  bankName: string;
+  bankBranch: string;
   bankAccount: string;
   status: FarmerStatus;
 };
@@ -69,6 +71,8 @@ const defaultForm: FarmerForm = {
   cccd: '',
   province: '',
   address: '',
+  bankName: '',
+  bankBranch: '',
   bankAccount: '',
   status: 'ACTIVE',
 };
@@ -196,6 +200,8 @@ export default function SupervisorFarmersPage() {
       cccd: row.cccd,
       province: row.province ?? '',
       address: row.address ?? '',
+      bankName: row.bankName ?? '',
+      bankBranch: row.bankBranch ?? '',
       bankAccount: row.bankAccount ?? '',
       status: row.status,
     });
@@ -246,6 +252,8 @@ export default function SupervisorFarmersPage() {
           cccd: form.cccd.trim(),
           province: form.province.trim() || undefined,
           address: form.address.trim() || undefined,
+          bankName: form.bankName.trim() || undefined,
+          bankBranch: form.bankBranch.trim() || undefined,
           bankAccount: form.bankAccount.trim() || undefined,
           status: form.status,
         });
@@ -258,6 +266,8 @@ export default function SupervisorFarmersPage() {
             cccd: form.cccd.trim(),
             province: form.province,
             address: form.address,
+            bankName: form.bankName,
+            bankBranch: form.bankBranch,
             bankAccount: form.bankAccount,
             status: form.status,
           },
@@ -395,6 +405,9 @@ export default function SupervisorFarmersPage() {
                       <span className="truncate">
                         {row.supervisor?.user.fullName || 'Bạn đang phụ trách'}
                       </span>
+                    </p>
+                    <p className="truncate text-xs">
+                      NH: {row.bankName || 'Chưa cập nhật'} {row.bankBranch ? `- ${row.bankBranch}` : ''}
                     </p>
                   </div>
 
@@ -555,6 +568,34 @@ export default function SupervisorFarmersPage() {
                   setForm((prev) => ({ ...prev, address: event.target.value }))
                 }
                 placeholder="Thôn ..., xã ..., huyện ..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tên ngân hàng</Label>
+              <Input
+                value={form.bankName}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    bankName: event.target.value,
+                  }))
+                }
+                placeholder="VD: BIDV"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Chi nhánh ngân hàng</Label>
+              <Input
+                value={form.bankBranch}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    bankBranch: event.target.value,
+                  }))
+                }
+                placeholder="VD: Chi nhánh Đắk Lắk"
               />
             </div>
 

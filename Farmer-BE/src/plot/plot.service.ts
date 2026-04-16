@@ -356,6 +356,7 @@ export class PlotService {
 
   private mapPlotToListItem(plot: {
     id: string;
+    farmerId: string;
     plotCode: string;
     cropType: string;
     areaHa: number;
@@ -384,6 +385,7 @@ export class PlotService {
 
     return {
       id: plot.id,
+      farmerId: plot.farmerId,
       lotCode: plot.plotCode,
       plotName: plot.plotCode,
       farmerName: plot.farmer?.fullName ?? 'Chưa gán',

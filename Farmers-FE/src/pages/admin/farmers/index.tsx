@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -92,6 +93,31 @@ function formatDate(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "N/A";
   return date.toLocaleString("vi-VN");
+}
+
+function FarmerCardSkeleton() {
+  return (
+    <Card className="animate-pulse border-l-4 border-l-emerald-400/40">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <Skeleton className="h-6 w-24 rounded-full" />
+        </div>
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-4 w-36" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function FarmerManagementPage() {
@@ -343,11 +369,11 @@ function FarmerManagementPage() {
       <div className="min-h-0 flex flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {isLoading ? (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Đang tải danh sách nông dân...
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+              {Array.from({ length: Math.min(PAGE_LIMIT, 12) }).map((_, index) => (
+                <FarmerCardSkeleton key={`admin-farmer-skeleton-${index}`} />
+              ))}
+            </div>
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
               {farmers.map((row) => (

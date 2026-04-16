@@ -16,6 +16,7 @@ import { InventoryStaffModule } from './inventory-staff/inventory-staff.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { FarmerModule } from './farmer/farmer.module';
 import { ProductsModule } from './products/products.module';
+import { ContractModule } from './contract/contract.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
@@ -34,6 +35,7 @@ import { ProductsModule } from './products/products.module';
     InventoryModule,
     FarmerModule,
     ProductsModule,
+    ContractModule,
   ],
   controllers: [AppController],
   providers: [AppService],

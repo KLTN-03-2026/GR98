@@ -25,6 +25,8 @@ export const farmerApi = {
     phone: string;
     cccd: string;
     bankAccount?: string;
+    bankName?: string;
+    bankBranch?: string;
     address?: string;
     province?: string;
     supervisorId?: string;
@@ -38,6 +40,8 @@ export const farmerApi = {
       phone: string;
       cccd: string;
       bankAccount: string;
+      bankName: string;
+      bankBranch: string;
       address: string;
       province: string;
       supervisorId: string | null;

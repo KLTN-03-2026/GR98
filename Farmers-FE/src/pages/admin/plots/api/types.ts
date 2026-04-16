@@ -21,6 +21,8 @@ export interface PlotResponse {
   lng: number;
   updatedAt: string;
   polygon?: Array<[number, number]>;
+  /** Có dữ liệu GIS (tọa độ lat/lng) trong DB hay chưa */
+  hasGis?: boolean;
   id_suppervisor?: string | null;
   name_suppervisor?: string | null;
 }
@@ -54,6 +56,8 @@ export interface CreatePlotPayload {
 export interface UpdatePlotPayload {
   id_suppervisor?: string;
   name_suppervisor?: string;
+  lat?: number;
+  lng?: number;
 }
 
 export type { ApiSuccessResponse };

@@ -28,11 +28,6 @@ import {
 
 const PAGE_LIMIT = 12;
 
-function formatCurrency(value?: number | null) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '0 VNĐ';
-  return `${new Intl.NumberFormat('vi-VN').format(value)} VNĐ`;
-}
-
 type ContractsManagementViewProps = {
   mode: 'admin' | 'supervisor';
   listBasePath: string;
@@ -138,7 +133,7 @@ export default function ContractsManagementView({
                 className="h-9 min-w-[190px] rounded-full border border-input bg-background px-3 text-sm"
               >
                 <option value="ALL">Tất cả trạng thái</option>
-                <option value="DRAFT">Bản nháp</option>
+                {mode === 'supervisor' && <option value="DRAFT">Bản nháp</option>}
                 <option value="SIGNED">Chờ phê duyệt</option>
                 <option value="ACTIVE">Đang hiệu lực</option>
                 <option value="SETTLED">Đã tất toán</option>
@@ -167,7 +162,9 @@ export default function ContractsManagementView({
           <div className="flex flex-wrap gap-2">
             <Badge variant="soft-success">Đang hiệu lực: {activeCount}</Badge>
             <Badge variant="soft-warning">Chờ duyệt: {waitingApprovalCount}</Badge>
-            <Badge variant="soft-info">Bản nháp: {draftCount}</Badge>
+            {mode === 'supervisor' && (
+              <Badge variant="soft-info">Bản nháp: {draftCount}</Badge>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -224,10 +221,8 @@ export default function ContractsManagementView({
                     </Badge>
                   </div>
                   <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                    <p>Sản lượng: {contract.quantityKg.toLocaleString('vi-VN')} kg</p>
-                    <p className="font-medium text-foreground">
-                      Giá trị HĐ: {formatCurrency(contract.totalAmount)}
-                    </p>
+                    <p>Diện tích chuẩn: {contract.plotDraftAreaHa ?? contract.plot.areaHa} ha</p>
+                    <p className="font-medium text-foreground">Grade: {contract.grade}</p>
                   </div>
                 </button>
               ))}

@@ -44,6 +44,7 @@ import { cn } from "@/lib/utils";
 import {
   plotApi,
   usePlots,
+  useDeletePlot,
   useUpdatePlot,
   type PlotResponse,
 } from "./api";
@@ -102,6 +103,7 @@ export default function PlotsPage() {
   });
 
   const updateMutation = useUpdatePlot();
+  const deleteMutation = useDeletePlot();
   const queryClient = useQueryClient();
 
   const plots = plotsData?.data ?? [];
@@ -168,7 +170,7 @@ export default function PlotsPage() {
     localStorage.setItem(LOCAL_PLOT_OVERRIDES_KEY, JSON.stringify(value));
   };
 
-  const isSaving = updateMutation.isPending;
+  const isSaving = updateMutation.isPending || deleteMutation.isPending;
 
   const openSheet = (plot: PlotItem) => {
     setEditingId(plot.id);
@@ -257,21 +259,27 @@ export default function PlotsPage() {
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    const currentOverrides = readLocalOverrides();
-    currentOverrides[deleteTarget.id] = {
-      ...(currentOverrides[deleteTarget.id] || {}),
-      isDeleted: true,
-    };
-    writeLocalOverrides(currentOverrides);
+    const target = deleteTarget;
+    try {
+      await deleteMutation.mutateAsync(target.id);
 
-    queryClient.invalidateQueries({ queryKey: ["plots"] });
-    toast.success(`Đã xóa ${deleteTarget.plotName}`);
-    setDeleteTarget(null);
-    if (editingId === deleteTarget.id) {
-      setSheetOpen(false);
-      setEditingId(null);
+      // Clear local override after DB delete to avoid stale local state.
+      const currentOverrides = readLocalOverrides();
+      if (currentOverrides[target.id]) {
+        delete currentOverrides[target.id];
+        writeLocalOverrides(currentOverrides);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["plots"] });
+      setDeleteTarget(null);
+      if (editingId === target.id) {
+        setSheetOpen(false);
+        setEditingId(null);
+      }
+    } catch {
+      // Error toast handled by mutation hook
     }
   };
 

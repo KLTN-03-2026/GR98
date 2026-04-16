@@ -27,24 +27,15 @@ import {
   getGradeBadgeVariant,
 } from '@/pages/contracts/components/contract-ui';
 import '@/pages/contracts/contract-print.css';
-import { useMe } from '@/client/api/auth/use-me';
-import { usePlots } from '@/pages/admin/plots/api';
 import {
   useApproveContract,
   useContract,
   useRejectContract,
   useSubmitContractForApproval,
   useUpdateContract,
-  type ContractStatus,
   type CreateContractPayload,
   type QualityGrade,
 } from '@/pages/admin/contracts/api';
-import { usePriceBoards } from '@/pages/inventory/price-boards/api';
-
-function formatCurrency(value?: number | null) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '0 VNĐ';
-  return `${new Intl.NumberFormat('vi-VN').format(value)} VNĐ`;
-}
 
 function formatDate(value?: string | null) {
   if (!value) return 'Chưa cập nhật';
@@ -59,11 +50,10 @@ export type ContractDetailPageProps = {
 };
 
 type DraftForm = {
-  plotId: string;
-  priceBoardId: string;
+  plotDraftProvince: string;
+  plotDraftDistrict: string;
+  plotDraftAreaHa: string;
   cropType: string;
-  quantityKg: string;
-  pricePerKg: string;
   grade: QualityGrade;
   signedAt: string;
   harvestDue: string;
@@ -78,11 +68,10 @@ function toInputDate(value?: string | null) {
 
 function draftToPayload(form: DraftForm): CreateContractPayload {
   return {
-    plotId: form.plotId,
-    priceBoardId: form.priceBoardId || undefined,
+    plotDraftProvince: form.plotDraftProvince || undefined,
+    plotDraftDistrict: form.plotDraftDistrict || undefined,
+    plotDraftAreaHa: form.plotDraftAreaHa ? Number(form.plotDraftAreaHa) : undefined,
     cropType: form.cropType.trim(),
-    quantityKg: Number(form.quantityKg),
-    pricePerKg: Number(form.pricePerKg),
     grade: form.grade,
     signedAt: form.signedAt || undefined,
     harvestDue: form.harvestDue || undefined,
@@ -93,17 +82,6 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: contract, isLoading, error, refetch } = useContract(id);
-  const { data: me } = useMe();
-  const supervisorProfileId = me?.supervisorProfile?.id;
-  const { data: plotsData } = usePlots({
-    page: 1,
-    limit: 100,
-    ...(mode === 'supervisor' && supervisorProfileId
-      ? { id_suppervisor: supervisorProfileId }
-      : {}),
-    enabled: mode !== 'supervisor' || !!supervisorProfileId,
-  });
-  const { data: priceBoardsData } = usePriceBoards({ page: 1, limit: 50, isActive: 'true' });
   const [draftForm, setDraftForm] = useState<DraftForm | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
 
@@ -122,27 +100,16 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
       return;
     }
     setDraftForm({
-      plotId: contract.plot.id,
-      priceBoardId: contract.priceBoard?.id ?? '',
+      plotDraftProvince: contract.plotDraftProvince ?? '',
+      plotDraftDistrict: contract.plotDraftDistrict ?? '',
+      plotDraftAreaHa: String(contract.plotDraftAreaHa ?? ''),
       cropType: contract.cropType,
-      quantityKg: String(contract.quantityKg),
-      pricePerKg: String(contract.pricePerKg),
       grade: contract.grade,
       signedAt: toInputDate(contract.signedAt),
       harvestDue: toInputDate(contract.harvestDue),
     });
     setDraftError(null);
   }, [contract]);
-
-  const plots = useMemo(() => {
-    const all = plotsData?.data ?? [];
-    if (mode === 'supervisor' && contract?.farmer?.id) {
-      return all.filter((p) => p.farmerId === contract.farmer.id);
-    }
-    return all;
-  }, [plotsData?.data, mode, contract?.farmer?.id]);
-  const priceBoards = priceBoardsData?.data ?? [];
-  const selectedPlot = plots.find((p) => p.id === draftForm?.plotId);
 
   const handlePrintPdf = () => {
     window.print();
@@ -151,15 +118,11 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
   const saveDraft = async () => {
     if (!contract || !draftForm) return;
     const err =
-      !draftForm.plotId
-        ? 'Chọn lô đất'
+      !draftForm.plotDraftAreaHa || Number(draftForm.plotDraftAreaHa) <= 0
+        ? 'Diện tích chuẩn không hợp lệ'
         : !draftForm.cropType.trim()
           ? 'Nhập loại cây'
-          : !draftForm.quantityKg || Number(draftForm.quantityKg) <= 0
-            ? 'Sản lượng không hợp lệ'
-            : !draftForm.pricePerKg || Number(draftForm.pricePerKg) <= 0
-              ? 'Giá sàn không hợp lệ'
-              : null;
+          : null;
     if (err) {
       setDraftError(err);
       return;
@@ -272,7 +235,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
           <div className="flex flex-wrap gap-1.5">
             <Badge variant={getCropBadgeVariant(contract.cropType)}>{contract.cropType}</Badge>
             <Badge variant={getGradeBadgeVariant(contract.grade)}>Grade {contract.grade}</Badge>
-            <Badge variant="outline">SL: {contract.quantityKg.toLocaleString('vi-VN')} kg</Badge>
+            <Badge variant="outline">Diện tích chuẩn: {contract.plotDraftAreaHa ?? '—'} ha</Badge>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -343,8 +306,8 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
               <span className="font-medium">{formatDate(contract.createdAt)}</span>
               <span className="text-muted-foreground">Grade</span>
               <span className="font-medium">{contract.grade}</span>
-              <span className="text-muted-foreground">Giá trị</span>
-              <span className="font-medium">{formatCurrency(contract.totalAmount)}</span>
+              <span className="text-muted-foreground">Diện tích chuẩn</span>
+              <span className="font-medium">{contract.plotDraftAreaHa ?? '—'} ha</span>
               <span className="text-muted-foreground">Gửi duyệt</span>
               <span className="font-medium">{formatDate(contract.submittedAt)}</span>
             </div>
@@ -393,12 +356,13 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
                 {contract.farmer.province ? ` · ${contract.farmer.province}` : ''}
               </p>
               <p className="text-xs text-muted-foreground">
-                Tài khoản NH: {contract.farmer.bankAccount || 'Chưa cập nhật'}
+                NH: {contract.farmer.bankName || '—'} · CN: {contract.farmer.bankBranch || '—'} · STK:{' '}
+                {contract.farmer.bankAccount || 'Chưa cập nhật'}
               </p>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 <Badge variant="soft-success">HĐ: {contract.contractNo}</Badge>
                 <Badge variant="soft-info">
-                  Giá trị: {formatCurrency(contract.totalAmount)}
+                  Diện tích chuẩn: {contract.plotDraftAreaHa ?? '—'} ha
                 </Badge>
               </div>
             </div>
@@ -439,56 +403,41 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
             <CardTitle className="text-base">Chỉnh sửa hợp đồng nháp</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Lô đất</Label>
-              <select
-                value={draftForm.plotId}
-                onChange={(e) => {
-                  const plotId = e.target.value;
-                  const plot = plots.find((item) => item.id === plotId);
+            <div className="space-y-2">
+              <Label>Tỉnh / thành (nháp)</Label>
+              <Input
+                value={draftForm.plotDraftProvince}
+                onChange={(e) =>
                   setDraftForm((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          plotId,
-                          cropType:
-                            plot?.cropType === 'sau-rieng'
-                              ? 'Sầu riêng'
-                              : plot?.cropType === 'ca-phe'
-                                ? 'Cà phê'
-                                : prev.cropType,
-                        }
-                      : prev,
-                  );
-                }}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                {plots.map((plot) => (
-                  <option key={plot.id} value={plot.id}>
-                    {plot.plotName} ({plot.lotCode}) — {plot.farmerName}
-                  </option>
-                ))}
-              </select>
-              {selectedPlot && (
-                <p className="text-xs text-muted-foreground">Nông dân: {selectedPlot.farmerName}</p>
-              )}
+                    prev ? { ...prev, plotDraftProvince: e.target.value } : prev,
+                  )
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Quận / huyện (nháp)</Label>
+              <Input
+                value={draftForm.plotDraftDistrict}
+                onChange={(e) =>
+                  setDraftForm((prev) =>
+                    prev ? { ...prev, plotDraftDistrict: e.target.value } : prev,
+                  )
+                }
+              />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label>Bảng giá (tuỳ chọn)</Label>
-              <select
-                value={draftForm.priceBoardId}
+              <Label>Diện tích chuẩn (ha)</Label>
+              <Input
+                type="number"
+                min={0.01}
+                step="0.01"
+                value={draftForm.plotDraftAreaHa}
                 onChange={(e) =>
-                  setDraftForm((prev) => (prev ? { ...prev, priceBoardId: e.target.value } : prev))
+                  setDraftForm((prev) =>
+                    prev ? { ...prev, plotDraftAreaHa: e.target.value } : prev,
+                  )
                 }
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Không gắn</option>
-                {priceBoards.map((pb) => (
-                  <option key={pb.id} value={pb.id}>
-                    {pb.cropType} — {pb.grade}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="space-y-2">
               <Label>Loại cây</Label>
@@ -515,27 +464,6 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
                 <option value="C">C</option>
                 <option value="REJECT">REJECT</option>
               </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Sản lượng (kg)</Label>
-              <Input
-                type="number"
-                value={draftForm.quantityKg}
-                onChange={(e) =>
-                  setDraftForm((prev) => (prev ? { ...prev, quantityKg: e.target.value } : prev))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Giá sàn cố định (VNĐ/kg)</Label>
-              <Input
-                type="number"
-                min={0.01}
-                value={draftForm.pricePerKg}
-                onChange={(e) =>
-                  setDraftForm((prev) => (prev ? { ...prev, pricePerKg: e.target.value } : prev))
-                }
-              />
             </div>
             <div className="space-y-2">
               <Label>Ngày ký</Label>

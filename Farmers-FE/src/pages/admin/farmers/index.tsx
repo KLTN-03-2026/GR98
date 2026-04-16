@@ -59,6 +59,8 @@ type FarmerForm = {
   cccd: string;
   province: string;
   address: string;
+  bankName: string;
+  bankBranch: string;
   bankAccount: string;
   supervisorId: string;
   status: FarmerStatus;
@@ -75,6 +77,8 @@ const defaultForm: FarmerForm = {
   cccd: "",
   province: "",
   address: "",
+  bankName: "",
+  bankBranch: "",
   bankAccount: "",
   supervisorId: UNASSIGNED_SUPERVISOR,
   status: "ACTIVE",
@@ -203,6 +207,8 @@ function FarmerManagementPage() {
       cccd: row.cccd,
       province: row.province ?? "",
       address: row.address ?? "",
+      bankName: row.bankName ?? "",
+      bankBranch: row.bankBranch ?? "",
       bankAccount: row.bankAccount ?? "",
       supervisorId: row.supervisorId ?? UNASSIGNED_SUPERVISOR,
       status: row.status,
@@ -257,6 +263,8 @@ function FarmerManagementPage() {
           cccd: form.cccd.trim(),
           province: form.province.trim() || undefined,
           address: form.address.trim() || undefined,
+          bankName: form.bankName.trim() || undefined,
+          bankBranch: form.bankBranch.trim() || undefined,
           bankAccount: form.bankAccount.trim() || undefined,
           supervisorId: supervisorId || undefined,
           status: form.status,
@@ -270,6 +278,8 @@ function FarmerManagementPage() {
             cccd: form.cccd.trim(),
             province: form.province,
             address: form.address,
+            bankName: form.bankName,
+            bankBranch: form.bankBranch,
             bankAccount: form.bankAccount,
             supervisorId,
             status: form.status,
@@ -577,6 +587,34 @@ function FarmerManagementPage() {
                   setForm((prev) => ({ ...prev, address: event.target.value }))
                 }
                 placeholder="Thôn ..., xã ..., huyện ..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tên ngân hàng</Label>
+              <Input
+                value={form.bankName}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    bankName: event.target.value,
+                  }))
+                }
+                placeholder="VD: BIDV"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Chi nhánh ngân hàng</Label>
+              <Input
+                value={form.bankBranch}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    bankBranch: event.target.value,
+                  }))
+                }
+                placeholder="VD: Chi nhánh Đắk Lắk"
               />
             </div>
 

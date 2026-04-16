@@ -15,27 +15,28 @@ export class CreateContractDto {
   @IsString()
   farmerId?: string;
 
-  @IsNotEmpty({ message: 'Lô đất là bắt buộc' })
+  @IsOptional()
   @IsString()
-  plotId: string;
+  plotId?: string;
+
+  // Draft thông tin lô đất (dùng khi chưa có plotId)
+  @IsOptional()
+  @IsString()
+  plotDraftProvince?: string;
 
   @IsOptional()
   @IsString()
-  priceBoardId?: string;
+  plotDraftDistrict?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.01, { message: 'Diện tích chuẩn phải lớn hơn 0' })
+  plotDraftAreaHa?: number;
 
   @IsNotEmpty({ message: 'Loại cây trồng là bắt buộc' })
   @IsString()
   cropType: string;
-
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01, { message: 'Sản lượng phải lớn hơn 0' })
-  quantityKg: number;
-
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01, { message: 'Giá sàn phải lớn hơn 0' })
-  pricePerKg: number;
 
   @IsEnum(QualityGrade, { message: 'Phân hạng chất lượng không hợp lệ' })
   grade: QualityGrade;

@@ -37,6 +37,8 @@ export type DataGridLayoutConfig = {
   minCardWidth?: number;
   gapClassName?: string;
   cardContainerClassName?: string;
+  itemWrapperClassName?: string;
+  equalHeightCards?: boolean;
 };
 
 export type DataGridEmptyState = {

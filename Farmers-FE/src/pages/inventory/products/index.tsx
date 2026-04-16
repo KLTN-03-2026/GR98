@@ -208,286 +208,265 @@ function ProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] p-0 overflow-hidden border-none bg-background/80 backdrop-blur-2xl shadow-2xl rounded-[2rem]">
-        <form onSubmit={handleSubmit} className="flex flex-col h-full">
-          <div className="p-8 pb-4">
-            <DialogHeader>
-              <DialogTitle className="text-3xl font-black bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent">
-                {mode === 'create' ? '✨ Niêm yết sản phẩm' : '📝 Cập nhật sản phẩm'}
+      <DialogContent className="sm:max-w-4xl max-h-[95vh] p-0 overflow-hidden border border-slate-200 shadow-2xl rounded-xl bg-white">
+        <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
+          
+          {/* Header */}
+          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div>
+              <DialogTitle className="text-xl font-bold text-slate-900">
+                {mode === 'create' ? 'Niêm yết sản phẩm mới' : 'Chỉnh sửa niêm yết'}
               </DialogTitle>
-              <DialogDescription className="text-base font-medium">
-                Quản lý thông tin thương mại và hình ảnh nông sản trên sàn ECM.
+              <DialogDescription className="text-sm text-slate-500 mt-1">
+                Chuẩn hóa dữ liệu nông sản cho môi trường thương mại điện tử.
               </DialogDescription>
-            </DialogHeader>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "h-2 w-2 rounded-full",
+                form.status === 'PUBLISHED' ? "bg-green-500" : "bg-slate-300"
+              )} />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {PRODUCT_STATUS_LABELS[form.status]}
+              </span>
+            </div>
           </div>
 
-          <Tabs defaultValue="general" className="w-full flex-1 overflow-hidden flex flex-col">
-            <div className="px-8 border-b border-muted/50 bg-muted/20">
-              <TabsList className="h-12 bg-transparent gap-8">
-                <TabsTrigger 
-                  value="general" 
-                  className="relative h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold px-0 text-sm tracking-tight"
-                >
-                  Thông tin chung
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="media" 
-                  className="relative h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold px-0 text-sm tracking-tight"
-                >
-                  Hình ảnh & Mô tả
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-8">
-              <TabsContent value="general" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                {/* Identification Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Tên hiển thị nội sàn *</Label>
-                      <Input
-                        value={form.name}
-                        onChange={(e) => handleNameChange(e.target.value)}
-                        placeholder="Ví dụ: Sầu riêng Ri6 Cái Mơn - Loại 1"
-                        className="h-12 rounded-2xl bg-muted/30 border-none shadow-inner focus-visible:ring-primary/20 text-base font-bold"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Slug (Đường dẫn tĩnh)</Label>
-                      <div className="relative">
-                        <Input
-                          value={form.slug}
-                          onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                          className="h-10 rounded-xl bg-muted/10 border-dashed font-mono text-xs pl-4 pr-12 text-muted-foreground"
-                        />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Danh mục ngành hàng</Label>
-                    <div className="flex flex-wrap gap-2 p-4 bg-muted/20 rounded-2xl border border-dashed border-muted/50 min-h-[105px] content-start">
-                      {categories.map((cat) => (
-                        <Badge
-                          key={cat.id}
-                          variant={form.categoryIds.includes(cat.id) ? "default" : "outline"}
-                          className={cn(
-                            "cursor-pointer transition-all px-3 py-1 rounded-full text-xs font-bold border-muted-foreground/20",
-                            form.categoryIds.includes(cat.id) 
-                              ? "bg-primary shadow-lg shadow-primary/20 scale-105" 
-                              : "bg-background/50 hover:bg-primary/10 hover:border-primary/30"
-                          )}
-                          onClick={() => toggleCategory(cat.id)}
-                        >
-                          {cat.name}
-                        </Badge>
-                      ))}
-                      {categories.length === 0 && (
-                        <p className="text-[10px] text-muted-foreground italic w-full text-center py-4">Chưa có danh mục nào khả dụng</p>
-                      )}
-                    </div>
-                  </div>
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-8 py-8 space-y-10">
+            
+            {/* Section 1: Basic Identity */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-2 text-slate-900">
+                <div className="h-1 w-4 bg-primary rounded-full" />
+                <h3 className="text-sm font-bold uppercase tracking-wider">Thông tin định danh</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2 space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Tên sản phẩm thương mại *</Label>
+                  <Input
+                    value={form.name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder="Ví dụ: Sầu riêng Musang King hạng A..."
+                    className="h-11 rounded-lg border-slate-200 focus:ring-primary/10 transition-all font-medium"
+                  />
                 </div>
 
-                <Separator className="bg-muted/50" />
-
-                {/* Pricing & Logistics Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Loại nông sản</Label>
-                        <Select value={form.cropType} onValueChange={(v) => setForm({ ...form, cropType: v })}>
-                          <SelectTrigger className="h-12 rounded-2xl bg-muted/30 border-none">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(CROP_TYPES).map(([k, v]) => (
-                              <SelectItem key={k} value={v}>{v}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Hạng chất lượng</Label>
-                        <Select value={form.grade} onValueChange={(v) => setForm({ ...form, grade: v as QualityGrade })}>
-                          <SelectTrigger className="h-12 rounded-2xl bg-muted/30 border-none font-bold text-primary">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(GRADE_LABELS).map(([k, v]) => (
-                              <SelectItem key={k} value={k}>{v}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Giá bán (VND/KG)</Label>
-                        <div className="relative group/price">
-                          <Input
-                            type="number"
-                            value={form.pricePerKg}
-                            onChange={(e) => setForm({ ...form, pricePerKg: Number(e.target.value) })}
-                            className="h-12 rounded-2xl bg-muted/30 border-none pl-4 pr-12 text-lg font-black text-primary shadow-inner"
-                          />
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground opacity-50 group-focus-within/price:opacity-100 transition-opacity">VNĐ</span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground font-bold italic pl-1">≈ {formatCurrencyInput(form.pricePerKg)} vnđ</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Ngày thu hoạch</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "h-12 w-full rounded-2xl bg-muted/30 border-none justify-start px-4 text-left font-bold",
-                                !form.harvestDate && "text-muted-foreground font-normal"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                              {form.harvestDate ? format(form.harvestDate, "dd/MM/yyyy") : <span>Chọn ngày</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 rounded-2xl" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={form.harvestDate}
-                              onSelect={(d) => setForm({ ...form, harvestDate: d })}
-                              initialFocus
-                              locale={vi}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Mua tối thiểu (KG)</Label>
-                        <Input
-                          type="number"
-                          value={form.minOrderKg}
-                          onChange={(e) => setForm({ ...form, minOrderKg: Number(e.target.value) })}
-                          className="h-12 rounded-2xl bg-muted/30 border-none font-bold"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Đơn vị tính</Label>
-                        <Input
-                          value={form.unit}
-                          onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                          className="h-12 rounded-2xl bg-muted/30 border-none font-bold"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Trạng thái phát hành</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {Object.entries(PRODUCT_STATUS_LABELS).map(([k, v]) => (
-                          <button
-                            key={k}
-                            type="button"
-                            onClick={() => setForm({ ...form, status: k as ProductStatus })}
-                            className={cn(
-                              "h-12 rounded-2xl border text-xs font-bold transition-all flex items-center justify-center gap-2",
-                              form.status === k 
-                                ? "bg-primary/10 border-primary text-primary shadow-sm" 
-                                : "bg-transparent border-muted hover:bg-muted/30"
-                            )}
-                          >
-                            {k === 'PUBLISHED' && <CheckCircle2 className="h-3 w-3" />}
-                            {k === 'DRAFT' && <Pencil className="h-3 w-3" />}
-                            {k === 'OUT_OF_STOCK' && <AlertCircle className="h-3 w-3 text-amber-500" />}
-                            {v}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="media" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-                  <div className="md:col-span-3 space-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Mô tả chi tiết sản phẩm</Label>
-                      <textarea
-                        value={form.description}
-                        onChange={(e) => setForm({ ...form, description: e.target.value })}
-                        placeholder="Mô tả hương vị đậm đà, đặc điểm của vùng trồng, hoặc cách bảo quản tốt nhất..."
-                        className="w-full min-h-[220px] rounded-[1.5rem] border-none bg-muted/30 px-5 py-4 text-sm font-medium ring-offset-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all shadow-inner"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2 space-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/80 pl-1">Thư viện hình ảnh</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={imageUrlInput}
-                          onChange={(e) => setImageUrlInput(e.target.value)}
-                          placeholder="Link ảnh (JPG, PNG)..."
-                          className="h-10 rounded-xl bg-muted/30 border-none text-xs"
-                        />
-                        <Button type="button" size="icon" variant="secondary" onClick={handleAddImage} className="shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3 pt-2 h-[178px] overflow-y-auto pr-1">
-                        {form.imageUrls.map((url, i) => (
-                          <div key={i} className="group relative aspect-square rounded-2xl overflow-hidden border border-muted bg-muted/50 shadow-sm">
-                            <img src={url} alt="preview" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="icon"
-                                className="h-8 w-8 rounded-full"
-                                onClick={() => handleRemoveImage(url)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            {i === 0 && (
-                              <Badge className="absolute top-2 left-2 bg-primary/90 backdrop-blur-md text-[8px] font-black uppercase h-4 px-1.5 leading-none rounded-md">Cover</Badge>
-                            )}
-                          </div>
-                        ))}
-                        {form.imageUrls.length === 0 && (
-                          <div className="col-span-2 h-full border-2 border-dashed border-muted rounded-2xl flex flex-col items-center justify-center bg-muted/5 text-muted-foreground/40 gap-2">
-                            <ImageIcon className="h-8 w-8 opacity-20" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Trống</span>
-                          </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Danh mục niêm yết</Label>
+                  <div className="flex flex-wrap gap-1.5 p-3 rounded-lg border border-slate-100 bg-slate-50/30">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => toggleCategory(cat.id)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all border",
+                          form.categoryIds.includes(cat.id)
+                            ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                            : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
                         )}
-                      </div>
-                    </div>
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </TabsContent>
-            </div>
-          </Tabs>
 
-          <div className="p-8 bg-muted/30 border-t border-muted/50 backdrop-blur-md">
-            <DialogFooter className="gap-3">
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="rounded-2xl px-6 h-12 font-bold hover:bg-background/50">
-                Quay lại
-              </Button>
-              <Button type="submit" className="rounded-2xl px-10 h-12 shadow-2xl shadow-primary/30 font-black text-sm uppercase tracking-wider">
-                {mode === 'create' ? 'Phát hành niêm yết' : 'Cập nhật thay đổi'}
-              </Button>
-            </DialogFooter>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Đường dẫn hệ thống (Slug)</Label>
+                  <div className="h-11 flex items-center px-4 rounded-lg bg-slate-50 border border-slate-100 text-slate-400 font-mono text-[11px] italic">
+                     {form.slug || 'Tự động tạo từ tên sản phẩm...'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Separator className="bg-slate-100" />
+
+            {/* Section 2: Technical & Commercial */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-2 text-slate-900">
+                <div className="h-1 w-4 bg-primary rounded-full" />
+                <h3 className="text-sm font-bold uppercase tracking-wider">Thông số thương mại</h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-8">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Hệ sản phẩm</Label>
+                  <Select value={form.cropType} onValueChange={(v) => setForm({ ...form, cropType: v })}>
+                    <SelectTrigger className="h-11 rounded-lg border-slate-200 font-medium w-full text-left">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(CROP_TYPES).map(([k, v]) => (
+                        <SelectItem key={k} value={v}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Phân hạng chất lượng</Label>
+                  <Select value={form.grade} onValueChange={(v) => setForm({ ...form, grade: v as QualityGrade })}>
+                    <SelectTrigger className="h-11 rounded-lg border-slate-200 font-medium w-full overflow-hidden text-left">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(GRADE_LABELS).map(([k, v]) => (
+                         <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Giá trị niêm yết</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      value={form.pricePerKg}
+                      onChange={(e) => setForm({ ...form, pricePerKg: Number(e.target.value) })}
+                      className="h-11 rounded-lg border-slate-200 pr-12 font-bold tabular-nums"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-300">/KG</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Ngày thu hoạch</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="h-11 w-full rounded-lg border-slate-200 justify-start px-4 font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
+                        {form.harvestDate ? format(form.harvestDate, "dd/MM/yyyy") : <span>Chọn ngày</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl shadow-2xl border border-slate-100" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={form.harvestDate}
+                        onSelect={(d) => setForm({ ...form, harvestDate: d })}
+                        initialFocus
+                        locale={vi}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Mua tối thiểu</Label>
+                  <Input
+                    type="number"
+                    value={form.minOrderKg}
+                    onChange={(e) => setForm({ ...form, minOrderKg: Number(e.target.value) })}
+                    className="h-11 rounded-lg border-slate-200 font-medium"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Đơn vị chuẩn hóa</Label>
+                  <Input
+                    value={form.unit}
+                    onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                    className="h-11 rounded-lg border-slate-200 font-medium"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Trạng thái phát hành</Label>
+                  <div className="flex gap-2">
+                    {[
+                      { id: 'PUBLISHED', label: 'Công khai', icon: CheckCircle2, color: 'text-green-600', active: 'bg-green-500 text-white border-green-600' },
+                      { id: 'DRAFT', label: 'Bản nháp', icon: Pencil, color: 'text-slate-400', active: 'bg-slate-900 text-white border-slate-900' },
+                      { id: 'OUT_OF_STOCK', label: 'Hết hàng', icon: AlertCircle, color: 'text-amber-600', active: 'bg-amber-500 text-white border-amber-600' }
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setForm({ ...form, status: item.id as ProductStatus })}
+                        className={cn(
+                          "flex-1 h-11 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all",
+                          form.status === item.id 
+                            ? item.active 
+                            : "bg-white border-slate-200 text-slate-400 hover:border-slate-300"
+                        )}
+                      >
+                         <item.icon className="h-3.5 w-3.5" />
+                         {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Separator className="bg-slate-100" />
+
+            {/* Section 3: Story & Visuals */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+              <div className="md:col-span-12 space-y-4">
+                 <div className="flex items-center gap-2 text-slate-900">
+                    <div className="h-1 w-4 bg-primary rounded-full" />
+                    <h3 className="text-sm font-bold uppercase tracking-wider">Mô tả & Hình ảnh</h3>
+                 </div>
+                 <textarea
+                   value={form.description}
+                   onChange={(e) => setForm({ ...form, description: e.target.value })}
+                   placeholder="Nhập giới thiệu chi tiết về sản phẩm..."
+                   className="w-full min-h-[120px] rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium placeholder:text-slate-300 focus:ring-4 focus:ring-primary/5 transition-all outline-none resize-none"
+                 />
+              </div>
+
+              <div className="md:col-span-12 space-y-6">
+                 <div className="flex gap-2">
+                   <Input
+                     value={imageUrlInput}
+                     onChange={(e) => setImageUrlInput(e.target.value)}
+                     placeholder="Dán đường dẫn hình ảnh..."
+                     className="h-11 rounded-lg border-slate-200 bg-white"
+                   />
+                   <Button type="button" onClick={handleAddImage} className="h-11 px-6 rounded-lg font-bold">Thêm ảnh</Button>
+                 </div>
+                 
+                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4">
+                   {form.imageUrls.map((url, i) => (
+                     <div key={i} className="group relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                       <img src={url} alt="product" className="h-full w-full object-cover" />
+                       <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                         <button
+                           type="button"
+                           className="h-7 w-7 rounded-full bg-destructive text-white flex items-center justify-center hover:scale-110 transition-transform"
+                           onClick={() => handleRemoveImage(url)}
+                         >
+                           <Trash2 className="h-3.5 w-3.5" />
+                         </button>
+                       </div>
+                       {i === 0 && (
+                         <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-white/90 text-[8px] font-black uppercase rounded-md border border-slate-100">Bìa</div>
+                       )}
+                     </div>
+                   ))}
+                   {form.imageUrls.length === 0 && (
+                     <div className="col-span-full h-24 border-2 border-dashed border-slate-100 rounded-lg flex flex-col items-center justify-center text-slate-300 gap-2">
+                        <ImageIcon className="h-5 w-5 opacity-20" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">Chưa có phương tiện</span>
+                     </div>
+                   )}
+                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="rounded-lg h-11 px-6 font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+              HỦY BỎ
+            </Button>
+            <Button type="submit" className="rounded-lg h-11 px-10 bg-slate-900 border-none shadow-lg shadow-slate-900/10 font-bold hover:bg-black transition-all active:scale-95">
+              {mode === 'create' ? 'PHÁT HÀNH NIÊM YÊT' : 'LƯU THAY ĐỔI'}
+            </Button>
           </div>
         </form>
       </DialogContent>
@@ -514,7 +493,7 @@ export default function ProductsManagementPage() {
 
   const { data: catData } = useCategories();
   const categories = catData?.data || [];
-  const products = data?.items || [];
+  const products = data?.data?.items || [];
 
   const { createProduct, updateProduct, deleteProduct } = useProductMutations();
 
@@ -649,7 +628,7 @@ export default function ProductsManagementPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                products.map((p) => (
+                products.map((p: Product) => (
                   <TableRow key={p.id} className="group transition-all border-muted/20 hover:bg-primary/[0.02]">
                     <TableCell className="pl-8">
                       <div className="relative h-12 w-16 rounded-xl overflow-hidden border border-muted bg-muted ring-offset-background group-hover:ring-2 group-hover:ring-primary/20 transition-all shadow-sm">
@@ -721,7 +700,6 @@ export default function ProductsManagementPage() {
                           variant="ghost"
                           className="h-9 w-9 rounded-xl hover:bg-background shadow-none hover:shadow-lg hover:text-primary border hover:border-primary/10 transition-all"
                           onClick={() => handleOpenEdit(p)}
-                          title="Chỉnh sửa sản phẩm"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -730,7 +708,6 @@ export default function ProductsManagementPage() {
                           variant="ghost"
                           className="h-9 w-9 rounded-xl hover:bg-destructive/10 hover:text-destructive shadow-none border hover:border-destructive/10 transition-all"
                           onClick={() => handleDelete(p.id)}
-                          title="Gỡ khỏi sàn"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -740,7 +717,7 @@ export default function ProductsManagementPage() {
                           className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary shadow-none border hover:border-primary/10 transition-all"
                           asChild
                         >
-                          <a href={`/products/${p.slug}`} target="_blank" rel="noreferrer" title="Xem trên sàn">
+                          <a href={`/products/${p.slug}`} target="_blank" rel="noreferrer">
                             <ExternalLink className="h-4 w-4" />
                           </a>
                         </Button>

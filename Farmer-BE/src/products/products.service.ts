@@ -1,6 +1,15 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProductDto, UpdateProductDto, ProductQueryDto } from './dto/create-product.dto';
+import {
+  CreateProductDto,
+  UpdateProductDto,
+  ProductQueryDto,
+} from './dto/create-product.dto';
 import { Role } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -34,14 +43,19 @@ export class ProductsService {
     if (!user) throw new NotFoundException('Người dùng không tồn tại');
 
     if (user.role === Role.ADMIN) {
-      const profile = await this.prisma.adminProfile.findUnique({ where: { userId } });
+      const profile = await this.prisma.adminProfile.findUnique({
+        where: { userId },
+      });
       if (!profile) throw new ForbiddenException('Không tìm thấy hồ sơ Admin');
       return profile.id;
     }
 
     if (user.role === Role.INVENTORY) {
-      const profile = await this.prisma.inventoryProfile.findUnique({ where: { userId } });
-      if (!profile) throw new ForbiddenException('Không tìm thấy hồ sơ Nhân viên kho');
+      const profile = await this.prisma.inventoryProfile.findUnique({
+        where: { userId },
+      });
+      if (!profile)
+        throw new ForbiddenException('Không tìm thấy hồ sơ Nhân viên kho');
       return profile.adminId;
     }
 
@@ -57,7 +71,7 @@ export class ProductsService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    
+
     // Nếu là public query -> chỉ lấy PUBLISHED
     if (!adminId) {
       where.status = 'PUBLISHED';
@@ -92,9 +106,9 @@ export class ProductsService {
     ]);
 
     return {
-      items: items.map(item => ({
+      items: items.map((item) => ({
         ...item,
-        categories: item.categories.map(pc => pc.category),
+        categories: item.categories.map((pc) => pc.category),
         orderCount: item._count.orderItems,
         _count: undefined,
       })),
@@ -122,7 +136,7 @@ export class ProductsService {
 
     return {
       ...item,
-      categories: item.categories.map(pc => pc.category),
+      categories: item.categories.map((pc) => pc.category),
     };
   }
 
@@ -140,7 +154,7 @@ export class ProductsService {
 
     return {
       ...item,
-      categories: item.categories.map(pc => pc.category),
+      categories: item.categories.map((pc) => pc.category),
     };
   }
 
@@ -148,7 +162,7 @@ export class ProductsService {
     const adminId = await this.resolveAdminId(userId);
 
     const slug = dto.slug || this.toSlug(dto.name);
-    const sku = dto.sku || await this.generateSku(dto.cropType);
+    const sku = dto.sku || (await this.generateSku(dto.cropType));
 
     // Kiểm tra trùng lặp
     const existing = await this.prisma.product.findFirst({
@@ -165,9 +179,11 @@ export class ProductsService {
         slug,
         sku,
         qrCode: uuidv4(),
-        categories: categoryIds ? {
-          create: categoryIds.map(cid => ({ categoryId: cid })),
-        } : undefined,
+        categories: categoryIds
+          ? {
+              create: categoryIds.map((cid) => ({ categoryId: cid })),
+            }
+          : undefined,
       },
     });
   }
@@ -184,7 +200,7 @@ export class ProductsService {
     // Nếu thay đổi tên mà không truyền slug mới -> tự động tạo slug mới
     let slug = dto.slug;
     if (dto.name && !dto.slug) {
-        slug = this.toSlug(dto.name);
+      slug = this.toSlug(dto.name);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -203,7 +219,7 @@ export class ProductsService {
         await tx.productCategory.deleteMany({ where: { productId: id } });
         // Thêm mới
         await tx.productCategory.createMany({
-          data: categoryIds.map(cid => ({ productId: id, categoryId: cid })),
+          data: categoryIds.map((cid) => ({ productId: id, categoryId: cid })),
         });
       }
 

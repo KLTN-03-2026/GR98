@@ -14,8 +14,10 @@ export interface ShippingAddress {
   fullName: string;
   phone: string;
   addressLine: string;
+  ward?: string | null;
   province: string;
   district?: string | null;
+  isDefault?: boolean;
 }
 
 // ============================================================

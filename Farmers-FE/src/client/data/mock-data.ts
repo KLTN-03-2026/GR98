@@ -61,6 +61,7 @@ export const MOCK_PRODUCTS: Product[] = [
   // === SẦU RIÊNG ===
   {
     id: 'p-001',
+    sku: 'SR-RI6-A-001',
     name: 'Sầu Riêng Ri 6 A - Trái Chín Cây',
     slug: 'sau-rieng-ri6-a-trai-chin-cay',
     description:
@@ -85,6 +86,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-002',
+    sku: 'SR-MTG-A-002',
     name: 'Sầu Riêng Monthong A - Nhập Khẩu Thái Lan',
     slug: 'sau-rieng-monthong-a-nhap-khau-thai-lan',
     description:
@@ -108,6 +110,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-003',
+    sku: 'SR-RI6-B-003',
     name: 'Sầu Riêng Ri 6 B - Trái Chín Vườn',
     slug: 'sau-rieng-ri6-b-trai-chin-vuon',
     description:
@@ -131,6 +134,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-004',
+    sku: 'SR-FZ-RI6-004',
     name: 'Sầu Riêng Đông Lạnh Ri 6 - Bảo Quản 6 Tháng',
     slug: 'sau-rieng-dong-lanh-ri6-bao-quan-6-thang',
     description:
@@ -152,6 +156,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-005',
+    sku: 'SR-CS-005',
     name: 'Sầu Riêng Cắt Sẵn Đông Lạnh - Tiện Lợi',
     slug: 'sau-rieng-cat-san-dong-lanh-tien-loi',
     description:
@@ -173,6 +178,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-006',
+    sku: 'SR-MTG-B-006',
     name: 'Sầu Riêng Monthong B - Nhập Khẩu Chính Ngạch',
     slug: 'sau-rieng-monthong-b-nhap-khau-chinh-ngach',
     description:
@@ -196,6 +202,7 @@ export const MOCK_PRODUCTS: Product[] = [
   // === CÀ PHÊ ===
   {
     id: 'p-007',
+    sku: 'CP-ARA-DL-007',
     name: 'Cà Phê Arabica Đắk Lắk - Hạt Rang Mộc',
     slug: 'ca-phe-arabica-dak-lak-hat-rang-moc',
     description:
@@ -217,6 +224,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-008',
+    sku: 'CP-ROB-BMT-008',
     name: 'Cà Phê Robusta Buôn Ma Thuột - Hạt Rang Mộc',
     slug: 'ca-phe-robusta-buon-ma-thuot-hat-rang-moc',
     description:
@@ -238,6 +246,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-009',
+    sku: 'CP-ARA-DL-PW-009',
     name: 'Cà Phê Arabica Đắk Lắk - Bột Xay Sẵn',
     slug: 'ca-phe-arabica-dak-lak-bot-xay-san',
     description:
@@ -259,6 +268,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-010',
+    sku: 'CP-CD-DS-010',
     name: 'Cà Phê Cầu Đất - Đặc Sản Single Origin',
     slug: 'ca-phe-cau-dat-dac-san-single-origin',
     description:
@@ -280,6 +290,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-011',
+    sku: 'CP-MOKA-LD-011',
     name: 'Cà Phê Moka Lâm Đồng - Hạt Rang Vừa',
     slug: 'ca-phe-moka-lam-dong-hat-rang-vua',
     description:
@@ -301,6 +312,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'p-012',
+    sku: 'CP-ROB-DK-012',
     name: 'Cà Phê Robusta Rang Dark - Đậm Đà',
     slug: 'ca-phe-robusta-buon-ma-thuot-rang-dark',
     description:
@@ -324,6 +336,7 @@ export const MOCK_PRODUCTS: Product[] = [
   // === COMBO ===
   {
     id: 'p-013',
+    sku: 'COMBO-001',
     name: 'Combo Quà Tặng Cao Cấp - Sầu Riêng + Cà Phê',
     slug: 'combo-qua-tang-cao-cap-sau-rieng-ca-phe',
     description:
@@ -452,7 +465,7 @@ export const MOCK_ORDERS: Order[] = [
     shippingAddr: {
       fullName: 'Nguyễn Văn A',
       phone: '0901234567',
-      address: '123 Nguyễn Trãi, P.5, Q.3',
+      addressLine: '123 Nguyễn Trãi, P.5, Q.3',
       province: 'TP. Hồ Chí Minh',
       district: 'Quận 3',
       ward: 'Phường 5',
@@ -485,7 +498,7 @@ export const MOCK_ORDERS: Order[] = [
     shippingAddr: {
       fullName: 'Nguyễn Văn A',
       phone: '0901234567',
-      address: '123 Nguyễn Trãi, P.5, Q.3',
+      addressLine: '123 Nguyễn Trãi, P.5, Q.3',
       province: 'TP. Hồ Chí Minh',
       district: 'Quận 3',
       ward: 'Phường 5',
@@ -527,7 +540,7 @@ export const MOCK_ORDERS: Order[] = [
     shippingAddr: {
       fullName: 'Nguyễn Văn A',
       phone: '0901234567',
-      address: '456 Lê Lợi, P.3, Q.1',
+      addressLine: '456 Lê Lợi, P.3, Q.1',
       province: 'TP. Hồ Chí Minh',
       district: 'Quận 1',
       ward: 'Phường 3',

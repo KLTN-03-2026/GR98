@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router-dom';
-import { User, Mail, Shield, LogOut, Leaf } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Mail, User, LogOut, Camera, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 
 export default function ProfilePage() {
@@ -7,52 +7,51 @@ export default function ProfilePage() {
   const { user, logout } = useAuthStore();
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-neutral-50 pb-20">
+      <header className="bg-white shadow-sm border-b border-neutral-200">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => navigate('/')}
-            className="p-2 -ml-2 text-gray-600 hover:text-gray-900"
+            className="p-2 -ml-2 text-neutral-600 hover:text-neutral-900"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="font-semibold text-gray-900">Hồ sơ</h1>
+          <h1 className="font-semibold text-neutral-900">Hồ sơ</h1>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 text-center border-b border-gray-100">
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
+          <div className="p-6 text-center border-b border-neutral-100">
             <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <User className="w-10 h-10 text-primary" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900">{user?.fullName}</h2>
+            <h2 className="text-xl font-semibold text-neutral-900">{user?.fullName}</h2>
             <span className="inline-flex items-center gap-1 mt-2 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
-              <Shield className="w-3 h-3" />
-              Supervisor
+              {user?.role}
             </span>
           </div>
 
           <div className="p-4 space-y-4">
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+            <div className="flex items-center gap-4 p-4 bg-neutral-50 rounded-xl">
               <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                <Mail className="w-5 h-5 text-gray-500" />
+                <Mail className="w-5 h-5 text-neutral-500" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Email</p>
-                <p className="font-medium text-gray-900">{user?.email}</p>
+                <p className="text-sm text-neutral-500">Email</p>
+                <p className="font-medium text-neutral-900">{user?.email}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+            <div className="flex items-center gap-4 p-4 bg-neutral-50 rounded-xl">
               <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                <Leaf className="w-5 h-5 text-gray-500" />
+                <User className="w-5 h-5 text-neutral-500" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Vai trò</p>
-                <p className="font-medium text-gray-900">{user?.role}</p>
+                <p className="text-sm text-neutral-500">Vai trò</p>
+                <p className="font-medium text-neutral-900">{user?.role}</p>
               </div>
             </div>
           </div>
@@ -67,37 +66,48 @@ export default function ProfilePage() {
         </button>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200">
         <div className="max-w-lg mx-auto px-4 py-3 flex justify-around">
-          <a href="/" className="flex flex-col items-center gap-1 text-gray-400">
-            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
-              <Leaf className="w-5 h-5" />
+          <Link
+            to="/"
+            className="flex flex-col items-center gap-1 text-neutral-400"
+          >
+            <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M24 8c-8 0-14 6-14 14s6 14 14 14c2 0 4-.4 6-1-4-2-7-6-8-11 1-2 2-4 4-5-2 1-3 3-3 5 0 6 5 10 11 10s11-4 11-10c0-2-1-4-3-5 2 1 3 3 4 5-1 5-4 9-8 11 2 .6 4 1 6 1 8 0 14-6 14-14S32 8 24 8z" fill="currentColor" opacity="0.9"/>
+                <ellipse cx="24" cy="22" rx="3" ry="8" fill="currentColor"/>
+                <path d="M24 14c-3 0-6 2-6 6 0 1 0 2 .5 3 1.5 3 5.5 5 5.5 5s4-2 5.5-5c.5-1 .5-2 .5-3 0-4-3-6-6-6z" fill="currentColor"/>
+              </svg>
             </div>
             <span className="text-xs">Trang chủ</span>
-          </a>
-          <a href="/ai-vision" className="flex flex-col items-center gap-1 text-gray-400">
-            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+          </Link>
+          <Link
+            to="/ai-vision"
+            className="flex flex-col items-center gap-1 text-neutral-400"
+          >
+            <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center">
+              <Camera className="w-5 h-5" />
             </div>
             <span className="text-xs">AI Vision</span>
-          </a>
-          <a href="/chatbot" className="flex flex-col items-center gap-1 text-gray-400">
-            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
+          </Link>
+          <Link
+            to="/chatbot"
+            className="flex flex-col items-center gap-1 text-neutral-400"
+          >
+            <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center">
+              <MessageCircle className="w-5 h-5" />
             </div>
             <span className="text-xs">Chatbot</span>
-          </a>
-          <a href="/profile" className="flex flex-col items-center gap-1 text-primary">
+          </Link>
+          <Link
+            to="/profile"
+            className="flex flex-col items-center gap-1 text-primary"
+          >
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
               <User className="w-5 h-5" />
             </div>
             <span className="text-xs font-medium">Hồ sơ</span>
-          </a>
+          </Link>
         </div>
       </footer>
     </div>

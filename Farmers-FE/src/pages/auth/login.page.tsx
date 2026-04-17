@@ -26,7 +26,6 @@ import {
   setRefreshTokenCookie,
 } from "@/lib/cookie-utils";
 import { AuthSplitShell } from "@/pages/auth/auth-split-shell";
-import { AppLogo } from "@/components/global/app-logo";
 
 // ============================================================
 // VALIDATION SCHEMA — hỗ trợ cả email và phone

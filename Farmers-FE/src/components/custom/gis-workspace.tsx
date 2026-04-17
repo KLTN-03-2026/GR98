@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
@@ -317,7 +317,7 @@ export default function GISWorkspace({
     [supervisorOptions, selectedSupervisorId],
   );
 
-  const focusLot = (
+  const focusLot = useCallback((
     lot: LotPoint,
     options?: {
       flyTo?: boolean;
@@ -330,14 +330,17 @@ export default function GISWorkspace({
     setSelectedLotId(lot.id);
     if (shouldSyncForm) {
       setSelectedSupervisorId(lot.id_suppervisor || "");
-      setSheet({
+      setSheet(() => ({
         plotName: lot.plotName,
         farmerName: lot.farmerName,
         farmerPhone: lot.farmerPhone || "",
         farmerCccd: lot.farmerCccd || "",
-        contractId: lot.contractId,
+        contractId:
+          lot.contractId && lot.contractId !== "Chưa có hợp đồng"
+            ? lot.contractId
+            : "",
         cropType: lot.cropType,
-      });
+      }));
     }
 
     const map = mapRef.current;
@@ -346,7 +349,7 @@ export default function GISWorkspace({
         duration: 0.35,
       });
     }
-  };
+  }, []);
 
   const handleSelectLot = (lot: LotPoint) => {
     focusLot(lot);
@@ -354,64 +357,82 @@ export default function GISWorkspace({
   };
 
   const handleCreatePlot = async () => {
-    const plotName = sheet.plotName.trim();
-    const farmerName = sheet.farmerName.trim();
-    const farmerPhone = sheet.farmerPhone.trim();
-    const farmerCccd = sheet.farmerCccd.trim();
+    const contractId = sheet.contractId.trim();
 
-    // SUP chỉ cập nhật GIS cho lô đã chọn, không tạo lô mới.
     if (roleLabel === "SUPERVISOR") {
-      if (!selectedLot?.id || selectedLot.id === "empty") {
-        toast.error("Vui lòng chọn lô đất trước khi lưu GIS");
+      if (!contractId) {
+        toast.error("Vui lòng nhập mã hợp đồng");
         return;
       }
 
-      if (!isValidPolygon(polygonCoords)) {
-        toast.error("Chỉ được lưu khi đã vẽ polygon hợp lệ");
+      if (/^chưa có hợp đồng$/i.test(contractId)) {
+        toast.error("Lô đất hiện chưa có hợp đồng để gán point");
         return;
       }
 
-      const areaHa = polygonAreaHa;
-      if (!areaHa || areaHa <= 0) {
-        toast.error("Diện tích polygon chưa hợp lệ, vui lòng vẽ lại");
+      if (/^PL-/i.test(contractId)) {
+        toast.error(
+          "Bạn đang nhập mã lô đất. Vui lòng nhập đúng mã hợp đồng (HDLK-...).",
+        );
         return;
       }
 
       setIsSaving(true);
       try {
-        const [centerLat, centerLng] = polygonCenter(polygonCoords);
-        const response = await plotApi.update(selectedLot.id, {
-          lat: centerLat,
-          lng: centerLng,
+        const createdPolygon = isValidPolygon(polygonCoords) ? polygonCoords : [];
+        const response = await plotApi.create({
+          plotName: "GIS-POINT",
+          cropType: "ca-phe",
+          areaHa: 0.01,
+          contractId,
+          lat: mapCenter.lat,
+          lng: mapCenter.lng,
         });
 
-        const updated = response.data.data;
-        const updatedWithPolygon = {
-          ...updated,
-          polygon: polygonCoords,
-          hasGis: true,
+        const created = {
+          ...response.data.data,
+          polygon: createdPolygon,
         };
 
-        setPlotPolygons((prev) => {
-          const nextPolygons = {
-            ...prev,
-            [selectedLot.id]: polygonCoords,
-          };
-          writeLocalPolygons(nextPolygons);
-          return nextPolygons;
+        if (createdPolygon.length > 0) {
+          setPlotPolygons((prev) => {
+            const nextPolygons = {
+              ...prev,
+              [created.id]: createdPolygon,
+            };
+            writeLocalPolygons(nextPolygons);
+            return nextPolygons;
+          });
+        }
+
+        setLots((prev) => {
+          const filtered = prev.filter((item) => item.id !== created.id);
+          return [created, ...filtered];
         });
-
-        setLots((prev) =>
-          prev.map((lot) =>
-            lot.id === selectedLot.id ? { ...lot, ...updatedWithPolygon } : lot,
-          ),
-        );
-
-        focusLot({ ...selectedLot, ...updatedWithPolygon }, { flyTo: true });
-        showOnlyPolygon({ ...selectedLot, ...updatedWithPolygon });
+        focusLot(created);
+        hidePreviewPolygon();
         drawnItemsRef.current?.clearLayers();
         setSheetOpen(false);
-        toast.success("Đã lưu GIS cho lô đất");
+
+        void (async () => {
+          try {
+            const cachedPolygons = readLocalPolygons();
+            const overrides = readLocalOverrides();
+            const fresh = await plotApi.list({ page: 1, limit: 200 });
+            const rows = fresh.data.data.data.map((row) => ({
+              ...row,
+              polygon: isValidPolygon(row.polygon)
+                ? row.polygon
+                : (cachedPolygons[row.id] ?? []),
+              ...(overrides[row.id] || {}),
+            }));
+            setLots(rows);
+          } catch {
+            // Ignore refresh failure because local optimistic state is already shown.
+          }
+        })();
+
+        toast.success("Đã gán point theo mã hợp đồng");
       } catch (error) {
         const message =
           typeof error === "object" &&
@@ -419,14 +440,18 @@ export default function GISWorkspace({
           "message" in error &&
           typeof (error as { message?: unknown }).message === "string"
             ? ((error as { message?: string }).message ?? "")
-            : "Lưu GIS thất bại";
-        toast.error(message || "Lưu GIS thất bại");
+            : "Gán point thất bại";
+        toast.error(message || "Gán point thất bại");
       } finally {
         setIsSaving(false);
       }
       return;
     }
 
+    const plotName = sheet.plotName.trim();
+    const farmerName = sheet.farmerName.trim();
+    const farmerPhone = sheet.farmerPhone.trim();
+    const farmerCccd = sheet.farmerCccd.trim();
     if (!plotName) {
       toast.error("Vui lòng nhập tên lô đất");
       return;
@@ -473,7 +498,7 @@ export default function GISWorkspace({
         farmerName,
         farmerPhone,
         farmerCccd,
-        contractId: sheet.contractId.trim() || undefined,
+        contractId: contractId || undefined,
         cropType: sheet.cropType,
         areaHa,
         lat: mapCenter.lat,
@@ -497,7 +522,7 @@ export default function GISWorkspace({
         farmerName,
         farmerPhone,
         farmerCccd,
-        contractId: sheet.contractId.trim(),
+        contractId,
         id_suppervisor: created.id_suppervisor ?? supervisorIdPayload ?? null,
         name_suppervisor:
           created.name_suppervisor ?? supervisorNamePayload ?? null,
@@ -510,7 +535,7 @@ export default function GISWorkspace({
           farmerName,
           farmerPhone,
           farmerCccd,
-          contractId: sheet.contractId.trim(),
+          contractId,
         },
       };
       writeLocalOverrides(updatedOverrides);
@@ -591,7 +616,11 @@ export default function GISWorkspace({
             farmerName: prev.farmerName || preferredLot.farmerName,
             farmerPhone: prev.farmerPhone || preferredLot.farmerPhone || "",
             farmerCccd: prev.farmerCccd || preferredLot.farmerCccd || "",
-            contractId: prev.contractId || preferredLot.contractId,
+            contractId:
+              prev.contractId ||
+              (preferredLot.contractId !== "Chưa có hợp đồng"
+                ? preferredLot.contractId
+                : ""),
             cropType: prev.cropType || preferredLot.cropType,
           }));
         }
@@ -609,14 +638,14 @@ export default function GISWorkspace({
     };
 
     void loadPlots();
-  }, []);
+  }, [roleLabel, initialPlotId]);
 
   useEffect(() => {
     if (!initialPlotId) return;
     const targetLot = lots.find((lot) => lot.id === initialPlotId);
     if (!targetLot) return;
     focusLot(targetLot);
-  }, [initialPlotId, lots]);
+  }, [initialPlotId, lots, focusLot]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -838,22 +867,14 @@ export default function GISWorkspace({
       const drawEvent = event as L.DrawEvents.Created;
       drawnItems.clearLayers();
       drawnItems.addLayer(drawEvent.layer);
-      setSheet((prev) => {
-        // SUP giữ nguyên thông tin lô đang chọn để không cần nhập tay lại.
-        if (roleLabel === "SUPERVISOR") {
-          return prev;
-        }
-
-        // ADMIN tạo mới thì vẫn reset form như flow hiện tại.
-        return {
-          ...prev,
-          plotName: "",
-          farmerName: "",
-          farmerPhone: "",
-          farmerCccd: "",
-          contractId: "",
-        };
-      });
+      setSheet((prev) => ({
+        ...prev,
+        plotName: "",
+        farmerName: "",
+        farmerPhone: "",
+        farmerCccd: "",
+        contractId: prev.contractId,
+      }));
       setPolygonMeta(toAreaText(drawEvent.layer));
       setSheetOpen(true);
     };
@@ -1001,10 +1022,17 @@ export default function GISWorkspace({
     markerLayer.clearLayers();
 
     filteredLotsForMap
-      .filter((lot) => isValidPolygon(lot.polygon))
+      .filter((lot) => {
+        const hasPolygon = isValidPolygon(lot.polygon);
+        const hasPoint = lot.hasGis === true || lot.isGisMarked === true;
+        return hasPolygon || hasPoint;
+      })
       .forEach((lot) => {
         const isSelected = lot.id === selectedLot.id;
-        const markerPos = polygonCenter(lot.polygon as Array<[number, number]>);
+        const hasPolygon = isValidPolygon(lot.polygon);
+        const markerPos = hasPolygon
+          ? polygonCenter(lot.polygon as Array<[number, number]>)
+          : ([lot.lat, lot.lng] as [number, number]);
         const isDurian = lot.cropType === "sau-rieng";
 
         const baseBgColor = isDurian ? "#65a30d" : "#92400e";
@@ -1052,7 +1080,7 @@ export default function GISWorkspace({
           })
           .addTo(markerLayer);
       });
-  }, [filteredLotsForMap, selectedLot]);
+  }, [filteredLotsForMap, selectedLot, focusLot]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1284,19 +1312,25 @@ export default function GISWorkspace({
 
             <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white px-2 py-1.5 shadow-xs">
               <Users className="h-4 w-4 text-emerald-700" />
-              <select
-                value={supervisorViewId}
-                onChange={(event) => setSupervisorViewId(event.target.value)}
-                disabled={isLoadingSupervisors}
-                className="h-8 min-w-48 rounded-md border border-emerald-200 bg-white px-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <option value="all">Xem tất cả giám sát viên</option>
-                {supervisorOptions.map((item) => (
-                  <option key={`supervisor-view-${item.id}`} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+              {roleLabel === "SUPERVISOR" ? (
+                <span className="min-w-48 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-sm font-medium text-emerald-800">
+                  {supervisorOptions[0]?.name || selectedLot.name_suppervisor || "Giám sát viên"}
+                </span>
+              ) : (
+                <select
+                  value={supervisorViewId}
+                  onChange={(event) => setSupervisorViewId(event.target.value)}
+                  disabled={isLoadingSupervisors}
+                  className="h-8 min-w-48 rounded-md border border-emerald-200 bg-white px-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <option value="all">Xem tất cả giám sát viên</option>
+                  {supervisorOptions.map((item) => (
+                    <option key={`supervisor-view-${item.id}`} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>
@@ -1336,14 +1370,9 @@ export default function GISWorkspace({
               <Label htmlFor="sheet-lot-name">Tên lô đất</Label>
               <Input
                 id="sheet-lot-name"
-                value={sheet.plotName}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    plotName: event.target.value,
-                  }))
-                }
-                placeholder="Nhập tên lô bạn muốn đặt"
+                value={selectedLot.plotName}
+                readOnly
+                className="border-slate-200 bg-white text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
 
@@ -1363,14 +1392,9 @@ export default function GISWorkspace({
               <Label htmlFor="sheet-farmer">Nông dân phụ trách</Label>
               <Input
                 id="sheet-farmer"
-                value={sheet.farmerName}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    farmerName: event.target.value,
-                  }))
-                }
-                placeholder="Nhập tên nông dân"
+                value={selectedLot.farmerName}
+                readOnly
+                className="border-slate-200 bg-white text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
 
@@ -1378,14 +1402,9 @@ export default function GISWorkspace({
               <Label htmlFor="sheet-farmer-phone">Số điện thoại nông dân</Label>
               <Input
                 id="sheet-farmer-phone"
-                value={sheet.farmerPhone}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    farmerPhone: event.target.value,
-                  }))
-                }
-                placeholder="Nhập số điện thoại"
+                value={selectedLot.farmerPhone || ""}
+                readOnly
+                className="border-slate-200 bg-white text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
 
@@ -1393,14 +1412,9 @@ export default function GISWorkspace({
               <Label htmlFor="sheet-farmer-cccd">CCCD nông dân</Label>
               <Input
                 id="sheet-farmer-cccd"
-                value={sheet.farmerCccd}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    farmerCccd: event.target.value,
-                  }))
-                }
-                placeholder="Nhập CCCD 12 chữ số"
+                value={selectedLot.farmerCccd || ""}
+                readOnly
+                className="border-slate-200 bg-white text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
 
@@ -1415,63 +1429,35 @@ export default function GISWorkspace({
                     contractId: event.target.value,
                   }))
                 }
-                placeholder="Nhập mã hợp đồng"
+                readOnly={roleLabel !== "SUPERVISOR"}
+                placeholder="Nhập mã hợp đồng (VD: HDLK-20260416-001)"
+                className="border-slate-200 bg-white text-slate-700 focus-visible:ring-0 focus-visible:ring-offset-0 read-only:text-slate-500"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="sheet-supervisor">Giám sát viên phụ trách</Label>
-              <select
+              <div
                 id="sheet-supervisor"
-                value={selectedSupervisorId}
-                onChange={(event) =>
-                  setSelectedSupervisorId(event.target.value)
-                }
-                disabled={
-                  roleLabel === "SUPERVISOR" ||
-                  isLoadingSupervisors ||
-                  supervisorOptions.length === 0
-                }
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted"
+                className="flex h-10 w-full items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-500"
               >
-                {supervisorOptions.length === 0 && (
-                  <option value="">
-                    {isLoadingSupervisors
-                      ? "Đang tải danh sách giám sát viên..."
-                      : "Chưa có giám sát viên khả dụng"}
-                  </option>
-                )}
-
-                {supervisorOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                    {item.meta ? ` (${item.meta})` : ""}
-                  </option>
-                ))}
-              </select>
+                {selectedSupervisor?.name || supervisorOptions[0]?.name || selectedLot.name_suppervisor || "Giám sát viên"}
+              </div>
               {roleLabel === "SUPERVISOR" && (
                 <p className="text-xs text-muted-foreground">
-                  Role SUPERVISOR chỉ được tạo lô cho chính mình.
+                  Ví dụ mã hợp đồng: HDLK-20260416-001.
                 </p>
               )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="sheet-crop">Loại cây trồng</Label>
-              <select
+              <div
                 id="sheet-crop"
-                value={sheet.cropType}
-                onChange={(event) =>
-                  setSheet((prev) => ({
-                    ...prev,
-                    cropType: event.target.value as CropType,
-                  }))
-                }
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex h-10 w-full items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-500"
               >
-                <option value="sau-rieng">Sầu riêng</option>
-                <option value="ca-phe">Cà phê</option>
-              </select>
+                {getCropLabel(selectedLot.cropType)}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-dashed p-3">
@@ -1490,10 +1476,16 @@ export default function GISWorkspace({
               <div>
                 <p className="text-xs text-muted-foreground">Giống cây</p>
                 <p className="font-semibold text-emerald-900">
-                  {getCropLabel(sheet.cropType)}
+                  {getCropLabel(selectedLot.cropType)}
                 </p>
               </div>
             </div>
+
+            {roleLabel === "SUPERVISOR" && (
+              <p className="text-xs text-muted-foreground">
+                Supervisor chỉ cần nhập mã hợp đồng hợp lệ để gán point trên GIS.
+              </p>
+            )}
           </div>
 
           <SheetFooter>
@@ -1503,7 +1495,11 @@ export default function GISWorkspace({
               disabled={isSaving}
             >
               <Sprout className="mr-2 h-4 w-4" />
-              {isSaving ? "Đang lưu..." : "Lưu cập nhật vào luồng GIS"}
+              {isSaving
+                ? "Đang lưu..."
+                : roleLabel === "SUPERVISOR"
+                  ? "Gán point theo mã hợp đồng"
+                  : "Lưu cập nhật vào luồng GIS"}
             </Button>
           </SheetFooter>
         </SheetContent>

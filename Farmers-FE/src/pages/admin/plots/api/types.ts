@@ -19,6 +19,7 @@ export interface PlotResponse {
   progress: 'on-track' | 'attention';
   lat: number;
   lng: number;
+  isGisMarked?: boolean;
   updatedAt: string;
   polygon?: Array<[number, number]>;
   /** Có dữ liệu GIS (tọa độ lat/lng) trong DB hay chưa */

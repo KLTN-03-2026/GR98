@@ -67,7 +67,6 @@ export function AuthMarketingPanel({ className }: AuthMarketingPanelProps) {
         className="absolute left-4 top-4 z-20 sm:left-6 sm:top-6 lg:left-8 lg:top-8"
       >
         <AppLogo
-          height={200}
           className="max-h-14 w-auto sm:max-h-24 lg:max-h-[200px]"
         />
       </motion.header>

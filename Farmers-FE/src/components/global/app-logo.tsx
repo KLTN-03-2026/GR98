@@ -4,8 +4,6 @@ import { cn } from '@/lib/utils';
 import logoSrc from '@/assets/Logo Agri-Intergration.png';
 
 export interface AppLogoProps {
-  /** Chiều cao logo (px) — width tự scale theo aspect-ratio */
-  height?: number;
   /** Tailwind class name cho container */
   className?: string;
   /** alt text cho img */
@@ -13,7 +11,7 @@ export interface AppLogoProps {
 }
 
 /** Logo Agri-Integration — dùng thống nhất cho mọi role (client, admin, supervisor, auth). */
-export function AppLogo({ height = 40, className, alt = 'Vietnam Farmer' }: AppLogoProps) {
+export function AppLogo({ className, alt = 'Vietnam Farmer' }: AppLogoProps) {
   return (
     <img
       src={logoSrc}

@@ -1,23 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Edit3,
   Layers3,
   MapPin,
-  Save,
   Search,
   SlidersHorizontal,
   Sprout,
-  Trash2,
   Users,
   UserRound,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,37 +26,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useMe } from "@/client/api/auth/use-me";
 import { cn } from "@/lib/utils";
-import {
-  useDeletePlot,
-  usePlots,
-  useUpdatePlot,
-} from "@/pages/admin/plots/api";
+import { usePlots } from "@/pages/admin/plots/api";
 import type { PlotResponse } from "@/pages/admin/plots/api/types";
 
 type CropType = "sau-rieng" | "ca-phe";
 type PlotItem = PlotResponse;
-const LOCAL_PLOT_OVERRIDES_KEY = "gis_plot_overrides_v1";
-
-type PlotFieldOverride = {
-  plotName?: string;
-  farmerName?: string;
-  farmerPhone?: string;
-  farmerCccd?: string;
-  contractId?: string;
-  isDeleted?: boolean;
-};
 
 type SupervisorOption = {
   id: string;
@@ -78,7 +49,6 @@ const getCropBadgeClass = (crop: CropType) =>
 
 export default function SupervisorPlotsPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { data: me } = useMe();
   const supervisorProfileId = me?.supervisorProfile?.id;
   const [keyword, setKeyword] = useState("");
@@ -89,8 +59,6 @@ export default function SupervisorPlotsPage() {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<PlotItem | null>(null);
-  const [reopenSheetPlotId, setReopenSheetPlotId] = useState<string | null>(null);
   const itemsPerPage = 6;
 
   const { data: plotsData, isLoading } = usePlots({
@@ -105,10 +73,10 @@ export default function SupervisorPlotsPage() {
     enabled: !!supervisorProfileId,
   });
 
-  const updateMutation = useUpdatePlot();
-  const deleteMutation = useDeletePlot();
-
-  const plots = (plotsData?.data ?? []) as PlotResponse[];
+  const plots = useMemo(
+    () => (plotsData?.data ?? []) as PlotResponse[],
+    [plotsData?.data],
+  );
   const total = plotsData?.total ?? 0;
   const totalPages = plotsData?.totalPages ?? 1;
   const displayedPlots = useMemo(
@@ -175,23 +143,6 @@ export default function SupervisorPlotsPage() {
     setCurrentPage(1);
   }, [keyword, filter, supervisorFilterId]);
 
-  const readLocalOverrides = () => {
-    try {
-      const raw = localStorage.getItem(LOCAL_PLOT_OVERRIDES_KEY);
-      if (!raw) return {} as Record<string, PlotFieldOverride>;
-      const parsed = JSON.parse(raw) as Record<string, PlotFieldOverride>;
-      return parsed || {};
-    } catch {
-      return {} as Record<string, PlotFieldOverride>;
-    }
-  };
-
-  const writeLocalOverrides = (value: Record<string, PlotFieldOverride>) => {
-    localStorage.setItem(LOCAL_PLOT_OVERRIDES_KEY, JSON.stringify(value));
-  };
-
-  const isSaving = updateMutation.isPending || deleteMutation.isPending;
-
   const openSheet = (plot: PlotItem) => {
     setEditingId(plot.id);
     setSheet({
@@ -204,102 +155,6 @@ export default function SupervisorPlotsPage() {
     setFormErrors({});
     setSelectedSupervisorId(plot.id_suppervisor || supervisorProfileId || "");
     setSheetOpen(true);
-  };
-
-  const requestDelete = (plot: PlotItem, fromSheet = false) => {
-    if (fromSheet && sheetOpen) {
-      setReopenSheetPlotId(plot.id);
-      setSheetOpen(false);
-    } else {
-      setReopenSheetPlotId(null);
-    }
-    setDeleteTarget(plot);
-  };
-
-  const validateSheetForm = () => {
-    const errors: Partial<
-      Record<"plotName" | "farmerName" | "contractId" | "areaHa", string>
-    > = {};
-
-    if (!sheet.plotName.trim()) {
-      errors.plotName = "Vui lòng nhập tên lô đất";
-    }
-
-    if (!sheet.farmerName.trim()) {
-      errors.farmerName = "Vui lòng nhập tên nông dân";
-    }
-
-    if (!Number.isFinite(sheet.areaHa) || sheet.areaHa <= 0) {
-      errors.areaHa = "Diện tích phải lớn hơn 0";
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSave = async () => {
-    if (!editingId) return;
-    if (!validateSheetForm()) {
-      toast.error("Vui lòng kiểm tra lại thông tin lô đất");
-      return;
-    }
-
-    const selectedSupervisor = supervisors.find(
-      (item) => item.id === selectedSupervisorId,
-    );
-
-    if (!selectedSupervisorId || !selectedSupervisor) {
-      toast.error("Vui lòng chọn giám sát viên phụ trách");
-      return;
-    }
-
-    try {
-      await updateMutation.mutateAsync({
-        id: editingId,
-        data: {
-          id_suppervisor: selectedSupervisorId,
-          name_suppervisor: selectedSupervisor.name,
-        },
-      });
-
-      const updatedOverrides = {
-        ...readLocalOverrides(),
-        [editingId]: {
-          plotName: sheet.plotName,
-          farmerName: sheet.farmerName,
-          contractId: sheet.contractId,
-          isDeleted: false,
-        },
-      };
-      writeLocalOverrides(updatedOverrides);
-
-      setSheetOpen(false);
-    } catch {
-      // Error handled by mutation hook
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    const target = deleteTarget;
-    try {
-      await deleteMutation.mutateAsync(target.id);
-
-      const currentOverrides = readLocalOverrides();
-      if (currentOverrides[target.id]) {
-        delete currentOverrides[target.id];
-        writeLocalOverrides(currentOverrides);
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["plots"] });
-      setDeleteTarget(null);
-      if (editingId === target.id) {
-        setSheetOpen(false);
-        setEditingId(null);
-      }
-    } catch {
-      // Error toast handled by mutation hook
-    }
   };
 
   const editingPlot = plots.find((item) => item.id === editingId) ?? null;
@@ -437,30 +292,9 @@ export default function SupervisorPlotsPage() {
                       </p>
                       <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 rounded-full"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openSheet(plot);
-                        }}
-                      >
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          requestDelete(plot);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                      Chỉ xem
+                    </Badge>
                   </div>
 
                   <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
@@ -657,6 +491,8 @@ export default function SupervisorPlotsPage() {
                   <Input
                     id="plot-name"
                     value={sheet.plotName}
+                    readOnly
+                    disabled
                     className={cn(
                       formErrors.plotName &&
                         "border-destructive focus-visible:ring-destructive/20",
@@ -677,6 +513,8 @@ export default function SupervisorPlotsPage() {
                   <Input
                     id="plot-farmer"
                     value={sheet.farmerName}
+                    readOnly
+                    disabled
                     className={cn(
                       formErrors.farmerName &&
                         "border-destructive focus-visible:ring-destructive/20",
@@ -697,6 +535,8 @@ export default function SupervisorPlotsPage() {
                   <Input
                     id="plot-contract"
                     value={sheet.contractId}
+                    readOnly
+                    disabled
                     onChange={(event) =>
                       setSheet((prev) => ({
                         ...prev,
@@ -713,6 +553,8 @@ export default function SupervisorPlotsPage() {
                     min={0}
                     step="0.1"
                     value={sheet.areaHa}
+                    readOnly
+                    disabled
                     className={cn(
                       formErrors.areaHa &&
                         "border-destructive focus-visible:ring-destructive/20",
@@ -758,6 +600,7 @@ export default function SupervisorPlotsPage() {
                       variant={
                         sheet.cropType === "ca-phe" ? "primary" : "outline"
                       }
+                      disabled
                       onClick={() =>
                         setSheet((prev) => ({ ...prev, cropType: "ca-phe" }))
                       }
@@ -768,6 +611,7 @@ export default function SupervisorPlotsPage() {
                       variant={
                         sheet.cropType === "sau-rieng" ? "primary" : "outline"
                       }
+                      disabled
                       onClick={() =>
                         setSheet((prev) => ({ ...prev, cropType: "sau-rieng" }))
                       }
@@ -776,69 +620,39 @@ export default function SupervisorPlotsPage() {
                     </Button>
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Role SUPERVISOR chỉ có quyền xem thông tin lô tại trang này.
+                </p>
               </div>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              Hiển thị {plots.length} / {total} lô đất trong phạm vi bạn phụ trách.
+            </p>
           </div>
 
+        <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-end">
+          <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm text-sky-800">
+            <Layers3 className="h-4 w-4" />
+            <span className="font-medium">Tổng lô:</span>
+            <span className="font-semibold">{total}</span>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-800">
+            <Sprout className="h-4 w-4" />
+            <span className="font-medium">Tổng diện tích:</span>
+            <span className="font-semibold">{totalArea.toFixed(1)} ha</span>
+          </div>
+        </div>
+
           <SheetFooter className="border-t bg-background px-5 py-4">
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                variant="destructive"
-                onClick={() => editingPlot && requestDelete(editingPlot, true)}
-                disabled={!editingPlot}
-              >
-                <Trash2 className="h-4 w-4" />
-                Xóa lô
+            <div className="flex w-full justify-end">
+              <Button variant="outline" onClick={() => setSheetOpen(false)}>
+                Đóng
               </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setSheetOpen(false)}>
-                  Đóng
-                </Button>
-                <Button
-                  onClick={() => void handleSave()}
-                  disabled={!editingPlot || isSaving}
-                >
-                  <Save className="h-4 w-4" />
-                  {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
-                </Button>
-              </div>
             </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
-
-      <AlertDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => {
-          if (open) return;
-          setDeleteTarget(null);
-
-          if (reopenSheetPlotId) {
-            const plotToReopen = plots.find((item) => item.id === reopenSheetPlotId);
-            setReopenSheetPlotId(null);
-            if (plotToReopen) {
-              openSheet(plotToReopen);
-            }
-          }
-        }}
-      >
-        <AlertDialogContent className="sm:max-w-[425px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xóa lô đất</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn chắc chắn muốn xóa lô{" "}
-              <strong>{deleteTarget?.plotName}</strong>? Hành động này không thể
-              hoàn tác.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>
-              Xác nhận xóa
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

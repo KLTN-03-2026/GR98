@@ -5,7 +5,7 @@ export interface LoginRequest {
   password: string;
 }
 
-// Khớp với schema Prisma - User model
+// Khớp với response thực tế của backend
 export interface User {
   id: string;
   email: string;
@@ -13,45 +13,52 @@ export interface User {
   phone?: string | null;
   avatar?: string | null;
   role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
-  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   createdAt: string;
-  updatedAt: string;
+  adminProfile?: AdminProfile | null;
+  supervisorProfile?: SupervisorProfile | null;
+  clientProfile?: ClientProfile | null;
 }
 
-// Thông tin mở rộng của Supervisor
+export interface AdminProfile {
+  id: string;
+  businessName?: string;
+  province?: string;
+  taxCode?: string;
+  bankAccount?: string;
+}
+
 export interface SupervisorProfile {
   id: string;
-  userId: string;
+  employeeCode: string;
   adminId: string;
   zoneId?: string | null;
-  employeeCode: string;
-  hiredAt: string;
-  lat?: number | null;
-  lng?: number | null;
-  lastSeenAt?: string | null;
 }
 
-// Response từ API login
+export interface ClientProfile {
+  id: string;
+  province?: string;
+}
+
 export interface LoginResponse {
-  access_token: string;
+  accessToken: string;
+  refreshToken?: string;
   user: User;
-  supervisorProfile?: SupervisorProfile;
 }
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
   const response = await apiClient.post<LoginResponse>('/auth/login', data);
-  
-  if (response.data.access_token) {
-    localStorage.setItem('token', response.data.access_token);
-    localStorage.setItem('user', JSON.stringify(response.data.user));
-    
-    // Lưu thêm supervisor profile nếu có
-    if (response.data.supervisorProfile) {
-      localStorage.setItem('supervisorProfile', JSON.stringify(response.data.supervisorProfile));
+  // Backend wraps in { success: true, data: {...} } via TransformResponseInterceptor
+  const payload = response.data.data ?? response.data;
+
+  if (payload.accessToken) {
+    localStorage.setItem('token', payload.accessToken);
+    localStorage.setItem('user', JSON.stringify(payload.user));
+    if (payload.user?.supervisorProfile) {
+      localStorage.setItem('supervisorProfile', JSON.stringify(payload.user.supervisorProfile));
     }
   }
-  
-  return response.data;
+
+  return payload as LoginResponse;
 };
 
 export const logout = () => {

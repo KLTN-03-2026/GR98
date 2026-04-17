@@ -5,7 +5,9 @@ import {
   CheckCircle2,
   FileCheck2,
   FileText,
+  PlusCircle,
   Printer,
+  X,
   XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -46,14 +48,22 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString('vi-VN');
 }
 
-function formatCoordinateSummary(value?: string | null) {
-  if (!value?.trim()) return 'Chưa có tọa độ';
-  const points = value
-    .split('\n')
+function parseCoordinatePairs(value?: string | null): Array<{ lat: string; lng: string }> {
+  if (!value?.trim()) return [];
+  const nums = value
+    .split(/[\n,]/)
     .map((item) => item.trim())
     .filter(Boolean);
-  if (!points.length) return 'Chưa có tọa độ';
-  return points.join(' · ');
+  if (nums.length < 2) return [];
+  const pairs: Array<{ lat: string; lng: string }> = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const lat = parseFloat(nums[i]);
+    const lng = parseFloat(nums[i + 1]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      pairs.push({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+    }
+  }
+  return pairs;
 }
 
 export type ContractDetailPageProps = {
@@ -65,7 +75,7 @@ type DraftForm = {
   plotDraftProvince: string;
   plotDraftDistrict: string;
   plotDraftAreaHa: string;
-  plotDraftCoordinates: string[];
+  plotDraftCoordinates: Array<[string, string]>; // [lat, lng]
   cropType: string;
   grade: QualityGrade;
   signedAt: string;
@@ -93,7 +103,12 @@ function toInputDate(value?: string | null) {
 
 function draftToPayload(form: DraftForm): CreateContractPayload {
   const coordinateLines = form.plotDraftCoordinates
-    .map((item) => item.trim())
+    .map(([lat, lng]) => {
+      const trimmedLat = lat.trim();
+      const trimmedLng = lng.trim();
+      if (!trimmedLat || !trimmedLng) return '';
+      return `${trimmedLat},${trimmedLng}`;
+    })
     .filter(Boolean);
   return {
     plotDraftProvince: form.plotDraftProvince || undefined,
@@ -113,8 +128,8 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
   const { data: contract, isLoading, error, refetch } = useContract(id);
   const [draftForm, setDraftForm] = useState<DraftForm | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [pendingCoordinateFocus, setPendingCoordinateFocus] = useState<number | null>(null);
-  const coordinateInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const [pendingCoordinateRow, setPendingCoordinateRow] = useState<number | null>(null);
+  const coordinateInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
 
   const submitMutation = useSubmitContractForApproval();
   const approveMutation = useApproveContract();
@@ -137,19 +152,21 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
       setDraftForm(null);
       return;
     }
+    const rawCoords = (contract.plotDraftCoordinatesText ?? '')
+      .split('\n')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const pairs: Array<[string, string]> = rawCoords.length
+      ? rawCoords.map((line) => {
+          const parts = line.split(',');
+          return [parts[0]?.trim() ?? '', parts[1]?.trim() ?? ''] as [string, string];
+        })
+      : [['', '']];
     setDraftForm({
       plotDraftProvince: contract.plotDraftProvince ?? '',
       plotDraftDistrict: contract.plotDraftDistrict ?? '',
       plotDraftAreaHa: String(contract.plotDraftAreaHa ?? ''),
-      plotDraftCoordinates: (contract.plotDraftCoordinatesText ?? '')
-        .split('\n')
-        .map((item) => item.trim())
-        .filter(Boolean).length
-        ? (contract.plotDraftCoordinatesText ?? '')
-            .split('\n')
-            .map((item) => item.trim())
-            .filter(Boolean)
-        : [''],
+      plotDraftCoordinates: pairs,
       cropType: normalizeContractCropType(contract.cropType),
       grade: contract.grade,
       signedAt: toInputDate(contract.signedAt),
@@ -159,14 +176,13 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
   }, [contract]);
 
   useEffect(() => {
-    if (!draftForm || pendingCoordinateFocus === null) return;
-    const target = coordinateInputRefs.current[pendingCoordinateFocus];
+    if (!draftForm || pendingCoordinateRow === null) return;
+    const target = coordinateInputRefs.current.get(`coord-${pendingCoordinateRow}-lat`);
     if (target) {
       target.focus();
-      target.select();
     }
-    setPendingCoordinateFocus(null);
-  }, [draftForm?.plotDraftCoordinates.length, pendingCoordinateFocus, draftForm]);
+    setPendingCoordinateRow(null);
+  }, [draftForm?.plotDraftCoordinates.length, pendingCoordinateRow, draftForm]);
 
   const handlePrintPdf = () => {
     window.print();
@@ -174,10 +190,12 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
 
   const saveDraft = async () => {
     if (!contract || !draftForm) return;
-    const hasInvalidCoordinate = draftForm.plotDraftCoordinates
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .some((item) => Number.isNaN(Number(item)));
+    const hasInvalidCoordinate = draftForm.plotDraftCoordinates.some(([lat, lng]) => {
+      const trimmedLat = lat.trim();
+      const trimmedLng = lng.trim();
+      if (!trimmedLat && !trimmedLng) return false;
+      return Number.isNaN(Number(trimmedLat)) || Number.isNaN(Number(trimmedLng));
+    });
     const err =
       !draftForm.plotDraftProvince.trim()
         ? 'Nhập Tỉnh/Thành của lô đất'
@@ -381,9 +399,30 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
               <span className="text-muted-foreground">Gửi duyệt</span>
               <span className="font-medium">{formatDate(contract.submittedAt)}</span>
               <span className="text-muted-foreground">Tọa độ</span>
-              <span className="font-medium">
-                {formatCoordinateSummary(contract.plotDraftCoordinatesText)}
-              </span>
+              {(() => {
+                const coords = parseCoordinatePairs(contract.plotDraftCoordinatesText);
+                if (!coords.length) return <span className="text-xs">Chưa có tọa độ</span>;
+                return (
+                  <table className="text-xs">
+                    <thead>
+                      <tr className="text-muted-foreground">
+                        <th className="pr-4 text-left font-medium">Điểm</th>
+                        <th className="pr-4 text-right font-medium">Vĩ độ</th>
+                        <th className="text-right font-medium">Kinh độ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coords.map((c, i) => (
+                        <tr key={i} className="font-medium">
+                          <td className="pr-4">{i + 1}</td>
+                          <td className="pr-4 text-right">{c.lat}</td>
+                          <td className="text-right">{c.lng}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              })()}
             </div>
             {contract.rejectedReason && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
@@ -538,40 +577,99 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
             <div className="space-y-2 sm:col-span-2">
               <Label>Tọa độ</Label>
               <div className="space-y-2">
-                {draftForm.plotDraftCoordinates.map((item, index) => (
-                  <Input
-                    key={`draft-coord-${index}`}
-                    ref={(node) => {
-                      coordinateInputRefs.current[index] = node;
-                    }}
-                    value={item}
-                    onChange={(e) =>
-                      setDraftForm((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              plotDraftCoordinates: prev.plotDraftCoordinates.map((coord, i) =>
-                                i === index ? e.target.value : coord,
-                              ),
-                            }
-                          : prev,
-                      )
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key !== 'Enter') return;
-                      e.preventDefault();
-                      const nextIndex = draftForm.plotDraftCoordinates.length;
-                      setDraftForm((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              plotDraftCoordinates: [...prev.plotDraftCoordinates, ''],
-                            }
-                          : prev,
-                      );
-                      setPendingCoordinateFocus(nextIndex);
-                    }}
-                  />
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-medium text-muted-foreground">
+                  <span>Vĩ độ (lat)</span>
+                  <span>Kinh độ (lng)</span>
+                  <span></span>
+                </div>
+                {draftForm.plotDraftCoordinates.map(([lat, lng], index) => (
+                  <div key={`draft-coord-row-${index}`} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                    <Input
+                      ref={(node) => {
+                        coordinateInputRefs.current.set(`coord-${index}-lat`, node);
+                      }}
+                      value={lat}
+                      onChange={(e) =>
+                        setDraftForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                plotDraftCoordinates: prev.plotDraftCoordinates.map((pair, i) =>
+                                  i === index ? [e.target.value, pair[1]] : pair,
+                                ),
+                              }
+                            : prev,
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        const nextIndex = draftForm.plotDraftCoordinates.length;
+                        setDraftForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                plotDraftCoordinates: [...prev.plotDraftCoordinates, ['', '']],
+                              }
+                            : prev,
+                        );
+                        setPendingCoordinateRow(nextIndex);
+                      }}
+                      placeholder={`15.94xxxx`}
+                    />
+                    <Input
+                      ref={(node) => {
+                        coordinateInputRefs.current.set(`coord-${index}-lng`, node);
+                      }}
+                      value={lng}
+                      onChange={(e) =>
+                        setDraftForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                plotDraftCoordinates: prev.plotDraftCoordinates.map((pair, i) =>
+                                  i === index ? [pair[0], e.target.value] : pair,
+                                ),
+                              }
+                            : prev,
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        const nextIndex = draftForm.plotDraftCoordinates.length;
+                        setDraftForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                plotDraftCoordinates: [...prev.plotDraftCoordinates, ['', '']],
+                              }
+                            : prev,
+                        );
+                        setPendingCoordinateRow(nextIndex);
+                      }}
+                      placeholder={`108.28xxxx`}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() =>
+                        setDraftForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                plotDraftCoordinates: prev.plotDraftCoordinates.filter((_, i) => i !== index),
+                              }
+                            : prev,
+                        )
+                      }
+                      disabled={draftForm.plotDraftCoordinates.length <= 1}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 ))}
                 <Button
                   type="button"
@@ -583,14 +681,15 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
                       prev
                         ? {
                             ...prev,
-                            plotDraftCoordinates: [...prev.plotDraftCoordinates, ''],
+                            plotDraftCoordinates: [...prev.plotDraftCoordinates, ['', '']],
                           }
                         : prev,
                     );
-                    setPendingCoordinateFocus(nextIndex);
+                    setPendingCoordinateRow(nextIndex);
                   }}
                 >
-                  Thêm tọa độ
+                  <PlusCircle className="h-4 w-4" />
+                  Thêm điểm
                 </Button>
               </div>
             </div>

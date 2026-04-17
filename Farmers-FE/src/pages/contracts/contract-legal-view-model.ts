@@ -3,6 +3,27 @@ import type {
   QualityGrade,
 } from '@/pages/admin/contracts/api/types';
 
+type CoordinatePair = { lat: string; lng: string };
+
+/** Parse chuỗi coordinates thành mảng cặp lat/lng — hỗ trợ nhiều format lưu trữ */
+function parseCoordinatePairs(value?: string | null): CoordinatePair[] {
+  if (!value?.trim()) return [];
+  const nums = value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (nums.length < 2) return [];
+  const pairs: CoordinatePair[] = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const lat = parseFloat(nums[i]);
+    const lng = parseFloat(nums[i + 1]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      pairs.push({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+    }
+  }
+  return pairs;
+}
+
 /** Dữ liệu hiển thị cho mẫu hợp đồng pháp lý + in PDF */
 export type ContractLegalViewModel = {
   contractNo: string;
@@ -36,6 +57,7 @@ export type ContractLegalViewModel = {
   signedAtLine: string;
   harvestDueLine: string;
   createdAtLine: string;
+  plotDraftCoordinatesText: string;
   /** Mở đầu “Hôm nay, …” — ví dụ ngày 15 tháng 4 năm 2026 */
   preambleTodayPart: string;
   /** Địa điểm gặp gỡ / ký */
@@ -139,6 +161,9 @@ export function buildContractLegalViewModel(c: ContractResponse): ContractLegalV
     termStartPart: termStart,
     termEndPart: termEnd,
     footerSignDatePart: footerSign,
+    plotDraftCoordinatesText: parseCoordinatePairs(c.plotDraftCoordinatesText)
+      .map((p) => `${p.lat}, ${p.lng}`)
+      .join('\n'),
   };
 }
 
@@ -146,6 +171,7 @@ export type DraftLegalFormInput = {
   plotDraftProvince: string;
   plotDraftDistrict: string;
   plotDraftAreaHa: string;
+  plotDraftCoordinates: Array<[string, string]>; // [lat, lng]
   cropType: string;
   grade: QualityGrade;
   signedAt: string;
@@ -221,5 +247,9 @@ export function buildContractLegalViewModelFromDraft(input: {
     termStartPart: formatDateViLong(signed, '…… tháng …… năm ……'),
     termEndPart: formatDateViLong(harvest, '…… tháng …… năm ……'),
     footerSignDatePart: formatDateViLong(signed, formatTodayViLong()),
+    plotDraftCoordinatesText: input.form.plotDraftCoordinates
+      .filter(([lat, lng]) => lat.trim() && lng.trim())
+      .map(([lat, lng]) => `${lat.trim()},${lng.trim()}`)
+      .join('\n'),
   };
 }

@@ -28,14 +28,22 @@ import {
 
 const PAGE_LIMIT = 12;
 
-function getCoordinateText(value?: string | null) {
-  if (!value?.trim()) return 'Chưa có tọa độ';
-  const points = value
-    .split('\n')
+function parseCoordinatePairs(value?: string | null): Array<{ lat: string; lng: string }> {
+  if (!value?.trim()) return [];
+  const nums = value
+    .split(/[\n,]/)
     .map((item) => item.trim())
     .filter(Boolean);
-  if (!points.length) return 'Chưa có tọa độ';
-  return points.join(' · ');
+  if (nums.length < 2) return [];
+  const pairs: Array<{ lat: string; lng: string }> = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const lat = parseFloat(nums[i]);
+    const lng = parseFloat(nums[i + 1]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      pairs.push({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+    }
+  }
+  return pairs;
 }
 
 type ContractsManagementViewProps = {
@@ -230,10 +238,9 @@ export default function ContractsManagementView({
                       Grade {contract.grade}
                     </Badge>
                   </div>
-                  <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                    <p>Diện tích chuẩn: {contract.plotDraftAreaHa ?? contract.plot.areaHa} ha</p>
-                    <p className="font-medium text-foreground">Grade: {contract.grade}</p>
-                    <p className="break-all">Tọa độ: {getCoordinateText(contract.plotDraftCoordinatesText)}</p>
+                  <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                    <p>Diện tích: {contract.plotDraftAreaHa ?? contract.plot?.areaHa ?? '—'} ha</p>
+                    <p>Lô đất: {contract.plot.plotCode}</p>
                   </div>
                 </button>
               ))}

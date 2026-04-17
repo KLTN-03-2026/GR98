@@ -12,6 +12,7 @@ import {
   Save,
   UserRound,
   Wheat,
+  X,
 } from 'lucide-react';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
@@ -35,11 +36,13 @@ import {
 } from '@/pages/contracts/contract-legal-view-model';
 import '@/pages/contracts/contract-print.css';
 
+type CoordinatePair = [string, string]; // [lat, lng]
+
 type FormState = {
   plotDraftProvince: string;
   plotDraftDistrict: string;
   plotDraftAreaHa: string;
-  plotDraftCoordinates: string[];
+  plotDraftCoordinates: CoordinatePair[];
   cropType: string;
   grade: QualityGrade;
   signedAt: string;
@@ -50,7 +53,7 @@ const defaultForm: FormState = {
   plotDraftProvince: '',
   plotDraftDistrict: '',
   plotDraftAreaHa: '',
-  plotDraftCoordinates: [''],
+  plotDraftCoordinates: [['', '']],
   cropType: '',
   grade: 'A',
   signedAt: '',
@@ -68,7 +71,12 @@ function getCropLabel(value: string) {
 
 function toPayload(form: FormState, farmerId: string | undefined): CreateContractPayload {
   const coordinateLines = form.plotDraftCoordinates
-    .map((item) => item.trim())
+    .map(([lat, lng]) => {
+      const trimmedLat = lat.trim();
+      const trimmedLng = lng.trim();
+      if (!trimmedLat || !trimmedLng) return '';
+      return `${trimmedLat},${trimmedLng}`;
+    })
     .filter(Boolean);
   return {
     farmerId: farmerId || undefined,
@@ -88,8 +96,8 @@ function SupervisorContractCreateWorkspace() {
   const [farmerId, setFarmerId] = useState('');
   const [form, setForm] = useState<FormState>(defaultForm);
   const [formError, setFormError] = useState<string | null>(null);
-  const [pendingCoordinateFocus, setPendingCoordinateFocus] = useState<number | null>(null);
-  const coordinateInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const [pendingCoordinateRow, setPendingCoordinateRow] = useState<number | null>(null);
+  const coordinateInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
 
   const { data: me } = useMe();
   const supervisorProfileId = me?.supervisorProfile?.id ?? '';
@@ -126,6 +134,7 @@ function SupervisorContractCreateWorkspace() {
           plotDraftProvince: form.plotDraftProvince,
           plotDraftDistrict: form.plotDraftDistrict,
           plotDraftAreaHa: form.plotDraftAreaHa,
+          plotDraftCoordinates: form.plotDraftCoordinates,
           cropType: form.cropType,
           grade: form.grade,
           signedAt: form.signedAt,
@@ -138,14 +147,13 @@ function SupervisorContractCreateWorkspace() {
   const partyA = PARTY_A_DOCUMENT_DEFAULTS;
 
   useEffect(() => {
-    if (pendingCoordinateFocus === null) return;
-    const target = coordinateInputRefs.current[pendingCoordinateFocus];
+    if (pendingCoordinateRow === null) return;
+    const target = coordinateInputRefs.current.get(`coord-${pendingCoordinateRow}-lat`);
     if (target) {
       target.focus();
-      target.select();
     }
-    setPendingCoordinateFocus(null);
-  }, [form.plotDraftCoordinates.length, pendingCoordinateFocus]);
+    setPendingCoordinateRow(null);
+  }, [form.plotDraftCoordinates.length, pendingCoordinateRow]);
 
   const validate = () => {
     if (!farmerId) return 'Chọn nông dân phụ trách';
@@ -154,12 +162,19 @@ function SupervisorContractCreateWorkspace() {
     if (!form.plotDraftAreaHa || Number(form.plotDraftAreaHa) <= 0) {
       return 'Diện tích chuẩn lô đất phải lớn hơn 0';
     }
-    const hasInvalidCoordinate = form.plotDraftCoordinates
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .some((item) => Number.isNaN(Number(item)));
+    const hasInvalidCoordinate = form.plotDraftCoordinates.some(([lat, lng]) => {
+      const trimmedLat = lat.trim();
+      const trimmedLng = lng.trim();
+      if (!trimmedLat && !trimmedLng) return false;
+      return Number.isNaN(Number(trimmedLat)) || Number.isNaN(Number(trimmedLng));
+    });
     if (hasInvalidCoordinate) return 'Danh sách tọa độ phải là các số hợp lệ';
-    if (!form.cropType.trim()) return 'Chọn loại cây trồng';
+    const validCoordinates = form.plotDraftCoordinates.filter(([lat, lng]) => {
+      return lat.trim() && lng.trim();
+    });
+    if (validCoordinates.length === 0) {
+      return 'Phải nhập ít nhất một cặp tọa độ (vĩ độ và kinh độ)';
+    }
     if (
       form.signedAt &&
       form.harvestDue &&
@@ -401,35 +416,81 @@ function SupervisorContractCreateWorkspace() {
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label>Tọa độ nháp</Label>
+                  <Label>Tọa độ</Label>
                   <div className="space-y-2">
-                    {form.plotDraftCoordinates.map((item, index) => (
-                      <Input
-                        key={`coord-${index}`}
-                        ref={(node) => {
-                          coordinateInputRefs.current[index] = node;
-                        }}
-                        value={item}
-                        onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            plotDraftCoordinates: prev.plotDraftCoordinates.map((coord, i) =>
-                              i === index ? e.target.value : coord,
-                            ),
-                          }))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key !== 'Enter') return;
-                          e.preventDefault();
-                          const nextIndex = form.plotDraftCoordinates.length;
-                          setForm((prev) => ({
-                            ...prev,
-                            plotDraftCoordinates: [...prev.plotDraftCoordinates, ''],
-                          }));
-                          setPendingCoordinateFocus(nextIndex);
-                        }}
-                        placeholder={`Tọa độ #${index + 1}`}
-                      />
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-medium text-muted-foreground">
+                      <span>Vĩ độ (lat)</span>
+                      <span>Kinh độ (lng)</span>
+                      <span></span>
+                    </div>
+                    {form.plotDraftCoordinates.map(([lat, lng], index) => (
+                      <div key={`coord-row-${index}`} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                        <Input
+                          ref={(node) => {
+                            coordinateInputRefs.current.set(`coord-${index}-lat`, node);
+                          }}
+                          value={lat}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: prev.plotDraftCoordinates.map((pair, i) =>
+                                i === index ? [e.target.value, pair[1]] : pair,
+                              ),
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            const nextIndex = form.plotDraftCoordinates.length;
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: [...prev.plotDraftCoordinates, ['', '']],
+                            }));
+                            setPendingCoordinateRow(nextIndex);
+                          }}
+                          placeholder={`15.94xxxx`}
+                        />
+                        <Input
+                          ref={(node) => {
+                            coordinateInputRefs.current.set(`coord-${index}-lng`, node);
+                          }}
+                          value={lng}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: prev.plotDraftCoordinates.map((pair, i) =>
+                                i === index ? [pair[0], e.target.value] : pair,
+                              ),
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            const nextIndex = form.plotDraftCoordinates.length;
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: [...prev.plotDraftCoordinates, ['', '']],
+                            }));
+                            setPendingCoordinateRow(nextIndex);
+                          }}
+                          placeholder={`108.28xxxx`}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: prev.plotDraftCoordinates.filter((_, i) => i !== index),
+                            }))
+                          }
+                          disabled={form.plotDraftCoordinates.length <= 1}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     ))}
                     <Button
                       type="button"
@@ -439,13 +500,13 @@ function SupervisorContractCreateWorkspace() {
                         const nextIndex = form.plotDraftCoordinates.length;
                         setForm((prev) => ({
                           ...prev,
-                          plotDraftCoordinates: [...prev.plotDraftCoordinates, ''],
+                          plotDraftCoordinates: [...prev.plotDraftCoordinates, ['', '']],
                         }));
-                        setPendingCoordinateFocus(nextIndex);
+                        setPendingCoordinateRow(nextIndex);
                       }}
                     >
                       <PlusCircle className="h-4 w-4" />
-                      Thêm tọa độ
+                      Thêm điểm
                     </Button>
                   </div>
                 </div>

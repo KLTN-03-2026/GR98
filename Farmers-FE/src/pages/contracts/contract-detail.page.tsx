@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -12,8 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Combobox } from '@/components/custom/combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useVietnamAdministrative } from '@/lib/vn-administrative';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContractLegalTemplate } from '@/pages/contracts/components/contract-legal-template';
 import {
@@ -53,6 +55,7 @@ type DraftForm = {
   plotDraftProvince: string;
   plotDraftDistrict: string;
   plotDraftAreaHa: string;
+  plotDraftCoordinates: string[];
   cropType: string;
   grade: QualityGrade;
   signedAt: string;
@@ -79,10 +82,14 @@ function toInputDate(value?: string | null) {
 }
 
 function draftToPayload(form: DraftForm): CreateContractPayload {
+  const coordinateLines = form.plotDraftCoordinates
+    .map((item) => item.trim())
+    .filter(Boolean);
   return {
     plotDraftProvince: form.plotDraftProvince || undefined,
     plotDraftDistrict: form.plotDraftDistrict || undefined,
     plotDraftAreaHa: form.plotDraftAreaHa ? Number(form.plotDraftAreaHa) : undefined,
+    plotDraftCoordinatesText: coordinateLines.length ? coordinateLines.join('\n') : undefined,
     cropType: form.cropType.trim(),
     grade: form.grade,
     signedAt: form.signedAt || undefined,
@@ -96,6 +103,8 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
   const { data: contract, isLoading, error, refetch } = useContract(id);
   const [draftForm, setDraftForm] = useState<DraftForm | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [pendingCoordinateFocus, setPendingCoordinateFocus] = useState<number | null>(null);
+  const coordinateInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const submitMutation = useSubmitContractForApproval();
   const approveMutation = useApproveContract();
@@ -105,6 +114,13 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
     submitMutation.isPending || approveMutation.isPending || rejectMutation.isPending || updateMutation.isPending;
 
   const vm = useMemo(() => (contract ? buildContractLegalViewModel(contract) : null), [contract]);
+  const { data: provinceOptions = [] } = useVietnamAdministrative();
+  const plotDistrictOptions = useMemo(
+    () =>
+      provinceOptions.find((item) => item.value === draftForm?.plotDraftProvince)
+        ?.districts ?? [],
+    [provinceOptions, draftForm?.plotDraftProvince],
+  );
 
   useEffect(() => {
     if (!contract || contract.status !== 'DRAFT') {
@@ -115,6 +131,15 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
       plotDraftProvince: contract.plotDraftProvince ?? '',
       plotDraftDistrict: contract.plotDraftDistrict ?? '',
       plotDraftAreaHa: String(contract.plotDraftAreaHa ?? ''),
+      plotDraftCoordinates: (contract.plotDraftCoordinatesText ?? '')
+        .split('\n')
+        .map((item) => item.trim())
+        .filter(Boolean).length
+        ? (contract.plotDraftCoordinatesText ?? '')
+            .split('\n')
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : [''],
       cropType: normalizeContractCropType(contract.cropType),
       grade: contract.grade,
       signedAt: toInputDate(contract.signedAt),
@@ -123,12 +148,26 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
     setDraftError(null);
   }, [contract]);
 
+  useEffect(() => {
+    if (!draftForm || pendingCoordinateFocus === null) return;
+    const target = coordinateInputRefs.current[pendingCoordinateFocus];
+    if (target) {
+      target.focus();
+      target.select();
+    }
+    setPendingCoordinateFocus(null);
+  }, [draftForm?.plotDraftCoordinates.length, pendingCoordinateFocus, draftForm]);
+
   const handlePrintPdf = () => {
     window.print();
   };
 
   const saveDraft = async () => {
     if (!contract || !draftForm) return;
+    const hasInvalidCoordinate = draftForm.plotDraftCoordinates
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .some((item) => Number.isNaN(Number(item)));
     const err =
       !draftForm.plotDraftProvince.trim()
         ? 'Nhập Tỉnh/Thành của lô đất'
@@ -136,8 +175,15 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
           ? 'Nhập Quận/Huyện của lô đất'
           : !draftForm.plotDraftAreaHa || Number(draftForm.plotDraftAreaHa) <= 0
         ? 'Diện tích chuẩn không hợp lệ'
+        : hasInvalidCoordinate
+          ? 'Danh sách tọa độ phải là các số hợp lệ'
         : !draftForm.cropType.trim()
           ? 'Chọn loại cây trồng'
+          : draftForm.signedAt &&
+              draftForm.harvestDue &&
+              new Date(draftForm.signedAt).getTime() >
+                new Date(draftForm.harvestDue).getTime()
+            ? 'Ngày ký không được lớn hơn ngày kết thúc hợp đồng'
           : null;
     if (err) {
       setDraftError(err);
@@ -149,7 +195,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
   };
 
   const persistSignatureFromFile = async (file: File) => {
-    if (!contract || mode !== 'supervisor' || contract.status !== 'DRAFT') return;
+    if (!contract || mode !== 'supervisor' || contract.status !== 'ACTIVE') return;
     const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ''));
@@ -264,9 +310,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
               <Button
                 type="button"
                 size="sm"
-                disabled={
-                  contract.status !== 'DRAFT' || !contract.signatureUrl?.trim() || isSaving
-                }
+                disabled={contract.status !== 'DRAFT' || isSaving}
                 onClick={() => void submitMutation.mutateAsync(contract.id).then(() => refetch())}
               >
                 <FileCheck2 className="h-4 w-4" />
@@ -362,7 +406,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-muted-foreground">Bên B — Nông dân</p>
+              <p className="text-xs font-semibold text-muted-foreground">Bên B — Đối tác</p>
               <p className="font-medium">{contract.farmer.fullName}</p>
               <p className="text-xs text-muted-foreground">
                 SĐT: {contract.farmer.phone} · CCCD: {contract.farmer.cccd}
@@ -419,26 +463,48 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
             <CardTitle className="text-base">Chỉnh sửa hợp đồng nháp</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <p className="text-base font-semibold text-foreground">Thông tin lô đất</p>
+            </div>
             <div className="space-y-2">
               <Label>Tỉnh / thành (nháp)</Label>
-              <Input
+              <Combobox
+                dataArr={provinceOptions}
                 value={draftForm.plotDraftProvince}
-                onChange={(e) =>
+                onChange={(value) =>
                   setDraftForm((prev) =>
-                    prev ? { ...prev, plotDraftProvince: e.target.value } : prev,
+                    prev
+                      ? {
+                          ...prev,
+                          plotDraftProvince: typeof value === 'string' ? value : '',
+                          plotDraftDistrict:
+                            typeof value === 'string' && value === prev.plotDraftProvince
+                              ? prev.plotDraftDistrict
+                              : '',
+                        }
+                      : prev,
                   )
                 }
+                label="tỉnh/thành"
               />
             </div>
             <div className="space-y-2">
               <Label>Quận / huyện (nháp)</Label>
-              <Input
+              <Combobox
+                dataArr={plotDistrictOptions}
                 value={draftForm.plotDraftDistrict}
-                onChange={(e) =>
+                onChange={(value) =>
                   setDraftForm((prev) =>
-                    prev ? { ...prev, plotDraftDistrict: e.target.value } : prev,
+                    prev
+                      ? {
+                          ...prev,
+                          plotDraftDistrict: typeof value === 'string' ? value : '',
+                        }
+                      : prev,
                   )
                 }
+                label="quận/huyện"
+                disabled={!draftForm.plotDraftProvince}
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
@@ -454,6 +520,65 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
                   )
                 }
               />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Tọa độ nháp</Label>
+              <div className="space-y-2">
+                {draftForm.plotDraftCoordinates.map((item, index) => (
+                  <Input
+                    key={`draft-coord-${index}`}
+                    ref={(node) => {
+                      coordinateInputRefs.current[index] = node;
+                    }}
+                    value={item}
+                    onChange={(e) =>
+                      setDraftForm((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              plotDraftCoordinates: prev.plotDraftCoordinates.map((coord, i) =>
+                                i === index ? e.target.value : coord,
+                              ),
+                            }
+                          : prev,
+                      )
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return;
+                      e.preventDefault();
+                      const nextIndex = draftForm.plotDraftCoordinates.length;
+                      setDraftForm((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              plotDraftCoordinates: [...prev.plotDraftCoordinates, ''],
+                            }
+                          : prev,
+                      );
+                      setPendingCoordinateFocus(nextIndex);
+                    }}
+                  />
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const nextIndex = draftForm.plotDraftCoordinates.length;
+                    setDraftForm((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            plotDraftCoordinates: [...prev.plotDraftCoordinates, ''],
+                          }
+                        : prev,
+                    );
+                    setPendingCoordinateFocus(nextIndex);
+                  }}
+                >
+                  Thêm tọa độ
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Loại cây</Label>
@@ -555,7 +680,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
             ) : (
               <p className="text-sm text-muted-foreground">Chưa có ảnh xác nhận.</p>
             )}
-            {mode === 'supervisor' && contract.status === 'DRAFT' && (
+            {mode === 'supervisor' && contract.status === 'ACTIVE' && (
               <div className="space-y-1">
                 <Label className="text-xs">Tải / cập nhật ảnh</Label>
                 <Input

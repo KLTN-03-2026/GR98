@@ -62,6 +62,12 @@ export function ContractLegalTemplate({ vm }: Props) {
             <strong>Điện thoại:</strong> {vm.farmerPhone}
           </li>
           <li>
+            <strong>Địa chỉ liên hệ:</strong> {vm.farmerAddress} · {vm.farmerProvince}
+          </li>
+          <li>
+            <strong>Ngân hàng:</strong> {vm.farmerBankName} - {vm.farmerBankBranch} - {vm.farmerBankAccount}
+          </li>
+          <li>
             <strong>Mã lô:</strong> {vm.plotCode}
           </li>
           <li>

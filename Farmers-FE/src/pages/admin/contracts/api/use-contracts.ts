@@ -71,13 +71,19 @@ export function useUpdateContract() {
       data: UpdateContractPayload;
     }) => {
       const response = await contractApi.update(id, data);
-      return extractData<ContractResponse>(response);
+      return { contract: extractData<ContractResponse>(response), requestData: data };
     },
-    onSuccess: (data) => {
+    onSuccess: ({ contract, requestData }) => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
-      queryClient.invalidateQueries({ queryKey: ['contract', data.id] });
-      queryClient.setQueryData(['contract', data.id], data);
-      toast.success('Đã cập nhật hợp đồng nháp');
+      queryClient.invalidateQueries({ queryKey: ['contract', contract.id] });
+      queryClient.setQueryData(['contract', contract.id], contract);
+
+      const requestKeys = Object.keys(requestData || {});
+      const isSignatureOnlyUpdate =
+        requestKeys.length === 1 && requestKeys[0] === 'signatureUrl';
+      toast.success(
+        isSignatureOnlyUpdate ? 'Cập nhật ảnh thành công' : 'Đã cập nhật hợp đồng nháp',
+      );
     },
     onError: (error: { message?: string }) => {
       toast.error(error.message || 'Không thể cập nhật hợp đồng');

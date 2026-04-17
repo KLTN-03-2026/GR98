@@ -2,7 +2,6 @@ import type {
   ContractResponse,
   QualityGrade,
 } from '@/pages/admin/contracts/api/types';
-import type { FarmerResponse } from '@/pages/admin/farmers/api/types';
 
 /** Dữ liệu hiển thị cho mẫu hợp đồng pháp lý + in PDF */
 export type ContractLegalViewModel = {
@@ -18,6 +17,11 @@ export type ContractLegalViewModel = {
   farmerName: string;
   farmerCccd: string;
   farmerPhone: string;
+  farmerAddress: string;
+  farmerProvince: string;
+  farmerBankName: string;
+  farmerBankBranch: string;
+  farmerBankAccount: string;
   plotGisId: string;
   plotCode: string;
   areaM2: string;
@@ -96,6 +100,8 @@ export function buildContractLegalViewModel(c: ContractResponse): ContractLegalV
   const termEnd = formatDateViLong(c.harvestDue, '…… tháng …… năm ……');
   const footerSign = formatDateViLong(c.signedAt, formatTodayViLong());
 
+  const farmer = c.farmer;
+
   return {
     contractNo: c.contractNo,
     contractId: c.id,
@@ -106,9 +112,14 @@ export function buildContractLegalViewModel(c: ContractResponse): ContractLegalV
     companyBankPlace: partyA.companyBankPlace,
     supervisorId: c.supervisorId,
     supervisorName: c.supervisor.fullName?.trim() || '…………………………',
-    farmerName: c.farmer.fullName,
-    farmerCccd: c.farmer.cccd || '…………………………',
-    farmerPhone: c.farmer.phone || '…………………………',
+    farmerName: farmer?.fullName || '…………………………',
+    farmerCccd: farmer?.cccd || '…………………………',
+    farmerPhone: farmer?.phone || '…………………………',
+    farmerAddress: farmer?.address || '…………………………',
+    farmerProvince: farmer?.province || '…………………………',
+    farmerBankName: farmer?.bankName || '…………………………',
+    farmerBankBranch: farmer?.bankBranch || '…………………………',
+    farmerBankAccount: farmer?.bankAccount || '…………………………',
     plotGisId: c.plot.id,
     plotCode: c.plot.plotCode,
     areaM2,
@@ -141,17 +152,16 @@ export type DraftLegalFormInput = {
   harvestDue: string;
 };
 
-type DraftFarmerPreview = Pick<
-  FarmerResponse,
-  | 'fullName'
-  | 'phone'
-  | 'cccd'
-  | 'province'
-  | 'address'
-  | 'bankAccount'
-  | 'bankName'
-  | 'bankBranch'
->;
+type DraftFarmerPreview = {
+  fullName: string;
+  phone: string;
+  cccd: string;
+  province: string | null;
+  address: string | null;
+  bankAccount: string | null;
+  bankName: string | null;
+  bankBranch: string | null;
+};
 
 /** View-model khi tạo nháp (chưa lưu) — đủ số liệu để in xem trước */
 export function buildContractLegalViewModelFromDraft(input: {
@@ -186,6 +196,11 @@ export function buildContractLegalViewModelFromDraft(input: {
     farmerName: input.farmer?.fullName?.trim() || '—',
     farmerCccd: input.farmer?.cccd?.trim() || '—',
     farmerPhone: input.farmer?.phone?.trim() || '—',
+    farmerAddress: input.farmer?.address?.trim() || '—',
+    farmerProvince: input.farmer?.province?.trim() || '—',
+    farmerBankName: input.farmer?.bankName?.trim() || '—',
+    farmerBankBranch: input.farmer?.bankBranch?.trim() || '—',
+    farmerBankAccount: input.farmer?.bankAccount?.trim() || '—',
     plotGisId: '—',
     plotCode: '—',
     areaM2,

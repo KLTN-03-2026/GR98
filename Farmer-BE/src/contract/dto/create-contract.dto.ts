@@ -34,6 +34,11 @@ export class CreateContractDto {
   @Min(0.01, { message: 'Diện tích chuẩn phải lớn hơn 0' })
   plotDraftAreaHa?: number;
 
+  @IsOptional()
+  @IsString()
+  plotDraftCoordinatesText?: string;
+
+
   @IsNotEmpty({ message: 'Loại cây trồng là bắt buộc' })
   @IsString()
   cropType: string;

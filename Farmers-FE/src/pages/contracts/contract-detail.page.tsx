@@ -46,6 +46,16 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString('vi-VN');
 }
 
+function formatCoordinateSummary(value?: string | null) {
+  if (!value?.trim()) return 'Chưa có tọa độ';
+  const points = value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!points.length) return 'Chưa có tọa độ';
+  return points.join(' · ');
+}
+
 export type ContractDetailPageProps = {
   mode: 'admin' | 'supervisor';
   listBasePath: string;
@@ -370,6 +380,10 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
               <span className="font-medium">{contract.plotDraftAreaHa ?? '—'} ha</span>
               <span className="text-muted-foreground">Gửi duyệt</span>
               <span className="font-medium">{formatDate(contract.submittedAt)}</span>
+              <span className="text-muted-foreground">Tọa độ</span>
+              <span className="font-medium">
+                {formatCoordinateSummary(contract.plotDraftCoordinatesText)}
+              </span>
             </div>
             {contract.rejectedReason && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
@@ -522,7 +536,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label>Tọa độ nháp</Label>
+              <Label>Tọa độ</Label>
               <div className="space-y-2">
                 {draftForm.plotDraftCoordinates.map((item, index) => (
                   <Input

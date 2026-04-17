@@ -28,6 +28,16 @@ import {
 
 const PAGE_LIMIT = 12;
 
+function getCoordinateText(value?: string | null) {
+  if (!value?.trim()) return 'Chưa có tọa độ';
+  const points = value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!points.length) return 'Chưa có tọa độ';
+  return points.join(' · ');
+}
+
 type ContractsManagementViewProps = {
   mode: 'admin' | 'supervisor';
   listBasePath: string;
@@ -223,6 +233,7 @@ export default function ContractsManagementView({
                   <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
                     <p>Diện tích chuẩn: {contract.plotDraftAreaHa ?? contract.plot.areaHa} ha</p>
                     <p className="font-medium text-foreground">Grade: {contract.grade}</p>
+                    <p className="break-all">Tọa độ: {getCoordinateText(contract.plotDraftCoordinatesText)}</p>
                   </div>
                 </button>
               ))}

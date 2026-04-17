@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   AssignStatus,
+  ContractStatus,
   PlotStatus,
   Prisma,
   Role,
@@ -121,14 +122,23 @@ export class PlotService {
     }).format(value);
   }
 
-  private async findFarmer(adminId: string, dto: CreatePlotDto) {
+  private async findFarmer(
+    adminId: string,
+    dto: CreatePlotDto,
+    actor?: ActorContext,
+  ) {
+    const supervisorScopedWhere =
+      actor?.role === Role.SUPERVISOR && actor.supervisorProfileId
+        ? { supervisorId: actor.supervisorProfileId }
+        : {};
+
     if (dto.farmerId) {
       const byId = await this.prisma.farmer.findFirst({
-        where: { id: dto.farmerId, adminId },
+        where: { id: dto.farmerId, adminId, ...supervisorScopedWhere },
       });
       if (!byId) {
         throw new NotFoundException(
-          'Nông dân không tồn tại trong đơn vị quản lý',
+          'Nông dân không tồn tại trong phạm vi quản lý',
         );
       }
       if (
@@ -174,6 +184,7 @@ export class PlotService {
     const verified = await this.prisma.farmer.findFirst({
       where: {
         adminId,
+        ...supervisorScopedWhere,
         fullName: {
           equals: dto.farmerName.trim(),
           mode: 'insensitive',
@@ -317,6 +328,9 @@ export class PlotService {
         contracts: {
           select: {
             contractNo: true,
+            plotDraftProvince: true,
+            plotDraftDistrict: true,
+            plotDraftAreaHa: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -354,8 +368,123 @@ export class PlotService {
     return plot;
   }
 
+  private async createPointFromContractForSupervisor(
+    dto: CreatePlotDto,
+    actor: ActorContext,
+  ) {
+    if (!actor.adminId || !actor.supervisorProfileId) {
+      throw new ForbiddenException('Không xác định được phạm vi quản lý');
+    }
+
+    const contractNo = dto.contractId?.trim();
+    if (!contractNo) {
+      throw new BadRequestException('Vui lòng nhập mã hợp đồng để gán point');
+    }
+
+    if (/^PL-/i.test(contractNo)) {
+      throw new BadRequestException(
+        'Bạn đang nhập mã lô đất. Vui lòng nhập mã hợp đồng (ví dụ HDLK-...)',
+      );
+    }
+
+    if (!Number.isFinite(dto.lat) || !Number.isFinite(dto.lng)) {
+      throw new BadRequestException(
+        'Vui lòng chọn vị trí point hợp lệ trên bản đồ',
+      );
+    }
+
+    const normalizedLat = Number((dto.lat as number).toFixed(6));
+    const normalizedLng = Number((dto.lng as number).toFixed(6));
+
+    const contract = await this.prisma.contract.findFirst({
+      where: {
+        adminId: actor.adminId,
+        supervisorId: actor.supervisorProfileId,
+        contractNo,
+        status: {
+          notIn: [ContractStatus.CANCELLED, ContractStatus.TERMINATED],
+        },
+      },
+      select: {
+        id: true,
+        plotId: true,
+      },
+    });
+
+    if (!contract || !contract.plotId) {
+      throw new NotFoundException(
+        'Không tìm thấy hợp đồng hợp lệ hoặc hợp đồng chưa được gán lô đất trong phạm vi bạn phụ trách.',
+      );
+    }
+
+    const targetPlot = await this.prisma.plot.findFirst({
+      where: {
+        id: contract.plotId,
+        adminId: actor.adminId,
+        farmer: {
+          supervisorId: actor.supervisorProfileId,
+        },
+      },
+      select: {
+        id: true,
+        lat: true,
+        lng: true,
+      },
+    });
+
+    if (!targetPlot) {
+      throw new NotFoundException(
+        'Lô đất thuộc hợp đồng không nằm trong phạm vi phụ trách',
+      );
+    }
+
+    if (targetPlot.lat !== null && targetPlot.lng !== null) {
+      throw new BadRequestException('Hợp đồng này đã được gán point trên GIS');
+    }
+
+    const duplicatePointPlot = await this.prisma.plot.findFirst({
+      where: {
+        adminId: actor.adminId,
+        id: {
+          not: targetPlot.id,
+        },
+        lat: normalizedLat,
+        lng: normalizedLng,
+        contracts: {
+          some: {
+            status: {
+              notIn: [ContractStatus.CANCELLED, ContractStatus.TERMINATED],
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (duplicatePointPlot) {
+      throw new BadRequestException(
+        'Point này đã được gán cho một hợp đồng khác',
+      );
+    }
+
+    await this.prisma.plot.update({
+      where: { id: targetPlot.id },
+      data: {
+        lat: normalizedLat,
+        lng: normalizedLng,
+      },
+    });
+
+    const refreshed = await this.findPlotByIdForListItem(
+      targetPlot.id,
+      actor.adminId,
+    );
+    return this.mapPlotToListItem(refreshed);
+  }
+
   private mapPlotToListItem(plot: {
     id: string;
+    farmerId: string;
     plotCode: string;
     cropType: string;
     areaHa: number;
@@ -363,6 +492,7 @@ export class PlotService {
     lng: number | null;
     createdAt: Date;
     status: PlotStatus;
+    hasGis?: boolean;
     farmer: {
       fullName: string;
       phone: string;
@@ -370,7 +500,12 @@ export class PlotService {
       province: string | null;
     };
     zone: { district: string; province: string } | null;
-    contracts: Array<{ contractNo: string }>;
+    contracts: Array<{
+      contractNo: string;
+      plotDraftProvince: string | null;
+      plotDraftDistrict: string | null;
+      plotDraftAreaHa: number | null;
+    }>;
     assignments: Array<{
       supervisorId: string;
       supervisor: {
@@ -381,24 +516,35 @@ export class PlotService {
     }>;
   }) {
     const activeAssignment = plot.assignments[0] ?? null;
+    const latestContract = plot.contracts[0] ?? null;
+    const isGisMarked = plot.lat !== null && plot.lng !== null;
+    const hasGis =
+      isGisMarked && Number.isFinite(plot.lat) && Number.isFinite(plot.lng);
 
     return {
       id: plot.id,
+      farmerId: plot.farmerId,
       lotCode: plot.plotCode,
       plotName: plot.plotCode,
       farmerName: plot.farmer?.fullName ?? 'Chưa gán',
       farmerPhone: plot.farmer?.phone ?? '',
       farmerCccd: plot.farmer?.cccd ?? '',
-      contractId: plot.contracts[0]?.contractNo ?? 'Chưa có hợp đồng',
-      province: plot.zone?.province ?? plot.farmer?.province ?? 'N/A',
-      district: plot.zone?.district ?? 'N/A',
-      areaHa: plot.areaHa,
+      contractId: latestContract?.contractNo ?? 'Chưa có hợp đồng',
+      province:
+        plot.zone?.province ??
+        latestContract?.plotDraftProvince ??
+        plot.farmer?.province ??
+        'N/A',
+      district: plot.zone?.district ?? latestContract?.plotDraftDistrict ?? 'N/A',
+      areaHa: latestContract?.plotDraftAreaHa ?? plot.areaHa,
       cropType: this.toCropTypeForUi(plot.cropType),
       progress: plot.status === PlotStatus.ACTIVE ? 'on-track' : 'attention',
       lat: plot.lat ?? 16.2,
       lng: plot.lng ?? 106.2,
+      isGisMarked,
       updatedAt: this.formatDateTime(plot.createdAt),
       polygon: [],
+      hasGis,
       id_suppervisor: activeAssignment?.supervisorId ?? null,
       name_suppervisor: activeAssignment?.supervisor.user.fullName ?? null,
     };
@@ -410,9 +556,13 @@ export class PlotService {
       throw new ForbiddenException('Không xác định được Admin quản lý');
     }
 
+    if (actor.role === Role.SUPERVISOR) {
+      return this.createPointFromContractForSupervisor(dto, actor);
+    }
+
     const adminId = actor.adminId;
 
-    const farmer = await this.findFarmer(adminId, dto);
+    const farmer = await this.findFarmer(adminId, dto, actor);
     const assignedSupervisor = await this.resolveSupervisorForCreate(
       dto,
       actor,
@@ -499,6 +649,9 @@ export class PlotService {
         contracts: {
           select: {
             contractNo: true,
+            plotDraftProvince: true,
+            plotDraftDistrict: true,
+            plotDraftAreaHa: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -531,16 +684,24 @@ export class PlotService {
   }
 
   async findAll(query: PlotQueryDto, userId: string) {
-    const adminId = await this.resolveAdminId(userId);
-    if (!adminId) {
+    const actor = await this.resolveActorContext(userId);
+    if (!actor?.adminId) {
       throw new ForbiddenException('Không có quyền xem danh sách lô đất');
     }
+
+    const adminId = actor.adminId;
 
     const page = Math.max(1, parseInt(query.page || '1', 10));
     const limit = Math.min(50, Math.max(1, parseInt(query.limit || '20', 10)));
     const skip = (page - 1) * limit;
 
     const where: Prisma.PlotWhereInput = { adminId };
+
+    if (actor.role === Role.SUPERVISOR && actor.supervisorProfileId) {
+      where.farmer = {
+        supervisorId: actor.supervisorProfileId,
+      };
+    }
 
     if (query.search?.trim()) {
       const search = query.search.trim();
@@ -550,6 +711,20 @@ export class PlotService {
         { farmer: { fullName: { contains: search, mode: 'insensitive' } } },
         { zone: { district: { contains: search, mode: 'insensitive' } } },
         { zone: { province: { contains: search, mode: 'insensitive' } } },
+        {
+          contracts: {
+            some: {
+              plotDraftDistrict: { contains: search, mode: 'insensitive' },
+            },
+          },
+        },
+        {
+          contracts: {
+            some: {
+              plotDraftProvince: { contains: search, mode: 'insensitive' },
+            },
+          },
+        },
         {
           assignments: {
             some: {
@@ -572,9 +747,22 @@ export class PlotService {
     }
 
     if (query.id_suppervisor?.trim()) {
+      if (
+        actor.role === Role.SUPERVISOR &&
+        actor.supervisorProfileId &&
+        query.id_suppervisor.trim() !== actor.supervisorProfileId
+      ) {
+        throw new ForbiddenException(
+          'Bạn chỉ được phép xem lô đất trong phạm vi phụ trách',
+        );
+      }
+
       where.assignments = {
         some: {
-          supervisorId: query.id_suppervisor.trim(),
+          supervisorId:
+            actor.role === Role.SUPERVISOR && actor.supervisorProfileId
+              ? actor.supervisorProfileId
+              : query.id_suppervisor.trim(),
           status: {
             in: [AssignStatus.PENDING, AssignStatus.ACTIVE],
           },
@@ -606,6 +794,9 @@ export class PlotService {
           contracts: {
             select: {
               contractNo: true,
+              plotDraftProvince: true,
+              plotDraftDistrict: true,
+              plotDraftAreaHa: true,
             },
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -646,6 +837,7 @@ export class PlotService {
       throw new ForbiddenException('Không xác định được Admin quản lý');
     }
 
+    // Ensure AdminId exists for context
     const adminId = actor.adminId;
 
     const plot = await this.prisma.plot.findFirst({
@@ -663,6 +855,26 @@ export class PlotService {
       throw new NotFoundException(
         'Lô đất không tồn tại hoặc bạn không có quyền',
       );
+    }
+
+    // If SUPERVISOR updates GIS, ensure they are assigned to this plot.
+    if (actor.role === Role.SUPERVISOR) {
+      const assignment = await this.prisma.assignment.findFirst({
+        where: {
+          adminId,
+          plotId: plot.id,
+          supervisorId: actor.supervisorProfileId ?? undefined,
+          status: {
+            in: [AssignStatus.PENDING, AssignStatus.ACTIVE],
+          },
+        },
+        select: { id: true },
+      });
+      if (!assignment) {
+        throw new ForbiddenException(
+          'Bạn chỉ được cập nhật GIS cho các lô đất mình phụ trách',
+        );
+      }
     }
 
     const requestedSupervisor = await this.resolveSupervisorForCreate(
@@ -701,8 +913,8 @@ export class PlotService {
     const shouldChangeAssignment =
       requestedSupervisorId !== currentSupervisorId;
 
-    if (shouldChangeAssignment) {
-      await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
+      if (shouldChangeAssignment) {
         if (currentActiveAssignment) {
           await tx.assignment.updateMany({
             where: {
@@ -739,10 +951,81 @@ export class PlotService {
             },
           });
         }
-      });
-    }
+      }
+
+      // GIS fields (SUP vẽ) update
+      const nextData: Prisma.PlotUpdateInput = {};
+      if (dto.lat !== undefined) nextData.lat = dto.lat;
+      if (dto.lng !== undefined) nextData.lng = dto.lng;
+
+      if (Object.keys(nextData).length > 0) {
+        await tx.plot.update({
+          where: { id: plot.id },
+          data: nextData,
+        });
+      }
+    });
 
     const refreshed = await this.findPlotByIdForListItem(plot.id, adminId);
     return this.mapPlotToListItem(refreshed);
+  }
+
+  async remove(plotId: string, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (!actor?.adminId || actor.role !== Role.ADMIN) {
+      throw new ForbiddenException('Chỉ Admin mới có quyền xóa lô đất');
+    }
+
+    const adminId = actor.adminId;
+    const plot = await this.prisma.plot.findFirst({
+      where: {
+        id: plotId,
+        adminId,
+      },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            contracts: true,
+            dailyReports: true,
+            products: true,
+          },
+        },
+      },
+    });
+
+    if (!plot) {
+      throw new NotFoundException(
+        'Lô đất không tồn tại hoặc bạn không có quyền',
+      );
+    }
+
+    if (
+      plot._count.contracts > 0 ||
+      plot._count.dailyReports > 0 ||
+      plot._count.products > 0
+    ) {
+      throw new BadRequestException(
+        'Không thể xóa lô đất đã phát sinh hợp đồng/báo cáo/sản phẩm',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.assignment.deleteMany({
+        where: {
+          plotId: plot.id,
+          adminId,
+        },
+      });
+
+      await tx.plot.delete({
+        where: { id: plot.id },
+      });
+    });
+
+    return {
+      id: plot.id,
+      deletedAt: new Date().toISOString(),
+    };
   }
 }

@@ -26,6 +26,14 @@ export class UpdateFarmerDto {
 
   @IsOptional()
   @IsString()
+  bankName?: string;
+
+  @IsOptional()
+  @IsString()
+  bankBranch?: string;
+
+  @IsOptional()
+  @IsString()
   address?: string;
 
   @IsOptional()

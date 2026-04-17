@@ -127,7 +127,7 @@ export function FilterPopover({
                         key={valueOption.value}
                         variant={
                           selectedValues.includes(valueOption.value)
-                            ? 'default'
+                            ? 'primary'
                             : 'outline'
                         }
                         size="sm"

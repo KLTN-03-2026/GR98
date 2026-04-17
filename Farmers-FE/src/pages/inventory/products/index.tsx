@@ -29,8 +29,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
@@ -56,12 +54,6 @@ import {
   type QualityGrade,
 } from '@/client/types';
 
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import {
   Calendar as CalendarIcon,
@@ -89,9 +81,6 @@ const toSlug = (text: string) => {
     .replace(/-+/g, '-');
 };
 
-const formatCurrencyInput = (value: number) => {
-  return new Intl.NumberFormat('vi-VN').format(value);
-};
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('vi-VN', {

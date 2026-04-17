@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -58,6 +59,8 @@ type FarmerForm = {
   cccd: string;
   province: string;
   address: string;
+  bankName: string;
+  bankBranch: string;
   bankAccount: string;
   supervisorId: string;
   status: FarmerStatus;
@@ -74,6 +77,8 @@ const defaultForm: FarmerForm = {
   cccd: "",
   province: "",
   address: "",
+  bankName: "",
+  bankBranch: "",
   bankAccount: "",
   supervisorId: UNASSIGNED_SUPERVISOR,
   status: "ACTIVE",
@@ -92,6 +97,31 @@ function formatDate(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "N/A";
   return date.toLocaleString("vi-VN");
+}
+
+function FarmerCardSkeleton() {
+  return (
+    <Card className="animate-pulse border-l-4 border-l-emerald-400/40">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <Skeleton className="h-6 w-24 rounded-full" />
+        </div>
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-4 w-36" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function FarmerManagementPage() {
@@ -177,6 +207,8 @@ function FarmerManagementPage() {
       cccd: row.cccd,
       province: row.province ?? "",
       address: row.address ?? "",
+      bankName: row.bankName ?? "",
+      bankBranch: row.bankBranch ?? "",
       bankAccount: row.bankAccount ?? "",
       supervisorId: row.supervisorId ?? UNASSIGNED_SUPERVISOR,
       status: row.status,
@@ -231,6 +263,8 @@ function FarmerManagementPage() {
           cccd: form.cccd.trim(),
           province: form.province.trim() || undefined,
           address: form.address.trim() || undefined,
+          bankName: form.bankName.trim() || undefined,
+          bankBranch: form.bankBranch.trim() || undefined,
           bankAccount: form.bankAccount.trim() || undefined,
           supervisorId: supervisorId || undefined,
           status: form.status,
@@ -244,6 +278,8 @@ function FarmerManagementPage() {
             cccd: form.cccd.trim(),
             province: form.province,
             address: form.address,
+            bankName: form.bankName,
+            bankBranch: form.bankBranch,
             bankAccount: form.bankAccount,
             supervisorId,
             status: form.status,
@@ -343,11 +379,11 @@ function FarmerManagementPage() {
       <div className="min-h-0 flex flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {isLoading ? (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Đang tải danh sách nông dân...
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+              {Array.from({ length: Math.min(PAGE_LIMIT, 12) }).map((_, index) => (
+                <FarmerCardSkeleton key={`admin-farmer-skeleton-${index}`} />
+              ))}
+            </div>
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
               {farmers.map((row) => (
@@ -391,6 +427,10 @@ function FarmerManagementPage() {
                         {row.supervisor?.user.fullName ||
                           "Chưa gán giám sát viên"}
                       </span>
+                    </p>
+                    <p className="truncate text-xs">
+                      NH: {row.bankName || "Chưa cập nhật"}{" "}
+                      {row.bankBranch ? `- ${row.bankBranch}` : ""}
                     </p>
                   </div>
 
@@ -551,6 +591,34 @@ function FarmerManagementPage() {
                   setForm((prev) => ({ ...prev, address: event.target.value }))
                 }
                 placeholder="Thôn ..., xã ..., huyện ..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tên ngân hàng</Label>
+              <Input
+                value={form.bankName}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    bankName: event.target.value,
+                  }))
+                }
+                placeholder="VD: BIDV"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Chi nhánh ngân hàng</Label>
+              <Input
+                value={form.bankBranch}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    bankBranch: event.target.value,
+                  }))
+                }
+                placeholder="VD: Chi nhánh Đắk Lắk"
               />
             </div>
 

@@ -10,7 +10,7 @@ export default function ServerErrorPage({ message }: ServerErrorPageProps) {
     <main className="min-h-screen bg-background px-6 py-10 text-foreground">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-3xl flex-col items-center justify-center rounded-3xl border border-(--secondary-200) bg-linear-to-b from-(--secondary-50) via-background to-(--primary-50) p-8 text-center shadow-lg">
         <div className="mb-6 rounded-full border border-(--secondary-200) bg-background p-4 shadow-md">
-          <AppLogo height={48} alt="Agri Integration" />
+          <AppLogo alt="Agri Integration" />
         </div>
 
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-(--secondary-600)">Lỗi 500</p>

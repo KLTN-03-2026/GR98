@@ -411,7 +411,7 @@ export class InventoryService {
           expiryDate: data.expiryDate
             ? new Date(data.expiryDate as string)
             : null,
-          qualityGrade: data.qualityGrade as any,
+          qualityGrade: data.qualityGrade,
         },
       });
 
@@ -654,31 +654,23 @@ export class InventoryService {
       inventoryProfileId,
     );
 
-    // 1. Fetch Expected Yield from Contracts (ACTIVE)
-    const activeContracts = await this.prisma.contract.findMany({
-      where: {
-        adminId,
-        status: 'ACTIVE',
-        ...(filters.cropType && { cropType: filters.cropType }),
-        ...(filters.fromDate && { createdAt: { gte: new Date(filters.fromDate) } }),
-        ...(filters.toDate && { createdAt: { lte: new Date(filters.toDate) } }),
-      },
-      select: { cropType: true, quantityKg: true },
-    });
-
-    // 2. Fetch Expected Yield from DailyReports (yieldEstimateKg)
+    // 1. Fetch Expected Yield from DailyReports (yieldEstimateKg)
     const dailyReports = await this.prisma.dailyReport.findMany({
       where: {
         adminId,
         yieldEstimateKg: { not: null },
         plot: filters.cropType ? { cropType: filters.cropType } : {},
-        ...(filters.fromDate && { reportedAt: { gte: new Date(filters.fromDate) } }),
-        ...(filters.toDate && { reportedAt: { lte: new Date(filters.toDate) } }),
+        ...(filters.fromDate && {
+          reportedAt: { gte: new Date(filters.fromDate) },
+        }),
+        ...(filters.toDate && {
+          reportedAt: { lte: new Date(filters.toDate) },
+        }),
       },
       include: { plot: { select: { cropType: true } } },
     });
 
-    // 3. Fetch Actual Stock from InventoryLot (within managed warehouses)
+    // 2. Fetch Actual Stock from InventoryLot (within managed warehouses)
     const inventoryLots = await this.prisma.inventoryLot.findMany({
       where: {
         warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['NONE'] },
@@ -687,7 +679,7 @@ export class InventoryService {
       include: { product: { select: { cropType: true } } },
     });
 
-    // 4. Fetch Demand from Pending/Packing Orders
+    // 3. Fetch Demand from Pending/Packing Orders
     const pendingOrders = await this.prisma.order.findMany({
       where: {
         adminId,
@@ -705,12 +697,6 @@ export class InventoryService {
       string,
       { expected: number; stock: number; pending: number }
     > = {};
-
-    activeContracts.forEach((c) => {
-      const type = c.cropType;
-      if (!summary[type]) summary[type] = { expected: 0, stock: 0, pending: 0 };
-      summary[type].expected += c.quantityKg;
-    });
 
     dailyReports.forEach((r) => {
       const type = r.plot.cropType;

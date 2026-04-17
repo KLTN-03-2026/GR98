@@ -1,0 +1,30 @@
+{
+  "weights_file": "ai\\weights\\durian_leaf_detector.pt",
+  "task": "detect",
+  "model": "C:\\Users\\VHDN\\agri-integrator-ai-service\\yolov8n.pt",
+  "nc": 9,
+  "names": [
+    "Healthy_leaf",
+    "Leaf_Blight",
+    "Leaf_Phytophthora",
+    "Leaf_Spot",
+    "leaf_blight_anthracnose",
+    "leaf_blight_phyllosticta",
+    "leaf_blight_rhizoctonia",
+    "leaf_spot_algal",
+    "leaf_spot_pseudocercospora"
+  ],
+  "class_instances": {
+    "0": 343,
+    "1": 381,
+    "2": 22,
+    "3": 1691,
+    "4": 106,
+    "5": 125,
+    "6": 68,
+    "7": 1267,
+    "8": 14
+  },
+  "data_yaml": "C:\\Users\\VHDN\\agri-integrator-ai-service\\dataset dowload\\merged_yolo\\data.yaml",
+  "best_map": 0.5444441546069373
+}

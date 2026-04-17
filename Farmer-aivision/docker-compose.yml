@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  agri-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agri-ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - DEVICE=${DEVICE:-cpu}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CLASSIFIER_MODEL_PATH=${CLASSIFIER_MODEL_PATH:-/app/ai/weights/durian_leaf_classifier.pt}
+    volumes:
+      - ./ai/weights:/app/ai/weights
+      - upload_data:/tmp/uploads
+      - output_data:/tmp/outputs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # GPU-enabled version (uncomment for NVIDIA GPU support)
+  # agri-ai-gpu:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: agri-ai-service-gpu
+  #   ports:
+  #     - "8001:8000"
+  #   environment:
+  #     - DEVICE=cuda
+  #     - CLASSIFIER_MODEL_PATH=/app/ai/weights/durian_leaf_classifier.pt
+  #   volumes:
+  #     - ./ai/weights:/app/ai/weights
+  #     - upload_data:/tmp/uploads
+  #     - output_data:/tmp/outputs
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   restart: unless-stopped
+
+volumes:
+  upload_data:
+  output_data:

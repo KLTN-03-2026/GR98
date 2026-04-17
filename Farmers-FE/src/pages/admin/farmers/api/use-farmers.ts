@@ -11,13 +11,16 @@ export function useFarmers(params?: {
   status?: 'ACTIVE' | 'INACTIVE';
   supervisorId?: string;
   province?: string;
+  enabled?: boolean;
 }) {
+  const { enabled = true, ...queryParams } = params ?? {};
   return useQuery({
-    queryKey: ['farmers', params],
+    queryKey: ['farmers', queryParams],
     queryFn: async () => {
-      const response = await farmerApi.list(params);
+      const response = await farmerApi.list(queryParams);
       return extractData<PaginatedFarmersResponse>(response);
     },
+    enabled,
     placeholderData: (prev) => prev,
   });
 }

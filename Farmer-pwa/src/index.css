@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  /* Base palette (matching Farmers-FE brand) */
+  --color-primary: #7BAE3C;
+  --color-primary-dark: #6B9A34;
+  --color-primary-light: #A8D08D;
+  --color-secondary: #2F5D50;
+  --color-danger: #ef4444;
+  --color-warning: #F59E0B;
+  --color-text: #1F2937;
+  --color-text-light: #6b7280;
+  --color-bg: #ffffff;
+  --color-bg-dark: #111827;
+  --color-border: #e5e7eb;
+
+  /* Generated scales for primary (#7BAE3C) */
+  --primary-50: color-mix(in oklab, #7BAE3C 10%, white);
+  --primary-100: color-mix(in oklab, #7BAE3C 20%, white);
+  --primary-200: color-mix(in oklab, #7BAE3C 35%, white);
+  --primary-300: color-mix(in oklab, #7BAE3C 50%, white);
+  --primary-400: color-mix(in oklab, #7BAE3C 70%, white);
+  --primary-500: #7BAE3C;
+  --primary-600: color-mix(in oklab, #7BAE3C 85%, black);
+  --primary-700: color-mix(in oklab, #7BAE3C 72%, black);
+  --primary-800: color-mix(in oklab, #7BAE3C 58%, black);
+  --primary-900: color-mix(in oklab, #7BAE3C 44%, black);
+
+  /* Generated scales for secondary (#2F5D50) */
+  --secondary-50: color-mix(in oklab, #2F5D50 10%, white);
+  --secondary-100: color-mix(in oklab, #2F5D50 20%, white);
+  --secondary-200: color-mix(in oklab, #2F5D50 35%, white);
+  --secondary-300: color-mix(in oklab, #2F5D50 50%, white);
+  --secondary-400: color-mix(in oklab, #2F5D50 70%, white);
+  --secondary-500: #2F5D50;
+  --secondary-600: color-mix(in oklab, #2F5D50 85%, black);
+  --secondary-700: color-mix(in oklab, #2F5D50 72%, black);
+  --secondary-800: color-mix(in oklab, #2F5D50 58%, black);
+  --secondary-900: color-mix(in oklab, #2F5D50 44%, black);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* PWA Install prompt */
+.pwa-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-primary);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}

@@ -4,6 +4,8 @@ export type PlotCropType = 'ca-phe' | 'sau-rieng';
 
 export interface PlotResponse {
   id: string;
+  /** Gắn với nông dân — dùng lọc cascade lô theo nông dân */
+  farmerId: string;
   lotCode: string;
   plotName: string;
   farmerName: string;
@@ -17,8 +19,11 @@ export interface PlotResponse {
   progress: 'on-track' | 'attention';
   lat: number;
   lng: number;
+  isGisMarked?: boolean;
   updatedAt: string;
   polygon?: Array<[number, number]>;
+  /** Có dữ liệu GIS (tọa độ lat/lng) trong DB hay chưa */
+  hasGis?: boolean;
   id_suppervisor?: string | null;
   name_suppervisor?: string | null;
 }
@@ -52,6 +57,8 @@ export interface CreatePlotPayload {
 export interface UpdatePlotPayload {
   id_suppervisor?: string;
   name_suppervisor?: string;
+  lat?: number;
+  lng?: number;
 }
 
 export type { ApiSuccessResponse };

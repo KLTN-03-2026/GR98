@@ -9,6 +9,7 @@ import AdminOverviewPage from '@/pages/admin/overview';
 import AdminZonesPage from '@/pages/admin/zones';
 import AdminPlotsPage from '@/pages/admin/plots';
 import AdminContractsPage from '@/pages/admin/contracts';
+import AdminContractDetailPage from '@/pages/admin/contracts/detail.page';
 import AdminDailyReportsPage from '@/pages/admin/daily-reports';
 import AdminOrdersPage from '@/pages/admin/orders';
 import AdminAssignmentsPage from '@/pages/admin/assignments';
@@ -18,7 +19,9 @@ import AdminWarehousesPage from '@/pages/admin/warehouses';
 import SupervisorOverviewPage from '@/pages/supervisor/overview';
 import SupervisorFarmersPage from '@/pages/supervisor/farmers';
 import SupervisorPlotsPage from '@/pages/supervisor/plots';
+import SupervisorZonesPage from '@/pages/supervisor/zones';
 import SupervisorContractsPage from '@/pages/supervisor/contracts';
+import SupervisorContractWorkspacePage from '@/pages/supervisor/contracts/workspace.page';
 import SupervisorAIAnalysisPage from '@/pages/supervisor/ai-analysis';
 import SupervisorDailyReportsPage from '@/pages/supervisor/daily-reports';
 
@@ -187,6 +190,10 @@ const adminDashboard: RouteObject = {
       element: <AdminPlotsPage />,
     },
     {
+      path: 'contracts/:id',
+      element: <AdminContractDetailPage />,
+    },
+    {
       path: 'contracts',
       element: <AdminContractsPage />,
     },
@@ -262,6 +269,18 @@ const supervisorDashboard: RouteObject = {
     {
       path: 'plots',
       element: <SupervisorPlotsPage />,
+    },
+    {
+      path: 'zones',
+      element: <SupervisorZonesPage />,
+    },
+    {
+      path: 'contracts/new',
+      element: <SupervisorContractWorkspacePage />,
+    },
+    {
+      path: 'contracts/:id',
+      element: <SupervisorContractWorkspacePage />,
     },
     {
       path: 'contracts',

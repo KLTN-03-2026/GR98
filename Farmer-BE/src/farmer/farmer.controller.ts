@@ -36,7 +36,7 @@ export class FarmerController {
   constructor(private readonly farmerService: FarmerService) {}
 
   @Post()
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPERVISOR)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Tạo nông dân mới' })
   @ApiResponse({ status: 201, description: 'Tạo thành công' })
@@ -46,7 +46,7 @@ export class FarmerController {
   }
 
   @Get()
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPERVISOR)
   @ApiOperation({ summary: 'Danh sách nông dân (phân trang)' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 15 })
@@ -59,7 +59,7 @@ export class FarmerController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPERVISOR)
   @ApiOperation({ summary: 'Chi tiết nông dân' })
   @ApiResponse({ status: 200, description: 'Thông tin nông dân' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy' })
@@ -68,7 +68,7 @@ export class FarmerController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPERVISOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cập nhật nông dân' })
   @ApiResponse({ status: 200, description: 'Cập nhật thành công' })
@@ -81,7 +81,7 @@ export class FarmerController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPERVISOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Xóa nông dân' })
   @ApiResponse({ status: 200, description: 'Xóa thành công' })

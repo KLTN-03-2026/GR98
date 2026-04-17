@@ -25,11 +25,14 @@ export function usePlots(params?: {
   search?: string;
   cropType?: PlotCropType;
   id_suppervisor?: string;
+  enabled?: boolean;
 }) {
+  const { enabled = true, ...queryParams } = params ?? {};
   return useQuery({
-    queryKey: ['plots', params],
+    queryKey: ['plots', queryParams],
+    enabled,
     queryFn: async () => {
-      const response = await plotApi.list(params);
+      const response = await plotApi.list(queryParams);
       return extractData<PaginatedPlotsResponse>(response);
     },
     select: (data) => {
@@ -96,6 +99,23 @@ export function useUpdatePlot() {
     },
     onError: (error: { message?: string }) => {
       toast.error(error.message || 'Không cập nhật được lô đất');
+    },
+  });
+}
+
+export function useDeletePlot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await plotApi.remove(id);
+      return extractData<{ id: string; deletedAt: string }>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plots'] });
+      toast.success('Đã xóa lô đất');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không xóa được lô đất');
     },
   });
 }

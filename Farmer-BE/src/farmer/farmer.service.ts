@@ -5,36 +5,113 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { FarmerStatus, Prisma, Role } from '@prisma/client';
+import { FarmerStatus, Prisma, Role, UserStatus } from '@prisma/client';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFarmerDto } from './dto/create-farmer.dto';
 import { QueryFarmerDto } from './dto/query-farmer.dto';
 import { UpdateFarmerDto } from './dto/update-farmer.dto';
 
+type FarmerReadActor =
+  | { role: 'ADMIN'; adminId: string }
+  | { role: 'SUPERVISOR'; adminId: string; supervisorProfileId: string };
+
+type FarmerWriteActor =
+  | { role: 'ADMIN'; adminId: string }
+  | { role: 'SUPERVISOR'; adminId: string; supervisorProfileId: string };
+
 @Injectable()
 export class FarmerService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async resolveAdminId(currentUserId: string): Promise<string> {
-    const user = await this.prisma.user.findUnique({ where: { id: currentUserId } });
-    if (!user || user.role !== Role.ADMIN) {
-      throw new ForbiddenException('Bạn không có quyền quản lý nông dân');
-    }
-
-    const adminProfile = await this.prisma.adminProfile.findUnique({
-      where: { userId: currentUserId },
-      select: { id: true },
+  /** Ghi dữ liệu: ADMIN thao tác toàn tenant; SUPERVISOR chỉ thao tác nông dân của mình */
+  private async resolveFarmerWriteActor(
+    currentUserId: string,
+  ): Promise<FarmerWriteActor> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { id: true, role: true, status: true },
     });
 
-    if (!adminProfile) {
-      throw new ForbiddenException('Không xác định được hồ sơ Admin');
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      throw new ForbiddenException('Không xác định được người dùng hợp lệ');
     }
 
-    return adminProfile.id;
+    if (user.role === Role.ADMIN) {
+      const adminProfile = await this.prisma.adminProfile.findUnique({
+        where: { userId: currentUserId },
+        select: { id: true },
+      });
+      if (!adminProfile) {
+        throw new ForbiddenException('Không xác định được hồ sơ Admin');
+      }
+      return { role: 'ADMIN', adminId: adminProfile.id };
+    }
+
+    if (user.role === Role.SUPERVISOR) {
+      const supervisorProfile = await this.prisma.supervisorProfile.findUnique({
+        where: { userId: currentUserId },
+        select: { id: true, adminId: true },
+      });
+      if (!supervisorProfile?.adminId) {
+        throw new ForbiddenException('Không xác định được hồ sơ giám sát viên');
+      }
+      return {
+        role: 'SUPERVISOR',
+        adminId: supervisorProfile.adminId,
+        supervisorProfileId: supervisorProfile.id,
+      };
+    }
+
+    throw new ForbiddenException('Bạn không có quyền quản lý nông dân');
   }
 
-  private async ensureSupervisorInTenant(adminId: string, supervisorId?: string | null) {
+  /** Đọc danh sách / chi tiết: ADMIN toàn tenant; SUPERVISOR chỉ nông dân được gán cho mình. */
+  private async resolveFarmerReadActor(
+    currentUserId: string,
+  ): Promise<FarmerReadActor> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { id: true, role: true, status: true },
+    });
+
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      throw new ForbiddenException('Không xác định được người dùng hợp lệ');
+    }
+
+    if (user.role === Role.ADMIN) {
+      const adminProfile = await this.prisma.adminProfile.findUnique({
+        where: { userId: currentUserId },
+        select: { id: true },
+      });
+      if (!adminProfile) {
+        throw new ForbiddenException('Không xác định được hồ sơ Admin');
+      }
+      return { role: 'ADMIN', adminId: adminProfile.id };
+    }
+
+    if (user.role === Role.SUPERVISOR) {
+      const supervisorProfile = await this.prisma.supervisorProfile.findUnique({
+        where: { userId: currentUserId },
+        select: { id: true, adminId: true },
+      });
+      if (!supervisorProfile?.adminId) {
+        throw new ForbiddenException('Không xác định được hồ sơ giám sát viên');
+      }
+      return {
+        role: 'SUPERVISOR',
+        adminId: supervisorProfile.adminId,
+        supervisorProfileId: supervisorProfile.id,
+      };
+    }
+
+    throw new ForbiddenException('Bạn không có quyền xem danh sách nông dân');
+  }
+
+  private async ensureSupervisorInTenant(
+    adminId: string,
+    supervisorId?: string | null,
+  ) {
     if (supervisorId === undefined) {
       return undefined;
     }
@@ -59,11 +136,15 @@ export class FarmerService {
     });
 
     if (!supervisor) {
-      throw new NotFoundException('Giám sát viên không tồn tại trong đơn vị quản lý');
+      throw new NotFoundException(
+        'Giám sát viên không tồn tại trong đơn vị quản lý',
+      );
     }
 
     if (supervisor.user.status !== 'ACTIVE') {
-      throw new BadRequestException('Giám sát viên không ở trạng thái hoạt động');
+      throw new BadRequestException(
+        'Giám sát viên không ở trạng thái hoạt động',
+      );
     }
 
     return supervisor.id;
@@ -76,6 +157,8 @@ export class FarmerService {
     phone: string;
     cccd: string;
     bankAccount: string | null;
+    bankName: string | null;
+    bankBranch: string | null;
     address: string | null;
     province: string | null;
     status: FarmerStatus;
@@ -102,6 +185,8 @@ export class FarmerService {
       phone: item.phone,
       cccd: item.cccd,
       bankAccount: item.bankAccount,
+      bankName: item.bankName,
+      bankBranch: item.bankBranch,
       address: item.address,
       province: item.province,
       status: item.status,
@@ -113,7 +198,8 @@ export class FarmerService {
   }
 
   async create(dto: CreateFarmerDto, currentUserId: string) {
-    const adminId = await this.resolveAdminId(currentUserId);
+    const actor = await this.resolveFarmerWriteActor(currentUserId);
+    const adminId = actor.adminId;
 
     const normalizedPhone = dto.phone.trim();
     const normalizedCccd = dto.cccd.trim();
@@ -134,13 +220,15 @@ export class FarmerService {
       select: { id: true },
     });
     if (duplicatePhone) {
-      throw new ConflictException('Số điện thoại đã tồn tại trong đơn vị quản lý');
+      throw new ConflictException(
+        'Số điện thoại đã tồn tại trong đơn vị quản lý',
+      );
     }
 
-    const supervisorId = await this.ensureSupervisorInTenant(
-      adminId,
-      dto.supervisorId,
-    );
+    const supervisorId =
+      actor.role === 'SUPERVISOR'
+        ? actor.supervisorProfileId
+        : await this.ensureSupervisorInTenant(adminId, dto.supervisorId);
 
     const created = await this.prisma.farmer.create({
       data: {
@@ -149,6 +237,8 @@ export class FarmerService {
         phone: normalizedPhone,
         cccd: normalizedCccd,
         bankAccount: dto.bankAccount?.trim() || null,
+        bankName: dto.bankName?.trim() || null,
+        bankBranch: dto.bankBranch?.trim() || null,
         address: dto.address?.trim() || null,
         province: dto.province?.trim() || null,
         status: dto.status ?? FarmerStatus.ACTIVE,
@@ -161,12 +251,17 @@ export class FarmerService {
   }
 
   async findAll(query: QueryFarmerDto, currentUserId: string) {
-    const adminId = await this.resolveAdminId(currentUserId);
+    const actor = await this.resolveFarmerReadActor(currentUserId);
+    const adminId = actor.adminId;
 
     const where: Prisma.FarmerWhereInput = {
       adminId,
       ...(query.status ? { status: query.status } : {}),
-      ...(query.supervisorId ? { supervisorId: query.supervisorId } : {}),
+      ...(actor.role === 'SUPERVISOR'
+        ? { supervisorId: actor.supervisorProfileId }
+        : query.supervisorId
+          ? { supervisorId: query.supervisorId }
+          : {}),
       ...(query.province?.trim()
         ? {
             province: {
@@ -208,6 +303,8 @@ export class FarmerService {
           phone: true,
           cccd: true,
           bankAccount: true,
+          bankName: true,
+          bankBranch: true,
           address: true,
           province: true,
           status: true,
@@ -242,12 +339,16 @@ export class FarmerService {
   }
 
   async findOne(id: string, currentUserId: string) {
-    const adminId = await this.resolveAdminId(currentUserId);
+    const actor = await this.resolveFarmerReadActor(currentUserId);
+    const adminId = actor.adminId;
 
     const item = await this.prisma.farmer.findFirst({
       where: {
         id,
         adminId,
+        ...(actor.role === 'SUPERVISOR'
+          ? { supervisorId: actor.supervisorProfileId }
+          : {}),
       },
       select: {
         id: true,
@@ -256,6 +357,8 @@ export class FarmerService {
         phone: true,
         cccd: true,
         bankAccount: true,
+        bankName: true,
+        bankBranch: true,
         address: true,
         province: true,
         status: true,
@@ -284,17 +387,26 @@ export class FarmerService {
     });
 
     if (!item) {
-      throw new NotFoundException('Nông dân không tồn tại hoặc bạn không có quyền truy cập');
+      throw new NotFoundException(
+        'Nông dân không tồn tại hoặc bạn không có quyền truy cập',
+      );
     }
 
     return this.mapFarmer(item);
   }
 
   async update(id: string, dto: UpdateFarmerDto, currentUserId: string) {
-    const adminId = await this.resolveAdminId(currentUserId);
+    const actor = await this.resolveFarmerWriteActor(currentUserId);
+    const adminId = actor.adminId;
 
     const existing = await this.prisma.farmer.findFirst({
-      where: { id, adminId },
+      where: {
+        id,
+        adminId,
+        ...(actor.role === 'SUPERVISOR'
+          ? { supervisorId: actor.supervisorProfileId }
+          : {}),
+      },
       select: {
         id: true,
         phone: true,
@@ -303,7 +415,9 @@ export class FarmerService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Nông dân không tồn tại hoặc bạn không có quyền cập nhật');
+      throw new NotFoundException(
+        'Nông dân không tồn tại hoặc bạn không có quyền cập nhật',
+      );
     }
 
     const normalizedCccd = dto.cccd?.trim();
@@ -328,7 +442,9 @@ export class FarmerService {
         select: { id: true },
       });
       if (duplicatePhone) {
-        throw new ConflictException('Số điện thoại đã tồn tại trong đơn vị quản lý');
+        throw new ConflictException(
+          'Số điện thoại đã tồn tại trong đơn vị quản lý',
+        );
       }
     }
 
@@ -336,16 +452,38 @@ export class FarmerService {
     if (dto.fullName !== undefined) updateData.fullName = dto.fullName.trim();
     if (dto.phone !== undefined) updateData.phone = dto.phone.trim();
     if (dto.cccd !== undefined) updateData.cccd = dto.cccd.trim();
-    if (dto.bankAccount !== undefined) updateData.bankAccount = dto.bankAccount?.trim() || null;
-    if (dto.address !== undefined) updateData.address = dto.address?.trim() || null;
-    if (dto.province !== undefined) updateData.province = dto.province?.trim() || null;
+    if (dto.bankAccount !== undefined)
+      updateData.bankAccount = dto.bankAccount?.trim() || null;
+    if (dto.bankName !== undefined)
+      updateData.bankName = dto.bankName?.trim() || null;
+    if (dto.bankBranch !== undefined)
+      updateData.bankBranch = dto.bankBranch?.trim() || null;
+    if (dto.address !== undefined)
+      updateData.address = dto.address?.trim() || null;
+    if (dto.province !== undefined)
+      updateData.province = dto.province?.trim() || null;
     if (dto.status !== undefined) updateData.status = dto.status;
 
     if (dto.supervisorId !== undefined) {
-      const supervisorId = await this.ensureSupervisorInTenant(adminId, dto.supervisorId);
-      updateData.supervisor = supervisorId
-        ? { connect: { id: supervisorId } }
-        : { disconnect: true };
+      if (actor.role === 'SUPERVISOR') {
+        if (
+          dto.supervisorId &&
+          dto.supervisorId !== actor.supervisorProfileId
+        ) {
+          throw new ForbiddenException(
+            'Bạn không thể chuyển nông dân sang giám sát viên khác',
+          );
+        }
+        updateData.supervisor = { connect: { id: actor.supervisorProfileId } };
+      } else {
+        const supervisorId = await this.ensureSupervisorInTenant(
+          adminId,
+          dto.supervisorId,
+        );
+        updateData.supervisor = supervisorId
+          ? { connect: { id: supervisorId } }
+          : { disconnect: true };
+      }
     }
 
     await this.prisma.farmer.update({
@@ -357,10 +495,17 @@ export class FarmerService {
   }
 
   async remove(id: string, currentUserId: string) {
-    const adminId = await this.resolveAdminId(currentUserId);
+    const actor = await this.resolveFarmerWriteActor(currentUserId);
+    const adminId = actor.adminId;
 
     const existing = await this.prisma.farmer.findFirst({
-      where: { id, adminId },
+      where: {
+        id,
+        adminId,
+        ...(actor.role === 'SUPERVISOR'
+          ? { supervisorId: actor.supervisorProfileId }
+          : {}),
+      },
       select: {
         id: true,
         _count: {
@@ -373,11 +518,15 @@ export class FarmerService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Nông dân không tồn tại hoặc bạn không có quyền xóa');
+      throw new NotFoundException(
+        'Nông dân không tồn tại hoặc bạn không có quyền xóa',
+      );
     }
 
     if (existing._count.plots > 0 || existing._count.contracts > 0) {
-      throw new BadRequestException('Không thể xóa nông dân đã phát sinh lô đất hoặc hợp đồng');
+      throw new BadRequestException(
+        'Không thể xóa nông dân đã phát sinh lô đất hoặc hợp đồng',
+      );
     }
 
     await this.prisma.farmer.delete({ where: { id } });

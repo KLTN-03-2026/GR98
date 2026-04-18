@@ -34,6 +34,11 @@ export class UpdateContractDto {
 
   @IsOptional()
   @IsString()
+  plotDraftCoordinatesText?: string;
+
+
+  @IsOptional()
+  @IsString()
   cropType?: string;
 
   @IsOptional()

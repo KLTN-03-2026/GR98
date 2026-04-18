@@ -47,6 +47,35 @@ const getCropBadgeClass = (crop: CropType) =>
     ? "border-amber-300 bg-amber-50 text-amber-800"
     : "border-lime-300 bg-lime-50 text-lime-800";
 
+/** Parse plotDraftCoordinatesText thành mảng tọa độ [[lat,lng], ...] */
+const parseContractCoords = (text?: string | null): Array<[number, number]> => {
+  if (!text?.trim()) return [];
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  const pairs: Array<[number, number]> = [];
+  // Try "lat,lng" per line
+  let allPairs = true;
+  for (const line of lines) {
+    const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng)) { pairs.push([lat, lng]); continue; }
+    }
+    allPairs = false;
+    break;
+  }
+  if (allPairs && pairs.length > 0) return pairs;
+  // Fallback: flat format
+  pairs.length = 0;
+  const nums = text.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const lat = parseFloat(nums[i]);
+    const lng = parseFloat(nums[i + 1]);
+    if (!isNaN(lat) && !isNaN(lng)) pairs.push([lat, lng]);
+  }
+  return pairs;
+};
+
 export default function SupervisorPlotsPage() {
   const navigate = useNavigate();
   const { data: me } = useMe();
@@ -337,7 +366,13 @@ export default function SupervisorPlotsPage() {
                       onClick={(event) => {
                         if (hasGis) return;
                         event.stopPropagation();
-                        navigate(`/supervisor/zones?plotId=${encodeURIComponent(plot.id)}`);
+                        const coords = parseContractCoords(plot.plotDraftCoordinatesText);
+                        navigate(
+                          `/supervisor/zones?plotId=${encodeURIComponent(plot.id)}`,
+                          coords.length >= 3
+                            ? { state: { coordinates: coords, contractNo: plot.contractId } }
+                            : undefined,
+                        );
                       }}
                     >
                       {hasGis ? "Sửa bản đồ" : "Thêm vào bản đồ"}
@@ -625,6 +660,61 @@ export default function SupervisorPlotsPage() {
                 </p>
               </div>
             </div>
+
+            {editingPlot?.plotDraftCoordinatesText && (() => {
+              const coords = parseContractCoords(editingPlot.plotDraftCoordinatesText);
+              if (coords.length === 0) return null;
+              return (
+                <div className="rounded-xl border bg-card p-4 shadow-xs">
+                  <p className="mb-3 text-sm font-semibold text-foreground">
+                    Tọa độ lô đất ({coords.length} điểm)
+                  </p>
+                  <div className="max-h-48 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b text-muted-foreground">
+                          <th className="pb-2 text-left font-medium">Điểm</th>
+                          <th className="pb-2 text-right font-medium">Vĩ độ (lat)</th>
+                          <th className="pb-2 text-right font-medium">Kinh độ (lng)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {coords.map(([lat, lng], i) => (
+                          <tr key={i} className="border-b border-dashed last:border-0">
+                            <td className="py-1.5 font-medium text-emerald-700">{i + 1}</td>
+                            <td className="py-1.5 text-right tabular-nums">{lat.toFixed(6)}</td>
+                            <td className="py-1.5 text-right tabular-nums">{lng.toFixed(6)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {editingPlot?.plotDraftCoordinatesText && (() => {
+              const coords = parseContractCoords(editingPlot.plotDraftCoordinatesText);
+              if (coords.length < 3) return null;
+              return (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  onClick={() => {
+                    navigate(`/supervisor/zones?plotId=${encodeURIComponent(editingPlot.id)}`, {
+                      state: {
+                        coordinates: coords,
+                        contractNo: editingPlot.contractId,
+                      },
+                    });
+                  }}
+                >
+                  <MapPin className="h-4 w-4" />
+                  Xem lô đất trên bản đồ
+                </Button>
+              );
+            })()}
 
             <p className="text-xs text-muted-foreground">
               Hiển thị {plots.length} / {total} lô đất trong phạm vi bạn phụ trách.

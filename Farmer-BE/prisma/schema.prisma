@@ -434,6 +434,8 @@ model Contract {
   plotDraftProvince String?
   plotDraftDistrict String?
   plotDraftAreaHa   Float?
+  plotDraftCoordinatesText String?
+
 
   createdAt    DateTime       @default(now())
 

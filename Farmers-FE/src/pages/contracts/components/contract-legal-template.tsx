@@ -62,10 +62,34 @@ export function ContractLegalTemplate({ vm }: Props) {
             <strong>Điện thoại:</strong> {vm.farmerPhone}
           </li>
           <li>
+            <strong>Địa chỉ liên hệ:</strong> {vm.farmerAddress} · {vm.farmerProvince}
+          </li>
+          <li>
+            <strong>Ngân hàng:</strong> {vm.farmerBankName} - {vm.farmerBankBranch} - {vm.farmerBankAccount}
+          </li>
+          <li>
             <strong>Mã lô:</strong> {vm.plotCode}
           </li>
           <li>
             <strong>Khu vực lô đất dự thảo:</strong> {vm.plotDraftDistrict}, {vm.plotDraftProvince}
+          </li>
+          <li className="pl-0">
+            <strong>Tọa độ lô đất:</strong>
+            {vm.plotDraftCoordinatesText ? (
+              <div className="mt-1 flex flex-col gap-0.5 pl-4">
+                {vm.plotDraftCoordinatesText.split('\n').map((line, i) => {
+                  const [lat, lng] = line.split(',');
+                  return (
+                    <span key={i}>
+                      <strong className="font-semibold text-black">Điểm {i + 1}:</strong>{' '}
+                      {lat?.trim()}, {lng?.trim()}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <span className="ml-1 text-muted-foreground">Chưa có tọa độ</span>
+            )}
           </li>
           <li>
             <strong>Diện tích chuẩn kê khai:</strong> {vm.plotDraftAreaHa} (xấp xỉ {vm.areaM2} m²)

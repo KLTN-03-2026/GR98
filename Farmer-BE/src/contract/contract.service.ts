@@ -135,16 +135,33 @@ export class ContractService {
 
   private normalizeCoordinatesText(value?: string | null) {
     if (value === undefined || value === null) return null;
-    const lines = value
-      .split(/\r?\n|,/)
-      .map((item) => item.trim())
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    // Split by newline to get each coordinate pair line (format: "lat,lng")
+    const rawLines = trimmed
+      .split(/\r?\n/)
+      .map((line) => line.trim())
       .filter(Boolean);
-    if (!lines.length) return null;
-    const invalid = lines.find((item) => Number.isNaN(Number(item)));
-    if (invalid) {
-      throw new BadRequestException('Tọa độ phải là danh sách số hợp lệ');
+
+    if (!rawLines.length) return null;
+
+    const normalizedLines: string[] = [];
+    for (const line of rawLines) {
+      const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
+      if (parts.length !== 2) {
+        throw new BadRequestException(
+          'Mỗi dòng tọa độ phải có đúng 2 giá trị (vĩ độ, kinh độ), cách nhau bởi dấu phẩy',
+        );
+      }
+      const [latStr, lngStr] = parts;
+      if (Number.isNaN(Number(latStr)) || Number.isNaN(Number(lngStr))) {
+        throw new BadRequestException('Tọa độ phải là danh sách số hợp lệ');
+      }
+      normalizedLines.push(`${latStr},${lngStr}`);
     }
-    return lines.join('\n');
+
+    return normalizedLines.join('\n');
   }
 
 

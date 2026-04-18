@@ -8,6 +8,31 @@ type CoordinatePair = { lat: string; lng: string };
 /** Parse chuỗi coordinates thành mảng cặp lat/lng — hỗ trợ nhiều format lưu trữ */
 function parseCoordinatePairs(value?: string | null): CoordinatePair[] {
   if (!value?.trim()) return [];
+
+  const lines = value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  // Try parsing as "lat,lng" pairs per line first (correct format)
+  const pairsFromLines: CoordinatePair[] = [];
+  let allLinesArePairs = true;
+  for (const line of lines) {
+    const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        pairsFromLines.push({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+        continue;
+      }
+    }
+    allLinesArePairs = false;
+    break;
+  }
+  if (allLinesArePairs && pairsFromLines.length > 0) return pairsFromLines;
+
+  // Fallback: flat number list (backward compatibility with old data)
   const nums = value
     .split(/[\n,]/)
     .map((item) => item.trim())

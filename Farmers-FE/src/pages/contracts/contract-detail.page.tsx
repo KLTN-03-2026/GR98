@@ -52,6 +52,31 @@ function formatDate(value?: string | null) {
 
 function parseCoordinatePairs(value?: string | null): Array<{ lat: string; lng: string }> {
   if (!value?.trim()) return [];
+
+  const lines = value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  // Try parsing as "lat,lng" pairs per line first (correct format)
+  const pairsFromLines: Array<{ lat: string; lng: string }> = [];
+  let allLinesArePairs = true;
+  for (const line of lines) {
+    const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        pairsFromLines.push({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+        continue;
+      }
+    }
+    allLinesArePairs = false;
+    break;
+  }
+  if (allLinesArePairs && pairsFromLines.length > 0) return pairsFromLines;
+
+  // Fallback: flat number list (backward compatibility with old data)
   const nums = value
     .split(/[\n,]/)
     .map((item) => item.trim())
@@ -70,6 +95,31 @@ function parseCoordinatePairs(value?: string | null): Array<{ lat: string; lng: 
 
 function parseContractCoordinates(value?: string | null): Array<[number, number]> {
   if (!value?.trim()) return [];
+
+  const lines = value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  // Try parsing as "lat,lng" pairs per line first (correct format)
+  const pairsFromLines: Array<[number, number]> = [];
+  let allLinesArePairs = true;
+  for (const line of lines) {
+    const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        pairsFromLines.push([lat, lng]);
+        continue;
+      }
+    }
+    allLinesArePairs = false;
+    break;
+  }
+  if (allLinesArePairs && pairsFromLines.length > 0) return pairsFromLines;
+
+  // Fallback: flat number list (backward compatibility with old data)
   const nums = value
     .split(/[\n,]/)
     .map((item) => item.trim())
@@ -176,12 +226,32 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
       .split('\n')
       .map((item) => item.trim())
       .filter(Boolean);
-    const pairs: Array<[string, string]> = rawCoords.length
-      ? rawCoords.map((line) => {
+
+    let pairs: Array<[string, string]>;
+    if (!rawCoords.length) {
+      pairs = [['', '']];
+    } else {
+      // Check if data is in correct "lat,lng" format (each line has a comma)
+      const allLinesHavePairs = rawCoords.every((line) => {
+        const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
+        return parts.length === 2;
+      });
+
+      if (allLinesHavePairs) {
+        // Correct format: "lat,lng" per line
+        pairs = rawCoords.map((line) => {
           const parts = line.split(',');
           return [parts[0]?.trim() ?? '', parts[1]?.trim() ?? ''] as [string, string];
-        })
-      : [['', '']];
+        });
+      } else {
+        // Fallback: flat format (one number per line, legacy corrupted data)
+        pairs = [];
+        for (let i = 0; i + 1 < rawCoords.length; i += 2) {
+          pairs.push([rawCoords[i], rawCoords[i + 1]]);
+        }
+        if (pairs.length === 0) pairs = [['', '']];
+      }
+    }
     setDraftForm({
       plotDraftProvince: contract.plotDraftProvince ?? '',
       plotDraftDistrict: contract.plotDraftDistrict ?? '',

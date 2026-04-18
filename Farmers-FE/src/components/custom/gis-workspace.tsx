@@ -267,12 +267,29 @@ export default function GISWorkspace({
     previewPolygonRef.current = null;
   };
 
+  // Sắp xếp tọa độ theo góc quanh tâm — dùng cho parcel hình lồi (ruộng/lđất thông thường)
+  // Đảm bảo polygon không tự cắt nhau khi points đến không đúng thứ tự hình học
+  const sortCoordsByAngle = (coords: [number, number][]): [number, number][] => {
+    if (coords.length < 3) return coords;
+    const cx = coords.reduce((s, p) => s + p[0], 0) / coords.length;
+    const cy = coords.reduce((s, p) => s + p[1], 0) / coords.length;
+    return [...coords].sort((a, b) => {
+      const angleA = Math.atan2(a[1] - cy, a[0] - cx);
+      const angleB = Math.atan2(b[1] - cy, b[0] - cx);
+      return angleA - angleB;
+    });
+  };
+
   const drawContractPolygon = useCallback(() => {
     const map = mapRef.current;
     if (!map || !initialCoordinates) return;
 
-    const coords = isValidPolygon(initialCoordinates) ? initialCoordinates : [];
-    if (coords.length < 3) return;
+    const rawCoords = isValidPolygon(initialCoordinates) ? initialCoordinates : [];
+    if (rawCoords.length < 3) return;
+
+    // Loại bỏ duplicate closing point nếu có, rồi sắp xếp theo góc
+    const noClose = rawCoords.filter((_, i) => i < rawCoords.length - 1 || rawCoords.length < 3 || JSON.stringify(rawCoords[0]) !== JSON.stringify(rawCoords[rawCoords.length - 1]));
+    const coords = sortCoordsByAngle(noClose);
 
     if (contractPolygonRef.current) {
       map.removeLayer(contractPolygonRef.current);
@@ -924,6 +941,18 @@ export default function GISWorkspace({
     satelliteLayerRef.current = satelliteLayer;
     mapRef.current = map;
 
+    // Sắp xếp tọa độ theo góc quanh tâm — tránh polygon tự cắt khi points không đúng thứ tự
+    const sortByAngle = (pts: [number, number][]): [number, number][] => {
+      if (pts.length < 3) return pts;
+      const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+      const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      return [...pts].sort((a, b) => {
+        const angleA = Math.atan2(a[1] - cy, a[0] - cx);
+        const angleB = Math.atan2(b[1] - cy, b[0] - cx);
+        return angleA - angleB;
+      });
+    };
+
     const toAreaText = (layer: L.Layer) => {
       if (!(layer instanceof L.Polygon)) {
         setPolygonAreaHa(null);
@@ -939,13 +968,21 @@ export default function GISWorkspace({
         return "Polygon đã tạo.";
       }
 
-      setPolygonCoords(
-        firstRing.map((point) => [
-          Number(point.lat.toFixed(6)),
-          Number(point.lng.toFixed(6)),
-        ]),
-      );
+      // Đọc points, loại bỏ duplicate closing point nếu có, rồi sắp xếp theo góc
+      const rawPts = firstRing.map((point) => [
+        Number(point.lat.toFixed(6)),
+        Number(point.lng.toFixed(6)),
+      ] as [number, number]);
+      const noClose =
+        rawPts.length >= 3 &&
+        JSON.stringify(rawPts[0]) === JSON.stringify(rawPts[rawPts.length - 1])
+          ? rawPts.slice(0, -1)
+          : rawPts;
+      const sortedPts = sortByAngle(noClose);
 
+      setPolygonCoords(sortedPts);
+
+      // Tính diện tích từ firstRing gốc (Leaflet Draw luôn order đúng)
       const area = L.GeometryUtil.geodesicArea(firstRing);
       const hectares = area / 10000;
       setPolygonAreaHa(hectares);

@@ -187,6 +187,7 @@ export default function GISWorkspace({
   const searchMarkerRef = useRef<L.Marker | null>(null);
   const streetLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
+  const zoneLayersRef = useRef<L.LayerGroup | null>(null);
 
   const readLocalPolygons = () => {
     try {
@@ -476,13 +477,21 @@ export default function GISWorkspace({
       setIsSaving(true);
       try {
         const createdPolygon = isValidPolygon(polygonCoords) ? polygonCoords : [];
+        // Use polygon centroid if available, otherwise map center
+        let payloadLat = mapCenter.lat;
+        let payloadLng = mapCenter.lng;
+        if (createdPolygon.length >= 3) {
+          const centroid = polygonCenter(createdPolygon);
+          payloadLat = centroid[0];
+          payloadLng = centroid[1];
+        }
         const response = await plotApi.create({
           plotName: "GIS-POINT",
           cropType: "ca-phe",
           areaHa: 0.01,
           contractId,
-          lat: mapCenter.lat,
-          lng: mapCenter.lng,
+          lat: payloadLat,
+          lng: payloadLng,
         });
 
         const created = {
@@ -741,17 +750,113 @@ export default function GISWorkspace({
     const targetLot = lots.find((lot) => lot.id === initialPlotId);
     if (!targetLot) return;
     focusLot(targetLot);
-  }, [initialPlotId, lots, focusLot]);
 
-  useEffect(() => {
-    if (!initialCoordinates || !mapRef.current) return;
+    // Determine coordinates: prefer navigation state, fallback to plot data
+    let coordsToUse = initialCoordinates;
+    let contractNoToUse = initialContractNo;
 
-    const timer = setTimeout(() => {
-      drawContractPolygon();
-    }, 100);
+    if (!coordsToUse || !isValidPolygon(coordsToUse)) {
+      // Parse from plotDraftCoordinatesText on the loaded plot data
+      const text = (targetLot as { plotDraftCoordinatesText?: string | null }).plotDraftCoordinatesText;
+      if (text?.trim()) {
+        const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean);
+        const parsed: Array<[number, number]> = [];
+        let allPairs = true;
+        for (const line of lines) {
+          const parts = line.split(',').map((p: string) => p.trim()).filter(Boolean);
+          if (parts.length === 2) {
+            const lat = parseFloat(parts[0]);
+            const lng = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lng)) { parsed.push([lat, lng]); continue; }
+          }
+          allPairs = false;
+          break;
+        }
+        if (!allPairs || parsed.length === 0) {
+          parsed.length = 0;
+          const nums = text.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean);
+          for (let i = 0; i + 1 < nums.length; i += 2) {
+            const lat = parseFloat(nums[i]);
+            const lng = parseFloat(nums[i + 1]);
+            if (!isNaN(lat) && !isNaN(lng)) parsed.push([lat, lng]);
+          }
+        }
+        if (parsed.length >= 3) {
+          coordsToUse = parsed;
+        }
+      }
+    }
 
-    return () => clearTimeout(timer);
-  }, [initialCoordinates, initialContractNo, drawContractPolygon]);
+    if (!contractNoToUse) {
+      contractNoToUse = targetLot.contractId || null;
+    }
+
+    // Auto-render polygon and open sheet if coordinates available
+    if (coordsToUse && isValidPolygon(coordsToUse) && mapRef.current) {
+      const map = mapRef.current;
+      const sorted = sortCoordsByAngle(coordsToUse);
+
+      // Draw polygon on map
+      if (contractPolygonRef.current) {
+        map.removeLayer(contractPolygonRef.current);
+        contractPolygonRef.current = null;
+      }
+      if (contractMarkersRef.current) {
+        contractMarkersRef.current.clearLayers();
+      }
+
+      const polygonLayer = L.polygon(sorted, {
+        color: "#dc2626",
+        weight: 3,
+        fillColor: "#ef4444",
+        fillOpacity: 0.25,
+      }).addTo(map);
+      contractPolygonRef.current = polygonLayer;
+
+      if (!contractMarkersRef.current) {
+        contractMarkersRef.current = L.layerGroup().addTo(map);
+      }
+      sorted.forEach(([lat, lng], index) => {
+        L.circleMarker([lat, lng], {
+          radius: 8,
+          color: "#dc2626",
+          fillColor: "#fca5a5",
+          fillOpacity: 0.9,
+          weight: 2,
+        })
+          .bindTooltip(`Điểm ${index + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, {
+            direction: "top",
+            offset: [0, -8],
+          })
+          .addTo(contractMarkersRef.current!);
+      });
+
+      map.fitBounds(polygonLayer.getBounds().pad(0.3), {
+        animate: true,
+        duration: 0.5,
+        maxZoom: 16,
+      });
+
+      // Fill form data
+      setPolygonCoords(sorted);
+      const latLngs = sorted.map(([lat, lng]) => L.latLng(lat, lng));
+      const area = L.GeometryUtil.geodesicArea(latLngs);
+      setPolygonAreaHa(area / 10000);
+      setPolygonMeta(`Polygon: ${area.toFixed(0)} m² (${(area / 10000).toFixed(2)} ha)`);
+
+      if (contractNoToUse) {
+        setSheet((prev) => ({ ...prev, contractId: contractNoToUse! }));
+      }
+
+      setPreviewFromContract({
+        coords: sorted,
+        contractNo: contractNoToUse || "Hợp đồng",
+      });
+
+      // Delay opening sheet to allow map render
+      setTimeout(() => setSheetOpen(true), 400);
+    }
+  }, [initialPlotId, lots, focusLot, initialCoordinates, initialContractNo]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -1060,6 +1165,10 @@ export default function GISWorkspace({
       previewPolygonRef.current = null;
       contractPolygonRef.current = null;
       contractMarkersRef.current = null;
+      if (zoneLayersRef.current) {
+        zoneLayersRef.current.clearLayers();
+        zoneLayersRef.current = null;
+      }
     };
   }, []);
 
@@ -1150,6 +1259,13 @@ export default function GISWorkspace({
 
     markerLayer.clearLayers();
 
+    // Clear previous zone polygon layers
+    if (zoneLayersRef.current) {
+      zoneLayersRef.current.clearLayers();
+    } else {
+      zoneLayersRef.current = L.layerGroup().addTo(map);
+    }
+
     filteredLotsForMap
       .filter((lot) => {
         const hasPolygon = isValidPolygon(lot.polygon);
@@ -1169,6 +1285,47 @@ export default function GISWorkspace({
         const cropIcon = isDurian ? "D" : "C";
         const cropLabel = isDurian ? "Sầu riêng" : "Cà phê";
 
+        // Render polygon zone if plot has polygon data (>= 3 points)
+        if (hasPolygon) {
+          const sortedCoords = sortCoordsByAngle(
+            lot.polygon as Array<[number, number]>,
+          );
+
+          // Polygon fill zone
+          const zonePolygon = L.polygon(sortedCoords, {
+            color: "#dc2626",
+            weight: 2.5,
+            fillColor: "#ef4444",
+            fillOpacity: 0.15,
+            dashArray: isSelected ? undefined : "6 4",
+          });
+          zonePolygon
+            .on("click", (event: L.LeafletMouseEvent) => {
+              L.DomEvent.stopPropagation(event);
+              focusLot(lot);
+              showOnlyPolygon(lot);
+              setSheetOpen(true);
+            })
+            .addTo(zoneLayersRef.current!);
+
+          // Circle markers at each vertex
+          sortedCoords.forEach(([lat, lng], idx) => {
+            L.circleMarker([lat, lng], {
+              radius: 7,
+              color: "#dc2626",
+              fillColor: "#fca5a5",
+              fillOpacity: 0.9,
+              weight: 2,
+            })
+              .bindTooltip(
+                `Điểm ${idx + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                { direction: "top", offset: [0, -8] },
+              )
+              .addTo(zoneLayersRef.current!);
+          });
+        }
+
+        // Crop icon marker at centroid
         const icon = L.divIcon({
           className: "",
           iconSize: [34, 34],
@@ -1632,10 +1789,38 @@ export default function GISWorkspace({
               </div>
             </div>
 
-            {roleLabel === "SUPERVISOR" && (
+            {roleLabel === "SUPERVISOR" && !isValidPolygon(polygonCoords) && (
               <p className="text-xs text-muted-foreground">
                 Supervisor chỉ cần nhập mã hợp đồng hợp lệ để gán point trên GIS.
               </p>
+            )}
+
+            {isValidPolygon(polygonCoords) && (
+              <div className="rounded-xl border border-red-100 bg-red-50/60 p-3">
+                <p className="mb-2 text-sm font-semibold text-red-800">
+                  Tọa độ lô đất ({polygonCoords.length} điểm)
+                </p>
+                <div className="max-h-40 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="pb-1.5 text-left font-medium">Điểm</th>
+                        <th className="pb-1.5 text-right font-medium">Vĩ độ</th>
+                        <th className="pb-1.5 text-right font-medium">Kinh độ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {polygonCoords.map(([lat, lng], i) => (
+                        <tr key={i} className="border-b border-dashed last:border-0">
+                          <td className="py-1 font-medium text-red-700">{i + 1}</td>
+                          <td className="py-1 text-right tabular-nums">{lat.toFixed(6)}</td>
+                          <td className="py-1 text-right tabular-nums">{lng.toFixed(6)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
           </div>
 

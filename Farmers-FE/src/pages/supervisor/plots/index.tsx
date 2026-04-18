@@ -693,6 +693,29 @@ export default function SupervisorPlotsPage() {
               );
             })()}
 
+            {editingPlot?.plotDraftCoordinatesText && (() => {
+              const coords = parseContractCoords(editingPlot.plotDraftCoordinatesText);
+              if (coords.length < 3) return null;
+              return (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  onClick={() => {
+                    navigate(`/supervisor/zones?plotId=${encodeURIComponent(editingPlot.id)}`, {
+                      state: {
+                        coordinates: coords,
+                        contractNo: editingPlot.contractId,
+                      },
+                    });
+                  }}
+                >
+                  <MapPin className="h-4 w-4" />
+                  Xem lô đất trên bản đồ
+                </Button>
+              );
+            })()}
+
             <p className="text-xs text-muted-foreground">
               Hiển thị {plots.length} / {total} lô đất trong phạm vi bạn phụ trách.
             </p>

@@ -188,6 +188,7 @@ export default function GISWorkspace({
   const streetLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
   const zoneLayersRef = useRef<L.LayerGroup | null>(null);
+  const hasAutoRenderedRef = useRef(false);
 
   const readLocalPolygons = () => {
     try {
@@ -747,8 +748,10 @@ export default function GISWorkspace({
 
   useEffect(() => {
     if (!initialPlotId) return;
+    if (hasAutoRenderedRef.current) return;
     const targetLot = lots.find((lot) => lot.id === initialPlotId);
     if (!targetLot) return;
+    hasAutoRenderedRef.current = true;
     focusLot(targetLot);
 
     // Determine coordinates: prefer navigation state, fallback to plot data
@@ -1712,9 +1715,18 @@ export default function GISWorkspace({
         >
           <SheetHeader className="border-b pb-4">
             <SheetTitle>Sheet quản lý lô đất</SheetTitle>
-            <SheetDescription>
-              Tự mở khi vẽ polygon. Dữ liệu bám theo vị trí hiện tại của bản đồ.
-            </SheetDescription>
+            <SheetDescription className="sr-only">Thông tin chi tiết lô đất</SheetDescription>
+
+            {roleLabel === "SUPERVISOR" && (
+              <Button
+                className="mt-2 w-full bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => void handleCreatePlot()}
+                disabled={isSaving}
+              >
+                <Sprout className="mr-2 h-4 w-4" />
+                {isSaving ? "Đang lưu..." : "Gán point theo mã hợp đồng"}
+              </Button>
+            )}
           </SheetHeader>
 
           <div className="space-y-4 p-4">
@@ -1885,20 +1897,18 @@ export default function GISWorkspace({
             )}
           </div>
 
-          <SheetFooter>
-            <Button
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => void handleCreatePlot()}
-              disabled={isSaving}
-            >
-              <Sprout className="mr-2 h-4 w-4" />
-              {isSaving
-                ? "Đang lưu..."
-                : roleLabel === "SUPERVISOR"
-                  ? "Gán point theo mã hợp đồng"
-                  : "Lưu cập nhật vào luồng GIS"}
-            </Button>
-          </SheetFooter>
+          {roleLabel !== "SUPERVISOR" && (
+            <SheetFooter>
+              <Button
+                className="w-full bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => void handleCreatePlot()}
+                disabled={isSaving}
+              >
+                <Sprout className="mr-2 h-4 w-4" />
+                {isSaving ? "Đang lưu..." : "Lưu cập nhật vào luồng GIS"}
+              </Button>
+            </SheetFooter>
+          )}
         </SheetContent>
       </Sheet>
     </>

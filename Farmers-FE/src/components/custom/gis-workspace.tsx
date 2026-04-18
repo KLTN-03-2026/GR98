@@ -81,6 +81,8 @@ interface GISWorkspaceProps {
   roleLabel: string;
   description: string;
   initialPlotId?: string;
+  initialCoordinates?: Array<[number, number]> | null;
+  initialContractNo?: string | null;
 }
 
 const DEFAULT_POLYGON_META =
@@ -128,6 +130,8 @@ export default function GISWorkspace({
   roleLabel,
   description,
   initialPlotId,
+  initialCoordinates,
+  initialContractNo,
 }: GISWorkspaceProps) {
   void title;
   void description;
@@ -168,12 +172,18 @@ export default function GISWorkspace({
   const [, setPlotPolygons] = useState<Record<string, Array<[number, number]>>>(
     {},
   );
+  const [previewFromContract, setPreviewFromContract] = useState<{
+    coords: Array<[number, number]>;
+    contractNo: string;
+  } | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
   const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
   const previewPolygonRef = useRef<L.Polygon | null>(null);
+  const contractPolygonRef = useRef<L.Polygon | null>(null);
+  const contractMarkersRef = useRef<L.LayerGroup | null>(null);
   const searchMarkerRef = useRef<L.Marker | null>(null);
   const streetLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
@@ -255,6 +265,75 @@ export default function GISWorkspace({
 
     map.removeLayer(previewPolygonRef.current);
     previewPolygonRef.current = null;
+  };
+
+  const drawContractPolygon = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !initialCoordinates) return;
+
+    const coords = isValidPolygon(initialCoordinates) ? initialCoordinates : [];
+    if (coords.length < 3) return;
+
+    if (contractPolygonRef.current) {
+      map.removeLayer(contractPolygonRef.current);
+      contractPolygonRef.current = null;
+    }
+    if (contractMarkersRef.current) {
+      contractMarkersRef.current.clearLayers();
+    }
+
+    const polygonLayer = L.polygon(coords, {
+      color: "#dc2626",
+      weight: 3,
+      fillColor: "#ef4444",
+      fillOpacity: 0.25,
+    }).addTo(map);
+
+    contractPolygonRef.current = polygonLayer;
+
+    if (!contractMarkersRef.current) {
+      contractMarkersRef.current = L.layerGroup().addTo(map);
+    }
+
+    coords.forEach(([lat, lng], index) => {
+      L.circleMarker([lat, lng], {
+        radius: 8,
+        color: "#dc2626",
+        fillColor: "#fca5a5",
+        fillOpacity: 0.9,
+        weight: 2,
+      })
+        .bindTooltip(`Điểm ${index + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, {
+          direction: "top",
+          offset: [0, -8],
+        })
+        .addTo(contractMarkersRef.current!);
+    });
+
+    map.fitBounds(polygonLayer.getBounds().pad(0.3), {
+      animate: true,
+      duration: 0.5,
+      maxZoom: 16,
+    });
+
+    setPreviewFromContract({
+      coords,
+      contractNo: initialContractNo || "Hợp đồng",
+    });
+  }, [initialCoordinates, initialContractNo]);
+
+  const clearContractPolygon = () => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (contractPolygonRef.current) {
+      map.removeLayer(contractPolygonRef.current);
+      contractPolygonRef.current = null;
+    }
+    if (contractMarkersRef.current) {
+      contractMarkersRef.current.clearLayers();
+    }
+    setPreviewFromContract(null);
   };
 
   const visibleLots = useMemo(
@@ -648,6 +727,16 @@ export default function GISWorkspace({
   }, [initialPlotId, lots, focusLot]);
 
   useEffect(() => {
+    if (!initialCoordinates || !mapRef.current) return;
+
+    const timer = setTimeout(() => {
+      drawContractPolygon();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [initialCoordinates, initialContractNo, drawContractPolygon]);
+
+  useEffect(() => {
     let isDisposed = false;
 
     const loadSupervisors = async () => {
@@ -900,6 +989,7 @@ export default function GISWorkspace({
 
     const onMapClick = () => {
       hidePreviewPolygon();
+      clearContractPolygon();
     };
 
     drawnItems.on("click", (event: L.LeafletMouseEvent) => {
@@ -931,6 +1021,8 @@ export default function GISWorkspace({
       satelliteLayerRef.current = null;
       drawnItemsRef.current = null;
       previewPolygonRef.current = null;
+      contractPolygonRef.current = null;
+      contractMarkersRef.current = null;
     };
   }, []);
 
@@ -1335,6 +1427,28 @@ export default function GISWorkspace({
           </div>
         </div>
       </section>
+
+      {previewFromContract && (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-red-800">
+                Lô đất từ hợp đồng: {previewFromContract.contractNo}
+              </p>
+              <p className="mt-1 text-xs text-red-600">
+                {previewFromContract.coords.length} điểm tọa độ • {previewFromContract.coords.map(([lat, lng]) => `(${lat.toFixed(6)}, ${lng.toFixed(6)})`).join(' → ')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearContractPolygon}
+              className="rounded-md bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent

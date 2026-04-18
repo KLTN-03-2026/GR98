@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   FileCheck2,
   FileText,
+  MapPin,
   PlusCircle,
   Printer,
   X,
@@ -31,6 +32,7 @@ import {
   getGradeBadgeVariant,
 } from '@/pages/contracts/components/contract-ui';
 import '@/pages/contracts/contract-print.css';
+import { toast } from 'sonner';
 import {
   useApproveContract,
   useContract,
@@ -61,6 +63,24 @@ function parseCoordinatePairs(value?: string | null): Array<{ lat: string; lng: 
     const lng = parseFloat(nums[i + 1]);
     if (!isNaN(lat) && !isNaN(lng)) {
       pairs.push({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+    }
+  }
+  return pairs;
+}
+
+function parseContractCoordinates(value?: string | null): Array<[number, number]> {
+  if (!value?.trim()) return [];
+  const nums = value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (nums.length < 2) return [];
+  const pairs: Array<[number, number]> = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const lat = parseFloat(nums[i]);
+    const lng = parseFloat(nums[i + 1]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      pairs.push([lat, lng]);
     }
   }
   return pairs;
@@ -348,6 +368,27 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
           )}
           {mode === 'admin' && (
             <>
+              <Button
+                type="button"
+                size="sm"
+                disabled={isSaving}
+                onClick={() => {
+                  const coords = parseContractCoordinates(contract.plotDraftCoordinatesText);
+                  if (coords.length === 0) {
+                    toast.error('Không có dữ liệu lô đất');
+                    return;
+                  }
+                  navigate('/dashboard/zones', {
+                    state: {
+                      coordinates: coords,
+                      contractNo: contract.contractNo,
+                    },
+                  });
+                }}
+              >
+                <MapPin className="h-4 w-4" />
+                Xem lô đất
+              </Button>
               <Button
                 type="button"
                 size="sm"

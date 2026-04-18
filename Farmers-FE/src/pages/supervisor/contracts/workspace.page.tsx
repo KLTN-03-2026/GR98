@@ -175,6 +175,9 @@ function SupervisorContractCreateWorkspace() {
     if (validCoordinates.length === 0) {
       return 'Phải nhập ít nhất một cặp tọa độ (vĩ độ và kinh độ)';
     }
+    if (validCoordinates.length < 3) {
+      return 'Phải nhập tối thiểu 3 điểm tọa độ để tạo lô đất';
+    }
     if (
       form.signedAt &&
       form.harvestDue &&

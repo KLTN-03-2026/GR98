@@ -858,6 +858,68 @@ export default function GISWorkspace({
     }
   }, [initialPlotId, lots, focusLot, initialCoordinates, initialContractNo]);
 
+  // ── Admin "Xem lô đất": initialCoordinates without initialPlotId → draw + zoom ──
+  useEffect(() => {
+    if (initialPlotId) return; // handled by the effect above
+    if (!initialCoordinates || !isValidPolygon(initialCoordinates)) return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    const sorted = sortCoordsByAngle(initialCoordinates);
+
+    // Draw polygon preview
+    if (contractPolygonRef.current) {
+      map.removeLayer(contractPolygonRef.current);
+      contractPolygonRef.current = null;
+    }
+    if (contractMarkersRef.current) {
+      contractMarkersRef.current.clearLayers();
+    }
+
+    const polygonLayer = L.polygon(sorted, {
+      color: "#dc2626",
+      weight: 3,
+      fillColor: "#ef4444",
+      fillOpacity: 0.2,
+      dashArray: "8 6",
+    }).addTo(map);
+    contractPolygonRef.current = polygonLayer;
+
+    if (!contractMarkersRef.current) {
+      contractMarkersRef.current = L.layerGroup().addTo(map);
+    }
+    sorted.forEach(([lat, lng], index) => {
+      L.circleMarker([lat, lng], {
+        radius: 7,
+        color: "#dc2626",
+        fillColor: "#fca5a5",
+        fillOpacity: 0.9,
+        weight: 2,
+      })
+        .bindTooltip(`Điểm ${index + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, {
+          direction: "top",
+          offset: [0, -8],
+        })
+        .addTo(contractMarkersRef.current!);
+    });
+
+    // Fly to polygon bounds
+    setTimeout(() => {
+      map.fitBounds(polygonLayer.getBounds().pad(0.3), {
+        animate: true,
+        duration: 0.8,
+        maxZoom: 17,
+      });
+    }, 200);
+
+    if (initialContractNo) {
+      setPreviewFromContract({
+        coords: sorted,
+        contractNo: initialContractNo,
+      });
+    }
+  }, [initialPlotId, initialCoordinates, initialContractNo]);
+
   useEffect(() => {
     let isDisposed = false;
 
@@ -1266,6 +1328,7 @@ export default function GISWorkspace({
       zoneLayersRef.current = L.layerGroup().addTo(map);
     }
 
+    // Render GIS-marked lots (full style: polygon + crop icon)
     filteredLotsForMap
       .filter((lot) => {
         const hasPolygon = isValidPolygon(lot.polygon);
@@ -1291,7 +1354,6 @@ export default function GISWorkspace({
             lot.polygon as Array<[number, number]>,
           );
 
-          // Polygon fill zone
           const zonePolygon = L.polygon(sortedCoords, {
             color: "#dc2626",
             weight: 2.5,
@@ -1308,7 +1370,6 @@ export default function GISWorkspace({
             })
             .addTo(zoneLayersRef.current!);
 
-          // Circle markers at each vertex
           sortedCoords.forEach(([lat, lng], idx) => {
             L.circleMarker([lat, lng], {
               radius: 7,
@@ -1366,7 +1427,7 @@ export default function GISWorkspace({
           })
           .addTo(markerLayer);
       });
-  }, [filteredLotsForMap, selectedLot, focusLot]);
+  }, [filteredLotsForMap, selectedLot, focusLot, roleLabel]);
 
   useEffect(() => {
     const map = mapRef.current;

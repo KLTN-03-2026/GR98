@@ -1,3 +1,322 @@
-export default function DailyReportsPage() {
-  return <div>Daily Reports</div>;
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Search } from 'lucide-react';
+import type { PaginationState, Updater } from '@tanstack/react-table';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Combobox } from '@/components/custom/combobox';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DataTable } from '@/components/data-table';
+import { extractData } from '@/client/lib/api-client';
+import { plotApi, type PaginatedPlotsResponse } from '@/pages/admin/plots/api';
+import { useAllSupervisors } from '@/pages/admin/supervisors/api/use-supervisors';
+import {
+  dailyReportApi,
+  useDailyReport,
+  useDailyReports,
+  type PaginatedDailyReportsResponse,
+  type DailyReportResponse,
+  type DailyReportStatus,
+} from './api';
+import { AdminDailyReportDetailDialog } from './admin-daily-report-detail-dialog';
+import { getLocalDayEndIso, getLocalDayStartIso, getTodayLocalIsoDate } from '@/lib/local-day-range';
+import { createAdminDailyReportColumns } from './daily-reports-columns';
+
+const PAGE_LIMIT = 15;
+const REPORT_PAGE_LIMIT = 16;
+const PLOT_PAGE_LIMIT = 20;
+
+export default function AdminDailyReportsPage() {
+  const queryClient = useQueryClient();
+  const [keyword, setKeyword] = useState('');
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
+  const [supervisorId, setSupervisorId] = useState<string>('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [onlyToday, setOnlyToday] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit, setLimit] = useState(PAGE_LIMIT);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const todayIso = getTodayLocalIsoDate();
+  const isInvalidDateRange = Boolean(from && to && from > to);
+  const apiDateRange = useMemo(() => {
+    if (isInvalidDateRange || !from?.trim() || !to?.trim()) {
+      return { from: undefined as string | undefined, to: undefined as string | undefined };
+    }
+    return {
+      from: getLocalDayStartIso(from.trim()),
+      to: getLocalDayEndIso(to.trim()),
+    };
+  }, [from, to, isInvalidDateRange]);
+
+  const { data: supervisorsData } = useAllSupervisors({ status: 'ACTIVE' });
+  const supervisors = supervisorsData ?? [];
+
+  const supervisorOptions = useMemo(
+    () =>
+      supervisors
+        .map((s) => {
+          const pid = s.supervisorProfile?.id;
+          if (!pid) return null;
+          return {
+            value: pid,
+            label: `${s.fullName} (${s.supervisorProfile?.employeeCode ?? pid.slice(0, 6)})`,
+          };
+        })
+        .filter(Boolean) as { value: string; label: string }[],
+    [supervisors],
+  );
+
+  const { data: listData, isLoading, isFetching } = useDailyReports({
+    page: currentPage,
+    limit,
+    search: debouncedKeyword || undefined,
+    supervisorId: supervisorId || undefined,
+    from: apiDateRange.from,
+    to: apiDateRange.to,
+  });
+
+  const { data: detailRow, isFetching: detailLoading } = useDailyReport(detailId ?? '');
+  const { data: summaryData } = useQuery({
+    queryKey: [
+      'daily-reports',
+      'admin-summary',
+      {
+        supervisorId: supervisorId || null,
+        from: apiDateRange.from ?? null,
+        to: apiDateRange.to ?? null,
+      },
+    ],
+    enabled: Boolean(apiDateRange.from && apiDateRange.to),
+    queryFn: async () => {
+      const plotIds = new Set<string>();
+      let plotPage = 1;
+      let plotTotalPages = 1;
+      do {
+        const response = await plotApi.list({
+          page: plotPage,
+          limit: PLOT_PAGE_LIMIT,
+          id_suppervisor: supervisorId || undefined,
+        });
+        const payload = extractData<PaginatedPlotsResponse>(response);
+        payload.data.forEach((plot) => plotIds.add(plot.id));
+        plotTotalPages = Math.max(1, payload.totalPages ?? 1);
+        plotPage += 1;
+      } while (plotPage <= plotTotalPages);
+
+      const submittedPlotIds = new Set<string>();
+      let submittedCount = 0;
+      const doneStatuses: DailyReportStatus[] = ['SUBMITTED', 'REVIEWED'];
+
+      for (const status of doneStatuses) {
+        let reportPage = 1;
+        let reportTotalPages = 1;
+        do {
+          const response = await dailyReportApi.list({
+            page: reportPage,
+            limit: REPORT_PAGE_LIMIT,
+            status,
+            supervisorId: supervisorId || undefined,
+            from: apiDateRange.from,
+            to: apiDateRange.to,
+          });
+          const payload = extractData<PaginatedDailyReportsResponse>(response);
+          if (status === 'SUBMITTED') {
+            submittedCount += payload.data.length;
+          }
+          payload.data.forEach((row) => {
+            if (plotIds.has(row.plotId)) {
+              submittedPlotIds.add(row.plotId);
+            }
+          });
+          reportTotalPages = Math.max(1, payload.totalPages ?? 1);
+          reportPage += 1;
+        } while (reportPage <= reportTotalPages);
+      }
+
+      return {
+        totalPlots: plotIds.size,
+        submittedCount,
+        missingPlots: Math.max(plotIds.size - submittedPlotIds.size, 0),
+      };
+    },
+  });
+
+  const rows = listData?.data ?? [];
+  const total = listData?.total ?? 0;
+  const totalPages = Math.max(1, listData?.totalPages ?? 1);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedKeyword(keyword.trim()), 300);
+    return () => clearTimeout(t);
+  }, [keyword]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedKeyword, supervisorId, from, to, apiDateRange.from, apiDateRange.to]);
+
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages, isLoading]);
+
+  const openDetail = useCallback((row: DailyReportResponse) => setDetailId(row.id), []);
+  const closeDetail = () => setDetailId(null);
+
+  useEffect(() => {
+    if (onlyToday && (from !== todayIso || to !== todayIso)) {
+      setOnlyToday(false);
+    }
+  }, [from, to, onlyToday, todayIso]);
+
+  const columns = useMemo(() => createAdminDailyReportColumns(openDetail), [openDetail]);
+
+  const handlePaginationChange = useCallback((updater: Updater<PaginationState>) => {
+    const prev: PaginationState = { pageIndex: currentPage - 1, pageSize: limit };
+    const next = typeof updater === 'function' ? updater(prev) : updater;
+    setCurrentPage(next.pageIndex + 1);
+    setLimit(next.pageSize);
+  }, [currentPage, limit]);
+
+  const paginationState = useMemo(
+    () => ({ pageIndex: currentPage - 1, pageSize: limit }),
+    [currentPage, limit],
+  );
+
+  return (
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight">Báo cáo hàng ngày</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Danh sách báo cáo đã gửi từ giám sát viên. Mở chi tiết để xem nội dung và ảnh đính kèm.
+        </p>
+        {Boolean(apiDateRange.from && apiDateRange.to) && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">
+              {onlyToday || (from === todayIso && to === todayIso)
+                ? `Đã nộp hôm nay: ${summaryData?.submittedCount ?? 0}`
+                : `Đã nộp trong khoảng: ${summaryData?.submittedCount ?? 0}`}
+            </Badge>
+            <Badge variant="destructive">
+              {onlyToday || (from === todayIso && to === todayIso)
+                ? `Chưa gửi hôm nay: ${summaryData?.missingPlots ?? 0} lô`
+                : `Chưa gửi (lô): ${summaryData?.missingPlots ?? 0}`}
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <DataTable
+            columns={columns}
+            data={rows}
+            isLoading={isLoading || isFetching}
+            hiddenSearch
+            enableSorting={false}
+            manualPagination
+            pageCount={totalPages}
+            totalItems={total}
+            onPaginationChange={handlePaginationChange}
+            state={{ pagination: paginationState }}
+            pageSizeOptions={[10, 15, 20, 30, 50]}
+            onRowClick={openDetail}
+            onReload={() => queryClient.invalidateQueries({ queryKey: ['daily-reports'] })}
+            noResults={<span className="text-muted-foreground">Chưa có báo cáo phù hợp.</span>}
+            filterToolbar={
+              <div className="flex flex-wrap items-end gap-4 w-full">
+                <div className="space-y-2 min-w-[200px] flex-1">
+                  <Label className="text-xs">Tìm theo nội dung</Label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      className="pl-8 h-9"
+                      placeholder="Từ khóa..."
+                      value={keyword}
+                      onChange={(e) => setKeyword(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2 min-w-[220px] flex-1 max-w-xs">
+                  <Label className="text-xs">Giám sát viên</Label>
+                  <Combobox
+                    label="Tất cả GSV"
+                    dataArr={supervisorOptions}
+                    value={supervisorId}
+                    onChange={(v) => {
+                      if (typeof v !== 'string' || v === 'null') setSupervisorId('');
+                      else setSupervisorId(v);
+                    }}
+                    isNullableSelect
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className={`text-xs ${onlyToday ? 'text-muted-foreground' : ''}`}>Từ ngày</Label>
+                  <Input
+                    type="date"
+                    className={`h-9 w-[150px] ${isInvalidDateRange ? 'border-destructive' : ''}`}
+                    value={from}
+                    max={to || undefined}
+                    disabled={onlyToday}
+                    onChange={(e) => setFrom(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className={`text-xs ${onlyToday ? 'text-muted-foreground' : ''}`}>Đến ngày</Label>
+                  <Input
+                    type="date"
+                    className={`h-9 w-[150px] ${isInvalidDateRange ? 'border-destructive' : ''}`}
+                    value={to}
+                    min={from || undefined}
+                    disabled={onlyToday}
+                    onChange={(e) => setTo(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-end gap-2 pb-0.5">
+                  <div className="flex items-center gap-2 rounded-md border px-3 h-9 bg-background">
+                    <Checkbox
+                      id="admin-daily-reports-only-today"
+                      checked={onlyToday}
+                      onCheckedChange={(checked) => {
+                        if (checked === true) {
+                          const t = getTodayLocalIsoDate();
+                          setFrom(t);
+                          setTo(t);
+                          setOnlyToday(true);
+                          setCurrentPage(1);
+                        } else {
+                          setFrom('');
+                          setTo('');
+                          setOnlyToday(false);
+                          setCurrentPage(1);
+                        }
+                      }}
+                    />
+                    <Label htmlFor="admin-daily-reports-only-today" className="text-xs cursor-pointer">
+                      Chỉ hôm nay
+                    </Label>
+                  </div>
+                </div>
+                {isInvalidDateRange && (
+                  <div className="text-xs text-destructive pb-1">
+                    Khoảng ngày không hợp lệ: &quot;Từ ngày&quot; phải nhỏ hơn hoặc bằng &quot;Đến ngày&quot;.
+                  </div>
+                )}
+              </div>
+            }
+          />
+        </CardContent>
+      </Card>
+
+      <AdminDailyReportDetailDialog
+        open={!!detailId}
+        onClose={closeDetail}
+        report={detailRow}
+        loading={detailLoading}
+      />
+    </div>
+  );
 }

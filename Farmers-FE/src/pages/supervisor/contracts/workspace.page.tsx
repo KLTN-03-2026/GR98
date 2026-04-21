@@ -45,7 +45,6 @@ type FormState = {
   plotDraftCoordinates: CoordinatePair[];
   cropType: string;
   grade: QualityGrade;
-  signedAt: string;
   harvestDue: string;
 };
 
@@ -56,9 +55,28 @@ const defaultForm: FormState = {
   plotDraftCoordinates: [['', '']],
   cropType: '',
   grade: 'A',
-  signedAt: '',
   harvestDue: '',
 };
+
+/** YYYY-MM-DD theo giờ địa phương — dùng cho input type="date" và so sánh chuỗi */
+function getTodayLocalIsoDate(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getTomorrowLocalIsoDate() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return getTodayLocalIsoDate(d);
+}
+
+function formatIsoDateVi(iso: string) {
+  const [y, m, day] = iso.split('-');
+  if (!y || !m || !day) return iso;
+  return `${day}/${m}/${y}`;
+}
 
 const CROP_OPTIONS = [
   { value: 'ca-phe', label: 'Cà phê' },
@@ -86,7 +104,7 @@ function toPayload(form: FormState, farmerId: string | undefined): CreateContrac
     plotDraftCoordinatesText: coordinateLines.length ? coordinateLines.join('\n') : undefined,
     cropType: form.cropType.trim(),
     grade: form.grade,
-    signedAt: form.signedAt || undefined,
+    signedAt: getTodayLocalIsoDate(),
     harvestDue: form.harvestDue || undefined,
   };
 }
@@ -123,6 +141,8 @@ function SupervisorContractCreateWorkspace() {
     [provinceOptions, form.plotDraftProvince],
   );
 
+  const signedAtToday = getTodayLocalIsoDate();
+
   const draftVm = useMemo(
     () =>
       buildContractLegalViewModelFromDraft({
@@ -137,11 +157,11 @@ function SupervisorContractCreateWorkspace() {
           plotDraftCoordinates: form.plotDraftCoordinates,
           cropType: form.cropType,
           grade: form.grade,
-          signedAt: form.signedAt,
+          signedAt: signedAtToday,
           harvestDue: form.harvestDue,
         },
       }),
-    [me, supervisorProfileId, supervisorName, selectedFarmer, form],
+    [me, supervisorProfileId, supervisorName, selectedFarmer, form, signedAtToday],
   );
 
   const partyA = PARTY_A_DOCUMENT_DEFAULTS;
@@ -178,12 +198,10 @@ function SupervisorContractCreateWorkspace() {
     if (validCoordinates.length < 3) {
       return 'Phải nhập tối thiểu 3 điểm tọa độ để tạo lô đất';
     }
-    if (
-      form.signedAt &&
-      form.harvestDue &&
-      new Date(form.signedAt).getTime() > new Date(form.harvestDue).getTime()
-    ) {
-      return 'Ngày ký không được lớn hơn ngày kết thúc hợp đồng';
+    if (!form.harvestDue.trim()) return 'Chọn ngày kết thúc hợp đồng';
+    const todayIso = getTodayLocalIsoDate();
+    if (form.harvestDue <= todayIso) {
+      return 'Ngày kết thúc hợp đồng phải sau ngày ký hợp đồng';
     }
     return null;
   };
@@ -563,17 +581,17 @@ function SupervisorContractCreateWorkspace() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Ngày ký</Label>
-              <Input
-                type="date"
-                value={form.signedAt}
-                onChange={(e) => setForm((prev) => ({ ...prev, signedAt: e.target.value }))}
-              />
+              <Label>Ngày ký hợp đồng</Label>
+              <p className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
+                {formatIsoDateVi(signedAtToday)} (tự động theo ngày hôm nay)
+              </p>
             </div>
             <div className="space-y-2">
-              <Label>Ngày kết thúc hợp đồng</Label>
+              <Label htmlFor="contract-harvest-due">Ngày kết thúc hợp đồng</Label>
               <Input
+                id="contract-harvest-due"
                 type="date"
+                min={getTomorrowLocalIsoDate()}
                 value={form.harvestDue}
                 onChange={(e) => setForm((prev) => ({ ...prev, harvestDue: e.target.value }))}
               />

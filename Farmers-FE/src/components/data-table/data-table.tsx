@@ -62,6 +62,8 @@ interface DataTableProps<TData, TValue> {
   onPaginationChange?: OnChangeFn<PaginationState>;
   onSortingChange?: OnChangeFn<SortingState>;
   state?: any; // To override internal state for SSR
+  /** Truyền xuống DataTablePagination (vd: [10, 15, 20, 30]) */
+  pageSizeOptions?: number[];
 }
 
 function TableSkeleton({ columns }: { columns: number }) {
@@ -105,6 +107,7 @@ export function DataTable<TData, TValue>({
   onPaginationChange,
   onSortingChange,
   state: externalState,
+  pageSizeOptions,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -291,7 +294,11 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      <DataTablePagination table={table} totalItems={totalItems} />
+      <DataTablePagination
+        table={table}
+        totalItems={totalItems}
+        pageSizeOptions={pageSizeOptions}
+      />
     </div>
   );
 }

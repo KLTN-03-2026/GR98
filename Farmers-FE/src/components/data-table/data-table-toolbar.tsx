@@ -59,8 +59,8 @@ export function DataTableToolbar<TData>({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 py-3">
-      <div className="flex flex-1 items-center gap-2">
+    <div className="flex flex-wrap items-end justify-between gap-3 py-3">
+      <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
         {!hiddenSearch && (
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -91,7 +91,7 @@ export function DataTableToolbar<TData>({
         {filterToolbar}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-end gap-2">
         {enableCheckbox && onDeleteMultiple && selectedRowsCount > 0 && (
           <Button
             onClick={() => onDeleteMultiple(selectedRows)}

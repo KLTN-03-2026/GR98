@@ -62,6 +62,7 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
             { icon: Users, label: 'Nông dân', category: 'people', path: `${basePath}/farmers` },
 
             // Management
+            { icon: MapPinned, label: 'Quản lý vùng trồng', category: 'management', path: `${basePath}/zones` },
             { icon: Sprout, label: 'Lô đất phụ trách', category: 'management', path: `${basePath}/plots` },
             { icon: FileSpreadsheet, label: 'Báo cáo hàng ngày', category: 'management', path: `${basePath}/daily-reports` },
             { icon: ScanSearch, label: 'Phân tích cây trồng AI', category: 'management', path: `${basePath}/ai-analysis` },

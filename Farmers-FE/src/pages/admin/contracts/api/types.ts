@@ -3,7 +3,9 @@ import type { ApiSuccessResponse } from '@/client/lib/api-client';
 export type ContractStatus =
   | 'DRAFT'
   | 'SIGNED'
+  | 'REJECTED'
   | 'ACTIVE'
+  | 'EXPIRED'
   | 'COMPLETED'
   | 'CANCELLED'
   | 'SETTLED'

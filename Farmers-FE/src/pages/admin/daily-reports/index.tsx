@@ -30,6 +30,7 @@ const PLOT_PAGE_LIMIT = 20;
 
 export default function AdminDailyReportsPage() {
   const queryClient = useQueryClient();
+  const [now, setNow] = useState(() => new Date());
   const [keyword, setKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [supervisorId, setSupervisorId] = useState<string>('');
@@ -39,7 +40,7 @@ export default function AdminDailyReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit, setLimit] = useState(PAGE_LIMIT);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const todayIso = getTodayLocalIsoDate();
+  const todayIso = getTodayLocalIsoDate(now);
   const isInvalidDateRange = Boolean(from && to && from > to);
   const apiDateRange = useMemo(() => {
     if (isInvalidDateRange || !from?.trim() || !to?.trim()) {
@@ -50,6 +51,9 @@ export default function AdminDailyReportsPage() {
       to: getLocalDayEndIso(to.trim()),
     };
   }, [from, to, isInvalidDateRange]);
+  const summaryFrom = apiDateRange.from ?? getLocalDayStartIso(todayIso);
+  const summaryTo = apiDateRange.to ?? getLocalDayEndIso(todayIso);
+  const isSummaryTodayMode = !apiDateRange.from || !apiDateRange.to || onlyToday;
 
   const { data: supervisorsData } = useAllSupervisors({ status: 'ACTIVE' });
   const supervisors = supervisorsData ?? [];
@@ -85,11 +89,10 @@ export default function AdminDailyReportsPage() {
       'admin-summary',
       {
         supervisorId: supervisorId || null,
-        from: apiDateRange.from ?? null,
-        to: apiDateRange.to ?? null,
+        from: summaryFrom,
+        to: summaryTo,
       },
     ],
-    enabled: Boolean(apiDateRange.from && apiDateRange.to),
     queryFn: async () => {
       const plotIds = new Set<string>();
       let plotPage = 1;
@@ -119,8 +122,8 @@ export default function AdminDailyReportsPage() {
             limit: REPORT_PAGE_LIMIT,
             status,
             supervisorId: supervisorId || undefined,
-            from: apiDateRange.from,
-            to: apiDateRange.to,
+            from: summaryFrom,
+            to: summaryTo,
           });
           const payload = extractData<PaginatedDailyReportsResponse>(response);
           if (status === 'SUBMITTED') {
@@ -168,9 +171,17 @@ export default function AdminDailyReportsPage() {
 
   useEffect(() => {
     if (onlyToday && (from !== todayIso || to !== todayIso)) {
-      setOnlyToday(false);
+      setFrom(todayIso);
+      setTo(todayIso);
     }
   }, [from, to, onlyToday, todayIso]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const columns = useMemo(() => createAdminDailyReportColumns(openDetail), [openDetail]);
 
@@ -193,20 +204,18 @@ export default function AdminDailyReportsPage() {
         <p className="text-muted-foreground text-sm mt-1">
           Danh sách báo cáo đã gửi từ giám sát viên. Mở chi tiết để xem nội dung và ảnh đính kèm.
         </p>
-        {Boolean(apiDateRange.from && apiDateRange.to) && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">
-              {onlyToday || (from === todayIso && to === todayIso)
-                ? `Đã nộp hôm nay: ${summaryData?.submittedCount ?? 0}`
-                : `Đã nộp trong khoảng: ${summaryData?.submittedCount ?? 0}`}
-            </Badge>
-            <Badge variant="destructive">
-              {onlyToday || (from === todayIso && to === todayIso)
-                ? `Chưa gửi hôm nay: ${summaryData?.missingPlots ?? 0} lô`
-                : `Chưa gửi (lô): ${summaryData?.missingPlots ?? 0}`}
-            </Badge>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">
+            {isSummaryTodayMode
+              ? `Đã nộp hôm nay: ${summaryData?.submittedCount ?? 0}`
+              : `Đã nộp trong khoảng: ${summaryData?.submittedCount ?? 0}`}
+          </Badge>
+          <Badge variant="destructive">
+            {isSummaryTodayMode
+              ? `Chưa gửi hôm nay: ${summaryData?.missingPlots ?? 0} lô`
+              : `Chưa gửi (lô): ${summaryData?.missingPlots ?? 0}`}
+          </Badge>
+        </div>
       </div>
 
       <Card>

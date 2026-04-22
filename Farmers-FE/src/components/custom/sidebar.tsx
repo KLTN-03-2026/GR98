@@ -20,6 +20,7 @@ import { AppLogo } from "@/components/global/app-logo";
 import { useAuthStore } from "@/client/store";
 import { clearAllAuthCookies } from "@/lib/cookie-utils";
 import { toast } from "sonner";
+import { useSupervisorDailyDashboard } from "@/pages/supervisor/daily-reports/api";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -105,6 +106,8 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
   );
 
   const { user, logout } = useAuthStore();
+  const { data: supervisorDailyDash } = useSupervisorDailyDashboard();
+  const supervisorDailyMissing = supervisorDailyDash?.missingCount ?? 0;
 
   const avatarUrl = user?.avatarUrl ?? "";
   const isDefault = !avatarUrl;
@@ -191,6 +194,9 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
       isDirectPathActive ||
       (item.path === "/" && location.pathname === "/");
 
+    const showSupervisorDailyBadge =
+      item.path === "/supervisor/daily-reports" && supervisorDailyMissing > 0;
+
     const menuButton = (
       <Button
         key={item.label}
@@ -199,7 +205,7 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
         className={cn(
           "w-full group relative will-change-transform",
           "transition-all duration-200 ease-in-out rounded-md border border-white/25 border-l-4",
-          collapsed ? "h-9 px-0" : "justify-start h-9 px-3",
+          collapsed ? "h-9 px-0" : "h-9 px-3 flex items-center justify-start gap-0",
           isActive
             ? "border-l-primary bg-linear-to-r from-primary/22 via-primary/12 to-transparent text-black hover:from-primary/28 hover:via-primary/14 hover:to-transparent hover:text-black"
             : "border-l-transparent bg-transparent text-black/80 hover:bg-primary/12 hover:text-black",
@@ -212,8 +218,27 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
         <item.icon className={cn("h-4 w-4 shrink-0", !collapsed && "mr-2")} />
 
         {!collapsed && (
-          <span className="truncate transition-opacity duration-150">
-            {item.label}
+          <>
+            <span className="min-w-0 flex-1 truncate transition-opacity duration-150 text-left">
+              {item.label}
+            </span>
+            {showSupervisorDailyBadge && (
+              <span
+                className="ml-2 shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white shadow-sm"
+                aria-label={`${supervisorDailyMissing} lô chưa nộp báo cáo hôm nay`}
+              >
+                {supervisorDailyMissing > 99 ? "99+" : supervisorDailyMissing}
+              </span>
+            )}
+          </>
+        )}
+
+        {collapsed && showSupervisorDailyBadge && (
+          <span
+            className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white shadow-sm"
+            aria-hidden
+          >
+            {supervisorDailyMissing > 99 ? "99+" : supervisorDailyMissing}
           </span>
         )}
 

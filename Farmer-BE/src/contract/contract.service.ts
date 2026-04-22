@@ -526,7 +526,14 @@ export class ContractService {
       andConditions.push({ status: query.status });
     } else if (actor.role === Role.ADMIN) {
       andConditions.push({
-        status: { in: [ContractStatus.SIGNED, ContractStatus.ACTIVE] },
+        status: {
+          in: [
+            ContractStatus.SIGNED,
+            ContractStatus.ACTIVE,
+            ContractStatus.REJECTED,
+            ContractStatus.EXPIRED,
+          ],
+        },
       });
     }
     if (query.cropType?.trim()) {
@@ -631,7 +638,9 @@ export class ContractService {
       );
     }
 
-    const canEditDraft = existing.status === ContractStatus.DRAFT;
+    const canEditDraft =
+      existing.status === ContractStatus.DRAFT ||
+      existing.status === ContractStatus.REJECTED;
     const isSignatureOnlyUpdate =
       existing.status === ContractStatus.ACTIVE &&
       dto.signatureUrl !== undefined &&
@@ -754,7 +763,9 @@ export class ContractService {
     if (dto.signatureUrl !== undefined) {
       updateData.signatureUrl = dto.signatureUrl?.trim() || null;
     }
-    updateData.rejectedReason = null;
+    if (existing.status === ContractStatus.DRAFT) {
+      updateData.rejectedReason = null;
+    }
 
     await this.prisma.contract.update({
       where: { id },
@@ -795,9 +806,12 @@ export class ContractService {
         'Hợp đồng không tồn tại trong phạm vi phụ trách',
       );
     }
-    if (existing.status !== ContractStatus.DRAFT) {
+    if (
+      existing.status !== ContractStatus.DRAFT &&
+      existing.status !== ContractStatus.REJECTED
+    ) {
       throw new BadRequestException(
-        'Chỉ hợp đồng nháp mới có thể gửi yêu cầu phê duyệt',
+        'Chỉ hợp đồng nháp hoặc đang bị từ chối mới có thể gửi yêu cầu phê duyệt',
       );
     }
     this.assertDraftPlotInput({
@@ -987,7 +1001,7 @@ export class ContractService {
     await this.prisma.contract.update({
       where: { id },
       data: {
-        status: ContractStatus.DRAFT,
+        status: ContractStatus.REJECTED,
         rejectedReason: reason,
         approvedAt: null,
         approvedBy: null,

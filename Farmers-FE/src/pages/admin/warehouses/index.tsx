@@ -127,6 +127,7 @@ export default function AdminWarehousesPage() {
   const {
     data: queryData,
     isLoading,
+    isPlaceholderData,
     isError,
     error,
     refetch,
@@ -295,6 +296,7 @@ export default function AdminWarehousesPage() {
         appearance="management"
         items={farmers}
         isLoading={isLoading}
+        isAwaitingResults={isPlaceholderData}
         error={
           isError
             ? typeof error?.message === "string"

@@ -210,14 +210,7 @@ export default function LoginPage() {
               )}
             />
 
-            <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-0">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="rounded border-[var(--primary)] text-[var(--primary)] focus:ring-[var(--primary)]"
-                />
-                <span className="text-muted-foreground">Ghi nhớ đăng nhập</span>
-              </label>
+            <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-end sm:gap-0">
               <Link
                 to="/auth/forgot-password"
                 className="font-medium text-[var(--secondary)] hover:underline"

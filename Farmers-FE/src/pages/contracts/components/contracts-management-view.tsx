@@ -28,24 +28,6 @@ import {
 
 const PAGE_LIMIT = 12;
 
-function parseCoordinatePairs(value?: string | null): Array<{ lat: string; lng: string }> {
-  if (!value?.trim()) return [];
-  const nums = value
-    .split(/[\n,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  if (nums.length < 2) return [];
-  const pairs: Array<{ lat: string; lng: string }> = [];
-  for (let i = 0; i + 1 < nums.length; i += 2) {
-    const lat = parseFloat(nums[i]);
-    const lng = parseFloat(nums[i + 1]);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      pairs.push({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
-    }
-  }
-  return pairs;
-}
-
 type ContractsManagementViewProps = {
   mode: 'admin' | 'supervisor';
   listBasePath: string;
@@ -123,6 +105,14 @@ export default function ContractsManagementView({
     () => contracts.filter((item) => item.status === 'ACTIVE').length,
     [contracts],
   );
+  const rejectedCount = useMemo(
+    () => contracts.filter((item) => item.status === 'REJECTED').length,
+    [contracts],
+  );
+  const expiredCount = useMemo(
+    () => contracts.filter((item) => item.status === 'EXPIRED').length,
+    [contracts],
+  );
 
   const openContract = (contract: ContractResponse) => {
     navigate(`${listBasePath.replace(/\/$/, '')}/${contract.id}`);
@@ -153,9 +143,9 @@ export default function ContractsManagementView({
                 <option value="ALL">Tất cả trạng thái</option>
                 {mode === 'supervisor' && <option value="DRAFT">Bản nháp</option>}
                 <option value="SIGNED">Chờ phê duyệt</option>
+                <option value="REJECTED">Bị từ chối</option>
                 <option value="ACTIVE">Đang hiệu lực</option>
-                <option value="SETTLED">Đã tất toán</option>
-                <option value="CANCELLED">Đã hủy</option>
+                <option value="EXPIRED">Hết hiệu lực</option>
               </select>
 
               {mode === 'supervisor' && (
@@ -180,6 +170,8 @@ export default function ContractsManagementView({
           <div className="flex flex-wrap gap-2">
             <Badge variant="soft-success">Đang hiệu lực: {activeCount}</Badge>
             <Badge variant="soft-warning">Chờ duyệt: {waitingApprovalCount}</Badge>
+            <Badge variant="soft-destructive">Bị từ chối: {rejectedCount}</Badge>
+            <Badge variant="secondary">Hết hiệu lực: {expiredCount}</Badge>
             {mode === 'supervisor' && (
               <Badge variant="soft-info">Bản nháp: {draftCount}</Badge>
             )}

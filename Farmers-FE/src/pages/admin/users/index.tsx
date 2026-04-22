@@ -208,6 +208,7 @@ export default function UsersManagementPage({
   const activeStatus = statusFilter === "ALL" ? undefined : statusFilter;
   const activeRole = fixedRole ?? (roleFilter === "ALL" ? undefined : roleFilter);
   const activeExcludeClient = !fixedRole && excludeClientByDefault ? true : undefined;
+  const isClientScope = activeRole === "CLIENT";
 
   const {
     data: queryData,
@@ -289,6 +290,7 @@ export default function UsersManagementPage({
                     <SelectItem value="ADMIN">Quản trị viên</SelectItem>
                     <SelectItem value="SUPERVISOR">Giám sát viên</SelectItem>
                     <SelectItem value="INVENTORY">Nhân viên kho</SelectItem>
+                    <SelectItem value="CLIENT">Khách hàng</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -313,7 +315,12 @@ export default function UsersManagementPage({
               <Button
                 onClick={() => setIsCreateOpen(true)}
                 className="rounded-full"
-                disabled={readOnlyList}
+                disabled={readOnlyList || isClientScope}
+                aria-label={
+                  isClientScope
+                    ? "Không tạo mới khách hàng tại màn hình này"
+                    : undefined
+                }
               >
                 <Plus className="h-4 w-4" />
                 Thêm người dùng

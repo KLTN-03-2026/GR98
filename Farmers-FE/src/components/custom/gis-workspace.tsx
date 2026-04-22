@@ -1716,17 +1716,6 @@ export default function GISWorkspace({
           <SheetHeader className="border-b pb-4">
             <SheetTitle>Sheet quản lý lô đất</SheetTitle>
             <SheetDescription className="sr-only">Thông tin chi tiết lô đất</SheetDescription>
-
-            {roleLabel === "SUPERVISOR" && (
-              <Button
-                className="mt-2 w-full bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => void handleCreatePlot()}
-                disabled={isSaving}
-              >
-                <Sprout className="mr-2 h-4 w-4" />
-                {isSaving ? "Đang lưu..." : "Gán point theo mã hợp đồng"}
-              </Button>
-            )}
           </SheetHeader>
 
           <div className="space-y-4 p-4">
@@ -1862,13 +1851,63 @@ export default function GISWorkspace({
               </div>
             </div>
 
-            {roleLabel === "SUPERVISOR" && !isValidPolygon(polygonCoords) && (
-              <p className="text-xs text-muted-foreground">
-                Supervisor chỉ cần nhập mã hợp đồng hợp lệ để gán point trên GIS.
-              </p>
-            )}
+            {/* Tọa độ lô đất từ DB (plotDraftCoordinatesText) */}
+            {(() => {
+              const text = (selectedLot as { plotDraftCoordinatesText?: string | null }).plotDraftCoordinatesText;
+              if (!text?.trim()) return null;
+              const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean);
+              const coords: Array<[number, number]> = [];
+              let allPairs = true;
+              for (const line of lines) {
+                const parts = line.split(',').map((p: string) => p.trim()).filter(Boolean);
+                if (parts.length === 2) {
+                  const lat = parseFloat(parts[0]);
+                  const lng = parseFloat(parts[1]);
+                  if (!isNaN(lat) && !isNaN(lng)) { coords.push([lat, lng]); continue; }
+                }
+                allPairs = false;
+                break;
+              }
+              if (!allPairs || coords.length === 0) {
+                coords.length = 0;
+                const nums = text.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean);
+                for (let i = 0; i + 1 < nums.length; i += 2) {
+                  const lat = parseFloat(nums[i]);
+                  const lng = parseFloat(nums[i + 1]);
+                  if (!isNaN(lat) && !isNaN(lng)) coords.push([lat, lng]);
+                }
+              }
+              if (coords.length === 0) return null;
+              return (
+                <div className="rounded-xl border bg-card p-4 shadow-xs">
+                  <p className="mb-3 text-sm font-semibold text-foreground">
+                    Tọa độ lô đất ({coords.length} điểm)
+                  </p>
+                  <div className="max-h-48 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b text-muted-foreground">
+                          <th className="pb-2 text-left font-medium">Điểm</th>
+                          <th className="pb-2 text-right font-medium">Vĩ độ (lat)</th>
+                          <th className="pb-2 text-right font-medium">Kinh độ (lng)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {coords.map(([lat, lng], i) => (
+                          <tr key={i} className="border-b border-dashed last:border-0">
+                            <td className="py-1.5 font-medium text-emerald-700">{i + 1}</td>
+                            <td className="py-1.5 text-right tabular-nums">{lat.toFixed(6)}</td>
+                            <td className="py-1.5 text-right tabular-nums">{lng.toFixed(6)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
 
-            {isValidPolygon(polygonCoords) && (
+            {isValidPolygon(polygonCoords) && !(selectedLot as { plotDraftCoordinatesText?: string | null }).plotDraftCoordinatesText?.trim() && (
               <div className="rounded-xl border border-red-100 bg-red-50/60 p-3">
                 <p className="mb-2 text-sm font-semibold text-red-800">
                   Tọa độ lô đất ({polygonCoords.length} điểm)

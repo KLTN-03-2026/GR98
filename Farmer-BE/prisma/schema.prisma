@@ -62,7 +62,9 @@ enum ReportType {
 enum ContractStatus {
   DRAFT
   SIGNED
+  REJECTED
   ACTIVE
+  EXPIRED
   COMPLETED
   CANCELLED
   SETTLED

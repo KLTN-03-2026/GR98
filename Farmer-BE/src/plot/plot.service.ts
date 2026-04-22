@@ -443,7 +443,11 @@ export class PlotService {
         supervisorId: actor.supervisorProfileId,
         contractNo,
         status: {
-          notIn: [ContractStatus.CANCELLED, ContractStatus.TERMINATED],
+          notIn: [
+            ContractStatus.CANCELLED,
+            ContractStatus.TERMINATED,
+            ContractStatus.EXPIRED,
+          ],
         },
       },
       select: {
@@ -517,7 +521,11 @@ export class PlotService {
         contracts: {
           some: {
             status: {
-              notIn: [ContractStatus.CANCELLED, ContractStatus.TERMINATED],
+              notIn: [
+                ContractStatus.CANCELLED,
+                ContractStatus.TERMINATED,
+                ContractStatus.EXPIRED,
+              ],
             },
           },
         },

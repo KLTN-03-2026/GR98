@@ -34,7 +34,7 @@ export const userCreateFormSchema = z
         { message: 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt' },
       ),
 
-    role: z.enum(['ADMIN', 'SUPERVISOR', 'INVENTORY'], {
+    role: z.enum(['SUPERVISOR', 'INVENTORY'], {
       message: 'Vai trò là bắt buộc',
     }),
 
@@ -64,6 +64,7 @@ export const userCreateFormSchema = z
   });
 
 export const userUpdateFormSchema = userCreateFormSchema.extend({
+  role: z.enum(['ADMIN', 'SUPERVISOR', 'INVENTORY', 'CLIENT']).optional(),
   password: z
     .string()
     .optional()

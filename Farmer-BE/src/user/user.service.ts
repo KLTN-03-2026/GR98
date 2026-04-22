@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -77,6 +78,12 @@ export class UserService {
   // ─── create ────────────────────────────────────────────────────────────────
 
   async create(dto: CreateUserDto, creatorId: string) {
+    if (dto.role === Role.CLIENT) {
+      throw new BadRequestException(
+        'Không tạo tài khoản khách hàng qua chức năng Quản lý tài khoản',
+      );
+    }
+
     if (dto.role === Role.ADMIN) {
       const existingAdmin = await this.prisma.user.findFirst({
         where: { role: Role.ADMIN },
@@ -340,6 +347,26 @@ export class UserService {
         'Người dùng không tồn tại hoặc bạn không có quyền sửa',
       );
 
+    if (existing.role === Role.CLIENT) {
+      const hasForbiddenChange =
+        dto.fullName !== undefined ||
+        dto.email !== undefined ||
+        dto.phone !== undefined ||
+        dto.password !== undefined ||
+        dto.role !== undefined ||
+        dto.avatar !== undefined ||
+        dto.clearAvatar !== undefined ||
+        dto.province !== undefined ||
+        dto.businessName !== undefined ||
+        dto.defaultAddress !== undefined;
+
+      if (hasForbiddenChange) {
+        throw new ForbiddenException(
+          'Tài khoản khách hàng chỉ được phép thay đổi trạng thái hoặc xóa',
+        );
+      }
+    }
+
     // Check email uniqueness if changing
     if (dto.email && dto.email !== existing.email) {
       const dup = await this.prisma.user.findUnique({
@@ -359,6 +386,16 @@ export class UserService {
 
     const currentAdminId = await this.resolveAdminIdFromToken(currentUserId);
     const nextRole = dto.role ?? existing.role;
+
+    if (
+      existing.role === Role.CLIENT &&
+      dto.role !== undefined &&
+      dto.role !== Role.CLIENT
+    ) {
+      throw new ForbiddenException(
+        'Không đổi vai trò tài khoản khách hàng qua màn Quản lý tài khoản',
+      );
+    }
 
     if (existing.role === Role.ADMIN && nextRole !== Role.ADMIN) {
       throw new ForbiddenException(

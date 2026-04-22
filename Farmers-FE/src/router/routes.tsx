@@ -6,7 +6,6 @@ import SupervisorAuthLayout from '@/layouts/supervisor-auth.layout';
 import InventoryAuthLayout from '@/layouts/inventory-auth.layout';
 import AdminAccountManagementPage from '@/pages/admin/account-management';
 import AdminOverviewPage from '@/pages/admin/overview';
-import AdminZonesPage from '@/pages/admin/zones';
 import AdminPlotsPage from '@/pages/admin/plots';
 import AdminContractsPage from '@/pages/admin/contracts';
 import AdminContractDetailPage from '@/pages/admin/contracts/detail.page';
@@ -15,6 +14,7 @@ import AdminOrdersPage from '@/pages/admin/orders';
 import AdminAssignmentsPage from '@/pages/admin/assignments';
 import AdminClientsPage from '@/pages/admin/clients';
 import AdminWarehousesPage from '@/pages/admin/warehouses';
+import AdminZonesPage from '@/pages/admin/zones';
 
 import SupervisorOverviewPage from '@/pages/supervisor/overview';
 import SupervisorFarmersPage from '@/pages/supervisor/farmers';
@@ -77,7 +77,7 @@ const rootLayout: RouteObject = {
     ...clientRoutes,
 
     // ============================================================
-    // AUTH ROUTES — Standalone, không Header/Footer
+    // AUTH ROUTES — Standalone, không Header/Footerr
     // ============================================================
     {
       path: 'auth/login',

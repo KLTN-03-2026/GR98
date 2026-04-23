@@ -16,7 +16,6 @@ import {
     Layers,
     ArrowRightLeft,
     PieChart,
-    Truck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -84,6 +83,5 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
         { icon: Boxes, label: 'Danh mục', category: 'system', path: `${basePath}/categories` },
         { icon: ReceiptText, label: 'Đơn hàng (ECM)', category: 'system', path: `${basePath}/orders` },
         { icon: BookOpenCheck, label: 'Bảng giá', category: 'system', path: `${basePath}/price-boards` },
-        { icon: Truck, label: 'Quản lý Logistics', category: 'system', path: `${basePath}/logistics` },
     ];
 };

@@ -163,7 +163,9 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns: columnsWithCheckbox,
-    pageCount: pageCount ?? -1,
+    // Chỉ truyền pageCount khi phân trang server; client dùng getPaginationRowModel tự tính.
+    // Truyền -1 khi không manual làm getCanNextPage() sai → nút "Trang sau" vẫn bấm được dù chỉ 1 trang.
+    ...(manualPagination ? { pageCount: pageCount ?? -1 } : {}),
     manualPagination,
     manualSorting,
     manualFiltering,
@@ -189,6 +191,23 @@ export function DataTable<TData, TValue>({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
+
+  const filteredRowCount = table.getFilteredRowModel().rows.length;
+
+  useEffect(() => {
+    if (manualPagination) return;
+    setPagination((prev) => {
+      const totalPages = Math.max(
+        1,
+        Math.ceil(filteredRowCount / Math.max(1, prev.pageSize)),
+      );
+      const maxIndex = totalPages - 1;
+      if (prev.pageIndex > maxIndex) {
+        return { ...prev, pageIndex: maxIndex };
+      }
+      return prev;
+    });
+  }, [manualPagination, filteredRowCount, data, columnFilters, sorting]);
 
   useEffect(() => {
     if (onSelectedItemsRef.current) {

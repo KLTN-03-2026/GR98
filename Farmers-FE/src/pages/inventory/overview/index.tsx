@@ -28,6 +28,9 @@ import {
 } from '@/components/ui/table';
 import { useInventoryDashboard, useInventoryChartData } from './api';
 import { TransactionChart } from './components/TransactionChart';
+import { DataTable, DataTableColumnHeader } from '@/components/data-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import type { TransactionResponse, PendingOrderResponse } from './api/types';
 
 const FULFILL_BADGE: Record<string, { label: string; className: string }> = {
   PENDING: {
@@ -201,6 +204,160 @@ function TableSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
+// ============================================================
+// COLUMN DEFINITIONS
+// ============================================================
+
+const transactionColumns: ColumnDef<TransactionResponse>[] = [
+  {
+    accessorKey: 'createdAt',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Ngày giờ" />
+    ),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground whitespace-nowrap">
+        {format(new Date(row.original.createdAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'warehouse.name',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Kho hàng" />
+    ),
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.warehouse.name}</span>
+    ),
+  },
+  {
+    accessorKey: 'product.name',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Sản phẩm" />
+    ),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">{row.original.product.name}</span>
+    ),
+  },
+  {
+    accessorKey: 'type',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Loại" />
+    ),
+    cell: ({ row }) => {
+      const type = row.original.type;
+      const badge = TRANSACTION_BADGE[type] ?? { label: type, className: '' };
+      return (
+        <Badge
+          variant="outline"
+          className={`rounded-full border px-2 py-0.5 text-[9px] font-medium tracking-wide ${badge.className}`}
+        >
+          {badge.label}
+        </Badge>
+      );
+    },
+  },
+  {
+    accessorKey: 'quantityKg',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Số lượng" className="justify-end" />
+    ),
+    cell: ({ row }) => (
+      <div className="text-right font-semibold tabular-nums">
+        {row.original.quantityKg.toLocaleString('vi-VN')} kg
+      </div>
+    ),
+  },
+];
+
+const orderColumns: ColumnDef<PendingOrderResponse>[] = [
+  {
+    accessorKey: 'orderCode',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Mã đơn" />
+    ),
+    cell: ({ row }) => <span className="font-medium">{row.original.orderCode}</span>,
+  },
+  {
+    id: 'customerName',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Khách hàng" />
+    ),
+    cell: ({ row }) => <span>{row.original.client?.user.fullName ?? '—'}</span>,
+  },
+  {
+    accessorKey: 'shippingAddrText',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Địa chỉ giao" />
+    ),
+    cell: ({ row }) => (
+      <div className="max-w-[200px] truncate text-muted-foreground" title={row.original.shippingAddrText ?? ''}>
+        {row.original.shippingAddrText ?? '—'}
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'paymentStatus',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Thanh toán" />
+    ),
+    cell: ({ row }) => {
+      const isPaid = row.original.paymentStatus === 'PAID';
+      return (
+        <Badge
+          variant="outline"
+          className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
+            isPaid
+              ? 'border-emerald-200 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-300'
+              : 'border-gray-200 bg-gray-500/10 text-gray-600 dark:border-gray-500/30 dark:text-gray-400'
+          }`}
+        >
+          {isPaid ? 'Đã thanh toán' : row.original.paymentStatus}
+        </Badge>
+      );
+    },
+  },
+  {
+    accessorKey: 'fulfillStatus',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Trạng thái" />
+    ),
+    cell: ({ row }) => {
+      const status = row.original.fulfillStatus;
+      const badge = FULFILL_BADGE[status] ?? { label: status, className: '' };
+      return (
+        <Badge
+          variant="outline"
+          className={`rounded-full border px-2 py-0.5 text-[9px] font-medium tracking-wide ${badge.className}`}
+        >
+          {badge.label}
+        </Badge>
+      );
+    },
+  },
+  {
+    accessorKey: 'total',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Tổng tiền" className="justify-end" />
+    ),
+    cell: ({ row }) => (
+      <div className="text-right font-semibold tabular-nums text-foreground/80">
+        {row.original.total.toLocaleString('vi-VN')} đ
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'orderedAt',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Ngày đặt" />
+    ),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground whitespace-nowrap">
+        {format(new Date(row.original.orderedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
+      </span>
+    ),
+  },
+];
+
 function formatKpiValue(value: number | undefined, unit?: string): string {
   if (value === undefined || value === null) return '...';
   if (unit === 'kg') return `${value.toLocaleString('vi-VN')} kg`;
@@ -365,77 +522,15 @@ export default function InventoryOverviewPage() {
               {isLoading ? '...' : data?.recentTransactions?.length ?? 0} giao dịch
             </span>
           </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="group/row border-border/60">
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Ngày giờ
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Kho hàng
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Sản phẩm
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Loại
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-right text-[10px] uppercase tracking-[0.1em]">
-                    Số lượng
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableSkeleton rows={6} />
-                ) : data?.recentTransactions && data.recentTransactions.length > 0 ? (
-                  data.recentTransactions.map((t) => {
-                    const badge = TRANSACTION_BADGE[t.type] ?? { label: t.type, className: '' };
-                    return (
-                      <TableRow
-                        key={t.id}
-                        className="group/row border-border/40 transition-colors hover:bg-muted/30"
-                      >
-                        <TableCell className="bg-background/60 py-2.5 text-xs text-muted-foreground group-hover/row:bg-muted/40">
-                          {format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 text-sm font-medium group-hover/row:bg-muted/40">
-                          {t.warehouse.name}
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 text-sm text-muted-foreground group-hover/row:bg-muted/40">
-                          {t.product.name}
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 group-hover/row:bg-muted/40">
-                          <Badge
-                            variant="outline"
-                            className={`rounded-full border px-2 py-0.5 text-[9px] font-medium tracking-wide ${badge.className}`}
-                          >
-                            {badge.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 text-right font-semibold text-sm tabular-nums group-hover/row:bg-muted/40">
-                          {t.quantityKg.toLocaleString('vi-VN')} kg
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-40 text-center">
-                      <div className="flex flex-col items-center gap-2 py-8">
-                        <div className="flex size-12 items-center justify-center rounded-full border border-dashed border-muted-foreground/20 bg-muted/30">
-                          <ArrowRightLeft className="size-5 text-muted-foreground/50" />
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Không có giao dịch nào trong 30 ngày qua
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <CardContent className="px-0 py-0">
+            <DataTable
+              columns={transactionColumns}
+              data={data?.recentTransactions ?? []}
+              isLoading={isLoading}
+              hiddenSearch
+              pageSizeOptions={[5, 10, 15]}
+              state={{ pagination: { pageIndex: 0, pageSize: 6 } }}
+            />
           </CardContent>
         </Card>
       )}
@@ -452,101 +547,15 @@ export default function InventoryOverviewPage() {
               {isLoading ? '...' : data?.pendingOrdersList?.length ?? 0} đơn chờ
             </span>
           </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="group/row border-border/60">
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Mã đơn
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Khách hàng
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Địa chỉ giao
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Thanh toán
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Trạng thái
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-right text-[10px] uppercase tracking-[0.1em]">
-                    Tổng tiền
-                  </TableHead>
-                  <TableHead className="bg-muted/40 text-[10px] uppercase tracking-[0.1em]">
-                    Ngày đặt
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableSkeleton rows={6} />
-                ) : data?.pendingOrdersList && data.pendingOrdersList.length > 0 ? (
-                  data.pendingOrdersList.map((o) => {
-                    const badge = FULFILL_BADGE[o.fulfillStatus] ?? {
-                      label: o.fulfillStatus,
-                      className: '',
-                    };
-                    return (
-                      <TableRow
-                        key={o.id}
-                        className="group/row border-border/40 transition-colors hover:bg-muted/30"
-                      >
-                        <TableCell className="bg-background/60 py-2.5 font-medium text-sm group-hover/row:bg-muted/40">
-                          {o.orderCode}
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 text-sm group-hover/row:bg-muted/40">
-                          {o.client?.user.fullName ?? '—'}
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 max-w-[180px] truncate text-sm text-muted-foreground group-hover/row:bg-muted/40">
-                          {o.shippingAddrText ?? '—'}
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 group-hover/row:bg-muted/40">
-                          <Badge
-                            variant="outline"
-                            className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
-                              o.paymentStatus === 'PAID'
-                                ? 'border-emerald-200 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-300'
-                                : 'border-gray-200 bg-gray-500/10 text-gray-600 dark:border-gray-500/30 dark:text-gray-400'
-                            }`}
-                          >
-                            {o.paymentStatus === 'PAID' ? 'Đã thanh toán' : o.paymentStatus}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 group-hover/row:bg-muted/40">
-                          <Badge
-                            variant="outline"
-                            className={`rounded-full border px-2 py-0.5 text-[9px] font-medium tracking-wide ${badge.className}`}
-                          >
-                            {badge.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 text-right font-semibold text-sm tabular-nums text-foreground/80 group-hover/row:bg-muted/40">
-                          {o.total.toLocaleString('vi-VN')} đ
-                        </TableCell>
-                        <TableCell className="bg-background/60 py-2.5 text-xs text-muted-foreground whitespace-nowrap group-hover/row:bg-muted/40">
-                          {format(new Date(o.orderedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-40 text-center">
-                      <div className="flex flex-col items-center gap-2 py-8">
-                        <div className="flex size-12 items-center justify-center rounded-full border border-dashed border-muted-foreground/20 bg-muted/30">
-                          <Package2 className="size-5 text-muted-foreground/50" />
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Không có đơn hàng chờ xử lý
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <CardContent className="px-0 py-0">
+            <DataTable
+              columns={orderColumns}
+              data={data?.pendingOrdersList ?? []}
+              isLoading={isLoading}
+              hiddenSearch
+              pageSizeOptions={[5, 10, 15]}
+              state={{ pagination: { pageIndex: 0, pageSize: 6 } }}
+            />
           </CardContent>
         </Card>
       )}

@@ -1,13 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import { MapPin, Phone, Plus, Save, Trash2, UserRound, Wheat } from "lucide-react";
-import { toast } from "sonner";
+import { useCallback, useMemo, useState } from "react";
+import { Plus, Warehouse as WarehouseIcon } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Combobox } from "@/components/custom/combobox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -16,681 +23,419 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { DataGrid } from "@/components/data-grid";
-import { cn } from "@/lib/utils";
-import { useAllSupervisors } from "@/pages/admin/supervisors/api/use-supervisors";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useInventoryStaff } from "@/pages/admin/inventory-staff/api/use-inventory-staff";
 import {
-  useCreateFarmer,
-  useDeleteFarmer,
-  useFarmers,
-  useUpdateFarmer,
-  type FarmerResponse,
-  type FarmerStatus,
-} from "@/pages/admin/farmers/api";
+  adminWarehouseKeys,
+  useAdminWarehouseDetail,
+  useAdminWarehousesList,
+  useCreateWarehouse,
+  useUpdateWarehouse,
+} from "./api/use-admin-warehouses";
+import type { AdminWarehouseRow } from "./api/types";
+import {
+  createAdminWarehouseColumns,
+  WAREHOUSE_MANAGER_UNASSIGNED,
+} from "./warehouses-columns";
 
-type FarmerForm = {
-  fullName: string;
-  phone: string;
-  cccd: string;
-  province: string;
-  address: string;
-  bankAccount: string;
-  supervisorId: string;
-  status: FarmerStatus;
-};
+const UNASSIGNED = WAREHOUSE_MANAGER_UNASSIGNED;
 
-const DEFAULT_PAGE_SIZE = 15;
-const PAGE_SIZE_OPTIONS = [10, 15, 20, 30];
-const PHONE_REGEX = /^(\+84|0)[0-9]{9,10}$/;
-const CCCD_REGEX = /^\d{12}$/;
-const UNASSIGNED_SUPERVISOR = "__NONE__";
-
-const defaultForm: FarmerForm = {
-  fullName: "",
-  phone: "",
-  cccd: "",
-  province: "",
-  address: "",
-  bankAccount: "",
-  supervisorId: UNASSIGNED_SUPERVISOR,
-  status: "ACTIVE",
-};
-
-function getStatusLabel(status: FarmerStatus) {
-  return status === "ACTIVE" ? "Hoạt động" : "Không hoạt động";
-}
-
-function getStatusVariant(status: FarmerStatus) {
-  return status === "ACTIVE" ? ("success" as const) : ("secondary" as const);
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString("vi-VN");
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((chunk) => chunk[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
-function FarmerCardSkeleton() {
-  return (
-    <Card className="animate-pulse border-l-4 border-l-emerald-400/40">
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-3 w-32" />
-          </div>
-          <Skeleton className="h-6 w-24 rounded-full" />
-        </div>
-        <div className="space-y-1.5">
-          <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-4 w-44" />
-          <Skeleton className="h-4 w-36" />
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-5 w-20 rounded-full" />
-          <Skeleton className="h-5 w-24 rounded-full" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE";
 
 export default function AdminWarehousesPage() {
-  const [keyword, setKeyword] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | FarmerStatus>("ALL");
-  const [supervisorFilter, setSupervisorFilter] = useState<string>("ALL");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const queryClient = useQueryClient();
+  const { data: rawList = [], isLoading, isFetching } = useAdminWarehousesList();
 
-  const { data: supervisors = [] } = useAllSupervisors();
-  const {
-    data: queryData,
-    isLoading,
-    isPlaceholderData,
-    isError,
-    error,
-    refetch,
-  } = useFarmers({
-    page: currentPage,
-    limit: pageSize,
-    search: keyword.trim() || undefined,
-    status: statusFilter === "ALL" ? undefined : statusFilter,
-    supervisorId: supervisorFilter === "ALL" ? undefined : supervisorFilter,
+  const [staffSearch, setStaffSearch] = useState("");
+  const { data: staffPage } = useInventoryStaff({
+    page: 1,
+    limit: 20,
+    status: "ACTIVE",
+    search: staffSearch.trim() || undefined,
   });
+  const createMutation = useCreateWarehouse();
+  const updateMutation = useUpdateWarehouse();
 
-  const farmers = useMemo(() => queryData?.data ?? [], [queryData]);
-  const total = queryData?.total ?? 0;
-  const totalPages = Math.max(1, queryData?.totalPages ?? 1);
-
-  const createMutation = useCreateFarmer();
-  const updateMutation = useUpdateFarmer();
-  const deleteMutation = useDeleteFarmer();
-  const isSaving = createMutation.isPending || updateMutation.isPending;
-  const isDeleting = deleteMutation.isPending;
-
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [mode, setMode] = useState<"create" | "edit">("edit");
-  const [selected, setSelected] = useState<FarmerResponse | null>(null);
-  const [form, setForm] = useState<FarmerForm>(defaultForm);
-  const [deleteTarget, setDeleteTarget] = useState<FarmerResponse | null>(null);
-  const [shouldRestoreSheet, setShouldRestoreSheet] = useState(false);
-  const [formErrors, setFormErrors] = useState<
-    Partial<Record<keyof FarmerForm, string>>
-  >({});
-
-  const activeCount = useMemo(
-    () => farmers.filter((item) => item.status === "ACTIVE").length,
-    [farmers],
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const { data: detail, isFetching: detailLoading } = useAdminWarehouseDetail(
+    detailId ?? "",
   );
 
-  useEffect(() => {
-    if (!isLoading && currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages, isLoading]);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [locationAddress, setLocationAddress] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [managedBy, setManagedBy] = useState<string>(UNASSIGNED);
 
-  const openCreateSheet = () => {
-    setMode("create");
-    setSelected(null);
-    setForm(defaultForm);
-    setFormErrors({});
-    setShouldRestoreSheet(false);
-    setSheetOpen(true);
+  const staffOptions = useMemo(() => {
+    const rows = staffPage?.data ?? [];
+    return rows
+      .map((s) => {
+        const pid = s.inventoryProfile?.id;
+        if (!pid) return null;
+        return {
+          value: pid,
+          label: `${s.fullName} (${s.inventoryProfile?.employeeCode ?? pid.slice(0, 6)})`,
+        };
+      })
+      .filter(Boolean) as { value: string; label: string }[];
+  }, [staffPage?.data]);
+
+  const formManagerOptions = useMemo(() => {
+    const list = [{ value: UNASSIGNED, label: "Chưa gán" }, ...staffOptions];
+    if (
+      managedBy !== UNASSIGNED &&
+      !list.some((o) => o.value === managedBy)
+    ) {
+      const w = rawList.find((x) => x.managedBy === managedBy);
+      list.splice(1, 0, {
+        value: managedBy,
+        label: w
+          ? `${w.managerFullName ?? "NV"} (${w.managerEmployeeCode ?? "—"})`
+          : managedBy.slice(0, 8),
+      });
+    }
+    return list;
+  }, [staffOptions, managedBy, rawList]);
+
+  const filteredRows = useMemo(() => {
+    if (statusFilter === "ALL") return rawList;
+    if (statusFilter === "ACTIVE") return rawList.filter((w) => w.isActive);
+    return rawList.filter((w) => !w.isActive);
+  }, [rawList, statusFilter]);
+
+  const openCreate = () => {
+    setFormMode("create");
+    setEditingId(null);
+    setName("");
+    setLocationAddress("");
+    setIsActive(true);
+    setManagedBy(UNASSIGNED);
+    setStaffSearch("");
+    setFormOpen(true);
   };
 
-  const openEditSheet = (row: FarmerResponse) => {
-    setMode("edit");
-    setSelected(row);
-    setForm({
-      fullName: row.fullName,
-      phone: row.phone,
-      cccd: row.cccd,
-      province: row.province ?? "",
-      address: row.address ?? "",
-      bankAccount: row.bankAccount ?? "",
-      supervisorId: row.supervisorId ?? UNASSIGNED_SUPERVISOR,
-      status: row.status,
-    });
-    setFormErrors({});
-    setShouldRestoreSheet(false);
-    setSheetOpen(true);
+  const openEdit = useCallback((row: AdminWarehouseRow) => {
+    setFormMode("edit");
+    setEditingId(row.id);
+    setName(row.name);
+    setLocationAddress(row.locationAddress ?? "");
+    setIsActive(row.isActive);
+    setManagedBy(row.managedBy ?? UNASSIGNED);
+    setStaffSearch("");
+    setFormOpen(true);
+  }, []);
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditingId(null);
   };
 
-  const validateForm = () => {
-    const errors: Partial<Record<keyof FarmerForm, string>> = {};
+  const openDetail = useCallback((row: AdminWarehouseRow) => {
+    setDetailId(row.id);
+  }, []);
 
-    if (!form.fullName.trim()) {
-      errors.fullName = "Vui lòng nhập họ tên";
-    }
-    if (!form.phone.trim()) {
-      errors.phone = "Vui lòng nhập số điện thoại";
-    } else if (!PHONE_REGEX.test(form.phone.trim())) {
-      errors.phone = "Số điện thoại không hợp lệ";
-    }
-    if (!form.cccd.trim()) {
-      errors.cccd = "Vui lòng nhập CCCD";
-    } else if (!CCCD_REGEX.test(form.cccd.trim())) {
-      errors.cccd = "CCCD phải gồm đúng 12 chữ số";
-    }
+  const columns = useMemo(
+    () =>
+      createAdminWarehouseColumns({
+        onOpenDetail: openDetail,
+        onEdit: openEdit,
+      }),
+    [openDetail, openEdit],
+  );
 
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+  const handleSubmitForm = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const payload = {
+      name: trimmed,
+      locationAddress: locationAddress.trim() || undefined,
+      isActive,
+      managedBy:
+        managedBy === UNASSIGNED ? null : managedBy,
+    };
+    if (formMode === "create") {
+      await createMutation.mutateAsync(payload);
+    } else if (editingId) {
+      await updateMutation.mutateAsync({ id: editingId, data: payload });
+    }
+    closeForm();
   };
 
-  const openDeleteConfirm = () => {
-    if (!selected) return;
-    setShouldRestoreSheet(true);
-    setSheetOpen(false);
-    setDeleteTarget(selected);
-  };
-
-  const submitForm = async () => {
-    if (!validateForm()) {
-      toast.error("Vui lòng kiểm tra lại thông tin đã nhập");
-      return;
-    }
-
-    const supervisorId =
-      form.supervisorId === UNASSIGNED_SUPERVISOR ? null : form.supervisorId;
-
-    try {
-      if (mode === "create") {
-        await createMutation.mutateAsync({
-          fullName: form.fullName.trim(),
-          phone: form.phone.trim(),
-          cccd: form.cccd.trim(),
-          province: form.province.trim() || undefined,
-          address: form.address.trim() || undefined,
-          bankAccount: form.bankAccount.trim() || undefined,
-          supervisorId: supervisorId || undefined,
-          status: form.status,
-        });
-      } else if (selected) {
-        await updateMutation.mutateAsync({
-          id: selected.id,
-          data: {
-            fullName: form.fullName.trim(),
-            phone: form.phone.trim(),
-            cccd: form.cccd.trim(),
-            province: form.province,
-            address: form.address,
-            bankAccount: form.bankAccount,
-            supervisorId,
-            status: form.status,
-          },
-        });
-      }
-      setSheetOpen(false);
-    } catch {
-      // Hook onError đã xử lý toast.
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setShouldRestoreSheet(false);
-    try {
-      await deleteMutation.mutateAsync(deleteTarget.id);
-      setDeleteTarget(null);
-      if (selected?.id === deleteTarget.id) {
-        setSelected(null);
-      }
-    } catch {
-      // Hook onError đã xử lý toast.
-    }
-  };
-
-  const resetFilters = () => {
-    setKeyword("");
-    setStatusFilter("ALL");
-    setSupervisorFilter("ALL");
-    setCurrentPage(1);
-  };
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <>
-      <DataGrid<FarmerResponse>
-        title="Quản lý nông dân (test trên Warehouses)"
-        description="Bản quản lý nông dân số 2 để kiểm thử DataGrid, không ảnh hưởng trang Farmers chính."
-        appearance="management"
-        items={farmers}
-        isLoading={isLoading}
-        isAwaitingResults={isPlaceholderData}
-        error={
-          isError
-            ? typeof error?.message === "string"
-              ? error.message
-              : "Không tải được danh sách nông dân."
-            : undefined
-        }
-        onRetry={() => {
-          void refetch();
-        }}
-        keyExtractor={(item) => item.id}
-        renderCard={(row) => (
-          <button
-            key={row.id}
-            type="button"
-            onClick={() => openEditSheet(row)}
-            className={cn(
-              "h-full min-h-[188px] w-full rounded-2xl border border-l-4 border-l-emerald-500 bg-linear-to-br from-white to-emerald-50/60 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md",
-              selected?.id === row.id && "ring-2 ring-emerald-200",
-            )}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-slate-900">
-                  {row.fullName}
-                </p>
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  CCCD: {row.cccd}
-                </p>
-              </div>
-              <Badge variant={getStatusVariant(row.status)}>
-                {getStatusLabel(row.status)}
-              </Badge>
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+              <WarehouseIcon className="size-4 text-primary" />
             </div>
+            <h1 className="text-2xl font-semibold tracking-tight">Quản lý kho hàng</h1>
+          </div>
+          <p className="text-muted-foreground text-sm max-w-xl">
+            Danh sách kho của đơn vị, gán nhân viên kho phụ trách và cập nhật trạng thái.
+          </p>
+        </div>
+        <Button type="button" onClick={openCreate} className="shrink-0">
+          <Plus className="size-4 mr-2" />
+          Thêm kho
+        </Button>
+      </div>
 
-            <div className="mt-3 flex items-start gap-3">
-              <Avatar className="h-11 w-11 rounded-lg">
-                <AvatarImage
-                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    row.fullName,
-                  )}&background=dcfce7&color=166534&size=96`}
-                  alt={row.fullName}
-                />
-                <AvatarFallback className="rounded-lg bg-emerald-100 text-emerald-800">
-                  {getInitials(row.fullName)}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="min-w-0 flex-1 space-y-1.5 text-sm text-muted-foreground">
-                <p className="inline-flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  {row.phone}
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  <span className="truncate">
-                    {row.province || "Chưa cập nhật tỉnh"}
-                  </span>
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <UserRound className="h-4 w-4" />
-                  <span className="truncate">
-                    {row.supervisor?.user.fullName || "Chưa gán giám sát viên"}
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline">Lô đất: {row._count.plots}</Badge>
-              <Badge variant="outline">Hợp đồng: {row._count.contracts}</Badge>
-            </div>
-          </button>
-        )}
-        toolbar={{
-          search: {
-            value: keyword,
-            onChange: (value) => {
-              setKeyword(value);
-              setCurrentPage(1);
-            },
-            placeholder: "Tìm theo tên, SĐT, CCCD, tỉnh, giám sát viên...",
-          },
-          filters: (
-            <>
-              <Button
-                variant={statusFilter === "ALL" ? "primary" : "outline"}
-                className="rounded-full"
-                onClick={() => {
-                  setStatusFilter("ALL");
-                  setCurrentPage(1);
-                }}
-              >
-                Tất cả trạng thái
-              </Button>
-              <Button
-                variant={statusFilter === "ACTIVE" ? "primary" : "outline"}
-                className="rounded-full"
-                onClick={() => {
-                  setStatusFilter("ACTIVE");
-                  setCurrentPage(1);
-                }}
-              >
-                Hoạt động
-              </Button>
-              <Button
-                variant={statusFilter === "INACTIVE" ? "primary" : "outline"}
-                className="rounded-full"
-                onClick={() => {
-                  setStatusFilter("INACTIVE");
-                  setCurrentPage(1);
-                }}
-              >
-                Không hoạt động
-              </Button>
-
-              <select
-                value={supervisorFilter}
-                onChange={(event) => {
-                  setSupervisorFilter(event.target.value);
-                  setCurrentPage(1);
-                }}
-                className="h-9 min-w-56 rounded-full border border-input bg-background px-3 text-sm"
-              >
-                <option value="ALL">Tất cả giám sát viên</option>
-                {supervisors.map((item) => (
-                  <option
-                    key={item.supervisorProfile?.id ?? item.id}
-                    value={item.supervisorProfile?.id ?? item.id}
+      <Card>
+        <CardContent className="pt-6">
+          <DataTable
+            columns={columns}
+            data={filteredRows}
+            isLoading={isLoading || isFetching}
+            searchPlaceholder="Tìm theo tên kho, địa chỉ, nhân viên..."
+            enableSorting
+            onRowClick={(row) => openDetail(row)}
+            onReload={() =>
+              queryClient.invalidateQueries({ queryKey: adminWarehouseKeys.list() })
+            }
+            noResults={
+              <span className="text-muted-foreground">Không có kho phù hợp bộ lọc.</span>
+            }
+            filterToolbar={
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="space-y-2 min-w-[180px]">
+                  <Label className="text-xs">Trạng thái kho</Label>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(v) => setStatusFilter(v as StatusFilter)}
                   >
-                    {item.fullName}
-                  </option>
-                ))}
-              </select>
-            </>
-          ),
-          summary: (
-            <>
-              <span>
-                Hiển thị {farmers.length} / {total} nông dân.
-              </span>
-              <span>Giới hạn mỗi trang: {pageSize}</span>
-            </>
-          ),
-          quickStats: (
-            <Badge variant="soft-success">Đang hoạt động: {activeCount}</Badge>
-          ),
-          customActions: (
-            <Button onClick={openCreateSheet} className="rounded-full">
-              <Plus className="h-4 w-4" />
-              Thêm nông dân
-            </Button>
-          ),
-          onRefresh: () => {
-            void refetch();
-          },
-          onResetFilters: resetFilters,
-        }}
-        pagination={{
-          page: currentPage,
-          pageSize,
-          totalItems: total,
-          totalPages,
-          onPageChange: setCurrentPage,
-          onPageSizeChange: (nextPageSize) => {
-            setPageSize(nextPageSize);
-            setCurrentPage(1);
-          },
-          pageSizeOptions: PAGE_SIZE_OPTIONS,
-        }}
-        skeleton={{
-          count: Math.min(pageSize, 12),
-          renderSkeletonCard: (index) => (
-            <FarmerCardSkeleton key={`warehouse-farmer-skeleton-${index}`} />
-          ),
-        }}
-        emptyState={{
-          title: "Không có nông dân phù hợp",
-          description: "Không có nông dân khớp với bộ lọc hiện tại.",
-        }}
-        layout={{
-          minCardWidth: 300,
-          equalHeightCards: true,
-        }}
-      />
+                    <SelectTrigger className="h-9 w-[200px]">
+                      <SelectValue placeholder="Trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Tất cả</SelectItem>
+                      <SelectItem value="ACTIVE">Đang hoạt động</SelectItem>
+                      <SelectItem value="INACTIVE">Đang ngưng</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            }
+          />
+        </CardContent>
+      </Card>
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-lg"
-        >
+      <Sheet open={formOpen} onOpenChange={(o) => !o && closeForm()}>
+        <SheetContent className="flex flex-col sm:max-w-md">
           <SheetHeader>
             <SheetTitle>
-              {mode === "create" ? "Thêm nông dân" : "Cập nhật nông dân"}
+              {formMode === "create" ? "Thêm kho mới" : "Sửa kho hàng"}
             </SheetTitle>
             <SheetDescription>
-              Bản quản lý nông dân thứ 2 trên trang Warehouses để kiểm thử DataGrid.
+              Nhập thông tin kho và chọn nhân viên kho phụ trách nếu cần.
             </SheetDescription>
           </SheetHeader>
-
-          <div className="space-y-4 px-4 pb-4">
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto py-2">
             <div className="space-y-2">
-              <Label>Họ tên</Label>
+              <Label htmlFor="wh-name">Tên kho</Label>
               <Input
-                value={form.fullName}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, fullName: event.target.value }))
-                }
-                placeholder="Nguyễn Văn A"
-              />
-              {formErrors.fullName && (
-                <p className="text-xs text-destructive">{formErrors.fullName}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Số điện thoại</Label>
-              <Input
-                value={form.phone}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, phone: event.target.value }))
-                }
-                placeholder="0987654321"
-              />
-              {formErrors.phone && (
-                <p className="text-xs text-destructive">{formErrors.phone}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>CCCD</Label>
-              <Input
-                value={form.cccd}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, cccd: event.target.value }))
-                }
-                placeholder="012345678901"
-              />
-              {formErrors.cccd && (
-                <p className="text-xs text-destructive">{formErrors.cccd}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Tỉnh/Thành phố</Label>
-              <Input
-                value={form.province}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, province: event.target.value }))
-                }
-                placeholder="Đắk Lắk"
+                id="wh-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ví dụ: Kho trung tâm"
               />
             </div>
-
             <div className="space-y-2">
-              <Label>Địa chỉ</Label>
+              <Label htmlFor="wh-addr">Địa chỉ</Label>
               <Input
-                value={form.address}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, address: event.target.value }))
-                }
-                placeholder="Thôn ..., xã ..., huyện ..."
+                id="wh-addr"
+                value={locationAddress}
+                onChange={(e) => setLocationAddress(e.target.value)}
+                placeholder="Tùy chọn"
               />
             </div>
-
-            <div className="space-y-2">
-              <Label>Số tài khoản ngân hàng</Label>
-              <Input
-                value={form.bankAccount}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    bankAccount: event.target.value,
-                  }))
-                }
-                placeholder="9704..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Giám sát viên phụ trách</Label>
-              <select
-                value={form.supervisorId}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    supervisorId: event.target.value,
-                  }))
-                }
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value={UNASSIGNED_SUPERVISOR}>Chưa phân công</option>
-                {supervisors.map((item) => {
-                  const supervisorId = item.supervisorProfile?.id;
-                  if (!supervisorId) return null;
-                  return (
-                    <option key={supervisorId} value={supervisorId}>
-                      {item.fullName}
-                      {item.supervisorProfile?.employeeCode
-                        ? ` (${item.supervisorProfile.employeeCode})`
-                        : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Trạng thái</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant={form.status === "ACTIVE" ? "primary" : "outline"}
-                  onClick={() =>
-                    setForm((prev) => ({ ...prev, status: "ACTIVE" }))
-                  }
-                >
-                  Hoạt động
-                </Button>
-                <Button
-                  type="button"
-                  variant={form.status === "INACTIVE" ? "primary" : "outline"}
-                  onClick={() =>
-                    setForm((prev) => ({ ...prev, status: "INACTIVE" }))
-                  }
-                >
-                  Không hoạt động
-                </Button>
-              </div>
-            </div>
-
-            {selected && (
-              <div className="rounded-xl border border-dashed border-emerald-200 p-3 text-xs text-muted-foreground">
-                <p className="font-medium text-emerald-900">
-                  <Wheat className="mr-1 inline h-3.5 w-3.5" />
-                  Tổng lô đất: {selected._count.plots}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="wh-active">Đang hoạt động</Label>
+                <p className="text-muted-foreground text-xs">
+                  Bỏ chọn nếu kho tạm ngưng tiếp nhận hàng.
                 </p>
-                <p>Tổng hợp đồng: {selected._count.contracts}</p>
-                <p>Ngày tạo hồ sơ: {formatDate(selected.createdAt)}</p>
               </div>
-            )}
+              <Checkbox
+                id="wh-active"
+                checked={isActive}
+                onCheckedChange={(c) => setIsActive(c === true)}
+                className="size-5"
+                aria-label="Kho đang hoạt động"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nhân viên kho phụ trách</Label>
+              <p className="text-muted-foreground text-xs">
+                Gõ để tìm theo tên, email, mã nhân viên (tối đa 20 kết quả mỗi lần).
+              </p>
+              <Combobox
+                label="Chọn nhân viên kho"
+                dataArr={formManagerOptions}
+                value={managedBy}
+                onChange={(v) => {
+                  const s = typeof v === "string" ? v : UNASSIGNED;
+                  setManagedBy(s);
+                }}
+                setSearchGlobal={setStaffSearch}
+                debounceTime={400}
+                disabled={isSaving}
+                variantTrigger="outline"
+                className="h-10"
+              />
+            </div>
           </div>
-
-          <SheetFooter className="gap-2 border-t px-4 pt-4">
-            {mode === "edit" && selected && (
-              <Button
-                variant="destructive"
-                onClick={openDeleteConfirm}
-                disabled={isSaving || isDeleting}
-              >
-                <Trash2 className="h-4 w-4" />
-                Xóa nông dân
-              </Button>
-            )}
-            <Button onClick={() => void submitForm()} disabled={isSaving}>
-              <Save className="h-4 w-4" />
-              {isSaving ? "Đang lưu..." : "Lưu thông tin"}
+          <SheetFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={closeForm}>
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleSubmitForm()}
+              disabled={!name.trim() || isSaving}
+            >
+              {isSaving ? "Đang lưu..." : "Lưu"}
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
-      <AlertDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null);
-            if (shouldRestoreSheet) {
-              setSheetOpen(true);
-              setShouldRestoreSheet(false);
-            }
-          }
-        }}
-      >
-        <AlertDialogContent variant="error">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xóa nông dân</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn có chắc muốn xóa nông dân "{deleteTarget?.fullName}"? Nếu hồ sơ
-              đã phát sinh lô đất/hợp đồng, hệ thống sẽ từ chối xóa.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => void handleDelete()}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? "Đang xóa..." : "Xóa"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+      <Sheet open={!!detailId} onOpenChange={(o) => !o && setDetailId(null)}>
+        <SheetContent className="flex w-full flex-col overflow-hidden sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Chi tiết kho</SheetTitle>
+            <SheetDescription>
+              Tồn theo lô và lịch sử giao dịch gần đây.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto py-2">
+            {detailLoading && !detail ? (
+              <div className="space-y-3">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : detail ? (
+              <>
+                <div className="rounded-lg border p-4 space-y-2">
+                  <div className="font-semibold text-lg">{detail.name}</div>
+                  <div className="text-muted-foreground text-sm">
+                    {detail.locationAddress ?? "Không có địa chỉ"}
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {detail.isActive ? (
+                      <Badge variant="success">Hoạt động</Badge>
+                    ) : (
+                      <Badge variant="secondary">Ngưng</Badge>
+                    )}
+                    {detail.inventory ? (
+                      <Badge variant="outline">
+                        Phụ trách: {detail.inventory.user.fullName} (
+                        {detail.inventory.employeeCode})
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Chưa gán nhân viên kho</Badge>
+                    )}
+                  </div>
+                </div>
+                <Tabs defaultValue="lots" className="flex-1">
+                  <TabsList className="w-full">
+                    <TabsTrigger value="lots" className="flex-1">
+                      Lô hàng ({detail.inventoryLots.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="tx" className="flex-1">
+                      Giao dịch ({detail.transactions.length})
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="lots" className="mt-3 max-h-[50vh] overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Sản phẩm</TableHead>
+                          <TableHead className="text-right">SL (kg)</TableHead>
+                          <TableHead>Phân hạng</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detail.inventoryLots.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-muted-foreground text-center">
+                              Chưa có lô hàng
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          detail.inventoryLots.map((lot) => (
+                            <TableRow key={lot.id}>
+                              <TableCell className="text-sm">
+                                {lot.product.name}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {lot.quantityKg}
+                              </TableCell>
+                              <TableCell>{lot.qualityGrade}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TabsContent>
+                  <TabsContent value="tx" className="mt-3 max-h-[50vh] overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Loại</TableHead>
+                          <TableHead>Sản phẩm</TableHead>
+                          <TableHead className="text-right">SL (kg)</TableHead>
+                          <TableHead>Thời gian</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detail.transactions.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-muted-foreground text-center">
+                              Chưa có giao dịch
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          detail.transactions.map((t) => (
+                            <TableRow key={t.id}>
+                              <TableCell className="text-sm">{t.type}</TableCell>
+                              <TableCell className="text-sm">{t.product.name}</TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {t.quantityKg}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                {new Date(t.createdAt).toLocaleString("vi-VN")}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TabsContent>
+                </Tabs>
+              </>
+            ) : (
+              <p className="text-muted-foreground text-sm">Không tải được chi tiết.</p>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }

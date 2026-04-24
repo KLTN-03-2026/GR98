@@ -4,7 +4,9 @@ export function getContractStatusLabel(status: ContractStatus) {
   const map: Record<ContractStatus, string> = {
     DRAFT: 'Bản nháp',
     SIGNED: 'Chờ phê duyệt',
+    REJECTED: 'Bị từ chối',
     ACTIVE: 'Đang hiệu lực',
+    EXPIRED: 'Hết hiệu lực',
     SETTLED: 'Đã tất toán',
     CANCELLED: 'Đã hủy',
     COMPLETED: 'Hoàn thành',
@@ -16,8 +18,10 @@ export function getContractStatusLabel(status: ContractStatus) {
 export function getContractStatusBadgeVariant(status: ContractStatus) {
   if (status === 'ACTIVE') return 'success' as const;
   if (status === 'SIGNED') return 'warning' as const;
+  if (status === 'REJECTED') return 'destructive' as const;
   if (status === 'CANCELLED' || status === 'TERMINATED') return 'destructive' as const;
-  if (status === 'SETTLED' || status === 'COMPLETED') return 'secondary' as const;
+  if (status === 'EXPIRED' || status === 'SETTLED' || status === 'COMPLETED')
+    return 'secondary' as const;
   return 'outline' as const;
 }
 

@@ -72,6 +72,11 @@ export type DataGridProps<TItem> = {
   title?: string;
   description?: string;
   isLoading?: boolean;
+  /**
+   * Đang chờ response cho bộ filter/query hiện tại (vd. `isPlaceholderData` từ React Query).
+   * Hiện skeleton lưới nhưng không khóa ô tìm kiếm trên toolbar.
+   */
+  isAwaitingResults?: boolean;
   error?: React.ReactNode;
   onRetry?: () => void;
   toolbar?: DataGridToolbarConfig;

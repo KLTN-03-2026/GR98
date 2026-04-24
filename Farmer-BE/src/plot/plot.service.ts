@@ -122,6 +122,48 @@ export class PlotService {
     }).format(value);
   }
 
+  /** Parse plotDraftCoordinatesText thành polygon array [[lat,lng], ...] */
+  private parseCoordinatesToPolygon(
+    text?: string | null,
+  ): Array<[number, number]> {
+    if (!text?.trim()) return [];
+    const lines = text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const pairs: Array<[number, number]> = [];
+    // Try "lat,lng" per line (correct format)
+    for (const line of lines) {
+      const parts = line
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      if (parts.length === 2) {
+        const lat = parseFloat(parts[0]);
+        const lng = parseFloat(parts[1]);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          pairs.push([lat, lng]);
+          continue;
+        }
+      }
+      // Line doesn't match pair format — try fallback
+      pairs.length = 0;
+      break;
+    }
+    if (pairs.length > 0) return pairs;
+    // Fallback: flat number list (legacy corrupted data)
+    const nums = text
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      const lat = parseFloat(nums[i]);
+      const lng = parseFloat(nums[i + 1]);
+      if (!isNaN(lat) && !isNaN(lng)) pairs.push([lat, lng]);
+    }
+    return pairs;
+  }
+
   private async findFarmer(
     adminId: string,
     dto: CreatePlotDto,
@@ -331,6 +373,7 @@ export class PlotService {
             plotDraftProvince: true,
             plotDraftDistrict: true,
             plotDraftAreaHa: true,
+            plotDraftCoordinatesText: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -387,14 +430,12 @@ export class PlotService {
       );
     }
 
-    if (!Number.isFinite(dto.lat) || !Number.isFinite(dto.lng)) {
-      throw new BadRequestException(
-        'Vui lòng chọn vị trí point hợp lệ trên bản đồ',
-      );
-    }
-
-    const normalizedLat = Number((dto.lat as number).toFixed(6));
-    const normalizedLng = Number((dto.lng as number).toFixed(6));
+    let normalizedLat = Number.isFinite(dto.lat)
+      ? Number((dto.lat as number).toFixed(6))
+      : null;
+    let normalizedLng = Number.isFinite(dto.lng)
+      ? Number((dto.lng as number).toFixed(6))
+      : null;
 
     const contract = await this.prisma.contract.findFirst({
       where: {
@@ -402,12 +443,17 @@ export class PlotService {
         supervisorId: actor.supervisorProfileId,
         contractNo,
         status: {
-          notIn: [ContractStatus.CANCELLED, ContractStatus.TERMINATED],
+          notIn: [
+            ContractStatus.CANCELLED,
+            ContractStatus.TERMINATED,
+            ContractStatus.EXPIRED,
+          ],
         },
       },
       select: {
         id: true,
         plotId: true,
+        plotDraftCoordinatesText: true,
       },
     });
 
@@ -442,6 +488,28 @@ export class PlotService {
       throw new BadRequestException('Hợp đồng này đã được gán point trên GIS');
     }
 
+    // Auto-compute centroid from contract coordinates if lat/lng not provided
+    const coords = this.parseCoordinatesToPolygon(
+      contract.plotDraftCoordinatesText,
+    );
+    if (
+      (normalizedLat === null || normalizedLng === null) &&
+      coords.length >= 3
+    ) {
+      const centroid = coords.reduce(
+        (acc, [lat, lng]) => ({ lat: acc.lat + lat, lng: acc.lng + lng }),
+        { lat: 0, lng: 0 },
+      );
+      normalizedLat = Number((centroid.lat / coords.length).toFixed(6));
+      normalizedLng = Number((centroid.lng / coords.length).toFixed(6));
+    }
+
+    if (normalizedLat === null || normalizedLng === null) {
+      throw new BadRequestException(
+        'Không thể xác định vị trí: hợp đồng không có tọa độ và bạn chưa chọn point trên bản đồ',
+      );
+    }
+
     const duplicatePointPlot = await this.prisma.plot.findFirst({
       where: {
         adminId: actor.adminId,
@@ -453,7 +521,11 @@ export class PlotService {
         contracts: {
           some: {
             status: {
-              notIn: [ContractStatus.CANCELLED, ContractStatus.TERMINATED],
+              notIn: [
+                ContractStatus.CANCELLED,
+                ContractStatus.TERMINATED,
+                ContractStatus.EXPIRED,
+              ],
             },
           },
         },
@@ -505,6 +577,7 @@ export class PlotService {
       plotDraftProvince: string | null;
       plotDraftDistrict: string | null;
       plotDraftAreaHa: number | null;
+      plotDraftCoordinatesText: string | null;
     }>;
     assignments: Array<{
       supervisorId: string;
@@ -543,7 +616,13 @@ export class PlotService {
       lng: plot.lng ?? 106.2,
       isGisMarked,
       updatedAt: this.formatDateTime(plot.createdAt),
-      polygon: [],
+      polygon: isGisMarked
+        ? this.parseCoordinatesToPolygon(
+            latestContract?.plotDraftCoordinatesText,
+          )
+        : [],
+      plotDraftCoordinatesText:
+        latestContract?.plotDraftCoordinatesText ?? null,
       hasGis,
       id_suppervisor: activeAssignment?.supervisorId ?? null,
       name_suppervisor: activeAssignment?.supervisor.user.fullName ?? null,
@@ -652,6 +731,7 @@ export class PlotService {
             plotDraftProvince: true,
             plotDraftDistrict: true,
             plotDraftAreaHa: true,
+            plotDraftCoordinatesText: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -797,6 +877,7 @@ export class PlotService {
               plotDraftProvince: true,
               plotDraftDistrict: true,
               plotDraftAreaHa: true,
+              plotDraftCoordinatesText: true,
             },
             orderBy: { createdAt: 'desc' },
             take: 1,

@@ -1,6 +1,13 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
+import { CreateWarehouseDto } from './dto/create-warehouse.dto';
+import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 
 interface InventoryUser {
   id: string;
@@ -10,7 +17,21 @@ interface InventoryUser {
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async resolveAdminId(currentUserId: string): Promise<string> {
+  private async resolveAdminId(
+    currentUserId: string,
+    role: Role,
+  ): Promise<string> {
+    if (role === Role.ADMIN) {
+      const admin = await this.prisma.adminProfile.findUnique({
+        where: { userId: currentUserId },
+        select: { id: true },
+      });
+      if (!admin) {
+        throw new ForbiddenException('Không xác định được hồ sơ quản trị');
+      }
+      return admin.id;
+    }
+
     const profile = await this.prisma.inventoryProfile.findUnique({
       where: { userId: currentUserId },
       select: { adminId: true },
@@ -37,7 +58,16 @@ export class InventoryService {
   private async getWarehouseIds(
     adminId: string,
     inventoryProfileId: string | null,
+    role: Role,
   ): Promise<string[]> {
+    if (role === Role.ADMIN) {
+      const warehouses = await this.prisma.warehouse.findMany({
+        where: { adminId },
+        select: { id: true },
+      });
+      return warehouses.map((w) => w.id);
+    }
+
     const where = inventoryProfileId
       ? { adminId, managedBy: inventoryProfileId, isActive: true }
       : { adminId, isActive: true };
@@ -50,8 +80,54 @@ export class InventoryService {
     return warehouses.map((w) => w.id);
   }
 
+  private async assertManagedByBelongsToAdmin(
+    adminId: string,
+    managedBy: string | null | undefined,
+  ): Promise<void> {
+    if (managedBy === undefined || managedBy === null || managedBy === '') {
+      return;
+    }
+    const inv = await this.prisma.inventoryProfile.findUnique({
+      where: { id: managedBy },
+      select: { adminId: true },
+    });
+    if (!inv || inv.adminId !== adminId) {
+      throw new BadRequestException(
+        'Nhân viên kho không tồn tại hoặc không thuộc đơn vị của bạn',
+      );
+    }
+  }
+
+  private mapWarehouseListItem(w: {
+    id: string;
+    name: string;
+    locationAddress: string | null;
+    isActive: boolean;
+    createdAt: Date;
+    managedBy: string | null;
+    _count: { inventoryLots: number };
+    inventory: {
+      id: string;
+      employeeCode: string;
+      user: { fullName: string };
+    } | null;
+  }) {
+    return {
+      id: w.id,
+      name: w.name,
+      locationAddress: w.locationAddress,
+      isActive: w.isActive,
+      // Số lô hàng kho (InventoryLot), không phải lô đất / không phải số giao dịch
+      lotCount: w._count.inventoryLots,
+      createdAt: w.createdAt,
+      managedBy: w.managedBy,
+      managerFullName: w.inventory?.user.fullName ?? null,
+      managerEmployeeCode: w.inventory?.employeeCode ?? null,
+    };
+  }
+
   async getDashboard(currentUser: InventoryUser) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
@@ -59,6 +135,7 @@ export class InventoryService {
     const warehouseIds = await this.getWarehouseIds(
       adminId,
       inventoryProfileId,
+      currentUser.role,
     );
 
     const now = new Date();
@@ -189,13 +266,14 @@ export class InventoryService {
   }
 
   async getChartData(currentUser: InventoryUser) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
     const warehouseIds = await this.getWarehouseIds(
       adminId,
       inventoryProfileId,
+      currentUser.role,
     );
 
     const now = new Date();
@@ -262,14 +340,17 @@ export class InventoryService {
   }
 
   async getWarehouses(currentUser: InventoryUser) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
 
-    const where = inventoryProfileId
-      ? { adminId, managedBy: inventoryProfileId, isActive: true }
-      : { adminId, isActive: true };
+    const where =
+      currentUser.role === Role.ADMIN
+        ? { adminId }
+        : inventoryProfileId
+          ? { adminId, managedBy: inventoryProfileId, isActive: true }
+          : { adminId, isActive: true };
 
     const warehouses = await this.prisma.warehouse.findMany({
       where,
@@ -277,22 +358,22 @@ export class InventoryService {
         _count: {
           select: { inventoryLots: true },
         },
+        inventory: {
+          select: {
+            id: true,
+            employeeCode: true,
+            user: { select: { fullName: true } },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return warehouses.map((w) => ({
-      id: w.id,
-      name: w.name,
-      locationAddress: w.locationAddress,
-      isActive: w.isActive,
-      lotCount: w._count.inventoryLots,
-      createdAt: w.createdAt,
-    }));
+    return warehouses.map((w) => this.mapWarehouseListItem(w));
   }
 
   async getWarehouseById(id: string, currentUser: InventoryUser) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
@@ -300,6 +381,13 @@ export class InventoryService {
     const warehouse = await this.prisma.warehouse.findUnique({
       where: { id },
       include: {
+        inventory: {
+          select: {
+            id: true,
+            employeeCode: true,
+            user: { select: { fullName: true, email: true } },
+          },
+        },
         inventoryLots: {
           include: {
             product: {
@@ -343,13 +431,14 @@ export class InventoryService {
       qualityGrade?: string;
     },
   ) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
     const warehouseIds = await this.getWarehouseIds(
       adminId,
       inventoryProfileId,
+      currentUser.role,
     );
 
     const where: any = {
@@ -377,13 +466,14 @@ export class InventoryService {
   }
 
   async createLot(currentUser: InventoryUser, data: any) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
     const warehouseIds = await this.getWarehouseIds(
       adminId,
       inventoryProfileId,
+      currentUser.role,
     );
 
     if (!warehouseIds.includes(data.warehouseId as string)) {
@@ -441,13 +531,14 @@ export class InventoryService {
   }
 
   async getLotById(id: string, currentUser: InventoryUser) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
     const warehouseIds = await this.getWarehouseIds(
       adminId,
       inventoryProfileId,
+      currentUser.role,
     );
 
     const lot = await this.prisma.inventoryLot.findUnique({
@@ -482,7 +573,7 @@ export class InventoryService {
   }
 
   async getProducts(currentUser: InventoryUser) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     return this.prisma.product.findMany({
       where: { adminId, status: 'PUBLISHED' },
       select: { id: true, name: true, sku: true, unit: true },
@@ -490,7 +581,7 @@ export class InventoryService {
   }
 
   async getActiveContracts(currentUser: InventoryUser) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     return this.prisma.contract.findMany({
       where: {
         adminId,
@@ -514,13 +605,14 @@ export class InventoryService {
       toDate?: string;
     },
   ) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
     const warehouseIds = await this.getWarehouseIds(
       adminId,
       inventoryProfileId,
+      currentUser.role,
     );
 
     const where: any = {
@@ -554,13 +646,14 @@ export class InventoryService {
   }
 
   async createTransaction(currentUser: InventoryUser, data: any) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
     const warehouseIds = await this.getWarehouseIds(
       adminId,
       inventoryProfileId,
+      currentUser.role,
     );
 
     const warehouseId = data.warehouseId as string;
@@ -645,13 +738,14 @@ export class InventoryService {
     currentUser: InventoryUser,
     filters: { cropType?: string; fromDate?: string; toDate?: string },
   ) {
-    const adminId = await this.resolveAdminId(currentUser.id);
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
     );
     const warehouseIds = await this.getWarehouseIds(
       adminId,
       inventoryProfileId,
+      currentUser.role,
     );
 
     // 1. Fetch Expected Yield from DailyReports (yieldEstimateKg)
@@ -738,5 +832,119 @@ export class InventoryService {
         pending: items.map((i) => i.pendingOrderKg),
       },
     };
+  }
+
+  async createWarehouse(currentUser: InventoryUser, dto: CreateWarehouseDto) {
+    if (currentUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Chỉ quản trị viên được tạo kho');
+    }
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+    await this.assertManagedByBelongsToAdmin(adminId, dto.managedBy);
+
+    const managedBy =
+      dto.managedBy === undefined ||
+      dto.managedBy === '' ||
+      dto.managedBy === null
+        ? null
+        : dto.managedBy;
+
+    const created = await this.prisma.warehouse.create({
+      data: {
+        name: dto.name.trim(),
+        locationAddress: dto.locationAddress?.trim() || null,
+        isActive: dto.isActive ?? true,
+        managedBy,
+        adminId,
+      },
+      include: {
+        _count: { select: { inventoryLots: true } },
+        inventory: {
+          select: {
+            id: true,
+            employeeCode: true,
+            user: { select: { fullName: true } },
+          },
+        },
+      },
+    });
+
+    return this.mapWarehouseListItem(created);
+  }
+
+  async updateWarehouse(
+    id: string,
+    currentUser: InventoryUser,
+    dto: UpdateWarehouseDto,
+  ) {
+    if (currentUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Chỉ quản trị viên được cập nhật kho');
+    }
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+
+    const existing = await this.prisma.warehouse.findUnique({
+      where: { id },
+      select: { id: true, adminId: true },
+    });
+    if (!existing || existing.adminId !== adminId) {
+      throw new NotFoundException('Không tìm thấy kho hàng');
+    }
+
+    if (dto.managedBy !== undefined) {
+      await this.assertManagedByBelongsToAdmin(adminId, dto.managedBy);
+    }
+
+    const data: {
+      name?: string;
+      locationAddress?: string | null;
+      isActive?: boolean;
+      managedBy?: string | null;
+    } = {};
+
+    if (dto.name !== undefined) data.name = dto.name.trim();
+    if (dto.locationAddress !== undefined) {
+      data.locationAddress = dto.locationAddress?.trim() || null;
+    }
+    if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (dto.managedBy !== undefined) {
+      data.managedBy =
+        dto.managedBy === '' || dto.managedBy === null ? null : dto.managedBy;
+    }
+
+    if (Object.keys(data).length === 0) {
+      const row = await this.prisma.warehouse.findUnique({
+        where: { id },
+        include: {
+          _count: { select: { inventoryLots: true } },
+          inventory: {
+            select: {
+              id: true,
+              employeeCode: true,
+              user: { select: { fullName: true } },
+            },
+          },
+        },
+      });
+      if (!row) {
+        throw new NotFoundException('Không tìm thấy kho hàng');
+      }
+      return this.mapWarehouseListItem(row);
+    }
+
+    const updated = await this.prisma.warehouse.update({
+      where: { id },
+      data,
+      include: {
+        _count: { select: { inventoryLots: true } },
+        inventory: {
+          select: {
+            id: true,
+            employeeCode: true,
+            user: { select: { fullName: true } },
+          },
+        },
+      },
+    });
+
+    return this.mapWarehouseListItem(updated);
   }
 }

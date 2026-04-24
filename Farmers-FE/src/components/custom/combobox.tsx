@@ -165,14 +165,14 @@ export const Combobox = forwardRef<HTMLButtonElement, IComboboxProps>(
     const getDisplayValue = () => {
       if (isMultiSelect) {
         const selected = Array.isArray(controlledValue) ? controlledValue : selectedValues
-        if (selected.length === 0) return `Select ${label ?? 'item'}`
+        if (selected.length === 0) return label?.trim() ? label : 'Chọn mục'
         return `${selected.length} items selected`
       }
 
       const foundData = dataArr.find((data) => data.value === controlledValue)
       return foundData && foundData.label?.length > 30
         ? foundData.label.substring(0, 40) + '...'
-        : foundData?.label ?? `Select ${label ?? 'item'}`
+        : foundData?.label ?? (label?.trim() ? label : 'Chọn mục')
     }
 
     return (
@@ -216,7 +216,7 @@ export const Combobox = forwardRef<HTMLButtonElement, IComboboxProps>(
                     <CommandInput
                       value={searchValue}
                       onValueChange={handleSearchChange}
-                      placeholder={`Search ${label ?? 'item'}`}
+                      placeholder={label?.trim() ? `Tìm ${label}` : 'Tìm…'}
                     />
                     <CommandList>
                       {filteredDataArr?.length > 0 ? (

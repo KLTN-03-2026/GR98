@@ -62,7 +62,9 @@ enum ReportType {
 enum ContractStatus {
   DRAFT
   SIGNED
+  REJECTED
   ACTIVE
+  EXPIRED
   COMPLETED
   CANCELLED
   SETTLED
@@ -434,6 +436,8 @@ model Contract {
   plotDraftProvince String?
   plotDraftDistrict String?
   plotDraftAreaHa   Float?
+  plotDraftCoordinatesText String?
+
 
   createdAt    DateTime       @default(now())
 

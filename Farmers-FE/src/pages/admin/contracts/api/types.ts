@@ -3,7 +3,9 @@ import type { ApiSuccessResponse } from '@/client/lib/api-client';
 export type ContractStatus =
   | 'DRAFT'
   | 'SIGNED'
+  | 'REJECTED'
   | 'ACTIVE'
+  | 'EXPIRED'
   | 'COMPLETED'
   | 'CANCELLED'
   | 'SETTLED'
@@ -22,6 +24,7 @@ export interface ContractResponse {
   plotDraftProvince: string | null;
   plotDraftDistrict: string | null;
   plotDraftAreaHa: number | null;
+  plotDraftCoordinatesText: string | null;
   signedAt: string | null;
   harvestDue: string | null;
   signatureUrl: string | null;
@@ -90,6 +93,7 @@ export interface CreateContractPayload {
   plotDraftProvince?: string;
   plotDraftDistrict?: string;
   plotDraftAreaHa?: number;
+  plotDraftCoordinatesText?: string;
   cropType: string;
   grade: QualityGrade;
   signedAt?: string;

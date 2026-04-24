@@ -1,0 +1,337 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  AssignStatus,
+  Prisma,
+  ReportStatus,
+  Role,
+} from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { PaginatedResponse } from '../common/dto/pagination.dto';
+import { CreateDailyReportDto } from './dto/create-daily-report.dto';
+import { UpdateDailyReportDto } from './dto/update-daily-report.dto';
+import { QueryDailyReportDto } from './dto/query-daily-report.dto';
+
+const MAX_IMAGES = 10;
+const MAX_IMAGE_ENTRY_CHARS = 7_000_000;
+
+type ActorContext = {
+  role: Role;
+  adminId: string | null;
+  supervisorProfileId: string | null;
+};
+
+const reportListInclude = {
+  plot: {
+    select: {
+      id: true,
+      plotCode: true,
+      cropType: true,
+      areaHa: true,
+      farmer: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+        },
+      },
+    },
+  },
+  supervisor: {
+    select: {
+      id: true,
+      user: {
+        select: {
+          fullName: true,
+          phone: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.DailyReportInclude;
+
+@Injectable()
+export class DailyReportService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  private async resolveActorContext(userId: string): Promise<ActorContext | null> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return null;
+
+    if (user.role === Role.ADMIN) {
+      const profile = await this.prisma.adminProfile.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      return {
+        role: user.role,
+        adminId: profile?.id ?? null,
+        supervisorProfileId: null,
+      };
+    }
+
+    if (user.role === Role.SUPERVISOR) {
+      const profile = await this.prisma.supervisorProfile.findUnique({
+        where: { userId },
+        select: { id: true, adminId: true },
+      });
+      return {
+        role: user.role,
+        adminId: profile?.adminId ?? null,
+        supervisorProfileId: profile?.id ?? null,
+      };
+    }
+
+    return {
+      role: user.role,
+      adminId: null,
+      supervisorProfileId: null,
+    };
+  }
+
+  private normalizeImageUrls(urls?: string[]): string[] {
+    if (!urls?.length) return [];
+    const trimmed = urls.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean);
+    if (trimmed.length > MAX_IMAGES) {
+      throw new BadRequestException(`Tối đa ${MAX_IMAGES} ảnh đính kèm`);
+    }
+    for (const entry of trimmed) {
+      if (entry.length > MAX_IMAGE_ENTRY_CHARS) {
+        throw new BadRequestException('Một ảnh đính kèm vượt quá dung lượng cho phép');
+      }
+    }
+    return trimmed;
+  }
+
+  private assertSubmitPayload(content: string, imageUrls: string[]) {
+    if (!content.trim()) {
+      throw new BadRequestException('Nội dung báo cáo không được để trống khi gửi');
+    }
+    if (imageUrls.length < 1) {
+      throw new BadRequestException('Cần ít nhất một ảnh đính kèm khi gửi báo cáo');
+    }
+  }
+
+  private async assertSupervisorPlotAccess(
+    plotId: string,
+    supervisorProfileId: string,
+    adminId: string,
+  ) {
+    const plot = await this.prisma.plot.findFirst({
+      where: { id: plotId, adminId },
+      select: { id: true },
+    });
+    if (!plot) {
+      throw new NotFoundException('Không tìm thấy lô đất');
+    }
+    const assignment = await this.prisma.assignment.findFirst({
+      where: {
+        plotId,
+        adminId,
+        supervisorId: supervisorProfileId,
+        status: { in: [AssignStatus.PENDING, AssignStatus.ACTIVE] },
+      },
+      select: { id: true },
+    });
+    if (!assignment) {
+      throw new ForbiddenException('Bạn không được phép báo cáo trên lô đất này');
+    }
+  }
+
+  async create(dto: CreateDailyReportDto, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (actor?.role !== Role.SUPERVISOR || !actor.supervisorProfileId || !actor.adminId) {
+      throw new ForbiddenException('Chỉ giám sát viên mới được tạo báo cáo');
+    }
+
+    await this.assertSupervisorPlotAccess(
+      dto.plotId,
+      actor.supervisorProfileId,
+      actor.adminId,
+    );
+
+    const imageUrls = this.normalizeImageUrls(dto.imageUrls);
+    const content = dto.content?.trim() ?? '';
+
+    return this.prisma.dailyReport.create({
+      data: {
+        plotId: dto.plotId,
+        supervisorId: actor.supervisorProfileId,
+        adminId: actor.adminId,
+        type: dto.type ?? undefined,
+        content,
+        imageUrls,
+        status: ReportStatus.DRAFT,
+      },
+      include: reportListInclude,
+    });
+  }
+
+  async update(id: string, dto: UpdateDailyReportDto, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (actor?.role !== Role.SUPERVISOR || !actor.supervisorProfileId || !actor.adminId) {
+      throw new ForbiddenException('Chỉ giám sát viên mới được cập nhật báo cáo');
+    }
+
+    const existing = await this.prisma.dailyReport.findFirst({
+      where: {
+        id,
+        adminId: actor.adminId,
+        supervisorId: actor.supervisorProfileId,
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('Không tìm thấy báo cáo');
+    }
+    if (existing.status !== ReportStatus.DRAFT) {
+      throw new BadRequestException('Chỉ có thể sửa báo cáo ở trạng thái nháp');
+    }
+
+    const imageUrls =
+      dto.imageUrls !== undefined
+        ? this.normalizeImageUrls(dto.imageUrls)
+        : undefined;
+
+    return this.prisma.dailyReport.update({
+      where: { id },
+      data: {
+        ...(dto.type !== undefined ? { type: dto.type } : {}),
+        ...(dto.content !== undefined ? { content: dto.content.trim() } : {}),
+        ...(imageUrls !== undefined ? { imageUrls } : {}),
+      },
+      include: reportListInclude,
+    });
+  }
+
+  async submit(id: string, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (actor?.role !== Role.SUPERVISOR || !actor.supervisorProfileId || !actor.adminId) {
+      throw new ForbiddenException('Chỉ giám sát viên mới được gửi báo cáo');
+    }
+
+    const existing = await this.prisma.dailyReport.findFirst({
+      where: {
+        id,
+        adminId: actor.adminId,
+        supervisorId: actor.supervisorProfileId,
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('Không tìm thấy báo cáo');
+    }
+    if (existing.status !== ReportStatus.DRAFT) {
+      throw new BadRequestException('Báo cáo đã được gửi hoặc không còn ở trạng thái nháp');
+    }
+
+    this.assertSubmitPayload(existing.content, existing.imageUrls);
+
+    return this.prisma.dailyReport.update({
+      where: { id },
+      data: { status: ReportStatus.SUBMITTED },
+      include: reportListInclude,
+    });
+  }
+
+  async findAll(query: QueryDailyReportDto, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (!actor?.adminId) {
+      throw new ForbiddenException('Không xác định được tenant');
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.DailyReportWhereInput = {
+      adminId: actor.adminId,
+    };
+
+    if (actor.role === Role.SUPERVISOR) {
+      if (!actor.supervisorProfileId) {
+        throw new ForbiddenException('Không xác định được hồ sơ giám sát viên');
+      }
+      where.supervisorId = actor.supervisorProfileId;
+    } else if (actor.role === Role.ADMIN) {
+      if (query.supervisorId?.trim()) {
+        where.supervisorId = query.supervisorId.trim();
+      }
+      where.status = { in: [ReportStatus.SUBMITTED, ReportStatus.REVIEWED] };
+    } else {
+      throw new ForbiddenException('Không có quyền xem danh sách báo cáo');
+    }
+
+    if (query.plotId?.trim()) {
+      where.plotId = query.plotId.trim();
+    }
+
+    if (actor.role === Role.SUPERVISOR && query.status) {
+      where.status = query.status;
+    }
+
+    if (query.from || query.to) {
+      where.reportedAt = {};
+      if (query.from) {
+        where.reportedAt.gte = new Date(query.from);
+      }
+      if (query.to) {
+        where.reportedAt.lte = new Date(query.to);
+      }
+    }
+
+    if (query.search?.trim()) {
+      where.content = {
+        contains: query.search.trim(),
+        mode: 'insensitive',
+      };
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.dailyReport.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { reportedAt: 'desc' },
+        include: reportListInclude,
+      }),
+      this.prisma.dailyReport.count({ where }),
+    ]);
+
+    return new PaginatedResponse(rows, total, page, limit);
+  }
+
+  async findOne(id: string, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (!actor?.adminId) {
+      throw new ForbiddenException('Không xác định được tenant');
+    }
+
+    const where: Prisma.DailyReportWhereInput = {
+      id,
+      adminId: actor.adminId,
+    };
+
+    if (actor.role === Role.SUPERVISOR) {
+      if (!actor.supervisorProfileId) {
+        throw new ForbiddenException('Không xác định được hồ sơ giám sát viên');
+      }
+      where.supervisorId = actor.supervisorProfileId;
+    } else if (actor.role === Role.ADMIN) {
+      where.status = { in: [ReportStatus.SUBMITTED, ReportStatus.REVIEWED] };
+    } else {
+      throw new ForbiddenException('Không có quyền xem báo cáo');
+    }
+
+    const row = await this.prisma.dailyReport.findFirst({
+      where,
+      include: reportListInclude,
+    });
+    if (!row) {
+      throw new NotFoundException('Không tìm thấy báo cáo');
+    }
+    return row;
+  }
+}

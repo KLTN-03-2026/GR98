@@ -2,7 +2,52 @@ import type {
   ContractResponse,
   QualityGrade,
 } from '@/pages/admin/contracts/api/types';
-import type { FarmerResponse } from '@/pages/admin/farmers/api/types';
+
+type CoordinatePair = { lat: string; lng: string };
+
+/** Parse chuỗi coordinates thành mảng cặp lat/lng — hỗ trợ nhiều format lưu trữ */
+function parseCoordinatePairs(value?: string | null): CoordinatePair[] {
+  if (!value?.trim()) return [];
+
+  const lines = value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  // Try parsing as "lat,lng" pairs per line first (correct format)
+  const pairsFromLines: CoordinatePair[] = [];
+  let allLinesArePairs = true;
+  for (const line of lines) {
+    const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        pairsFromLines.push({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+        continue;
+      }
+    }
+    allLinesArePairs = false;
+    break;
+  }
+  if (allLinesArePairs && pairsFromLines.length > 0) return pairsFromLines;
+
+  // Fallback: flat number list (backward compatibility with old data)
+  const nums = value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (nums.length < 2) return [];
+  const pairs: CoordinatePair[] = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const lat = parseFloat(nums[i]);
+    const lng = parseFloat(nums[i + 1]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      pairs.push({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+    }
+  }
+  return pairs;
+}
 
 /** Dữ liệu hiển thị cho mẫu hợp đồng pháp lý + in PDF */
 export type ContractLegalViewModel = {
@@ -18,6 +63,11 @@ export type ContractLegalViewModel = {
   farmerName: string;
   farmerCccd: string;
   farmerPhone: string;
+  farmerAddress: string;
+  farmerProvince: string;
+  farmerBankName: string;
+  farmerBankBranch: string;
+  farmerBankAccount: string;
   plotGisId: string;
   plotCode: string;
   areaM2: string;
@@ -32,6 +82,7 @@ export type ContractLegalViewModel = {
   signedAtLine: string;
   harvestDueLine: string;
   createdAtLine: string;
+  plotDraftCoordinatesText: string;
   /** Mở đầu “Hôm nay, …” — ví dụ ngày 15 tháng 4 năm 2026 */
   preambleTodayPart: string;
   /** Địa điểm gặp gỡ / ký */
@@ -96,6 +147,8 @@ export function buildContractLegalViewModel(c: ContractResponse): ContractLegalV
   const termEnd = formatDateViLong(c.harvestDue, '…… tháng …… năm ……');
   const footerSign = formatDateViLong(c.signedAt, formatTodayViLong());
 
+  const farmer = c.farmer;
+
   return {
     contractNo: c.contractNo,
     contractId: c.id,
@@ -106,9 +159,14 @@ export function buildContractLegalViewModel(c: ContractResponse): ContractLegalV
     companyBankPlace: partyA.companyBankPlace,
     supervisorId: c.supervisorId,
     supervisorName: c.supervisor.fullName?.trim() || '…………………………',
-    farmerName: c.farmer.fullName,
-    farmerCccd: c.farmer.cccd || '…………………………',
-    farmerPhone: c.farmer.phone || '…………………………',
+    farmerName: farmer?.fullName || '…………………………',
+    farmerCccd: farmer?.cccd || '…………………………',
+    farmerPhone: farmer?.phone || '…………………………',
+    farmerAddress: farmer?.address || '…………………………',
+    farmerProvince: farmer?.province || '…………………………',
+    farmerBankName: farmer?.bankName || '…………………………',
+    farmerBankBranch: farmer?.bankBranch || '…………………………',
+    farmerBankAccount: farmer?.bankAccount || '…………………………',
     plotGisId: c.plot.id,
     plotCode: c.plot.plotCode,
     areaM2,
@@ -128,6 +186,9 @@ export function buildContractLegalViewModel(c: ContractResponse): ContractLegalV
     termStartPart: termStart,
     termEndPart: termEnd,
     footerSignDatePart: footerSign,
+    plotDraftCoordinatesText: parseCoordinatePairs(c.plotDraftCoordinatesText)
+      .map((p) => `${p.lat}, ${p.lng}`)
+      .join('\n'),
   };
 }
 
@@ -135,23 +196,23 @@ export type DraftLegalFormInput = {
   plotDraftProvince: string;
   plotDraftDistrict: string;
   plotDraftAreaHa: string;
+  plotDraftCoordinates: Array<[string, string]>; // [lat, lng]
   cropType: string;
   grade: QualityGrade;
   signedAt: string;
   harvestDue: string;
 };
 
-type DraftFarmerPreview = Pick<
-  FarmerResponse,
-  | 'fullName'
-  | 'phone'
-  | 'cccd'
-  | 'province'
-  | 'address'
-  | 'bankAccount'
-  | 'bankName'
-  | 'bankBranch'
->;
+type DraftFarmerPreview = {
+  fullName: string;
+  phone: string;
+  cccd: string;
+  province: string | null;
+  address: string | null;
+  bankAccount: string | null;
+  bankName: string | null;
+  bankBranch: string | null;
+};
 
 /** View-model khi tạo nháp (chưa lưu) — đủ số liệu để in xem trước */
 export function buildContractLegalViewModelFromDraft(input: {
@@ -186,6 +247,11 @@ export function buildContractLegalViewModelFromDraft(input: {
     farmerName: input.farmer?.fullName?.trim() || '—',
     farmerCccd: input.farmer?.cccd?.trim() || '—',
     farmerPhone: input.farmer?.phone?.trim() || '—',
+    farmerAddress: input.farmer?.address?.trim() || '—',
+    farmerProvince: input.farmer?.province?.trim() || '—',
+    farmerBankName: input.farmer?.bankName?.trim() || '—',
+    farmerBankBranch: input.farmer?.bankBranch?.trim() || '—',
+    farmerBankAccount: input.farmer?.bankAccount?.trim() || '—',
     plotGisId: '—',
     plotCode: '—',
     areaM2,
@@ -206,5 +272,9 @@ export function buildContractLegalViewModelFromDraft(input: {
     termStartPart: formatDateViLong(signed, '…… tháng …… năm ……'),
     termEndPart: formatDateViLong(harvest, '…… tháng …… năm ……'),
     footerSignDatePart: formatDateViLong(signed, formatTodayViLong()),
+    plotDraftCoordinatesText: input.form.plotDraftCoordinates
+      .filter(([lat, lng]) => lat.trim() && lng.trim())
+      .map(([lat, lng]) => `${lat.trim()},${lng.trim()}`)
+      .join('\n'),
   };
 }

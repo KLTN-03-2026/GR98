@@ -61,7 +61,7 @@ export function TransactionChart({ data, isLoading }: TransactionChartProps) {
     })) ?? [];
 
   return (
-    <Card className="rounded-[20px] border border-border/70 bg-card/85 shadow-sm">
+    <Card className="rounded-[24px] border border-border/70 bg-card/85 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <div className="flex items-center gap-2">
           <WarehouseIcon className="size-4 text-primary" />

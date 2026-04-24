@@ -133,6 +133,45 @@ export class ContractService {
     }
   }
 
+  private normalizeCoordinatesText(value?: string | null) {
+    if (value === undefined || value === null) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    // Split by newline to get each coordinate pair line (format: "lat,lng")
+    const rawLines = trimmed
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (!rawLines.length) return null;
+
+    const normalizedLines: string[] = [];
+    for (const line of rawLines) {
+      const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
+      if (parts.length !== 2) {
+        throw new BadRequestException(
+          'Mỗi dòng tọa độ phải có đúng 2 giá trị (vĩ độ, kinh độ), cách nhau bởi dấu phẩy',
+        );
+      }
+      const [latStr, lngStr] = parts;
+      if (Number.isNaN(Number(latStr)) || Number.isNaN(Number(lngStr))) {
+        throw new BadRequestException('Tọa độ phải là danh sách số hợp lệ');
+      }
+      normalizedLines.push(`${latStr},${lngStr}`);
+    }
+
+    return normalizedLines.join('\n');
+  }
+
+
+  private assertDateRange(signedAt?: Date | null, harvestDue?: Date | null) {
+    if (!signedAt || !harvestDue) return;
+    if (signedAt.getTime() > harvestDue.getTime()) {
+      throw new BadRequestException('Ngày ký không được lớn hơn ngày kết thúc hợp đồng');
+    }
+  }
+
   private async ensureFarmerAndPlotInTenant(
     adminId: string,
     farmerId: string | undefined,
@@ -176,6 +215,7 @@ export class ContractService {
     }
     return farmer.id;
   }
+
 
   private async ensureSupervisorCanManagePlot(
     supervisorProfileId: string,
@@ -243,6 +283,7 @@ export class ContractService {
       plotDraftProvince: true,
       plotDraftDistrict: true,
       plotDraftAreaHa: true,
+      plotDraftCoordinatesText: true,
       signedAt: true,
       harvestDue: true,
       signatureUrl: true,
@@ -332,6 +373,7 @@ export class ContractService {
       plotDraftProvince: item.plotDraftProvince,
       plotDraftDistrict: item.plotDraftDistrict,
       plotDraftAreaHa: item.plotDraftAreaHa,
+      plotDraftCoordinatesText: item.plotDraftCoordinatesText,
       signedAt: item.signedAt,
       harvestDue: item.harvestDue,
       signatureUrl: item.signatureUrl,
@@ -403,16 +445,32 @@ export class ContractService {
       plotDraftAreaHa: dto.plotDraftAreaHa ?? null,
     };
     this.assertDraftPlotInput(draftPlotInput);
+    const normalizedCoordinatesText = this.normalizeCoordinatesText(
+      dto.plotDraftCoordinatesText,
+    );
+
+    const signedAt = dto.signedAt ? new Date(dto.signedAt) : null;
+    const harvestDue = dto.harvestDue ? new Date(dto.harvestDue) : null;
+    this.assertDateRange(signedAt, harvestDue);
 
     const hasPlot = Boolean(normalizedPlotId);
+    const normalizedFarmerId = this.normalizeOptionalString(dto.farmerId);
+    let resolvedFarmerId: string;
 
-    const resolvedFarmerId = hasPlot
-      ? await this.ensureFarmerAndPlotInTenant(
-          actor.adminId,
-          dto.farmerId,
-          normalizedPlotId as string,
-        )
-      : await this.ensureFarmerInTenant(actor.adminId, dto.farmerId);
+    if (hasPlot) {
+      resolvedFarmerId = await this.ensureFarmerAndPlotInTenant(
+        actor.adminId,
+        normalizedFarmerId ?? undefined,
+        normalizedPlotId as string,
+      );
+    } else if (normalizedFarmerId) {
+      resolvedFarmerId = await this.ensureFarmerInTenant(
+        actor.adminId,
+        normalizedFarmerId,
+      );
+    } else {
+      throw new BadRequestException('Thiếu thông tin nông dân trong hợp đồng (farmerId)');
+    }
 
     if (hasPlot) {
       await this.ensureSupervisorCanManagePlot(
@@ -435,10 +493,11 @@ export class ContractService {
         plotDraftProvince: hasPlot ? null : draftPlotInput.plotDraftProvince,
         plotDraftDistrict: hasPlot ? null : draftPlotInput.plotDraftDistrict,
         plotDraftAreaHa: hasPlot ? null : draftPlotInput.plotDraftAreaHa,
+        plotDraftCoordinatesText: hasPlot ? null : normalizedCoordinatesText,
         grade: dto.grade,
         status: ContractStatus.DRAFT,
-        signedAt: dto.signedAt ? new Date(dto.signedAt) : null,
-        harvestDue: dto.harvestDue ? new Date(dto.harvestDue) : null,
+        signedAt,
+        harvestDue,
         signatureUrl: dto.signatureUrl?.trim() || null,
         traceabilityQr: this.buildTraceabilityQr(contractNo),
         submittedAt: null,
@@ -467,7 +526,14 @@ export class ContractService {
       andConditions.push({ status: query.status });
     } else if (actor.role === Role.ADMIN) {
       andConditions.push({
-        status: { in: [ContractStatus.SIGNED, ContractStatus.ACTIVE] },
+        status: {
+          in: [
+            ContractStatus.SIGNED,
+            ContractStatus.ACTIVE,
+            ContractStatus.REJECTED,
+            ContractStatus.EXPIRED,
+          ],
+        },
       });
     }
     if (query.cropType?.trim()) {
@@ -559,6 +625,9 @@ export class ContractService {
         plotDraftProvince: true,
         plotDraftDistrict: true,
         plotDraftAreaHa: true,
+        plotDraftCoordinatesText: true,
+        signedAt: true,
+        harvestDue: true,
         status: true,
       },
     });
@@ -569,10 +638,33 @@ export class ContractService {
       );
     }
 
-    if (existing.status !== ContractStatus.DRAFT) {
-      throw new BadRequestException(
-        'Chỉ được chỉnh sửa hợp đồng ở trạng thái bản nháp',
-      );
+    const canEditDraft =
+      existing.status === ContractStatus.DRAFT ||
+      existing.status === ContractStatus.REJECTED;
+    const isSignatureOnlyUpdate =
+      existing.status === ContractStatus.ACTIVE &&
+      dto.signatureUrl !== undefined &&
+      dto.farmerId === undefined &&
+      dto.plotId === undefined &&
+      dto.plotDraftProvince === undefined &&
+      dto.plotDraftDistrict === undefined &&
+      dto.plotDraftAreaHa === undefined &&
+      dto.plotDraftCoordinatesText === undefined &&
+      dto.cropType === undefined &&
+      dto.grade === undefined &&
+      dto.signedAt === undefined &&
+      dto.harvestDue === undefined;
+
+    if (!canEditDraft && !isSignatureOnlyUpdate) {
+      throw new BadRequestException('Chỉ được sửa bản nháp hoặc cập nhật ảnh ký sau duyệt');
+    }
+
+    if (isSignatureOnlyUpdate) {
+      await this.prisma.contract.update({
+        where: { id },
+        data: { signatureUrl: dto.signatureUrl?.trim() || null },
+      });
+      return this.findOne(id, currentUserId);
     }
 
     let nextFarmerId = dto.farmerId ?? existing.farmerId;
@@ -593,6 +685,10 @@ export class ContractService {
       dto.plotDraftAreaHa !== undefined
         ? dto.plotDraftAreaHa ?? null
         : existing.plotDraftAreaHa;
+    const nextCoordinatesText =
+      dto.plotDraftCoordinatesText !== undefined
+        ? this.normalizeCoordinatesText(dto.plotDraftCoordinatesText)
+        : this.normalizeCoordinatesText(existing.plotDraftCoordinatesText);
 
     this.assertDraftPlotInput({
       plotId: nextPlotId ?? null,
@@ -600,6 +696,10 @@ export class ContractService {
       plotDraftDistrict: nextPlotDraftDistrict ?? null,
       plotDraftAreaHa: nextPlotDraftAreaHa,
     });
+
+    if (!nextFarmerId) {
+      throw new BadRequestException('Thiếu thông tin nông dân trong hợp đồng (farmerId)');
+    }
 
     if (dto.farmerId || dto.plotId !== undefined) {
       if (nextPlotId) {
@@ -625,9 +725,9 @@ export class ContractService {
       );
     }
 
-    const updateData: Prisma.ContractUpdateInput = {
-      farmer: { connect: { id: nextFarmerId } },
-    };
+    const updateData: Prisma.ContractUpdateInput = {};
+
+    updateData.farmer = { connect: { id: nextFarmerId } };
 
     if (nextPlotId) {
       updateData.plot = { connect: { id: nextPlotId } };
@@ -638,19 +738,34 @@ export class ContractService {
     updateData.plotDraftProvince = nextPlotId ? null : nextPlotDraftProvince;
     updateData.plotDraftDistrict = nextPlotId ? null : nextPlotDraftDistrict;
     updateData.plotDraftAreaHa = nextPlotId ? null : nextPlotDraftAreaHa;
-
+    updateData.plotDraftCoordinatesText = nextPlotId ? null : nextCoordinatesText;
     if (dto.cropType !== undefined) updateData.cropType = dto.cropType.trim();
     if (dto.grade !== undefined) updateData.grade = dto.grade;
+    const nextSignedAt =
+      dto.signedAt !== undefined
+        ? dto.signedAt
+          ? new Date(dto.signedAt)
+          : null
+        : existing.signedAt;
+    const nextHarvestDue =
+      dto.harvestDue !== undefined
+        ? dto.harvestDue
+          ? new Date(dto.harvestDue)
+          : null
+        : existing.harvestDue;
+    this.assertDateRange(nextSignedAt, nextHarvestDue);
     if (dto.signedAt !== undefined) {
-      updateData.signedAt = dto.signedAt ? new Date(dto.signedAt) : null;
+      updateData.signedAt = nextSignedAt;
     }
     if (dto.harvestDue !== undefined) {
-      updateData.harvestDue = dto.harvestDue ? new Date(dto.harvestDue) : null;
+      updateData.harvestDue = nextHarvestDue;
     }
     if (dto.signatureUrl !== undefined) {
       updateData.signatureUrl = dto.signatureUrl?.trim() || null;
     }
-    updateData.rejectedReason = null;
+    if (existing.status === ContractStatus.DRAFT) {
+      updateData.rejectedReason = null;
+    }
 
     await this.prisma.contract.update({
       where: { id },
@@ -675,7 +790,9 @@ export class ContractService {
       select: {
         id: true,
         status: true,
-        signatureUrl: true,
+        signedAt: true,
+        harvestDue: true,
+        farmerId: true,
         plotId: true,
         plotDraftProvince: true,
         plotDraftDistrict: true,
@@ -689,23 +806,27 @@ export class ContractService {
         'Hợp đồng không tồn tại trong phạm vi phụ trách',
       );
     }
-    if (existing.status !== ContractStatus.DRAFT) {
+    if (
+      existing.status !== ContractStatus.DRAFT &&
+      existing.status !== ContractStatus.REJECTED
+    ) {
       throw new BadRequestException(
-        'Chỉ hợp đồng nháp mới có thể gửi yêu cầu phê duyệt',
+        'Chỉ hợp đồng nháp hoặc đang bị từ chối mới có thể gửi yêu cầu phê duyệt',
       );
     }
-    if (!existing.signatureUrl?.trim()) {
-      throw new BadRequestException(
-        'Cần tải lên ảnh hợp đồng đã ký trước khi gửi',
-      );
-    }
-
     this.assertDraftPlotInput({
       plotId: existing.plotId,
       plotDraftProvince: existing.plotDraftProvince,
       plotDraftDistrict: existing.plotDraftDistrict,
       plotDraftAreaHa: existing.plotDraftAreaHa,
     });
+    this.assertDateRange(existing.signedAt, existing.harvestDue);
+
+    if (!existing.farmerId) {
+      throw new BadRequestException(
+        'Thiếu thông tin nông dân trong hợp đồng trước khi gửi duyệt',
+      );
+    }
 
     await this.prisma.contract.update({
       where: { id },
@@ -755,6 +876,10 @@ export class ContractService {
       }
 
       let nextPlotId = existing.plotId ?? null;
+      if (!existing.farmerId) {
+        throw new BadRequestException('Hợp đồng chưa có nông dân để phê duyệt');
+      }
+      const resolvedFarmerId = existing.farmerId;
 
       if (!nextPlotId) {
         this.assertDraftPlotInput({
@@ -796,7 +921,7 @@ export class ContractService {
 
         const createdPlot = await tx.plot.create({
           data: {
-            farmerId: existing.farmerId,
+            farmerId: resolvedFarmerId,
             adminId: actor.adminId,
             zoneId: zone?.id,
             plotCode,
@@ -820,7 +945,7 @@ export class ContractService {
 
         await tx.farmer.updateMany({
           where: {
-            id: existing.farmerId,
+            id: resolvedFarmerId,
             adminId: actor.adminId,
           },
           data: {
@@ -834,6 +959,7 @@ export class ContractService {
       await tx.contract.update({
         where: { id },
         data: {
+          farmerId: resolvedFarmerId,
           plotId: nextPlotId,
           status: ContractStatus.ACTIVE,
           approvedAt: new Date(),
@@ -875,7 +1001,7 @@ export class ContractService {
     await this.prisma.contract.update({
       where: { id },
       data: {
-        status: ContractStatus.DRAFT,
+        status: ContractStatus.REJECTED,
         rejectedReason: reason,
         approvedAt: null,
         approvedBy: null,

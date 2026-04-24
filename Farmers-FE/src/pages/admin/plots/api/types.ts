@@ -24,6 +24,8 @@ export interface PlotResponse {
   polygon?: Array<[number, number]>;
   /** Có dữ liệu GIS (tọa độ lat/lng) trong DB hay chưa */
   hasGis?: boolean;
+  /** Tọa độ lô đất từ hợp đồng dạng "lat,lng\nlat,lng" */
+  plotDraftCoordinatesText?: string | null;
   id_suppervisor?: string | null;
   name_suppervisor?: string | null;
 }

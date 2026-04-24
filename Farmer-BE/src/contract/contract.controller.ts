@@ -86,7 +86,7 @@ export class ContractController {
   @Roles(Role.SUPERVISOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Supervisor gửi hợp đồng đã ký ảnh để admin phê duyệt',
+    summary: 'Supervisor gửi hợp đồng nháp đầy đủ để admin phê duyệt',
   })
   submitForApproval(@Param('id') id: string, @Request() req: any) {
     return this.contractService.submitForApproval(id, req.user.id);

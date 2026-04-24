@@ -5,8 +5,13 @@ export interface Warehouse {
   name: string;
   locationAddress: string | null;
   isActive: boolean;
+  /** Số bản ghi InventoryLot (lô hàng tồn kho) của kho — không phải lô đất / số phiếu giao dịch. */
   lotCount: number;
   createdAt: string;
+  /** Có trên API khi gọi bằng tài khoản admin (danh sách đầy đủ + gán NV) */
+  managedBy?: string | null;
+  managerFullName?: string | null;
+  managerEmployeeCode?: string | null;
 }
 
 export interface InventoryLot {

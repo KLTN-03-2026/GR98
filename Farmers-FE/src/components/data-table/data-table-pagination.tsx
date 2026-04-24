@@ -42,9 +42,11 @@ export function DataTablePagination<TData>({
   // Ưu tiên totalItems truyền vào (SSR), nếu không có thì lấy từ row model (CSR)
   const totalCount = totalItems ?? table.getFilteredRowModel().rows.length;
 
-  const current = pageIndex + 1;
-  const isFirstPage = !table.getCanPreviousPage();
-  const isLastPage = !table.getCanNextPage();
+  const safePageCount = Math.max(1, pageCount);
+  const displayPage = Math.min(pageIndex + 1, safePageCount);
+  const isFirstPage = pageIndex <= 0;
+  const isLastPage = pageIndex >= safePageCount - 1;
+  const lastPageIndex = Math.max(0, safePageCount - 1);
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between px-2 py-4 border-t bg-muted/5 gap-4 rounded-b-xl">
@@ -83,7 +85,7 @@ export function DataTablePagination<TData>({
 
         {/* Page info */}
         <div className="flex items-center justify-center text-sm font-semibold min-w-[100px] whitespace-nowrap">
-          Trang {current} / {Math.max(1, pageCount)}
+          Trang {displayPage} / {safePageCount}
         </div>
 
         {/* Page navigation buttons */}
@@ -98,7 +100,9 @@ export function DataTablePagination<TData>({
           </PaginationButton>
 
           <PaginationButton
-            onClick={() => table.previousPage()}
+            onClick={() => {
+              if (!isFirstPage) table.previousPage();
+            }}
             disabled={isFirstPage}
             title="Trang trước"
           >
@@ -106,7 +110,9 @@ export function DataTablePagination<TData>({
           </PaginationButton>
 
           <PaginationButton
-            onClick={() => table.nextPage()}
+            onClick={() => {
+              if (!isLastPage) table.nextPage();
+            }}
             disabled={isLastPage}
             title="Trang sau"
           >
@@ -114,7 +120,7 @@ export function DataTablePagination<TData>({
           </PaginationButton>
 
           <PaginationButton
-            onClick={() => table.setPageIndex(pageCount - 1)}
+            onClick={() => table.setPageIndex(lastPageIndex)}
             disabled={isLastPage}
             className="hidden xs:flex"
             title="Trang cuối"

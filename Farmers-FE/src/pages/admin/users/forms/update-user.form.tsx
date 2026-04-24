@@ -72,6 +72,7 @@ export default function UpdateUserForm({
   user,
   onSuccess,
 }: UpdateUserFormProps) {
+  const isClientUser = user?.role === 'CLIENT';
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [shouldRestoreSheet, setShouldRestoreSheet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,7 +100,8 @@ export default function UpdateUserForm({
         fullName: user.fullName,
         email: user.email,
         phone: user.phone ?? '',
-        role: user.role === 'CLIENT' ? undefined : user.role,
+        role: user.role,
+        status: user.status,
         password: '',
         province: user.clientProfile?.province ?? '',
         defaultAddress: user.clientProfile?.defaultAddress ?? '',
@@ -114,19 +116,27 @@ export default function UpdateUserForm({
     try {
       const payload: Record<string, unknown> = {};
 
-      if (values.fullName !== user.fullName) payload.fullName = values.fullName;
-      if (values.email !== user.email) payload.email = values.email;
-      if ((values.phone ?? '') !== (user.phone ?? '')) payload.phone = values.phone || undefined;
-      if (values.password) payload.password = values.password;
-      if (values.role && values.role !== user.role) payload.role = values.role;
-      if (values.status) payload.status = values.status;
+      if (isClientUser) {
+        if (values.status && values.status !== user.status) {
+          payload.status = values.status;
+        }
+      } else {
+        if (values.fullName !== user.fullName) payload.fullName = values.fullName;
+        if (values.email !== user.email) payload.email = values.email;
+        if ((values.phone ?? '') !== (user.phone ?? '')) payload.phone = values.phone || undefined;
+        if (values.password) payload.password = values.password;
+        if (values.role && values.role !== user.role) {
+          payload.role = values.role;
+        }
+        if (values.status && values.status !== user.status) payload.status = values.status;
 
-      // Handle avatar
-      if (values.avatar instanceof File) {
-        payload.avatar = await fileToBase64(values.avatar);
-      } else if (values.avatar === null && user.avatar) {
-        // User removed avatar
-        payload.clearAvatar = true;
+        // Handle avatar
+        if (values.avatar instanceof File) {
+          payload.avatar = await fileToBase64(values.avatar);
+        } else if (values.avatar === null && user.avatar) {
+          // User removed avatar
+          payload.clearAvatar = true;
+        }
       }
 
       if (Object.keys(payload).length === 0) {
@@ -173,7 +183,9 @@ export default function UpdateUserForm({
           <SheetHeader className="border-b px-1">
             <SheetTitle className="text-lg">Cập nhật người dùng</SheetTitle>
             <SheetDescription className="text-sm">
-              Chỉnh sửa thông tin người dùng — bỏ trống trường không muốn thay đổi
+              {isClientUser
+                ? 'Với tài khoản khách hàng, chỉ được phép thay đổi trạng thái tài khoản'
+                : 'Chỉnh sửa thông tin người dùng — bỏ trống trường không muốn thay đổi'}
             </SheetDescription>
           </SheetHeader>
 
@@ -186,112 +198,117 @@ export default function UpdateUserForm({
               <div className="flex-1 overflow-y-auto px-1">
                 <div className="space-y-6 py-4">
 
-                  {/* Full Name */}
-                  <FormField
-                    control={form.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-1.5">
-                          <FileUserIcon className="size-3.5" />
-                          Họ tên
-                        </FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nguyễn Văn A" autoComplete="off" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {!isClientUser && (
+                    <>
+                      {/* Full Name */}
+                      <FormField
+                        control={form.control}
+                        name="fullName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1.5">
+                              <FileUserIcon className="size-3.5" />
+                              Họ tên
+                            </FormLabel>
+                            <FormControl>
+                              <Input placeholder="Nguyễn Văn A" autoComplete="off" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  {/* Email */}
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-1.5">
-                          <VoicemailIcon className="size-3.5" />
-                          Email
-                        </FormLabel>
-                        <FormControl>
-                          <Input placeholder="nguyenvana@email.com" type="email" autoComplete="off" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      {/* Email */}
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1.5">
+                              <VoicemailIcon className="size-3.5" />
+                              Email
+                            </FormLabel>
+                            <FormControl>
+                              <Input placeholder="nguyenvana@email.com" type="email" autoComplete="off" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  {/* Phone */}
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-1.5">
-                          <UserIcon className="size-3.5" />
-                          Số điện thoại
-                        </FormLabel>
-                        <FormControl>
-                          <Input placeholder="0123456789" type="tel" autoComplete="off" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      {/* Phone */}
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1.5">
+                              <UserIcon className="size-3.5" />
+                              Số điện thoại
+                            </FormLabel>
+                            <FormControl>
+                              <Input placeholder="0123456789" type="tel" autoComplete="off" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  {/* Password — chỉ update khi nhập */}
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-1.5">
-                          <ShieldCheckIcon className="size-3.5" />
-                          Mật khẩu mới
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Để trống nếu không đổi mật khẩu"
-                            type="password"
-                            autoComplete="new-password"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      {/* Password — chỉ update khi nhập */}
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1.5">
+                              <ShieldCheckIcon className="size-3.5" />
+                              Mật khẩu mới
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Để trống nếu không đổi mật khẩu"
+                                type="password"
+                                autoComplete="new-password"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
 
-                  {/* Status */}
-                  <FormField
-                    control={form.control}
-                    name="role"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-1.5">
-                          <ShieldCheckIcon className="size-3.5" />
-                          Vai trò
-                        </FormLabel>
-                        <Select
-                          onValueChange={(val) => field.onChange(val)}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Chọn vai trò" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="ADMIN">Quản trị viên (Admin)</SelectItem>
-                            <SelectItem value="SUPERVISOR">Giám sát viên (Supervisor)</SelectItem>
-                            <SelectItem value="INVENTORY">Nhân viên kho (Inventory)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {user?.role !== 'CLIENT' && (
+                    <FormField
+                      control={form.control}
+                      name="role"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-1.5">
+                            <ShieldCheckIcon className="size-3.5" />
+                            Vai trò
+                          </FormLabel>
+                          <Select
+                            onValueChange={(val) => field.onChange(val)}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Chọn vai trò" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="ADMIN">Quản trị viên (Admin)</SelectItem>
+                              <SelectItem value="SUPERVISOR">Giám sát viên (Supervisor)</SelectItem>
+                              <SelectItem value="INVENTORY">Nhân viên kho (Inventory)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   {/* Status */}
                   <FormField
@@ -323,30 +340,31 @@ export default function UpdateUserForm({
                     )}
                   />
 
-                  {/* Avatar */}
-                  <FormField
-                    control={form.control}
-                    name="avatar"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ảnh đại diện</FormLabel>
-                        <FormControl>
-                          <FileUpload
-                            onFileSelect={(file) => field.onChange(file)}
-                            onFileError={(error) => {
-                              console.warn('[UpdateUserForm] Avatar error:', error);
-                              toast.error(error || 'Ảnh đại diện không hợp lệ');
-                              form.setError('avatar', { type: 'manual', message: error });
-                            }}
-                            onFileRemove={() => field.onChange(null)}
-                            currentFile={field.value ?? null}
-                            maxFileSize={5 * 1024 * 1024}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {!isClientUser && (
+                    <FormField
+                      control={form.control}
+                      name="avatar"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ảnh đại diện</FormLabel>
+                          <FormControl>
+                            <FileUpload
+                              onFileSelect={(file) => field.onChange(file)}
+                              onFileError={(error) => {
+                                console.warn('[UpdateUserForm] Avatar error:', error);
+                                toast.error(error || 'Ảnh đại diện không hợp lệ');
+                                form.setError('avatar', { type: 'manual', message: error });
+                              }}
+                              onFileRemove={() => field.onChange(null)}
+                              currentFile={field.value ?? null}
+                              maxFileSize={5 * 1024 * 1024}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                 </div>
               </div>

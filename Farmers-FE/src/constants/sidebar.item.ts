@@ -16,7 +16,6 @@ import {
     Layers,
     ArrowRightLeft,
     PieChart,
-    Truck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -62,6 +61,7 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
             { icon: Users, label: 'Nông dân', category: 'people', path: `${basePath}/farmers` },
 
             // Management
+            { icon: MapPinned, label: 'Quản lý vùng trồng', category: 'management', path: `${basePath}/zones` },
             { icon: Sprout, label: 'Lô đất phụ trách', category: 'management', path: `${basePath}/plots` },
             { icon: FileSpreadsheet, label: 'Báo cáo hàng ngày', category: 'management', path: `${basePath}/daily-reports` },
             { icon: ScanSearch, label: 'Phân tích cây trồng AI', category: 'management', path: `${basePath}/ai-analysis` },
@@ -83,6 +83,5 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
         { icon: Boxes, label: 'Danh mục', category: 'system', path: `${basePath}/categories` },
         { icon: ReceiptText, label: 'Đơn hàng (ECM)', category: 'system', path: `${basePath}/orders` },
         { icon: BookOpenCheck, label: 'Bảng giá', category: 'system', path: `${basePath}/price-boards` },
-        { icon: Truck, label: 'Quản lý Logistics', category: 'system', path: `${basePath}/logistics` },
     ];
 };

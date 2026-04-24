@@ -1,12 +1,13 @@
 import {
+  Body,
   Controller,
   Get,
+  Param,
+  Patch,
+  Post,
+  Query,
   Request,
   UseGuards,
-  Param,
-  Query,
-  Post,
-  Body,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -19,6 +20,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { InventoryService } from './inventory.service';
+import { CreateWarehouseDto } from './dto/create-warehouse.dto';
+import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 
 @ApiTags('inventory')
 @ApiBearerAuth()
@@ -62,6 +65,29 @@ export class InventoryController {
   @ApiResponse({ status: 200, description: 'Chi tiết kho' })
   getWarehouseById(@Param('id') id: string, @Request() req: { user: any }) {
     return this.inventoryService.getWarehouseById(id, req.user);
+  }
+
+  @Post('warehouses')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Tạo kho hàng (quản trị viên)' })
+  @ApiResponse({ status: 201, description: 'Kho đã được tạo' })
+  createWarehouse(
+    @Request() req: { user: any },
+    @Body() dto: CreateWarehouseDto,
+  ) {
+    return this.inventoryService.createWarehouse(req.user, dto);
+  }
+
+  @Patch('warehouses/:id')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Cập nhật kho hàng / gán nhân viên kho (quản trị viên)' })
+  @ApiResponse({ status: 200, description: 'Kho đã được cập nhật' })
+  updateWarehouse(
+    @Param('id') id: string,
+    @Request() req: { user: any },
+    @Body() dto: UpdateWarehouseDto,
+  ) {
+    return this.inventoryService.updateWarehouse(id, req.user, dto);
   }
 
   @Get('lots')

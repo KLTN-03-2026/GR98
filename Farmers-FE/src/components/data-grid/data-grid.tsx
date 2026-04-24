@@ -13,6 +13,7 @@ export function DataGrid<TItem>({
   title,
   description,
   isLoading = false,
+  isAwaitingResults = false,
   error,
   onRetry,
   toolbar,
@@ -28,6 +29,7 @@ export function DataGrid<TItem>({
   const equalHeightCards = layout?.equalHeightCards ?? false;
   const resolvedSkeletonCount = skeleton?.count ?? pagination?.pageSize ?? 8;
   const useManagementAppearance = appearance === "management";
+  const showGridSkeleton = isLoading || isAwaitingResults;
 
   return (
     <div
@@ -55,6 +57,7 @@ export function DataGrid<TItem>({
             <DataGridToolbar
               config={toolbar}
               isLoading={isLoading}
+              isAwaitingResults={isAwaitingResults}
               className={classNames?.toolbar}
             />
           </CardContent>
@@ -74,7 +77,7 @@ export function DataGrid<TItem>({
                 )}
               </CardContent>
             </Card>
-          ) : isLoading ? (
+          ) : showGridSkeleton ? (
             <DataGridSkeleton
               count={resolvedSkeletonCount}
               renderCard={skeleton?.renderSkeletonCard}

@@ -81,6 +81,8 @@ interface GISWorkspaceProps {
   roleLabel: string;
   description: string;
   initialPlotId?: string;
+  initialCoordinates?: Array<[number, number]> | null;
+  initialContractNo?: string | null;
 }
 
 const DEFAULT_POLYGON_META =
@@ -128,6 +130,8 @@ export default function GISWorkspace({
   roleLabel,
   description,
   initialPlotId,
+  initialCoordinates,
+  initialContractNo,
 }: GISWorkspaceProps) {
   void title;
   void description;
@@ -168,15 +172,23 @@ export default function GISWorkspace({
   const [, setPlotPolygons] = useState<Record<string, Array<[number, number]>>>(
     {},
   );
+  const [previewFromContract, setPreviewFromContract] = useState<{
+    coords: Array<[number, number]>;
+    contractNo: string;
+  } | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
   const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
   const previewPolygonRef = useRef<L.Polygon | null>(null);
+  const contractPolygonRef = useRef<L.Polygon | null>(null);
+  const contractMarkersRef = useRef<L.LayerGroup | null>(null);
   const searchMarkerRef = useRef<L.Marker | null>(null);
   const streetLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
+  const zoneLayersRef = useRef<L.LayerGroup | null>(null);
+  const hasAutoRenderedRef = useRef(false);
 
   const readLocalPolygons = () => {
     try {
@@ -255,6 +267,92 @@ export default function GISWorkspace({
 
     map.removeLayer(previewPolygonRef.current);
     previewPolygonRef.current = null;
+  };
+
+  // Sắp xếp tọa độ theo góc quanh tâm — dùng cho parcel hình lồi (ruộng/lđất thông thường)
+  // Đảm bảo polygon không tự cắt nhau khi points đến không đúng thứ tự hình học
+  const sortCoordsByAngle = (coords: [number, number][]): [number, number][] => {
+    if (coords.length < 3) return coords;
+    const cx = coords.reduce((s, p) => s + p[0], 0) / coords.length;
+    const cy = coords.reduce((s, p) => s + p[1], 0) / coords.length;
+    return [...coords].sort((a, b) => {
+      const angleA = Math.atan2(a[1] - cy, a[0] - cx);
+      const angleB = Math.atan2(b[1] - cy, b[0] - cx);
+      return angleA - angleB;
+    });
+  };
+
+  const drawContractPolygon = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !initialCoordinates) return;
+
+    const rawCoords = isValidPolygon(initialCoordinates) ? initialCoordinates : [];
+    if (rawCoords.length < 3) return;
+
+    // Loại bỏ duplicate closing point nếu có, rồi sắp xếp theo góc
+    const noClose = rawCoords.filter((_, i) => i < rawCoords.length - 1 || rawCoords.length < 3 || JSON.stringify(rawCoords[0]) !== JSON.stringify(rawCoords[rawCoords.length - 1]));
+    const coords = sortCoordsByAngle(noClose);
+
+    if (contractPolygonRef.current) {
+      map.removeLayer(contractPolygonRef.current);
+      contractPolygonRef.current = null;
+    }
+    if (contractMarkersRef.current) {
+      contractMarkersRef.current.clearLayers();
+    }
+
+    const polygonLayer = L.polygon(coords, {
+      color: "#dc2626",
+      weight: 3,
+      fillColor: "#ef4444",
+      fillOpacity: 0.25,
+    }).addTo(map);
+
+    contractPolygonRef.current = polygonLayer;
+
+    if (!contractMarkersRef.current) {
+      contractMarkersRef.current = L.layerGroup().addTo(map);
+    }
+
+    coords.forEach(([lat, lng], index) => {
+      L.circleMarker([lat, lng], {
+        radius: 8,
+        color: "#dc2626",
+        fillColor: "#fca5a5",
+        fillOpacity: 0.9,
+        weight: 2,
+      })
+        .bindTooltip(`Điểm ${index + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, {
+          direction: "top",
+          offset: [0, -8],
+        })
+        .addTo(contractMarkersRef.current!);
+    });
+
+    map.fitBounds(polygonLayer.getBounds().pad(0.3), {
+      animate: true,
+      duration: 0.5,
+      maxZoom: 16,
+    });
+
+    setPreviewFromContract({
+      coords,
+      contractNo: initialContractNo || "Hợp đồng",
+    });
+  }, [initialCoordinates, initialContractNo]);
+
+  const clearContractPolygon = () => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (contractPolygonRef.current) {
+      map.removeLayer(contractPolygonRef.current);
+      contractPolygonRef.current = null;
+    }
+    if (contractMarkersRef.current) {
+      contractMarkersRef.current.clearLayers();
+    }
+    setPreviewFromContract(null);
   };
 
   const visibleLots = useMemo(
@@ -380,13 +478,21 @@ export default function GISWorkspace({
       setIsSaving(true);
       try {
         const createdPolygon = isValidPolygon(polygonCoords) ? polygonCoords : [];
+        // Use polygon centroid if available, otherwise map center
+        let payloadLat = mapCenter.lat;
+        let payloadLng = mapCenter.lng;
+        if (createdPolygon.length >= 3) {
+          const centroid = polygonCenter(createdPolygon);
+          payloadLat = centroid[0];
+          payloadLng = centroid[1];
+        }
         const response = await plotApi.create({
           plotName: "GIS-POINT",
           cropType: "ca-phe",
           areaHa: 0.01,
           contractId,
-          lat: mapCenter.lat,
-          lng: mapCenter.lng,
+          lat: payloadLat,
+          lng: payloadLng,
         });
 
         const created = {
@@ -642,10 +748,180 @@ export default function GISWorkspace({
 
   useEffect(() => {
     if (!initialPlotId) return;
+    if (hasAutoRenderedRef.current) return;
     const targetLot = lots.find((lot) => lot.id === initialPlotId);
     if (!targetLot) return;
+    hasAutoRenderedRef.current = true;
     focusLot(targetLot);
-  }, [initialPlotId, lots, focusLot]);
+
+    // Determine coordinates: prefer navigation state, fallback to plot data
+    let coordsToUse = initialCoordinates;
+    let contractNoToUse = initialContractNo;
+
+    if (!coordsToUse || !isValidPolygon(coordsToUse)) {
+      // Parse from plotDraftCoordinatesText on the loaded plot data
+      const text = (targetLot as { plotDraftCoordinatesText?: string | null }).plotDraftCoordinatesText;
+      if (text?.trim()) {
+        const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean);
+        const parsed: Array<[number, number]> = [];
+        let allPairs = true;
+        for (const line of lines) {
+          const parts = line.split(',').map((p: string) => p.trim()).filter(Boolean);
+          if (parts.length === 2) {
+            const lat = parseFloat(parts[0]);
+            const lng = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lng)) { parsed.push([lat, lng]); continue; }
+          }
+          allPairs = false;
+          break;
+        }
+        if (!allPairs || parsed.length === 0) {
+          parsed.length = 0;
+          const nums = text.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean);
+          for (let i = 0; i + 1 < nums.length; i += 2) {
+            const lat = parseFloat(nums[i]);
+            const lng = parseFloat(nums[i + 1]);
+            if (!isNaN(lat) && !isNaN(lng)) parsed.push([lat, lng]);
+          }
+        }
+        if (parsed.length >= 3) {
+          coordsToUse = parsed;
+        }
+      }
+    }
+
+    if (!contractNoToUse) {
+      contractNoToUse = targetLot.contractId || null;
+    }
+
+    // Auto-render polygon and open sheet if coordinates available
+    if (coordsToUse && isValidPolygon(coordsToUse) && mapRef.current) {
+      const map = mapRef.current;
+      const sorted = sortCoordsByAngle(coordsToUse);
+
+      // Draw polygon on map
+      if (contractPolygonRef.current) {
+        map.removeLayer(contractPolygonRef.current);
+        contractPolygonRef.current = null;
+      }
+      if (contractMarkersRef.current) {
+        contractMarkersRef.current.clearLayers();
+      }
+
+      const polygonLayer = L.polygon(sorted, {
+        color: "#dc2626",
+        weight: 3,
+        fillColor: "#ef4444",
+        fillOpacity: 0.25,
+      }).addTo(map);
+      contractPolygonRef.current = polygonLayer;
+
+      if (!contractMarkersRef.current) {
+        contractMarkersRef.current = L.layerGroup().addTo(map);
+      }
+      sorted.forEach(([lat, lng], index) => {
+        L.circleMarker([lat, lng], {
+          radius: 8,
+          color: "#dc2626",
+          fillColor: "#fca5a5",
+          fillOpacity: 0.9,
+          weight: 2,
+        })
+          .bindTooltip(`Điểm ${index + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, {
+            direction: "top",
+            offset: [0, -8],
+          })
+          .addTo(contractMarkersRef.current!);
+      });
+
+      map.fitBounds(polygonLayer.getBounds().pad(0.3), {
+        animate: true,
+        duration: 0.5,
+        maxZoom: 16,
+      });
+
+      // Fill form data
+      setPolygonCoords(sorted);
+      const latLngs = sorted.map(([lat, lng]) => L.latLng(lat, lng));
+      const area = L.GeometryUtil.geodesicArea(latLngs);
+      setPolygonAreaHa(area / 10000);
+      setPolygonMeta(`Polygon: ${area.toFixed(0)} m² (${(area / 10000).toFixed(2)} ha)`);
+
+      if (contractNoToUse) {
+        setSheet((prev) => ({ ...prev, contractId: contractNoToUse! }));
+      }
+
+      setPreviewFromContract({
+        coords: sorted,
+        contractNo: contractNoToUse || "Hợp đồng",
+      });
+
+      // Delay opening sheet to allow map render
+      setTimeout(() => setSheetOpen(true), 400);
+    }
+  }, [initialPlotId, lots, focusLot, initialCoordinates, initialContractNo]);
+
+  // ── Admin "Xem lô đất": initialCoordinates without initialPlotId → draw + zoom ──
+  useEffect(() => {
+    if (initialPlotId) return; // handled by the effect above
+    if (!initialCoordinates || !isValidPolygon(initialCoordinates)) return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    const sorted = sortCoordsByAngle(initialCoordinates);
+
+    // Draw polygon preview
+    if (contractPolygonRef.current) {
+      map.removeLayer(contractPolygonRef.current);
+      contractPolygonRef.current = null;
+    }
+    if (contractMarkersRef.current) {
+      contractMarkersRef.current.clearLayers();
+    }
+
+    const polygonLayer = L.polygon(sorted, {
+      color: "#dc2626",
+      weight: 3,
+      fillColor: "#ef4444",
+      fillOpacity: 0.2,
+      dashArray: "8 6",
+    }).addTo(map);
+    contractPolygonRef.current = polygonLayer;
+
+    if (!contractMarkersRef.current) {
+      contractMarkersRef.current = L.layerGroup().addTo(map);
+    }
+    sorted.forEach(([lat, lng], index) => {
+      L.circleMarker([lat, lng], {
+        radius: 7,
+        color: "#dc2626",
+        fillColor: "#fca5a5",
+        fillOpacity: 0.9,
+        weight: 2,
+      })
+        .bindTooltip(`Điểm ${index + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, {
+          direction: "top",
+          offset: [0, -8],
+        })
+        .addTo(contractMarkersRef.current!);
+    });
+
+    // Fly to polygon bounds
+    setTimeout(() => {
+      map.fitBounds(polygonLayer.getBounds().pad(0.3), {
+        animate: true,
+        duration: 0.8,
+        maxZoom: 17,
+      });
+    }, 200);
+
+    if (initialContractNo) {
+      setPreviewFromContract({
+        coords: sorted,
+        contractNo: initialContractNo,
+      });
+    }
+  }, [initialPlotId, initialCoordinates, initialContractNo]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -835,6 +1111,18 @@ export default function GISWorkspace({
     satelliteLayerRef.current = satelliteLayer;
     mapRef.current = map;
 
+    // Sắp xếp tọa độ theo góc quanh tâm — tránh polygon tự cắt khi points không đúng thứ tự
+    const sortByAngle = (pts: [number, number][]): [number, number][] => {
+      if (pts.length < 3) return pts;
+      const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+      const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      return [...pts].sort((a, b) => {
+        const angleA = Math.atan2(a[1] - cy, a[0] - cx);
+        const angleB = Math.atan2(b[1] - cy, b[0] - cx);
+        return angleA - angleB;
+      });
+    };
+
     const toAreaText = (layer: L.Layer) => {
       if (!(layer instanceof L.Polygon)) {
         setPolygonAreaHa(null);
@@ -850,13 +1138,21 @@ export default function GISWorkspace({
         return "Polygon đã tạo.";
       }
 
-      setPolygonCoords(
-        firstRing.map((point) => [
-          Number(point.lat.toFixed(6)),
-          Number(point.lng.toFixed(6)),
-        ]),
-      );
+      // Đọc points, loại bỏ duplicate closing point nếu có, rồi sắp xếp theo góc
+      const rawPts = firstRing.map((point) => [
+        Number(point.lat.toFixed(6)),
+        Number(point.lng.toFixed(6)),
+      ] as [number, number]);
+      const noClose =
+        rawPts.length >= 3 &&
+        JSON.stringify(rawPts[0]) === JSON.stringify(rawPts[rawPts.length - 1])
+          ? rawPts.slice(0, -1)
+          : rawPts;
+      const sortedPts = sortByAngle(noClose);
 
+      setPolygonCoords(sortedPts);
+
+      // Tính diện tích từ firstRing gốc (Leaflet Draw luôn order đúng)
       const area = L.GeometryUtil.geodesicArea(firstRing);
       const hectares = area / 10000;
       setPolygonAreaHa(hectares);
@@ -900,6 +1196,7 @@ export default function GISWorkspace({
 
     const onMapClick = () => {
       hidePreviewPolygon();
+      clearContractPolygon();
     };
 
     drawnItems.on("click", (event: L.LeafletMouseEvent) => {
@@ -931,6 +1228,12 @@ export default function GISWorkspace({
       satelliteLayerRef.current = null;
       drawnItemsRef.current = null;
       previewPolygonRef.current = null;
+      contractPolygonRef.current = null;
+      contractMarkersRef.current = null;
+      if (zoneLayersRef.current) {
+        zoneLayersRef.current.clearLayers();
+        zoneLayersRef.current = null;
+      }
     };
   }, []);
 
@@ -1021,6 +1324,14 @@ export default function GISWorkspace({
 
     markerLayer.clearLayers();
 
+    // Clear previous zone polygon layers
+    if (zoneLayersRef.current) {
+      zoneLayersRef.current.clearLayers();
+    } else {
+      zoneLayersRef.current = L.layerGroup().addTo(map);
+    }
+
+    // Render GIS-marked lots (full style: polygon + crop icon)
     filteredLotsForMap
       .filter((lot) => {
         const hasPolygon = isValidPolygon(lot.polygon);
@@ -1040,6 +1351,45 @@ export default function GISWorkspace({
         const cropIcon = isDurian ? "D" : "C";
         const cropLabel = isDurian ? "Sầu riêng" : "Cà phê";
 
+        // Render polygon zone if plot has polygon data (>= 3 points)
+        if (hasPolygon) {
+          const sortedCoords = sortCoordsByAngle(
+            lot.polygon as Array<[number, number]>,
+          );
+
+          const zonePolygon = L.polygon(sortedCoords, {
+            color: "#dc2626",
+            weight: 2.5,
+            fillColor: "#ef4444",
+            fillOpacity: 0.15,
+            dashArray: isSelected ? undefined : "6 4",
+          });
+          zonePolygon
+            .on("click", (event: L.LeafletMouseEvent) => {
+              L.DomEvent.stopPropagation(event);
+              focusLot(lot);
+              showOnlyPolygon(lot);
+              setSheetOpen(true);
+            })
+            .addTo(zoneLayersRef.current!);
+
+          sortedCoords.forEach(([lat, lng], idx) => {
+            L.circleMarker([lat, lng], {
+              radius: 7,
+              color: "#dc2626",
+              fillColor: "#fca5a5",
+              fillOpacity: 0.9,
+              weight: 2,
+            })
+              .bindTooltip(
+                `Điểm ${idx + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                { direction: "top", offset: [0, -8] },
+              )
+              .addTo(zoneLayersRef.current!);
+          });
+        }
+
+        // Crop icon marker at centroid
         const icon = L.divIcon({
           className: "",
           iconSize: [34, 34],
@@ -1080,7 +1430,7 @@ export default function GISWorkspace({
           })
           .addTo(markerLayer);
       });
-  }, [filteredLotsForMap, selectedLot, focusLot]);
+  }, [filteredLotsForMap, selectedLot, focusLot, roleLabel]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1336,6 +1686,28 @@ export default function GISWorkspace({
         </div>
       </section>
 
+      {previewFromContract && (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-red-800">
+                Lô đất từ hợp đồng: {previewFromContract.contractNo}
+              </p>
+              <p className="mt-1 text-xs text-red-600">
+                {previewFromContract.coords.length} điểm tọa độ • {previewFromContract.coords.map(([lat, lng]) => `(${lat.toFixed(6)}, ${lng.toFixed(6)})`).join(' → ')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearContractPolygon}
+              className="rounded-md bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
+
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent
           side="right"
@@ -1343,9 +1715,7 @@ export default function GISWorkspace({
         >
           <SheetHeader className="border-b pb-4">
             <SheetTitle>Sheet quản lý lô đất</SheetTitle>
-            <SheetDescription>
-              Tự mở khi vẽ polygon. Dữ liệu bám theo vị trí hiện tại của bản đồ.
-            </SheetDescription>
+            <SheetDescription className="sr-only">Thông tin chi tiết lô đất</SheetDescription>
           </SheetHeader>
 
           <div className="space-y-4 p-4">
@@ -1481,27 +1851,103 @@ export default function GISWorkspace({
               </div>
             </div>
 
-            {roleLabel === "SUPERVISOR" && (
-              <p className="text-xs text-muted-foreground">
-                Supervisor chỉ cần nhập mã hợp đồng hợp lệ để gán point trên GIS.
-              </p>
+            {/* Tọa độ lô đất từ DB (plotDraftCoordinatesText) */}
+            {(() => {
+              const text = (selectedLot as { plotDraftCoordinatesText?: string | null }).plotDraftCoordinatesText;
+              if (!text?.trim()) return null;
+              const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean);
+              const coords: Array<[number, number]> = [];
+              let allPairs = true;
+              for (const line of lines) {
+                const parts = line.split(',').map((p: string) => p.trim()).filter(Boolean);
+                if (parts.length === 2) {
+                  const lat = parseFloat(parts[0]);
+                  const lng = parseFloat(parts[1]);
+                  if (!isNaN(lat) && !isNaN(lng)) { coords.push([lat, lng]); continue; }
+                }
+                allPairs = false;
+                break;
+              }
+              if (!allPairs || coords.length === 0) {
+                coords.length = 0;
+                const nums = text.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean);
+                for (let i = 0; i + 1 < nums.length; i += 2) {
+                  const lat = parseFloat(nums[i]);
+                  const lng = parseFloat(nums[i + 1]);
+                  if (!isNaN(lat) && !isNaN(lng)) coords.push([lat, lng]);
+                }
+              }
+              if (coords.length === 0) return null;
+              return (
+                <div className="rounded-xl border bg-card p-4 shadow-xs">
+                  <p className="mb-3 text-sm font-semibold text-foreground">
+                    Tọa độ lô đất ({coords.length} điểm)
+                  </p>
+                  <div className="max-h-48 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b text-muted-foreground">
+                          <th className="pb-2 text-left font-medium">Điểm</th>
+                          <th className="pb-2 text-right font-medium">Vĩ độ (lat)</th>
+                          <th className="pb-2 text-right font-medium">Kinh độ (lng)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {coords.map(([lat, lng], i) => (
+                          <tr key={i} className="border-b border-dashed last:border-0">
+                            <td className="py-1.5 font-medium text-emerald-700">{i + 1}</td>
+                            <td className="py-1.5 text-right tabular-nums">{lat.toFixed(6)}</td>
+                            <td className="py-1.5 text-right tabular-nums">{lng.toFixed(6)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {isValidPolygon(polygonCoords) && !(selectedLot as { plotDraftCoordinatesText?: string | null }).plotDraftCoordinatesText?.trim() && (
+              <div className="rounded-xl border border-red-100 bg-red-50/60 p-3">
+                <p className="mb-2 text-sm font-semibold text-red-800">
+                  Tọa độ lô đất ({polygonCoords.length} điểm)
+                </p>
+                <div className="max-h-40 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="pb-1.5 text-left font-medium">Điểm</th>
+                        <th className="pb-1.5 text-right font-medium">Vĩ độ</th>
+                        <th className="pb-1.5 text-right font-medium">Kinh độ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {polygonCoords.map(([lat, lng], i) => (
+                        <tr key={i} className="border-b border-dashed last:border-0">
+                          <td className="py-1 font-medium text-red-700">{i + 1}</td>
+                          <td className="py-1 text-right tabular-nums">{lat.toFixed(6)}</td>
+                          <td className="py-1 text-right tabular-nums">{lng.toFixed(6)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
           </div>
 
-          <SheetFooter>
-            <Button
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => void handleCreatePlot()}
-              disabled={isSaving}
-            >
-              <Sprout className="mr-2 h-4 w-4" />
-              {isSaving
-                ? "Đang lưu..."
-                : roleLabel === "SUPERVISOR"
-                  ? "Gán point theo mã hợp đồng"
-                  : "Lưu cập nhật vào luồng GIS"}
-            </Button>
-          </SheetFooter>
+          {roleLabel !== "SUPERVISOR" && (
+            <SheetFooter>
+              <Button
+                className="w-full bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => void handleCreatePlot()}
+                disabled={isSaving}
+              >
+                <Sprout className="mr-2 h-4 w-4" />
+                {isSaving ? "Đang lưu..." : "Lưu cập nhật vào luồng GIS"}
+              </Button>
+            </SheetFooter>
+          )}
         </SheetContent>
       </Sheet>
     </>

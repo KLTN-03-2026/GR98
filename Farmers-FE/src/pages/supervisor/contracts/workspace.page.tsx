@@ -1,22 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Building2,
   CheckCircle2,
   FileText,
-  Image as ImageIcon,
   Landmark,
-  MapPin,
   Phone,
+  PlusCircle,
   Printer,
   Save,
   UserRound,
   Wheat,
+  X,
 } from 'lucide-react';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Combobox } from '@/components/custom/combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useMe } from '@/client/api/auth/use-me';
@@ -26,6 +27,7 @@ import {
   type CreateContractPayload,
   type QualityGrade,
 } from '@/pages/admin/contracts/api';
+import { useVietnamAdministrative } from '@/lib/vn-administrative';
 import ContractDetailPage from '@/pages/contracts/contract-detail.page';
 import { ContractLegalTemplate } from '@/pages/contracts/components/contract-legal-template';
 import {
@@ -34,48 +36,76 @@ import {
 } from '@/pages/contracts/contract-legal-view-model';
 import '@/pages/contracts/contract-print.css';
 
+type CoordinatePair = [string, string]; // [lat, lng]
+
 type FormState = {
   plotDraftProvince: string;
   plotDraftDistrict: string;
   plotDraftAreaHa: string;
+  plotDraftCoordinates: CoordinatePair[];
   cropType: string;
   grade: QualityGrade;
-  signedAt: string;
   harvestDue: string;
-  signatureUrl: string;
 };
 
 const defaultForm: FormState = {
   plotDraftProvince: '',
   plotDraftDistrict: '',
   plotDraftAreaHa: '',
+  plotDraftCoordinates: [['', '']],
   cropType: '',
   grade: 'A',
-  signedAt: '',
   harvestDue: '',
-  signatureUrl: '',
 };
 
+/** YYYY-MM-DD theo giờ địa phương — dùng cho input type="date" và so sánh chuỗi */
+function getTodayLocalIsoDate(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getTomorrowLocalIsoDate() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return getTodayLocalIsoDate(d);
+}
+
+function formatIsoDateVi(iso: string) {
+  const [y, m, day] = iso.split('-');
+  if (!y || !m || !day) return iso;
+  return `${day}/${m}/${y}`;
+}
+
 const CROP_OPTIONS = [
-  { value: "ca-phe", label: "Cà phê" },
-  { value: "sau-rieng", label: "Sầu riêng" },
+  { value: 'ca-phe', label: 'Cà phê' },
+  { value: 'sau-rieng', label: 'Sầu riêng' },
 ] as const;
 
 function getCropLabel(value: string) {
-  return CROP_OPTIONS.find((item) => item.value === value)?.label ?? "Chưa chọn loại cây";
+  return CROP_OPTIONS.find((item) => item.value === value)?.label ?? 'Chưa chọn loại cây';
 }
 
 function toPayload(form: FormState, farmerId: string | undefined): CreateContractPayload {
+  const coordinateLines = form.plotDraftCoordinates
+    .map(([lat, lng]) => {
+      const trimmedLat = lat.trim();
+      const trimmedLng = lng.trim();
+      if (!trimmedLat || !trimmedLng) return '';
+      return `${trimmedLat},${trimmedLng}`;
+    })
+    .filter(Boolean);
   return {
     farmerId: farmerId || undefined,
     plotDraftProvince: form.plotDraftProvince.trim() || undefined,
     plotDraftDistrict: form.plotDraftDistrict.trim() || undefined,
     plotDraftAreaHa: form.plotDraftAreaHa ? Number(form.plotDraftAreaHa) : undefined,
+    plotDraftCoordinatesText: coordinateLines.length ? coordinateLines.join('\n') : undefined,
     cropType: form.cropType.trim(),
     grade: form.grade,
-    signedAt: form.signedAt || undefined,
+    signedAt: getTodayLocalIsoDate(),
     harvestDue: form.harvestDue || undefined,
-    signatureUrl: form.signatureUrl.trim() || undefined,
   };
 }
 
@@ -84,25 +114,34 @@ function SupervisorContractCreateWorkspace() {
   const [farmerId, setFarmerId] = useState('');
   const [form, setForm] = useState<FormState>(defaultForm);
   const [formError, setFormError] = useState<string | null>(null);
+  const [pendingCoordinateRow, setPendingCoordinateRow] = useState<number | null>(null);
+  const coordinateInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
 
   const { data: me } = useMe();
   const supervisorProfileId = me?.supervisorProfile?.id ?? '';
   const supervisorName = me?.fullName ?? '';
+  const { data: provinceOptions = [] } = useVietnamAdministrative();
 
   const { data: farmersData, isLoading: farmersLoading } = useFarmers({
     page: 1,
     limit: 200,
     enabled: !!supervisorProfileId,
   });
-
   const createMutation = useCreateContract();
 
   const farmers = farmersData?.data ?? [];
-
   const selectedFarmer = useMemo(
     () => farmers.find((f) => f.id === farmerId) ?? null,
     [farmers, farmerId],
   );
+  const plotDistrictOptions = useMemo(
+    () =>
+      provinceOptions.find((item) => item.value === form.plotDraftProvince)
+        ?.districts ?? [],
+    [provinceOptions, form.plotDraftProvince],
+  );
+
+  const signedAtToday = getTodayLocalIsoDate();
 
   const draftVm = useMemo(
     () =>
@@ -115,25 +154,55 @@ function SupervisorContractCreateWorkspace() {
           plotDraftProvince: form.plotDraftProvince,
           plotDraftDistrict: form.plotDraftDistrict,
           plotDraftAreaHa: form.plotDraftAreaHa,
+          plotDraftCoordinates: form.plotDraftCoordinates,
           cropType: form.cropType,
           grade: form.grade,
-          signedAt: form.signedAt,
+          signedAt: signedAtToday,
           harvestDue: form.harvestDue,
         },
       }),
-    [me, supervisorProfileId, supervisorName, selectedFarmer, form],
+    [me, supervisorProfileId, supervisorName, selectedFarmer, form, signedAtToday],
   );
 
   const partyA = PARTY_A_DOCUMENT_DEFAULTS;
 
+  useEffect(() => {
+    if (pendingCoordinateRow === null) return;
+    const target = coordinateInputRefs.current.get(`coord-${pendingCoordinateRow}-lat`);
+    if (target) {
+      target.focus();
+    }
+    setPendingCoordinateRow(null);
+  }, [form.plotDraftCoordinates.length, pendingCoordinateRow]);
+
   const validate = () => {
     if (!farmerId) return 'Chọn nông dân phụ trách';
-    if (!form.plotDraftProvince.trim()) return 'Nhập Tỉnh/Thành của lô đất';
-    if (!form.plotDraftDistrict.trim()) return 'Nhập Quận/Huyện của lô đất';
+    if (!form.plotDraftProvince.trim()) return 'Chọn Tỉnh/Thành của lô đất';
+    if (!form.plotDraftDistrict.trim()) return 'Chọn Quận/Huyện của lô đất';
     if (!form.plotDraftAreaHa || Number(form.plotDraftAreaHa) <= 0) {
       return 'Diện tích chuẩn lô đất phải lớn hơn 0';
     }
-    if (!form.cropType.trim()) return 'Chọn loại cây trồng';
+    const hasInvalidCoordinate = form.plotDraftCoordinates.some(([lat, lng]) => {
+      const trimmedLat = lat.trim();
+      const trimmedLng = lng.trim();
+      if (!trimmedLat && !trimmedLng) return false;
+      return Number.isNaN(Number(trimmedLat)) || Number.isNaN(Number(trimmedLng));
+    });
+    if (hasInvalidCoordinate) return 'Danh sách tọa độ phải là các số hợp lệ';
+    const validCoordinates = form.plotDraftCoordinates.filter(([lat, lng]) => {
+      return lat.trim() && lng.trim();
+    });
+    if (validCoordinates.length === 0) {
+      return 'Phải nhập ít nhất một cặp tọa độ (vĩ độ và kinh độ)';
+    }
+    if (validCoordinates.length < 3) {
+      return 'Phải nhập tối thiểu 3 điểm tọa độ để tạo lô đất';
+    }
+    if (!form.harvestDue.trim()) return 'Chọn ngày kết thúc hợp đồng';
+    const todayIso = getTodayLocalIsoDate();
+    if (form.harvestDue <= todayIso) {
+      return 'Ngày kết thúc hợp đồng phải sau ngày ký hợp đồng';
+    }
     return null;
   };
 
@@ -151,14 +220,6 @@ function SupervisorContractCreateWorkspace() {
       /* toast từ hook */
     }
   };
-
-  const readFileAsDataUrl = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('read'));
-      reader.readAsDataURL(file);
-    });
 
   if (!supervisorProfileId) {
     return (
@@ -193,8 +254,7 @@ function SupervisorContractCreateWorkspace() {
         </Button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Chọn nông dân trong phạm vi phụ trách, lô đất lọc theo nông dân. Nội dung pháp lý cập nhật theo
-        dữ liệu bạn nhập — sau khi lưu hệ thống gán số hợp đồng chính thức.
+        Chọn nông dân có sẵn rồi điền thông tin lô đất. Hợp đồng có thể gửi admin duyệt mà không cần ảnh ký.
       </p>
 
       <div className="grid gap-3 lg:grid-cols-2">
@@ -228,7 +288,7 @@ function SupervisorContractCreateWorkspace() {
               <p className="text-sm text-foreground">
                 {farmerId && form.plotDraftAreaHa
                   ? 'Đủ dữ liệu cơ bản để lưu nháp'
-                  : 'Cần chọn nông dân và điền thông tin lô đất'}
+                  : 'Cần chọn đối tác và điền thông tin lô đất'}
               </p>
             </div>
           </div>
@@ -270,9 +330,6 @@ function SupervisorContractCreateWorkspace() {
                 <p className="text-xs font-semibold text-muted-foreground">Tài khoản ngân hàng</p>
                 <p className="text-sm">{partyA.bank}</p>
               </div>
-              <div className="sm:col-span-2 border-t pt-2 text-[11px] italic text-muted-foreground">
-                Dữ liệu Bên A đang dùng mock cố định để đồng bộ màn hình hợp đồng và bản in PDF.
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -283,7 +340,7 @@ function SupervisorContractCreateWorkspace() {
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                 <UserRound className="h-4 w-4" />
               </span>
-              Bên B — Nông dân &amp; lô đất
+              Bên B — Đối tác
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -291,9 +348,7 @@ function SupervisorContractCreateWorkspace() {
               <Label>Nông dân phụ trách</Label>
               <select
                 value={farmerId}
-                onChange={(e) => {
-                  setFarmerId(e.target.value);
-                }}
+                onChange={(e) => setFarmerId(e.target.value)}
                 disabled={farmersLoading}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
@@ -306,61 +361,69 @@ function SupervisorContractCreateWorkspace() {
               </select>
             </div>
 
-            {!farmerId ? (
-              <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-                Chọn nông dân để xem đầy đủ hồ sơ và danh sách lô.
-              </p>
-            ) : (
+            {selectedFarmer && (
               <div className="grid gap-3 rounded-md border p-3 text-sm sm:grid-cols-2">
                 <div className="space-y-1">
                   <p className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
                     <Phone className="h-3.5 w-3.5" />
                     Liên hệ
                   </p>
-                  <p className="font-medium">{selectedFarmer?.fullName}</p>
-                  <p className="text-xs text-muted-foreground">SĐT: {selectedFarmer?.phone}</p>
+                  <p className="font-medium">{selectedFarmer.fullName}</p>
+                  <p className="text-xs text-muted-foreground">SĐT: {selectedFarmer.phone}</p>
+                  <p className="text-xs text-muted-foreground">CCCD: {selectedFarmer.cccd}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5" />
-                    Định danh
-                  </p>
-                  <p className="text-xs">CCCD: {selectedFarmer?.cccd}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedFarmer?.address || '—'}
-                    {selectedFarmer?.province ? ` · ${selectedFarmer.province}` : ''}
-                  </p>
-                </div>
-                <div className="space-y-1 sm:col-span-2">
                   <p className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
                     <Landmark className="h-3.5 w-3.5" />
                     Ngân hàng
                   </p>
                   <p className="text-xs">
-                    {selectedFarmer?.bankName || 'Chưa khai báo'} - {selectedFarmer?.bankBranch || '---'} -{' '}
-                    {selectedFarmer?.bankAccount || 'Chưa có số tài khoản'}
+                    {selectedFarmer.bankName || 'Chưa khai báo'} - {selectedFarmer.bankBranch || '---'} -{' '}
+                    {selectedFarmer.bankAccount || 'Chưa có số tài khoản'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedFarmer.address || '—'}
+                    {selectedFarmer.province ? ` · ${selectedFarmer.province}` : ''}
                   </p>
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label>Thông tin lô đất</Label>
+              <p className="text-base font-semibold text-foreground">Thông tin lô đất</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  value={form.plotDraftProvince}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, plotDraftProvince: e.target.value }))
-                  }
-                  placeholder="Tỉnh / thành"
-                />
-                <Input
-                  value={form.plotDraftDistrict}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, plotDraftDistrict: e.target.value }))
-                  }
-                  placeholder="Quận / huyện"
-                />
+                <div className="space-y-2">
+                  <Label>Tỉnh / thành</Label>
+                  <Combobox
+                    dataArr={provinceOptions}
+                    value={form.plotDraftProvince}
+                    onChange={(value) => {
+                      const nextProvince = typeof value === 'string' ? value : '';
+                      setForm((prev) => ({
+                        ...prev,
+                        plotDraftProvince: nextProvince,
+                        plotDraftDistrict:
+                          nextProvince === prev.plotDraftProvince ? prev.plotDraftDistrict : '',
+                      }));
+                    }}
+                    label="tỉnh/thành"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Quận / huyện</Label>
+                  <Combobox
+                    dataArr={plotDistrictOptions}
+                    value={form.plotDraftDistrict}
+                    onChange={(value) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        plotDraftDistrict: typeof value === 'string' ? value : '',
+                      }))
+                    }
+                    label="quận/huyện"
+                    disabled={!form.plotDraftProvince}
+                  />
+                </div>
                 <div className="sm:col-span-2">
                   <Input
                     type="number"
@@ -372,6 +435,101 @@ function SupervisorContractCreateWorkspace() {
                     }
                     placeholder="Diện tích chuẩn (ha)"
                   />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Tọa độ</Label>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-medium text-muted-foreground">
+                      <span>Vĩ độ (lat)</span>
+                      <span>Kinh độ (lng)</span>
+                      <span></span>
+                    </div>
+                    {form.plotDraftCoordinates.map(([lat, lng], index) => (
+                      <div key={`coord-row-${index}`} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                        <Input
+                          ref={(node) => {
+                            coordinateInputRefs.current.set(`coord-${index}-lat`, node);
+                          }}
+                          value={lat}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: prev.plotDraftCoordinates.map((pair, i) =>
+                                i === index ? [e.target.value, pair[1]] : pair,
+                              ),
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            const nextIndex = form.plotDraftCoordinates.length;
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: [...prev.plotDraftCoordinates, ['', '']],
+                            }));
+                            setPendingCoordinateRow(nextIndex);
+                          }}
+                          placeholder={`15.94xxxx`}
+                        />
+                        <Input
+                          ref={(node) => {
+                            coordinateInputRefs.current.set(`coord-${index}-lng`, node);
+                          }}
+                          value={lng}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: prev.plotDraftCoordinates.map((pair, i) =>
+                                i === index ? [pair[0], e.target.value] : pair,
+                              ),
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            const nextIndex = form.plotDraftCoordinates.length;
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: [...prev.plotDraftCoordinates, ['', '']],
+                            }));
+                            setPendingCoordinateRow(nextIndex);
+                          }}
+                          placeholder={`108.28xxxx`}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              plotDraftCoordinates: prev.plotDraftCoordinates.filter((_, i) => i !== index),
+                            }))
+                          }
+                          disabled={form.plotDraftCoordinates.length <= 1}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const nextIndex = form.plotDraftCoordinates.length;
+                        setForm((prev) => ({
+                          ...prev,
+                          plotDraftCoordinates: [...prev.plotDraftCoordinates, ['', '']],
+                        }));
+                        setPendingCoordinateRow(nextIndex);
+                      }}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      Thêm điểm
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -423,51 +581,22 @@ function SupervisorContractCreateWorkspace() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Ngày ký</Label>
-              <Input
-                type="date"
-                value={form.signedAt}
-                onChange={(e) => setForm((prev) => ({ ...prev, signedAt: e.target.value }))}
-              />
+              <Label>Ngày ký hợp đồng</Label>
+              <p className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
+                {formatIsoDateVi(signedAtToday)} (tự động theo ngày hôm nay)
+              </p>
             </div>
             <div className="space-y-2">
-              <Label>Ngày kết thúc hợp đồng</Label>
+              <Label htmlFor="contract-harvest-due">Ngày kết thúc hợp đồng</Label>
               <Input
+                id="contract-harvest-due"
                 type="date"
+                min={getTomorrowLocalIsoDate()}
                 value={form.harvestDue}
                 onChange={(e) => setForm((prev) => ({ ...prev, harvestDue: e.target.value }))}
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-dashed border-primary/40">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-              <ImageIcon className="h-4 w-4" />
-            </span>
-            Ảnh xác nhận (tuỳ chọn)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const url = await readFileAsDataUrl(file);
-              setForm((prev) => ({ ...prev, signatureUrl: url }));
-              e.target.value = '';
-            }}
-          />
-          <Input
-            value={form.signatureUrl}
-            onChange={(e) => setForm((prev) => ({ ...prev, signatureUrl: e.target.value }))}
-            placeholder="Hoặc dán URL ảnh…"
-          />
         </CardContent>
       </Card>
 
@@ -501,7 +630,6 @@ function SupervisorContractCreateWorkspace() {
   );
 }
 
-/** Cùng layout: `/supervisor/contracts/new` (không id) soạn mới; `/:id` chi tiết / sửa như cũ. */
 export default function SupervisorContractWorkspacePage() {
   const { id } = useParams<{ id?: string }>();
   if (id) {

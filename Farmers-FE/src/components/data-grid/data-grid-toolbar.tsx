@@ -8,12 +8,15 @@ import type { DataGridToolbarConfig } from "./types";
 type DataGridToolbarProps = {
   config?: DataGridToolbarConfig;
   isLoading?: boolean;
+  /** Skeleton lưới / refetch; không khóa ô search, chỉ dùng cho spin và khóa refresh khi cần */
+  isAwaitingResults?: boolean;
   className?: string;
 };
 
 export function DataGridToolbar({
   config,
   isLoading = false,
+  isAwaitingResults = false,
   className,
 }: DataGridToolbarProps) {
   const searchConfig = config?.search;
@@ -38,10 +41,11 @@ export function DataGridToolbar({
 
   const showReset = Boolean(searchConfig && keyword.trim().length > 0);
   const refreshHandler = config?.onRefresh ?? config?.onReload;
-  const isRefreshing = isLoading || isReloadAnimating;
+  const isRefreshing = isLoading || isAwaitingResults || isReloadAnimating;
+  const isRefreshDisabled = isLoading || isAwaitingResults;
 
   const handleRefresh = () => {
-    if (!refreshHandler || isLoading) return;
+    if (!refreshHandler || isRefreshDisabled) return;
     setIsReloadAnimating(true);
     refreshHandler();
     window.setTimeout(() => setIsReloadAnimating(false), 450);
@@ -115,7 +119,7 @@ export function DataGridToolbar({
                 size="icon"
                 className="h-8 w-8"
                 onClick={handleRefresh}
-                disabled={isLoading}
+                disabled={isRefreshDisabled}
               >
                 <RefreshCcw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
               </Button>

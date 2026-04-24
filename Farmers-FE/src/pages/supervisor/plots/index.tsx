@@ -83,7 +83,7 @@ export default function SupervisorPlotsPage() {
   const [keyword, setKeyword] = useState("");
   const [filter, setFilter] = useState<"all" | CropType>("all");
   const [supervisorFilterId, setSupervisorFilterId] = useState("all");
-  const [mapFilter, setMapFilter] = useState<"all" | "mapped" | "unmapped">("unmapped");
+  const [mapFilter, setMapFilter] = useState<"all" | "mapped" | "unmapped">("all");
   const [currentPage, setCurrentPage] = useState(1);
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -237,11 +237,7 @@ export default function SupervisorPlotsPage() {
       </Card>
 
       <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="inline-flex w-full items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 md:w-auto">
-          <Users className="h-4 w-4 text-emerald-700" />
-          <span className="text-sm font-medium text-emerald-800">
-            Trạng thái bản đồ
-          </span>
+        <div className="inline-flex w-full items-center gap-2 rounded-full bg-white px-3 py-1.5 md:w-auto">
           <Button
             size="sm"
             variant={mapFilter === "all" ? "primary" : "outline"}

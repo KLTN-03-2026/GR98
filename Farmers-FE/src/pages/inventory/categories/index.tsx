@@ -6,6 +6,8 @@ import {
   Trash2,
   Image as ImageIcon,
   GripVertical,
+  Layers,
+  FilterX,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCategories, type CategoryResponse } from '@/client/api';
@@ -46,6 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -134,83 +137,80 @@ function CategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md border-none bg-background/80 backdrop-blur-xl shadow-2xl rounded-2xl">
+      <DialogContent className="sm:max-w-md border-none shadow-2xl rounded-3xl overflow-hidden p-0 font-manrope">
         <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold">
-              {mode === 'create' ? '✨ Thêm danh mục mới' : '📝 Chỉnh sửa danh mục'}
+          <DialogHeader className="p-6 bg-slate-50/50 border-b border-slate-100">
+            <DialogTitle className="text-xl font-bold text-slate-900">
+              {mode === 'create' ? 'Thêm danh mục mới' : 'Chỉnh sửa danh mục'}
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground/80">
+            <DialogDescription className="text-xs font-medium text-slate-400">
               {mode === 'create'
-                ? 'Điền thông tin để tạo danh mục phân loại sản phẩm trên hệ thống.'
-                : 'Cập nhật lại thông tin định danh cho danh mục này.'}
+                ? 'Thiết lập danh mục sản phẩm mới cho hệ thống.'
+                : 'Cập nhật thông tin nhận diện cho danh mục sản phẩm.'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-5 py-6">
+          <div className="p-6 space-y-5">
             {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="cat-name" className="text-sm font-semibold">
-                Tên danh mục <span className="text-destructive">*</span>
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-name" className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Tên danh mục <span className="text-rose-500">*</span>
               </Label>
               <Input
                 id="cat-name"
                 value={form.name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="Ví dụ: Trái cây nhiệt đới"
-                className="rounded-xl border-muted-foreground/20 focus:border-primary/50 transition-all shadow-sm"
+                className="rounded-xl border-slate-200 h-10 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 font-bold"
               />
             </div>
 
             {/* Slug */}
-            <div className="space-y-2">
-              <Label htmlFor="cat-slug" className="text-sm font-semibold">Slug (Đường dẫn)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-slug" className="text-xs font-bold text-slate-500 uppercase tracking-wider">Định danh (Slug)</Label>
               <div className="relative">
                 <Input
                   id="cat-slug"
                   value={form.slug}
                   onChange={(e) => setForm({ ...form, slug: e.target.value })}
                   placeholder="trai-cay-nhiet-doi"
-                  className="rounded-xl border-muted-foreground/20 bg-muted/30 font-mono text-xs pl-10 h-10"
+                  className="rounded-xl border-slate-200 bg-slate-50/50 font-mono text-xs pl-8 h-10"
                 />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">/</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-300 font-mono">/</span>
               </div>
-              <p className="text-[10px] text-muted-foreground/60 italic pl-1">
-                Gợi ý: <span className="font-mono">{form.slug || 'slug-tu-dong'}</span>
-              </p>
             </div>
 
             {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="cat-desc" className="text-sm font-semibold">Mô tả</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-desc" className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mô tả</Label>
               <textarea
                 id="cat-desc"
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Mô tả ngắn gọn về nhóm sản phẩm này..."
-                className="w-full min-h-[100px] rounded-xl border border-muted-foreground/20 bg-background px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/50 transition-all shadow-sm resize-none"
+                placeholder="Nhập mô tả ngắn cho danh mục..."
+                className="w-full min-h-[100px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-medium placeholder:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 transition-all resize-none shadow-xs"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               {/* Image URL */}
-              <div className="space-y-2 col-span-2 sm:col-span-1">
-                <Label htmlFor="cat-image" className="text-sm font-semibold">Ảnh danh mục</Label>
+              <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                <Label htmlFor="cat-image" className="text-xs font-bold text-slate-500 uppercase tracking-wider">Link ảnh</Label>
                 <div className="relative">
-                  <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                  <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
                   <Input
                     id="cat-image"
                     value={form.imageUrl}
                     onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                    placeholder="Dán link ảnh"
-                    className="pl-10 rounded-xl border-muted-foreground/20 shadow-sm"
+                    placeholder="URL hình ảnh"
+                    className="pl-8 rounded-xl border-slate-200 h-10 text-xs"
                   />
                 </div>
               </div>
 
               {/* Sort Order */}
-              <div className="space-y-2 col-span-2 sm:col-span-1">
-                <Label htmlFor="cat-order" className="text-sm font-semibold">Thứ tự hiển thị</Label>
+              <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                <Label htmlFor="cat-order" className="text-xs font-bold text-slate-500 uppercase tracking-wider">Thứ tự</Label>
                 <Input
                   id="cat-order"
                   type="number"
@@ -219,17 +219,17 @@ function CategoryDialog({
                   onChange={(e) =>
                     setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })
                   }
-                  className="rounded-xl border-muted-foreground/20 shadow-sm"
+                  className="rounded-xl border-slate-200 h-10 font-mono font-bold"
                 />
               </div>
             </div>
 
             {/* Preview Section */}
             {form.imageUrl && form.name && (
-              <div className="p-3 rounded-xl border border-primary/10 bg-primary/5 animate-in fade-in slide-in-from-top-2 duration-300">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-primary/60 mb-2">Xem trước hiển thị</p>
+              <div className="p-3 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/30">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-600 mb-2">Xem trước hiển thị</p>
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-16 rounded-lg overflow-hidden border-2 border-white shadow-sm bg-muted shrink-0">
+                  <div className="h-12 w-16 rounded-xl overflow-hidden border border-white shadow-sm bg-slate-100 shrink-0">
                     <img
                       src={form.imageUrl}
                       alt="preview"
@@ -240,24 +240,24 @@ function CategoryDialog({
                     />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-foreground">{form.name}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-1">{form.description || 'Không có mô tả'}</p>
+                    <p className="text-sm font-bold text-slate-900">{form.name}</p>
+                    <p className="text-[10px] text-slate-400 font-medium line-clamp-1">{form.description || 'Chưa có mô tả'}</p>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0 bg-muted/30 -mx-6 -mb-6 p-6 mt-2 border-t border-muted/50 rounded-b-2xl">
+          <DialogFooter className="p-6 pt-0 gap-3 sm:gap-0">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="rounded-xl hover:bg-background/50"
+              className="rounded-full h-10 px-6 font-bold text-slate-500"
             >
               Hủy bỏ
             </Button>
-            <Button type="submit" className="rounded-xl px-8 shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all">
+            <Button type="submit" className="rounded-full h-10 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/20">
               {mode === 'create' ? 'Tạo danh mục' : 'Lưu cập nhật'}
             </Button>
           </DialogFooter>
@@ -284,33 +284,43 @@ function DeleteConfirmDialog({
 }: DeleteConfirmProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className="rounded-3xl border-none shadow-2xl font-manrope">
         <AlertDialogHeader>
-          <AlertDialogTitle>Xóa danh mục</AlertDialogTitle>
+          <AlertDialogTitle className="text-xl font-bold text-slate-900">Xóa danh mục</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div>
-              Bạn có chắc muốn xóa danh mục{' '}
-              <span className="font-semibold text-foreground">{category?.name}</span>?
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-slate-500">
+                Bạn có chắc chắn muốn xóa danh mục{' '}
+                <span className="font-bold text-slate-900 underline decoration-rose-200 underline-offset-4">{category?.name}</span>?
+              </p>
               {category && category.productCount && category.productCount > 0 ? (
-                <div className="mt-2 p-3 bg-destructive/10 rounded-lg text-destructive text-sm">
-                  ⚠️ Danh mục này đang có <strong>{category.productCount} sản phẩm</strong>.
-                  Sản phẩm sẽ không bị xóa nhưng sẽ không còn thuộc danh mục này.
+                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 flex gap-3">
+                  <div className="size-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                    <Trash2 className="size-4" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-rose-800 uppercase tracking-wider">Cảnh báo dữ liệu</p>
+                    <p className="text-xs font-medium text-rose-600 leading-relaxed">
+                      Danh mục này đang chứa <strong>{category.productCount} sản phẩm</strong>. 
+                      Việc xóa danh mục sẽ khiến các sản phẩm này không còn thuộc nhóm nào.
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <span className="block mt-1">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">
                   Hành động này không thể hoàn tác.
-                </span>
+                </p>
               )}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Hủy</AlertDialogCancel>
+        <AlertDialogFooter className="mt-6">
+          <AlertDialogCancel className="rounded-full h-10 px-6 font-bold text-slate-500 border-none hover:bg-slate-50">Hủy</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="rounded-full h-10 px-8 bg-rose-600 hover:bg-rose-700 text-white font-bold"
           >
-            Xóa danh mục
+            Xác nhận xóa
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -419,100 +429,114 @@ export default function CategoriesAdminPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground bg-gradient-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
-            Quản lý danh mục
-          </h1>
-          <p className="text-muted-foreground mt-1 flex items-center gap-2">
-            <span className="h-1 w-1 rounded-full bg-primary" />
-            Phân loại sản phẩm chuyên nghiệp cho sàn thương mại điện tử
-          </p>
-        </div>
-        <Button 
-          onClick={handleOpenCreate} 
-          className="gap-2 rounded-xl px-6 py-6 shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95 font-bold"
-        >
-          <Plus className="h-5 w-5" />
-          Thêm danh mục mới
-        </Button>
-      </div>
+    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6 font-manrope">
+      {/* Header Card - Admin Style */}
+      <Card className="border-dashed border-emerald-400/50 bg-white">
+        <CardContent className="p-4 sm:p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+                <Layers className="size-4" />
+              </div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                Quản lý danh mục
+              </h1>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Tổ chức và phân loại sản phẩm trên sàn thương mại
+            </p>
+          </div>
 
-      {/* Top Bar with Search & Info */}
-      <div className="flex flex-col md:flex-row items-center gap-4 bg-muted/20 p-4 rounded-2xl border border-muted/50 backdrop-blur-sm">
-        <div className="relative flex-1 w-full md:max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Tìm theo tên danh mục..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-12 h-12 rounded-xl border-none bg-background/50 shadow-inner focus-visible:ring-primary/20"
-          />
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-background/50 rounded-xl border border-muted/30 shadow-sm">
-          <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary font-bold">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative group min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
+              <Input
+                placeholder="Tìm danh mục..."
+                className="h-9 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button 
+              onClick={handleOpenCreate} 
+              className="h-9 rounded-full px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+            >
+              <Plus className="size-4" />
+              Thêm mới
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Info Bar */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-100">
+          <Badge variant="outline" className="border-emerald-200 bg-white text-emerald-600 font-bold px-1.5 h-5 rounded-md min-w-6 justify-center">
             {data?.total ?? 0}
           </Badge>
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Danh mục hiện có</span>
+          <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Danh mục hệ thống</span>
         </div>
+        {search && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSearch('')}
+            className="h-8 rounded-full px-3 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all text-xs font-bold"
+          >
+            <FilterX className="size-3.5 mr-1" />
+            Xóa tìm kiếm
+          </Button>
+        )}
       </div>
 
       {/* Table Section */}
-      <div className="relative group/table">
-        <div className="absolute -inset-1 bg-gradient-to-r from-primary/5 to-primary/0 rounded-[2rem] blur-2xl opacity-50 group-hover/table:opacity-100 transition duration-1000" />
-        <div className="relative rounded-2xl border border-muted/50 bg-background/50 backdrop-blur-md overflow-hidden shadow-2xl">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <div className="h-full overflow-auto custom-scrollbar">
           <Table>
-            <TableHeader className="bg-muted/30 border-b border-muted/50">
-              <TableRow className="hover:bg-transparent">
+            <TableHeader className="bg-slate-50/80 sticky top-0 z-10">
+              <TableRow className="border-b-slate-100 hover:bg-transparent">
                 <TableHead className="w-12" />
-                <TableHead className="w-24 text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Hình ảnh</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Tên danh mục</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Định danh (Slug)</TableHead>
-                <TableHead className="w-32 text-center text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Sản phẩm</TableHead>
-                <TableHead className="w-32 text-center text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Thứ tự</TableHead>
-                <TableHead className="w-32 text-right text-xs font-bold uppercase tracking-widest text-muted-foreground/70 pr-8">Thao tác</TableHead>
+                <TableHead className="w-24 text-[10px] font-bold uppercase tracking-wider text-slate-500">Hình ảnh</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tên danh mục</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Slug</TableHead>
+                <TableHead className="w-32 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Sản phẩm</TableHead>
+                <TableHead className="w-24 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Thứ tự</TableHead>
+                <TableHead className="w-32 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500 pr-6">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i} className="border-muted/20">
+                  <TableRow key={i} className="border-b-slate-50">
                     <TableCell><Skeleton className="h-4 w-4 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-10 w-16 rounded-xl" /></TableCell>
                     <TableCell>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         <Skeleton className="h-4 w-40" />
                         <Skeleton className="h-3 w-24" />
                       </div>
                     </TableCell>
-                    <TableCell><Skeleton className="h-4 w-24 rounded-lg" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-12 mx-auto rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24 rounded-lg" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-10 mx-auto rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-8 mx-auto rounded-md" /></TableCell>
-                    <TableCell><Skeleton className="h-10 w-20 ml-auto rounded-xl" /></TableCell>
+                    <TableCell><Skeleton className="h-9 w-20 ml-auto rounded-full" /></TableCell>
                   </TableRow>
                 ))
               ) : categories.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-80 text-center">
-                    <div className="flex flex-col items-center justify-center gap-6 animate-in zoom-in-95 duration-500">
-                      <div className="relative">
-                        <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
-                        <div className="relative bg-muted/20 p-8 rounded-full border border-muted/50">
-                          <Plus className="h-12 w-12 text-muted-foreground/30" />
-                        </div>
+                    <div className="flex flex-col items-center justify-center py-20">
+                      <div className="mb-4 rounded-full bg-slate-50 p-6 border border-dashed border-slate-200">
+                        <Plus className="h-10 w-10 text-slate-300" />
                       </div>
-                      <div className="space-y-2">
-                        <h3 className="text-xl font-black text-foreground/80">Chưa có danh mục nào</h3>
-                        <p className="text-sm text-muted-foreground max-w-[300px] mx-auto">
-                          Bắt đầu tạo danh mục đầu tiên để phân loại và trưng bày sản phẩm trên cửa hàng.
-                        </p>
-                      </div>
+                      <h3 className="text-base font-bold text-slate-900">Chưa có danh mục nào</h3>
+                      <p className="text-xs text-slate-400 mt-1 max-w-[280px] mx-auto">
+                        Bắt đầu tạo danh mục đầu tiên để phân loại và trưng bày sản phẩm.
+                      </p>
                       <Button
-                        variant="secondary"
+                        variant="outline"
                         onClick={handleOpenCreate}
-                        className="rounded-xl px-8 shadow-sm hover:shadow-md transition-all font-bold"
+                        className="mt-6 rounded-full px-8 border-emerald-200 text-emerald-600 hover:bg-emerald-50 font-bold"
                       >
                         Thiết lập ngay
                       </Button>
@@ -531,20 +555,20 @@ export default function CategoriesAdminPage() {
                       onDragOver={handleDragOverRow}
                       onDrop={(e) => void handleDropOnRow(e, cat.id)}
                       className={cn(
-                        'group transition-all border-muted/20 hover:bg-primary/[0.02]',
-                        dragId === cat.id && 'opacity-50 bg-muted/80 scale-[0.99] border-primary/50 border-y-2',
+                        'group transition-all border-b-slate-50 hover:bg-emerald-50/30',
+                        dragId === cat.id && 'opacity-50 bg-slate-100 scale-[0.99] border-y-emerald-500/50',
                       )}
                     >
                       {/* Drag Handle */}
                       <TableCell>
                         <div className="flex items-center justify-center">
-                          <GripVertical className="h-4 w-4 text-muted-foreground/20 group-hover:text-primary transition-colors cursor-grab active:cursor-grabbing" />
+                          <GripVertical className="h-4 w-4 text-slate-200 group-hover:text-emerald-400 transition-colors cursor-grab active:cursor-grabbing" />
                         </div>
                       </TableCell>
                       
                       {/* Image */}
                       <TableCell>
-                        <div className="relative h-12 w-16 rounded-xl overflow-hidden border border-muted bg-muted ring-offset-background group-hover:ring-2 group-hover:ring-primary/20 transition-all shadow-sm">
+                        <div className="relative h-10 w-14 rounded-xl overflow-hidden border border-slate-100 bg-slate-50 shadow-xs">
                           {cat.imageUrl ? (
                             <img
                               src={cat.imageUrl}
@@ -556,7 +580,7 @@ export default function CategoriesAdminPage() {
                             />
                           ) : (
                             <div className="h-full w-full flex items-center justify-center">
-                              <ImageIcon className="h-5 w-5 text-muted-foreground/20" />
+                              <ImageIcon className="h-4 w-4 text-slate-200" />
                             </div>
                           )}
                         </div>
@@ -565,9 +589,9 @@ export default function CategoriesAdminPage() {
                       {/* Name */}
                       <TableCell>
                         <div className="space-y-0.5">
-                          <p className="font-bold text-foreground group-hover:text-primary transition-colors">{cat.name}</p>
+                          <p className="font-bold text-slate-900 group-hover:text-emerald-600 transition-colors text-sm">{cat.name}</p>
                           {cat.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1 max-w-[250px] opacity-70">
+                            <p className="text-[10px] text-slate-400 font-medium line-clamp-1 max-w-[300px]">
                               {cat.description}
                             </p>
                           )}
@@ -576,7 +600,7 @@ export default function CategoriesAdminPage() {
 
                       {/* Slug */}
                       <TableCell>
-                        <code className="text-[10px] font-mono bg-muted/50 px-2 py-1 rounded-md text-muted-foreground border border-muted/50 group-hover:border-primary/20 group-hover:text-primary transition-all">
+                        <code className="text-[10px] font-mono font-bold bg-slate-50 px-2 py-0.5 rounded-md text-slate-400 border border-slate-100 group-hover:text-emerald-500 group-hover:bg-emerald-50 transition-all">
                           {cat.slug}
                         </code>
                       </TableCell>
@@ -584,10 +608,10 @@ export default function CategoriesAdminPage() {
                       {/* Product Count */}
                       <TableCell className="text-center">
                         <Badge 
-                          variant={cat.productCount ? 'default' : 'secondary'} 
+                          variant="outline" 
                           className={cn(
-                            'rounded-lg px-2 h-6 font-bold shadow-sm',
-                            cat.productCount ? 'bg-primary border-none text-primary-foreground' : 'bg-muted/50 text-muted-foreground border-none'
+                            'rounded-lg px-2 h-6 font-bold shadow-none border-none tabular-nums',
+                            cat.productCount ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 text-slate-400'
                           )}
                         >
                           {cat.productCount ?? 0}
@@ -596,29 +620,29 @@ export default function CategoriesAdminPage() {
 
                       {/* Sort Order */}
                       <TableCell className="text-center">
-                        <div className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-muted/30 border border-muted/50 group-hover:border-primary/20 transition-all font-mono text-xs font-bold text-muted-foreground group-hover:text-primary">
+                        <div className="inline-flex items-center justify-center h-8 w-8 rounded-xl bg-slate-50 border border-slate-100 font-mono text-xs font-bold text-slate-400 group-hover:text-emerald-500 group-hover:bg-emerald-50 transition-all">
                           {cat.sortOrder}
                         </div>
                       </TableCell>
 
                       {/* Actions */}
                       <TableCell className="text-right pr-6">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 duration-300">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-9 w-9 rounded-xl hover:bg-background shadow-none hover:shadow-lg hover:text-primary border hover:border-primary/10 transition-all"
+                            className="h-8 w-8 rounded-full hover:bg-white hover:text-emerald-600 hover:shadow-lg hover:shadow-emerald-500/10 transition-all"
                             onClick={() => handleOpenEdit(cat)}
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-9 w-9 rounded-xl hover:bg-destructive/10 hover:text-destructive shadow-none border hover:border-destructive/10 transition-all"
+                            className="h-8 w-8 rounded-full hover:bg-rose-50 hover:text-rose-600 transition-all"
                             onClick={() => handleOpenDelete(cat)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </TableCell>
@@ -631,10 +655,10 @@ export default function CategoriesAdminPage() {
       </div>
 
       {/* Footer Info */}
-      <div className="flex items-center justify-center py-4">
-        <div className="flex items-center gap-2 px-6 py-2 rounded-full border border-muted/50 bg-muted/20 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 shadow-inner">
+      <div className="flex items-center justify-center py-2">
+        <div className="flex items-center gap-2 px-6 py-2 rounded-full border border-slate-100 bg-slate-50/50 text-[10px] font-bold uppercase tracking-widest text-slate-400 shadow-xs">
           <GripVertical className="h-3 w-3" />
-          Mẹo: Kéo thả các dòng để sắp xếp thứ tự hiển thị ưu tiên
+          Kéo thả các dòng để sắp xếp thứ tự hiển thị
         </div>
       </div>
 

@@ -17,7 +17,13 @@ export function PriceBoardGradeBadge({ grade, className }: GradeBadgeProps) {
   const config = PRICE_BOARD_GRADES.find((g) => g.value === grade) || PRICE_BOARD_GRADES[3];
   
   return (
-    <Badge variant={config.variant} className={cn("px-2 py-0.5 font-medium", className)}>
+    <Badge 
+      variant={config.variant} 
+      className={cn(
+        "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-none border-none", 
+        className
+      )}
+    >
       {config.label}
     </Badge>
   );

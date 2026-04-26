@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PackageSearch, Plus, Coins, Tag, RefreshCcw, FilterX, MoreVertical, Edit2, Trash2, Power } from 'lucide-react';
+import { PackageSearch, Plus, Coins, Tag, RefreshCcw, FilterX, MoreVertical, Edit2, Trash2, Power, Search } from 'lucide-react';
 import {
   usePriceBoards,
   useCreatePriceBoard,
@@ -10,6 +10,7 @@ import {
 } from './api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -23,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Card, CardContent } from '@/components/ui/card';
 
 // Sub-components
 import { PriceBoardGradeBadge, PRICE_BOARD_GRADES } from './components/grade-badge';
@@ -63,60 +65,50 @@ export default function PriceBoardsPage() {
   const columns: ColumnDef<PriceBoardResponse>[] = [
     {
       accessorKey: 'cropType',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Loại nông sản" />
-      ),
+      header: 'Loại nông sản',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
             <Tag className="size-3.5" />
           </div>
-          <span className="font-bold text-sm">{row.original.cropType}</span>
+          <span className="font-bold text-sm text-slate-900">{row.original.cropType}</span>
         </div>
       ),
     },
     {
       accessorKey: 'grade',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Phẩm cấp" />
-      ),
+      header: 'Phẩm cấp',
       cell: ({ row }) => <PriceBoardGradeBadge grade={row.original.grade} />,
     },
     {
       accessorKey: 'buyPrice',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Giá mua" className="justify-end" />
-      ),
+      header: 'Giá mua',
       cell: ({ row }) => (
-        <div className="text-right font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+        <div className="text-right font-bold tabular-nums text-emerald-600">
           {row.original.buyPrice.toLocaleString('vi-VN')} đ
         </div>
       ),
     },
     {
       accessorKey: 'sellPrice',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Giá bán" className="justify-end" />
-      ),
+      header: 'Giá bán',
       cell: ({ row }) => (
-        <div className="text-right font-bold tabular-nums text-blue-600 dark:text-blue-400">
+        <div className="text-right font-bold tabular-nums text-blue-600">
           {row.original.sellPrice.toLocaleString('vi-VN')} đ
         </div>
       ),
     },
     {
       accessorKey: 'isActive',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Trạng thái" />
-      ),
+      header: 'Trạng thái',
       cell: ({ row }) => (
         <Badge
           variant="outline"
           className={cn(
             "rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
             row.original.isActive 
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300" 
-              : "border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-500/30 dark:bg-slate-500/10 dark:text-slate-400"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700" 
+              : "border-slate-200 bg-slate-50 text-slate-500"
           )}
         >
           {row.original.isActive ? 'Hoạt động' : 'Tạm dừng'}
@@ -129,16 +121,16 @@ export default function PriceBoardsPage() {
         <div className="text-right">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="size-8 p-0 rounded-lg transition-colors hover:bg-muted">
+              <Button variant="ghost" className="size-8 p-0 rounded-lg transition-colors hover:bg-slate-100">
                 <MoreVertical className="size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-xl border-primary/10">
+            <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200">
               <DropdownMenuItem 
                 onClick={() => setEditItem(row.original)}
                 className="gap-2 cursor-pointer"
               >
-                <Edit2 className="size-4 text-primary" />
+                <Edit2 className="size-4 text-emerald-600" />
                 <span>Chỉnh sửa</span>
               </DropdownMenuItem>
               <DropdownMenuItem 
@@ -164,37 +156,46 @@ export default function PriceBoardsPage() {
   ];
 
   const filterToolbar = (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-2 rounded-xl bg-background p-1 border border-primary/5 shadow-sm">
-        <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setPage(1); }}>
-          <SelectTrigger className="h-8 w-[150px] border-none bg-transparent font-medium shadow-none focus:ring-0">
-            <SelectValue placeholder="Phẩm cấp" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-primary/10">
-            <SelectItem value="all">Tất cả phẩm cấp</SelectItem>
-            {PRICE_BOARD_GRADES.map((g) => (
-              <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="h-4 w-px bg-muted mx-1" />
-        <Select value={isActiveFilter} onValueChange={(v) => { setIsActiveFilter(v); setPage(1); }}>
-          <SelectTrigger className="h-8 w-[150px] border-none bg-transparent font-medium shadow-none focus:ring-0">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-primary/10">
-            <SelectItem value="all">Tất cả trạng thái</SelectItem>
-            <SelectItem value="true">Hoạt động</SelectItem>
-            <SelectItem value="false">Tạm dừng</SelectItem>
-          </SelectContent>
-        </Select>
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="relative group flex-1 min-w-[200px]">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
+        <Input
+          placeholder="Tìm loại nông sản..."
+          className="h-9 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        />
       </div>
+
+      <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setPage(1); }}>
+        <SelectTrigger className="h-9 w-[160px] rounded-full border-slate-200 bg-white">
+          <SelectValue placeholder="Phẩm cấp" />
+        </SelectTrigger>
+        <SelectContent className="rounded-xl">
+          <SelectItem value="all">Tất cả phẩm cấp</SelectItem>
+          {PRICE_BOARD_GRADES.map((g) => (
+            <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={isActiveFilter} onValueChange={(v) => { setIsActiveFilter(v); setPage(1); }}>
+        <SelectTrigger className="h-9 w-[160px] rounded-full border-slate-200 bg-white">
+          <SelectValue placeholder="Trạng thái" />
+        </SelectTrigger>
+        <SelectContent className="rounded-xl">
+          <SelectItem value="all">Tất cả trạng thái</SelectItem>
+          <SelectItem value="true">Hoạt động</SelectItem>
+          <SelectItem value="false">Tạm dừng</SelectItem>
+        </SelectContent>
+      </Select>
+
       {(search || gradeFilter !== 'all' || isActiveFilter !== 'all') && (
         <Button
           variant="ghost"
           size="sm"
           onClick={() => { setSearch(''); setGradeFilter('all'); setIsActiveFilter('all'); setPage(1); }}
-          className="h-8 rounded-lg px-2 text-muted-foreground"
+          className="h-9 rounded-full px-3 text-muted-foreground hover:bg-slate-100"
         >
           <FilterX className="size-3.5 mr-1" />
           Xóa lọc
@@ -204,59 +205,50 @@ export default function PriceBoardsPage() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-5 overflow-y-auto overflow-x-hidden p-6 font-manrope">
-      {/* Header Bar */}
-      <section className="relative -mx-1 shrink-0 overflow-hidden rounded-[22px] border border-primary/10 bg-[linear-gradient(180deg,rgba(247,251,252,0.92),rgba(244,248,250,0.82))] px-1 py-1.5 shadow-[0_10px_24px_-24px_rgba(16,24,40,0.22)] backdrop-blur-md dark:bg-[linear-gradient(180deg,rgba(13,20,30,0.94),rgba(10,18,26,0.86))]">
-        <div className="pointer-events-none absolute inset-x-20 top-0 h-12 rounded-full bg-primary/8 blur-3xl" />
-
-        <div className="relative h-fit shrink-0 rounded-[20px] border border-primary/10 bg-background/72 px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            {/* Title block */}
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <div className="flex size-7 items-center justify-center rounded-xl border border-primary/12 bg-primary/8 text-primary">
-                  <Coins className="size-3.5" />
-                </div>
-                <h2 className="font-manrope text-xl font-bold tracking-tight text-foreground">
-                  Thiết lập Bảng giá gốc
-                </h2>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Quản lý và điều phối giá mua/bán cho từng loại nông sản
-              </p>
-            </div>
-
-            {/* Actions */}
+    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6 font-manrope">
+      {/* Header Card - Admin Style */}
+      <Card className="border-dashed border-emerald-400/50 bg-white">
+        <CardContent className="p-4 sm:p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="h-8 rounded-full border-primary/12 bg-background/75 px-3 text-[11px]"
-                onClick={() => refetch()}
-                disabled={isFetching}
-              >
-                <RefreshCcw className={cn("size-3.5", isFetching && "animate-spin")} />
-                Làm mới
-              </Button>
-              <PriceBoardFormDialog 
-                mode="create" 
-                onSubmit={async (payload) => { await createMutation.mutateAsync(payload); }}
-                isLoading={createMutation.isPending}
-              />
+              <div className="flex size-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+                <Coins className="size-4" />
+              </div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                Thiết lập Bảng giá gốc
+              </h1>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Quản lý và điều phối giá mua/bán nông sản
+            </p>
           </div>
-        </div>
-      </section>
 
-      {/* Main Content */}
-      <div className="w-full rounded-[24px] border border-border/60 bg-background/50 p-1 shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-10 rounded-full border-slate-200"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCcw className={cn("size-4", isFetching && "animate-spin")} />
+            </Button>
+            <PriceBoardFormDialog 
+              mode="create" 
+              onSubmit={async (payload) => { await createMutation.mutateAsync(payload); }}
+              isLoading={createMutation.isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* DataTable Container */}
+      <div className="min-h-0 flex-1 overflow-hidden">
         <DataTable
           columns={columns}
           data={items}
           isLoading={isLoading}
-          searchPlaceholder="Tìm loại nông sản..."
           filterToolbar={filterToolbar}
-          
-          // Server-side pagination
           manualPagination
           pageCount={totalPages}
           totalItems={total}
@@ -267,20 +259,18 @@ export default function PriceBoardsPage() {
           }}
           state={{ pagination: { pageIndex: page - 1, pageSize: limit } }}
           pageSizeOptions={[10, 15, 20, 30, 50]}
-          
+          className="h-full flex flex-col"
+          tableClassName="rounded-xl border border-slate-200 shadow-sm overflow-hidden"
           noResults={
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="flex size-16 items-center justify-center rounded-full bg-muted/50 mb-4">
-                <PackageSearch className="size-8 text-muted-foreground/30" />
-              </div>
-              <p className="text-sm font-medium text-muted-foreground">Không tìm thấy dữ liệu bảng giá</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Vui lòng thử điều chỉnh bộ lọc hoặc thêm mới.</p>
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <PackageSearch className="size-10 text-slate-300 mb-3" />
+              <p className="text-sm font-bold text-slate-600">Không tìm thấy bảng giá</p>
             </div>
           }
         />
       </div>
 
-      {/* Dialogs duy trì trạng thái */}
+      {/* Dialogs */}
       <PriceBoardFormDialog 
         mode="edit" 
         initial={editItem || undefined}

@@ -34,6 +34,8 @@ import { DataTable, DataTableColumnHeader } from '@/components/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import { cn } from '@/lib/utils';
 
+import { PriceBoardHeader } from './components/PriceBoardHeader';
+
 export default function PriceBoardsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(15);
@@ -42,6 +44,7 @@ export default function PriceBoardsPage() {
   const [isActiveFilter, setIsActiveFilter] = useState<string>('all');
 
   // Dialog states
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editItem, setEditItem] = useState<PriceBoardResponse | null>(null);
   const [deleteItem, setDeleteItem] = useState<PriceBoardResponse | null>(null);
 
@@ -65,24 +68,24 @@ export default function PriceBoardsPage() {
   const columns: ColumnDef<PriceBoardResponse>[] = [
     {
       accessorKey: 'cropType',
-      header: 'Loại nông sản',
+      header: () => <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400">Loại nông sản</span>,
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
             <Tag className="size-3.5" />
           </div>
-          <span className="font-bold text-sm text-slate-900">{row.original.cropType}</span>
+          <span className="font-bold text-sm text-slate-900 line-clamp-1">{row.original.cropType}</span>
         </div>
       ),
     },
     {
       accessorKey: 'grade',
-      header: 'Phẩm cấp',
+      header: () => <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400">Phẩm cấp</span>,
       cell: ({ row }) => <PriceBoardGradeBadge grade={row.original.grade} />,
     },
     {
       accessorKey: 'buyPrice',
-      header: 'Giá mua',
+      header: () => <div className="text-right text-[10px] font-bold uppercase tracking-tight text-slate-400">Giá mua</div>,
       cell: ({ row }) => (
         <div className="text-right font-bold tabular-nums text-emerald-600">
           {row.original.buyPrice.toLocaleString('vi-VN')} đ
@@ -91,7 +94,7 @@ export default function PriceBoardsPage() {
     },
     {
       accessorKey: 'sellPrice',
-      header: 'Giá bán',
+      header: () => <div className="text-right text-[10px] font-bold uppercase tracking-tight text-slate-400">Giá bán</div>,
       cell: ({ row }) => (
         <div className="text-right font-bold tabular-nums text-blue-600">
           {row.original.sellPrice.toLocaleString('vi-VN')} đ
@@ -100,19 +103,21 @@ export default function PriceBoardsPage() {
     },
     {
       accessorKey: 'isActive',
-      header: 'Trạng thái',
+      header: () => <div className="text-center text-[10px] font-bold uppercase tracking-tight text-slate-400">Trạng thái</div>,
       cell: ({ row }) => (
-        <Badge
-          variant="outline"
-          className={cn(
-            "rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-            row.original.isActive 
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700" 
-              : "border-slate-200 bg-slate-50 text-slate-500"
-          )}
-        >
-          {row.original.isActive ? 'Hoạt động' : 'Tạm dừng'}
-        </Badge>
+        <div className="flex justify-center">
+          <Badge
+            variant="outline"
+            className={cn(
+              "rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-none border-none",
+              row.original.isActive 
+                ? "bg-emerald-500/10 text-emerald-700" 
+                : "bg-slate-100 text-slate-400"
+            )}
+          >
+            {row.original.isActive ? 'Hoạt động' : 'Tạm dừng'}
+          </Badge>
+        </div>
       ),
     },
     {
@@ -121,32 +126,32 @@ export default function PriceBoardsPage() {
         <div className="text-right">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="size-8 p-0 rounded-lg transition-colors hover:bg-slate-100">
-                <MoreVertical className="size-4" />
+              <Button variant="ghost" className="size-8 p-0 rounded-full transition-all hover:bg-slate-100 hover:shadow-sm">
+                <MoreVertical className="size-4 text-slate-400" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200">
+            <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200 shadow-xl p-1">
               <DropdownMenuItem 
                 onClick={() => setEditItem(row.original)}
-                className="gap-2 cursor-pointer"
+                className="gap-2.5 cursor-pointer rounded-lg py-2 font-bold text-xs"
               >
-                <Edit2 className="size-4 text-emerald-600" />
-                <span>Chỉnh sửa</span>
+                <Edit2 className="size-3.5 text-emerald-600" />
+                <span>Chỉnh sửa bảng giá</span>
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => toggleMutation.mutateAsync(row.original.id)}
-                className="gap-2 cursor-pointer"
+                className="gap-2.5 cursor-pointer rounded-lg py-2 font-bold text-xs"
                 disabled={toggleMutation.isPending}
               >
-                <Power className={cn("size-4", row.original.isActive ? "text-amber-500" : "text-emerald-500")} />
-                <span>{row.original.isActive ? 'Tạm dừng' : 'Kích hoạt'}</span>
+                <Power className={cn("size-3.5", row.original.isActive ? "text-amber-500" : "text-emerald-500")} />
+                <span>{row.original.isActive ? 'Tạm dừng hoạt động' : 'Kích hoạt hoạt động'}</span>
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => setDeleteItem(row.original)}
-                className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                className="gap-2.5 cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50 rounded-lg py-2 font-bold text-xs"
               >
-                <Trash2 className="size-4" />
-                <span>Xóa bảng giá</span>
+                <Trash2 className="size-3.5" />
+                <span>Xóa bảng giá này</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -155,92 +160,19 @@ export default function PriceBoardsPage() {
     },
   ];
 
-  const filterToolbar = (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="relative group flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
-        <Input
-          placeholder="Tìm loại nông sản..."
-          className="h-9 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-        />
-      </div>
-
-      <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setPage(1); }}>
-        <SelectTrigger className="h-9 w-[160px] rounded-full border-slate-200 bg-white">
-          <SelectValue placeholder="Phẩm cấp" />
-        </SelectTrigger>
-        <SelectContent className="rounded-xl">
-          <SelectItem value="all">Tất cả phẩm cấp</SelectItem>
-          {PRICE_BOARD_GRADES.map((g) => (
-            <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select value={isActiveFilter} onValueChange={(v) => { setIsActiveFilter(v); setPage(1); }}>
-        <SelectTrigger className="h-9 w-[160px] rounded-full border-slate-200 bg-white">
-          <SelectValue placeholder="Trạng thái" />
-        </SelectTrigger>
-        <SelectContent className="rounded-xl">
-          <SelectItem value="all">Tất cả trạng thái</SelectItem>
-          <SelectItem value="true">Hoạt động</SelectItem>
-          <SelectItem value="false">Tạm dừng</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {(search || gradeFilter !== 'all' || isActiveFilter !== 'all') && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => { setSearch(''); setGradeFilter('all'); setIsActiveFilter('all'); setPage(1); }}
-          className="h-9 rounded-full px-3 text-muted-foreground hover:bg-slate-100"
-        >
-          <FilterX className="size-3.5 mr-1" />
-          Xóa lọc
-        </Button>
-      )}
-    </div>
-  );
-
   return (
-    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6 font-manrope">
-      {/* Header Card - Admin Style */}
-      <Card className="border-dashed border-emerald-400/50 bg-white">
-        <CardContent className="p-4 sm:p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
-                <Coins className="size-4" />
-              </div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">
-                Thiết lập Bảng giá gốc
-              </h1>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Quản lý và điều phối giá mua/bán nông sản
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-10 rounded-full border-slate-200"
-              onClick={() => refetch()}
-              disabled={isFetching}
-            >
-              <RefreshCcw className={cn("size-4", isFetching && "animate-spin")} />
-            </Button>
-            <PriceBoardFormDialog 
-              mode="create" 
-              onSubmit={async (payload) => { await createMutation.mutateAsync(payload); }}
-              isLoading={createMutation.isPending}
-            />
-          </div>
-        </CardContent>
-      </Card>
+    <div className="h-full min-h-0 flex flex-col gap-6 p-6 font-manrope bg-slate-50/20">
+      <PriceBoardHeader 
+        search={search}
+        onSearchChange={(v) => { setSearch(v); setPage(1); }}
+        gradeFilter={gradeFilter}
+        onGradeFilterChange={(v) => { setGradeFilter(v); setPage(1); }}
+        isActiveFilter={isActiveFilter}
+        onIsActiveFilterChange={(v) => { setIsActiveFilter(v); setPage(1); }}
+        onRefresh={() => refetch()}
+        isRefreshing={isFetching}
+        onOpenCreate={() => setIsCreateOpen(true)}
+      />
 
       {/* DataTable Container */}
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -248,7 +180,6 @@ export default function PriceBoardsPage() {
           columns={columns}
           data={items}
           isLoading={isLoading}
-          filterToolbar={filterToolbar}
           manualPagination
           pageCount={totalPages}
           totalItems={total}
@@ -260,17 +191,33 @@ export default function PriceBoardsPage() {
           state={{ pagination: { pageIndex: page - 1, pageSize: limit } }}
           pageSizeOptions={[10, 15, 20, 30, 50]}
           className="h-full flex flex-col"
-          tableClassName="rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+          tableClassName="rounded-[2rem] border border-slate-200/60 shadow-sm overflow-hidden bg-white"
           noResults={
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <PackageSearch className="size-10 text-slate-300 mb-3" />
-              <p className="text-sm font-bold text-slate-600">Không tìm thấy bảng giá</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="mb-4 rounded-full bg-slate-50 p-6 border border-dashed border-slate-200">
+                <PackageSearch className="size-10 text-slate-300" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 tracking-tight">Không tìm thấy bảng giá</h3>
+              <p className="text-xs text-slate-400 mt-1 max-w-[280px] mx-auto leading-relaxed">
+                Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để tìm bảng giá phù hợp.
+              </p>
             </div>
           }
         />
       </div>
 
       {/* Dialogs */}
+      <PriceBoardFormDialog 
+        mode="create" 
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        onSubmit={async (payload) => { 
+          await createMutation.mutateAsync(payload);
+          setIsCreateOpen(false);
+        }}
+        isLoading={createMutation.isPending}
+      />
+
       <PriceBoardFormDialog 
         mode="edit" 
         initial={editItem || undefined}

@@ -6,6 +6,7 @@ import {
   TrendingUp,
   Settings2,
   Search,
+  RefreshCcw,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import CreateTransactionDialog from './components/CreateTransactionDialog';
 import { DataTable } from '@/components/data-table/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { WarehouseTransaction } from './api/types';
+import { cn } from '@/lib/utils';
 
 export default function InventoryTransactionsPage() {
   const [warehouseFilter, setWarehouseFilter] = useState<string>('all');
@@ -31,7 +33,7 @@ export default function InventoryTransactionsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // Fetch data
-  const { data: transactions, isLoading } = useGetTransactions({
+  const { data: transactions, isLoading, refetch, isRefetching } = useGetTransactions({
     warehouseId: warehouseFilter !== 'all' ? warehouseFilter : undefined,
     type: typeFilter !== 'all' ? typeFilter : undefined,
   });
@@ -178,6 +180,16 @@ export default function InventoryTransactionsPage() {
                 <SelectItem value="adjustment">Điều chỉnh</SelectItem>
               </SelectContent>
             </Select>
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-10 rounded-full border-slate-200"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+            >
+              <RefreshCcw className={cn("size-4", isRefetching && "animate-spin")} />
+            </Button>
           </div>
         </CardContent>
       </Card>

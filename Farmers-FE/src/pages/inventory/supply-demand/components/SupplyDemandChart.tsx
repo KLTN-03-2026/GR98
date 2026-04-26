@@ -17,43 +17,51 @@ interface Props {
 
 export function SupplyDemandChart({ data }: Props) {
   return (
-    <Card className="rounded-[24px] border border-border/70 bg-card/85 shadow-sm transition-all duration-300 hover:shadow-md">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="font-manrope text-sm font-semibold">
-          Biểu đồ So sánh Cung - Cầu
-        </CardTitle>
+    <Card className="rounded-[2rem] border border-slate-200/60 bg-white shadow-sm overflow-hidden transition-all hover:shadow-md">
+      <CardHeader className="flex flex-row items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/30">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-[10px] font-manrope font-bold uppercase tracking-tight text-slate-400 flex items-center gap-2">
+            <TrendingUp className="size-4 text-emerald-500" />
+            Phân tích Cân bằng Cung - Cầu
+          </h3>
+          <p className="text-[10px] font-medium text-slate-400">So sánh sản lượng dự kiến, tồn kho và đơn hàng</p>
+        </div>
       </CardHeader>
-      <CardContent className="h-[400px] w-full pt-4">
+      <CardContent className="h-[450px] w-full p-6">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
-            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+            margin={{ top: 20, right: 30, left: 10, bottom: 20 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
-              stroke="var(--border)"
+              stroke="#f1f5f9"
             />
             <XAxis
               dataKey="cropType"
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              dy={10}
+              tick={{ fontSize: 10, fontWeight: 600, fill: '#94a3b8', fontFamily: 'Manrope' }}
+              dy={15}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              tickFormatter={(value) => `${value} kg`}
+              tick={{ fontSize: 10, fontWeight: 600, fill: '#94a3b8', fontFamily: 'Manrope' }}
+              tickFormatter={(value) => `${value.toLocaleString('vi-VN')} kg`}
             />
             <Tooltip
-              cursor={{ fill: 'var(--muted)', fillOpacity: 0.3 }}
+              cursor={{ fill: '#f8fafc', fillOpacity: 0.8 }}
               contentStyle={{
-                borderRadius: '12px',
-                border: '1px solid var(--border)',
-                boxShadow: '0 4px 12px rgba(16, 24, 40, 0.08)',
-                fontSize: '12px',
+                borderRadius: '1.5rem',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                fontSize: '11px',
+                fontFamily: 'Manrope',
+                padding: '12px 16px',
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(8px)',
               }}
             />
             <Legend
@@ -61,30 +69,35 @@ export function SupplyDemandChart({ data }: Props) {
               align="right"
               iconType="circle"
               wrapperStyle={{
-                paddingBottom: '20px',
-                fontSize: '11px',
+                paddingBottom: '30px',
+                fontSize: '10px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.025em',
+                color: '#64748b',
+                fontFamily: 'Manrope'
               }}
             />
             <Bar
-              name="Dự kiến sản lượng"
+              name="Sản lượng Dự kiến"
               dataKey="expectedKg"
-              fill="#3B82F6" 
-              radius={[4, 4, 0, 0]}
-              barSize={24}
+              fill="#3b82f6" 
+              radius={[6, 6, 0, 0]}
+              barSize={20}
             />
             <Bar
-              name="Tồn kho thực tế"
+              name="Tồn kho Thực tế"
               dataKey="actualStockKg"
-              fill="#7BAE3C"
-              radius={[4, 4, 0, 0]}
-              barSize={24}
+              fill="#10b981"
+              radius={[6, 6, 0, 0]}
+              barSize={20}
             />
             <Bar
-              name="Nhu cầu (Đơn hàng chờ)"
+              name="Nhu cầu Đơn hàng"
               dataKey="pendingOrderKg"
-              fill="#ef4444"
-              radius={[4, 4, 0, 0]}
-              barSize={24}
+              fill="#f43f5e"
+              radius={[6, 6, 0, 0]}
+              barSize={20}
             />
           </BarChart>
         </ResponsiveContainer>

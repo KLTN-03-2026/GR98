@@ -1,16 +1,16 @@
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { WarehouseIcon } from 'lucide-react';
+import { WarehouseIcon, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 interface ChartDataResponse {
   labels: string[];
@@ -30,23 +30,28 @@ const CustomTooltip = ({
   label,
 }: {
   active?: boolean;
-  payload?: { name: string; value: number; color: string }[];
+  payload?: { name: string; value: number; color: string; dataKey: string }[];
   label?: string;
 }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border bg-background/95 px-3 py-2 shadow-md backdrop-blur-sm">
-      <p className="mb-2 text-xs font-semibold text-foreground">{label}</p>
-      {payload.map((entry) => (
-        <p key={entry.name} className="text-xs" style={{ color: entry.color }}>
-          {entry.name === 'inbound'
-            ? 'Nhập kho'
-            : entry.name === 'outbound'
-              ? 'Xuất kho'
-              : 'Điều chỉnh'}
-          : <span className="font-semibold">{entry.value.toLocaleString('vi-VN')} kg</span>
-        </p>
-      ))}
+    <div className="rounded-2xl border border-slate-200/60 bg-white/95 p-4 shadow-xl backdrop-blur-md">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+      <div className="space-y-2">
+        {payload.map((entry) => (
+          <div key={entry.dataKey} className="flex items-center justify-between gap-8">
+            <div className="flex items-center gap-2">
+              <div className="size-2 rounded-full" style={{ backgroundColor: entry.color }} />
+              <span className="text-[11px] font-bold text-slate-600 uppercase">
+                {entry.dataKey === 'inbound' ? 'Nhập kho' : entry.dataKey === 'outbound' ? 'Xuất kho' : 'Điều chỉnh'}
+              </span>
+            </div>
+            <span className="text-xs font-bold text-slate-900 tabular-nums">
+              {entry.value.toLocaleString('vi-VN')} kg
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -61,84 +66,98 @@ export function TransactionChart({ data, isLoading }: TransactionChartProps) {
     })) ?? [];
 
   return (
-    <Card className="rounded-[24px] border border-border/70 bg-card/85 shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <div className="flex items-center gap-2">
-          <WarehouseIcon className="size-4 text-primary" />
-          <span className="font-manrope text-sm font-semibold">
-            Biểu đồ giao dịch 7 ngày
-          </span>
+    <Card className="rounded-[2rem] border border-slate-200/60 bg-white shadow-sm overflow-hidden transition-all hover:shadow-md">
+      <CardHeader className="flex flex-row items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/30">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-[10px] font-manrope font-bold uppercase tracking-tight text-slate-400 flex items-center gap-2">
+            <TrendingUp className="size-3.5 text-emerald-500" />
+            Biến động tồn kho 7 ngày
+          </h3>
+          <p className="text-[10px] font-medium text-slate-400">Sản lượng giao dịch thực tế (kg)</p>
         </div>
-        <span className="text-[11px] text-muted-foreground">Tổng sản lượng (kg)</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <div className="size-1.5 rounded-full bg-emerald-500" />
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Nhập</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="size-1.5 rounded-full bg-rose-500" />
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Xuất</span>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="pb-5">
+      <CardContent className="px-2 py-6">
         {isLoading ? (
-          <Skeleton className="h-[200px] w-full" />
-        ) : !data || chartData.every((d) => d.inbound === 0 && d.outbound === 0 && d.adjustment === 0) ? (
-          <div className="flex h-[200px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-muted-foreground/20">
-            <WarehouseIcon className="size-6 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              Chưa có dữ liệu giao dịch trong 7 ngày qua
+          <Skeleton className="h-[300px] w-full rounded-2xl" />
+        ) : !data || chartData.length === 0 ? (
+          <div className="flex h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
+            <WarehouseIcon className="size-8 text-slate-300 opacity-50" />
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+              Chưa có dữ liệu giao dịch
             </p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart
               data={chartData}
-              margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
-              barCategoryGap="30%"
-              barGap={2}
+              margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
             >
+              <defs>
+                <linearGradient id="colorInbound" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorOutbound" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="hsl(var-border)"
+                stroke="#f1f5f9"
                 vertical={false}
               />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 11, fill: 'hsl(var-muted-foreground)' }}
+                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                 axisLine={false}
                 tickLine={false}
+                dy={10}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: 'hsl(var-muted-foreground)' }}
+                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var-muted) / 0.4' }} />
-              <Legend
-                wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-                formatter={(value) =>
-                  value === 'inbound'
-                    ? 'Nhập kho'
-                    : value === 'outbound'
-                      ? 'Xuất kho'
-                      : 'Điều chỉnh'
-                }
-              />
-              <Bar
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }} />
+              <Area
+                type="monotone"
                 dataKey="inbound"
-                fill="#10b981"
-                name="inbound"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={40}
+                stroke="#10b981"
+                strokeWidth={3}
+                fillOpacity={1}
+                fill="url(#colorInbound)"
+                animationDuration={1500}
               />
-              <Bar
+              <Area
+                type="monotone"
                 dataKey="outbound"
-                fill="#ef4444"
-                name="outbound"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={40}
+                stroke="#ef4444"
+                strokeWidth={3}
+                fillOpacity={1}
+                fill="url(#colorOutbound)"
+                animationDuration={1500}
               />
-              <Bar
+              <Area
+                type="monotone"
                 dataKey="adjustment"
-                fill="#f59e0b"
-                name="adjustment"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={40}
+                stroke="#f59e0b"
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                fill="none"
               />
-            </BarChart>
+            </AreaChart>
           </ResponsiveContainer>
         )}
       </CardContent>

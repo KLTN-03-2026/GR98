@@ -76,4 +76,13 @@ export class PlotController {
   findAll(@Query() query: PlotQueryDto, @Request() req: any) {
     return this.plotService.findAll(query, req.user.id);
   }
+
+  @Patch(':id/harvest')
+  @Roles(Role.SUPERVISOR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Hoàn tất thu hoạch lô đất (Yêu cầu báo cáo sản lượng)' })
+  @ApiResponse({ status: 200, description: 'Cập nhật trạng thái thành HARVESTED' })
+  completeHarvest(@Param('id') id: string, @Request() req: any) {
+    return this.plotService.completeHarvest(id, req.user.id);
+  }
 }

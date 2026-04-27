@@ -26,9 +26,19 @@ function statusVariant(status: DailyReportStatus) {
   return 'outline' as const;
 }
 
+function translateCropType(type?: string) {
+  if (!type) return '—';
+  const map: Record<string, string> = {
+    'ca-phe': 'Cà phê',
+    'sau-rieng': 'Sầu riêng',
+  };
+  return map[type] || type;
+}
+
 export function createSupervisorDailyReportColumns(
   onEdit: (row: DailyReportResponse) => void,
   onView: (row: DailyReportResponse) => void,
+  options?: { showYield?: boolean },
 ) {
   const columns: ColumnDef<DailyReportResponse>[] = [
     {
@@ -48,6 +58,14 @@ export function createSupervisorDailyReportColumns(
       ),
     },
     {
+      id: 'cropType',
+      header: 'Sản phẩm',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="text-sm">{translateCropType(row.original.plot?.cropType)}</span>
+      ),
+    },
+    {
       id: 'farmerName',
       header: 'Nông dân',
       enableSorting: false,
@@ -63,35 +81,51 @@ export function createSupervisorDailyReportColumns(
         <Badge variant={statusVariant(row.original.status)}>{statusLabel(row.original.status)}</Badge>
       ),
     },
-    {
-      id: 'actions',
-      header: '',
+  ];
+
+  if (options?.showYield) {
+    columns.splice(3, 0, {
+      accessorKey: 'yieldEstimateKg',
+      header: 'Sản lượng (kg)',
       enableSorting: false,
       cell: ({ row }) => {
-        const isDraft = row.original.status === 'DRAFT';
+        const val = row.original.yieldEstimateKg;
         return (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isDraft) onEdit(row.original);
-              else onView(row.original);
-            }}
-          >
-            {isDraft ? (
-              <>
-                <Pencil className="h-4 w-4 mr-1" />
-                Sửa
-              </>
-            ) : (
-              'Xem'
-            )}
-          </Button>
+          <span className="text-sm font-semibold">{val && val > 0 ? val.toLocaleString() : '—'}</span>
         );
       },
+    });
+  }
+
+  columns.push({
+    id: 'actions',
+    header: '',
+    enableSorting: false,
+    cell: ({ row }) => {
+      const isDraft = row.original.status === 'DRAFT';
+      return (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isDraft) onEdit(row.original);
+            else onView(row.original);
+          }}
+        >
+          {isDraft ? (
+            <>
+              <Pencil className="h-4 w-4 mr-1" />
+              Sửa
+            </>
+          ) : (
+            'Xem'
+          )}
+        </Button>
+      );
     },
-  ];
+  });
+
   return columns;
 }

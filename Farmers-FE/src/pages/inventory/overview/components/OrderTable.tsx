@@ -40,8 +40,8 @@ export function OrderTable({ data, isLoading }: OrderTableProps) {
       accessorKey: 'paymentStatus',
       header: 'Thanh toán',
       cell: ({ row }) => (
-        <Badge 
-          variant={row.original.paymentStatus === 'PAID' ? 'success' : 'secondary'} 
+        <Badge
+          variant={row.original.paymentStatus === 'PAID' ? 'success' : 'secondary'}
           className="text-[9px] font-bold rounded-full px-2"
         >
           {row.original.paymentStatus === 'PAID' ? 'ĐÃ TRẢ' : 'CHƯA TRẢ'}

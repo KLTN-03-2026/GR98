@@ -9,6 +9,7 @@ import {
   ContractStatus,
   PlotStatus,
   Prisma,
+  ReportStatus,
   Role,
   UserStatus,
 } from '@prisma/client';
@@ -1108,5 +1109,69 @@ export class PlotService {
       id: plot.id,
       deletedAt: new Date().toISOString(),
     };
+  }
+
+  async completeHarvest(plotId: string, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (!actor?.adminId || actor.role !== Role.SUPERVISOR) {
+      throw new ForbiddenException(
+        'Chỉ Giám sát viên mới có quyền hoàn tất thu hoạch',
+      );
+    }
+
+    const plot = await this.prisma.plot.findFirst({
+      where: { id: plotId, adminId: actor.adminId },
+      include: {
+        assignments: {
+          where: {
+            supervisorId: actor.supervisorProfileId!,
+            status: { in: [AssignStatus.PENDING, AssignStatus.ACTIVE] },
+          },
+        },
+      },
+    });
+
+    if (!plot) {
+      throw new NotFoundException('Không tìm thấy lô đất');
+    }
+
+    if (plot.assignments.length === 0) {
+      throw new ForbiddenException('Bạn không có quyền thao tác trên lô đất này');
+    }
+
+    if (plot.status === PlotStatus.HARVESTED) {
+      throw new BadRequestException('Lô đất này đã hoàn tất thu hoạch');
+    }
+
+    // Kiểm tra xem đã có báo cáo sản lượng (UC-17) chưa
+    const harvestReport = await this.prisma.dailyReport.findFirst({
+      where: {
+        plotId,
+        yieldEstimateKg: { gt: 0 },
+        status: { in: [ReportStatus.SUBMITTED, ReportStatus.REVIEWED] },
+      },
+    });
+
+    if (!harvestReport) {
+      throw new BadRequestException(
+        'Không thể hoàn tất thu hoạch. Yêu cầu phải có ít nhất một báo cáo ghi nhận sản lượng thực tế đã gửi.',
+      );
+    }
+
+    const updated = await this.prisma.plot.update({
+      where: { id: plotId },
+      data: { status: PlotStatus.HARVESTED },
+      include: {
+        farmer: { select: { fullName: true, phone: true, cccd: true, province: true } },
+        zone: { select: { district: true, province: true } },
+        contracts: { select: { contractNo: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+        assignments: {
+          where: { status: { in: [AssignStatus.PENDING, AssignStatus.ACTIVE] } },
+          include: { supervisor: { select: { user: { select: { fullName: true } } } } },
+        },
+      },
+    });
+
+    return this.mapPlotToListItem(updated as any);
   }
 }

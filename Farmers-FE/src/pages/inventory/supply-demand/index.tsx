@@ -104,18 +104,57 @@ export default function InventorySupplyDemandPage() {
           isLoading={isLoading || isRefetching} 
           onReload={() => refetch()}
           filterToolbar={
-            <div className="relative w-full max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Tìm theo loại cây trồng..."
-                className="pl-9 h-9 bg-background border-muted-foreground/20 focus-visible:ring-1"
-                value={filters.cropType}
-                onChange={(e) =>
-                  setFilters((f) => ({ ...f, cropType: e.target.value }))
-                }
-                disabled={isLoading || isRefetching}
-              />
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="relative w-full max-w-[200px]">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Tìm cây trồng..."
+                  className="pl-9 h-9 bg-background border-muted-foreground/20 focus-visible:ring-1"
+                  value={filters.cropType}
+                  onChange={(e) =>
+                    setFilters((f) => ({ ...f, cropType: e.target.value }))
+                  }
+                  disabled={isLoading || isRefetching}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase ml-1">Từ ngày</span>
+                <Input
+                  type="date"
+                  className="h-9 w-[150px] bg-background border-muted-foreground/20 focus-visible:ring-1"
+                  value={filters.fromDate}
+                  onChange={(e) =>
+                    setFilters((f) => ({ ...f, fromDate: e.target.value }))
+                  }
+                  disabled={isLoading || isRefetching}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase ml-1">Đến ngày</span>
+                <Input
+                  type="date"
+                  className="h-9 w-[150px] bg-background border-muted-foreground/20 focus-visible:ring-1"
+                  value={filters.toDate}
+                  onChange={(e) =>
+                    setFilters((f) => ({ ...f, toDate: e.target.value }))
+                  }
+                  disabled={isLoading || isRefetching}
+                />
+              </div>
+
+              {(filters.cropType || filters.fromDate || filters.toDate) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFilters({ cropType: '', fromDate: '', toDate: '' })}
+                  className="h-9 px-2 text-slate-400 hover:text-slate-600"
+                >
+                  Xóa lọc
+                </Button>
+              )}
             </div>
           }
         />

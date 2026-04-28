@@ -9,7 +9,6 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp } from 'lucide-react';
 import type { SupplyDemandItem } from '../api/types';
 
 interface Props {
@@ -18,17 +17,11 @@ interface Props {
 
 export function SupplyDemandChart({ data }: Props) {
   return (
-    <Card className="rounded-[2rem] border border-slate-200/60 bg-white shadow-sm overflow-hidden transition-all hover:shadow-md">
-      <CardHeader className="flex flex-row items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/30">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="text-[10px] font-manrope font-bold uppercase tracking-tight text-slate-400 flex items-center gap-2">
-            <TrendingUp className="size-4 text-emerald-500" />
-            Phân tích Cân bằng Cung - Cầu
-          </h3>
-          <p className="text-[10px] font-medium text-slate-400">So sánh sản lượng dự kiến, tồn kho và đơn hàng</p>
-        </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Phân tích Cân bằng Cung - Cầu</CardTitle>
       </CardHeader>
-      <CardContent className="h-[450px] w-full p-6">
+      <CardContent className="h-[450px] w-full pt-0">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
@@ -43,26 +36,24 @@ export function SupplyDemandChart({ data }: Props) {
               dataKey="cropType"
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 10, fontWeight: 600, fill: '#94a3b8', fontFamily: 'Manrope' }}
+              tick={{ fontSize: 12, fill: '#64748b' }}
               dy={15}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 10, fontWeight: 600, fill: '#94a3b8', fontFamily: 'Manrope' }}
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickFormatter={(value) => `${value.toLocaleString('vi-VN')} kg`}
             />
             <Tooltip
-              cursor={{ fill: '#f8fafc', fillOpacity: 0.8 }}
+              cursor={{ fill: '#f8fafc' }}
               contentStyle={{
-                borderRadius: '1.5rem',
+                borderRadius: '0.5rem',
                 border: '1px solid #e2e8f0',
-                boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                fontSize: '11px',
-                fontFamily: 'Manrope',
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                fontSize: '12px',
                 padding: '12px 16px',
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(8px)',
               }}
             />
             <Legend
@@ -70,34 +61,30 @@ export function SupplyDemandChart({ data }: Props) {
               align="right"
               iconType="circle"
               wrapperStyle={{
-                paddingBottom: '30px',
-                fontSize: '10px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.025em',
+                paddingBottom: '20px',
+                fontSize: '12px',
                 color: '#64748b',
-                fontFamily: 'Manrope'
               }}
             />
             <Bar
               name="Sản lượng Dự kiến"
               dataKey="expectedKg"
               fill="#3b82f6" 
-              radius={[6, 6, 0, 0]}
+              radius={[4, 4, 0, 0]}
               barSize={20}
             />
             <Bar
               name="Tồn kho Thực tế"
               dataKey="actualStockKg"
               fill="#10b981"
-              radius={[6, 6, 0, 0]}
+              radius={[4, 4, 0, 0]}
               barSize={20}
             />
             <Bar
               name="Nhu cầu Đơn hàng"
               dataKey="pendingOrderKg"
               fill="#f43f5e"
-              radius={[6, 6, 0, 0]}
+              radius={[4, 4, 0, 0]}
               barSize={20}
             />
           </BarChart>

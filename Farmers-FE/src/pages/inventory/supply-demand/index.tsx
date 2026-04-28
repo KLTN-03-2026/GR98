@@ -40,44 +40,19 @@ export default function InventorySupplyDemandPage() {
   const gap = totalStock - totalPending;
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-8 p-6 font-manrope bg-slate-50/30 overflow-y-auto">
+    <div className="space-y-6 p-4 md:p-6">
       {/* Header Section */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-200">
-            <LayoutDashboard className="size-6" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+              <LayoutDashboard className="size-4 text-primary" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">Cân đối Cung - Cầu</h1>
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              Cân đối Cung - Cầu
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Phân tích sản lượng dự kiến và nhu cầu thị trường
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="relative group min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
-            <Input
-              placeholder="Tìm theo loại cây trồng..."
-              className="h-10 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 bg-white"
-              value={filters.cropType}
-              onChange={(e) =>
-                setFilters((f) => ({ ...f, cropType: e.target.value }))
-              }
-            />
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-10 rounded-full border-slate-200 bg-white"
-            onClick={() => refetch()}
-            disabled={isRefetching}
-          >
-            <RefreshCcw className={cn("size-4", isRefetching && "animate-spin")} />
-          </Button>
+          <p className="text-muted-foreground text-sm max-w-xl">
+            Phân tích sản lượng dự kiến và nhu cầu thị trường
+          </p>
         </div>
       </div>
 
@@ -124,7 +99,26 @@ export default function InventorySupplyDemandPage() {
       {/* Content Sections - Stacked Vertically for Space */}
       <div className="flex flex-col gap-8 pb-8">
         <SupplyDemandChart data={data?.items ?? []} />
-        <SupplyDemandTable items={data?.items} isLoading={isLoading} />
+        <SupplyDemandTable 
+          items={data?.items} 
+          isLoading={isLoading || isRefetching} 
+          onReload={() => refetch()}
+          filterToolbar={
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Tìm theo loại cây trồng..."
+                className="pl-9 h-9 bg-background border-muted-foreground/20 focus-visible:ring-1"
+                value={filters.cropType}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, cropType: e.target.value }))
+                }
+                disabled={isLoading || isRefetching}
+              />
+            </div>
+          }
+        />
       </div>
     </div>
   );

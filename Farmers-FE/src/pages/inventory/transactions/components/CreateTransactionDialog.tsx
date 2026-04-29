@@ -176,106 +176,111 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="warehouseId"
-                  rules={{ required: 'Bắt buộc' }}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Kho hàng</FormLabel>
-                      <Select onValueChange={(val) => {
+              <FormField
+                control={form.control}
+                name="warehouseId"
+                rules={{ required: 'Bắt buộc' }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kho hàng</FormLabel>
+                    <Select onValueChange={(val) => {
+                      field.onChange(val);
+                      form.setValue('productId', '');
+                      form.setValue('inventoryLotId', '');
+                    }} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200">
+                          <SelectValue placeholder="Chọn kho" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="rounded-xl shadow-xl">
+                        {warehouses?.map((w) => (
+                          <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="productId"
+                rules={{ required: 'Bắt buộc' }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sản phẩm</FormLabel>
+                    <Select 
+                      onValueChange={(val) => {
                         field.onChange(val);
-                        form.setValue('productId', '');
                         form.setValue('inventoryLotId', '');
-                      }} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="rounded-xl truncate h-11 border-slate-200">
-                            <SelectValue placeholder="Chọn kho" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="rounded-xl shadow-xl">
-                          {warehouses?.map((w) => (
-                            <SelectItem key={w.id} value={w.id} className="truncate max-w-[200px]">{w.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      }} 
+                      defaultValue={field.value}
+                      disabled={!selectedWarehouseId || isLoadingWarehouseLots}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200">
+                          <SelectValue placeholder={!selectedWarehouseId ? "Chọn kho trước" : "Chọn sản phẩm"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="rounded-xl shadow-xl max-h-[250px]">
+                        {filteredProducts.map((p) => (
+                          <SelectItem key={p.id} value={p.id} className="rounded-lg">
+                            <div className="flex flex-col py-0.5">
+                              <span className="font-bold text-sm text-slate-900">{p.name}</span>
+                              {p.inStock > 0 && (
+                                <span className="text-[10px] text-emerald-600 font-medium italic">Hiện có: {p.inStock.toLocaleString()} {p.unit} tại kho</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                        {filteredProducts.length === 0 && selectedWarehouseId && (
+                          <SelectItem value="none" disabled>Kho trống hoặc không có hàng</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="productId"
-                  rules={{ required: 'Bắt buộc' }}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sản phẩm</FormLabel>
-                      <Select 
-                        onValueChange={(val) => {
-                          field.onChange(val);
-                          form.setValue('inventoryLotId', '');
-                        }} 
-                        defaultValue={field.value}
-                        disabled={!selectedWarehouseId || isLoadingWarehouseLots}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="rounded-xl truncate h-11 border-slate-200">
-                            <SelectValue placeholder={!selectedWarehouseId ? "Chọn kho trước" : "Chọn sản phẩm"} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="rounded-xl shadow-xl max-h-[250px]">
-                          {filteredProducts.map((p) => (
-                            <SelectItem key={p.id} value={p.id} className="rounded-lg">
-                              <div className="flex flex-col py-0.5">
-                                <span className="font-bold text-sm text-slate-900">{p.name}</span>
-                                {p.inStock > 0 && (
-                                  <span className="text-[10px] text-emerald-600 font-medium italic">Hiện có: {p.inStock.toLocaleString()} {p.unit}</span>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                          {filteredProducts.length === 0 && selectedWarehouseId && (
-                            <SelectItem value="none" disabled>Kho trống hoặc không có hàng</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Product Preview Card */}
-              {selectedProductId && (
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="size-16 rounded-xl bg-white border border-slate-100 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-sm">
-                    {allProducts?.find(p => p.id === selectedProductId)?.imageUrls?.[0] ? (
-                      <img 
-                        src={allProducts.find(p => p.id === selectedProductId)?.imageUrls?.[0]} 
-                        alt="Product" 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">No Image</div>
-                    )}
-                  </div>
-                  <div className="flex flex-col justify-center min-w-0">
-                    <span className="text-xs font-bold text-slate-900 truncate">
-                      {allProducts?.find(p => p.id === selectedProductId)?.name}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                      SKU: {allProducts?.find(p => p.id === selectedProductId)?.sku || 'N/A'}
-                    </span>
-                    <div className="flex gap-2 mt-1">
-                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded uppercase font-medium">
-                        {allProducts?.find(p => p.id === selectedProductId)?.unit || 'kg'}
+              {/* Product Preview Area (Fixed height to prevent jumping) */}
+              <div className="min-h-[88px] relative overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/50 transition-all duration-300">
+                {selectedProductId ? (
+                  <div className="p-3 flex gap-4 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="size-16 rounded-xl bg-white border border-slate-200 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-sm">
+                      {allProducts?.find(p => p.id === selectedProductId)?.imageUrls?.[0] ? (
+                        <img 
+                          src={allProducts.find(p => p.id === selectedProductId)?.imageUrls?.[0]} 
+                          alt="Product" 
+                          className="w-full h-full object-cover transition-transform hover:scale-110 duration-500"
+                        />
+                      ) : (
+                        <div className="text-[10px] text-slate-400 font-bold uppercase">No Image</div>
+                      )}
+                    </div>
+                    <div className="flex flex-col justify-center min-w-0 flex-1">
+                      <span className="text-sm font-bold text-slate-900 line-clamp-2 leading-tight mb-1">
+                        {allProducts?.find(p => p.id === selectedProductId)?.name}
                       </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
+                          SKU: {allProducts?.find(p => p.id === selectedProductId)?.sku || 'N/A'}
+                        </span>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold uppercase">
+                          ĐVT: {allProducts?.find(p => p.id === selectedProductId)?.unit || 'kg'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs italic gap-2 opacity-60">
+                    <div className="size-8 rounded-full border-2 border-dashed border-slate-300" />
+                    Chưa có sản phẩm được chọn
+                  </div>
+                )}
+              </div>
 
               <FormField
                 control={form.control}

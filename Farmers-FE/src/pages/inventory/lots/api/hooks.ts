@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { extractData } from '@/client/lib/api-client';
 import { lotApi } from './api';
-import type { InventoryLot, LotTrace, CreateLotInput } from './types';
+import type { InventoryLot, LotTrace, CreateLotInput, QualityGrade } from './types';
 
 export const lotKeys = {
   all: ['lots'] as const,
@@ -60,7 +60,28 @@ export const useGetContracts = () => {
     queryKey: ['inventory', 'contracts'],
     queryFn: async () => {
       const response = await lotApi.getContracts();
-      return extractData<{ id: string; contractNo: string; farmer: { fullName: string }; plot: { plotCode: string } }[]>(response);
+      return extractData<{ 
+        id: string; 
+        contractNo: string; 
+        farmer: { fullName: string }; 
+        plot: { plotCode: string };
+        product: { id: string; name: string };
+        grade: QualityGrade;
+      }[]>(response);
+    },
+  });
+};
+
+export const useUpdateLotGrade = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; qualityGrade: string; note: string }) => {
+      const response = await lotApi.updateLotGrade(id, data);
+      return extractData<InventoryLot>(response);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: lotKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: lotKeys.detail(data.id) });
     },
   });
 };

@@ -748,18 +748,19 @@ export class InventoryService {
       currentUser.role,
     );
 
+    const cropType = filters.cropType || undefined;
+    const fromDate = filters.fromDate ? new Date(filters.fromDate) : undefined;
+    const toDate = filters.toDate ? new Date(filters.toDate) : undefined;
+
     // 1. Fetch Expected Yield from DailyReports (yieldEstimateKg)
     const dailyReports = await this.prisma.dailyReport.findMany({
       where: {
         adminId,
+        status: { in: ['SUBMITTED', 'REVIEWED'] },
         yieldEstimateKg: { not: null },
-        plot: filters.cropType ? { cropType: filters.cropType } : {},
-        ...(filters.fromDate && {
-          reportedAt: { gte: new Date(filters.fromDate) },
-        }),
-        ...(filters.toDate && {
-          reportedAt: { lte: new Date(filters.toDate) },
-        }),
+        plot: cropType ? { cropType } : {},
+        ...(fromDate && { reportedAt: { gte: fromDate } }),
+        ...(toDate && { reportedAt: { lte: toDate } }),
       },
       include: { plot: { select: { cropType: true } } },
     });
@@ -768,7 +769,7 @@ export class InventoryService {
     const inventoryLots = await this.prisma.inventoryLot.findMany({
       where: {
         warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['NONE'] },
-        product: filters.cropType ? { cropType: filters.cropType } : {},
+        product: cropType ? { cropType } : {},
       },
       include: { product: { select: { cropType: true } } },
     });
@@ -778,6 +779,7 @@ export class InventoryService {
       where: {
         adminId,
         fulfillStatus: { in: ['PENDING', 'PACKING'] },
+        orderItems: cropType ? { some: { product: { cropType } } } : undefined,
       },
       include: {
         orderItems: {

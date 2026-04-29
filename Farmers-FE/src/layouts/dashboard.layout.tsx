@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/custom/sidebar";
 import { Navbar } from "@/components/global/navbar";
+import { CustomScrollArea } from "@/components/custom/custom-scroll-area";
 // import { ThemeProvider } from "@/providers/theme-provider";
 
 const SIDEBAR_STORAGE_KEY = "sidebar_collapsed_state";
@@ -218,15 +219,11 @@ const DashboardLayout: React.FC = () => {
           {/* Breadcrumb - flexible height */}
 
           {/* Content container - đảm bảo chiếm hết không gian còn lại */}
-          <motion.div
-            className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden"
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.1 }}
-          >
+          <CustomScrollArea className="flex-1 min-h-0 w-full">
             <div className="w-full">
               <Outlet />
             </div>
-          </motion.div>
+          </CustomScrollArea>
         </div>
       </motion.main>
     </div>

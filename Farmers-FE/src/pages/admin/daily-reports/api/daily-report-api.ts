@@ -24,6 +24,7 @@ export const dailyReportApi = {
     from?: string;
     to?: string;
     search?: string;
+    isHarvest?: string;
   }) =>
     apiGet<ApiSuccessResponse<PaginatedDailyReportsResponse>>('/daily-reports', { params }),
 

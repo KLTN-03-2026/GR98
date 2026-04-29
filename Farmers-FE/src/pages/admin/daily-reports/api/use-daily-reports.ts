@@ -19,6 +19,7 @@ export function useDailyReports(params?: {
   from?: string;
   to?: string;
   search?: string;
+  isHarvest?: string;
 }) {
   return useQuery({
     queryKey: ['daily-reports', params],

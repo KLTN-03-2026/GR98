@@ -24,18 +24,20 @@ export class PaginationDto {
   }
 }
 
-export class PaginatedResponse<T> {
+export class PaginatedResponse<T, M = unknown> {
   data: T[];
   total: number;
   page: number;
   limit: number;
   totalPages: number;
+  meta?: M;
 
-  constructor(data: T[], total: number, page?: number, limit?: number) {
+  constructor(data: T[], total: number, page?: number, limit?: number, meta?: M) {
     this.data = data;
     this.total = total;
     this.page = page || 1;
     this.limit = limit || 10;
     this.totalPages = Math.ceil(total / this.limit);
+    this.meta = meta;
   }
 }

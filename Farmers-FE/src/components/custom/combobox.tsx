@@ -205,10 +205,9 @@ export const Combobox = forwardRef<HTMLButtonElement, IComboboxProps>(
           </PopoverTrigger>
           <ScrollArea className='w-full'>
             <PopoverContent
-              className={cn('w-full min-w-[450px] p-3', className)}
+              className={cn('w-[var(--radix-popover-trigger-width)] p-3', className)}
               inPortal={false}
               sideOffset={6}
-              style={{ width: '100%' }}
             >
               <div className='flex'>
                 <div className='flex-1'>
@@ -223,10 +222,10 @@ export const Combobox = forwardRef<HTMLButtonElement, IComboboxProps>(
                         <CommandGroup>
                           {filteredDataArr?.map((data) => (
                             <CommandItem key={data.value} value={data.value} onSelect={() => handleSelect(data.value)}>
-                              <div className='flex w-full justify-between'>
-                                {data.label}
+                              <div className='flex w-full items-center justify-between gap-2 overflow-hidden'>
+                                <span className='truncate'>{data.label}</span>
                                 <Check
-                                  className={cn('h-4 w-4',
+                                  className={cn('h-4 w-4 shrink-0',
                                     isMultiSelect
                                       ? (selectedValues.includes(data.value) ? 'opacity-100' : 'opacity-0')
                                       : (controlledValue === data.value ? 'opacity-100' : 'opacity-0')

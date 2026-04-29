@@ -107,12 +107,15 @@ export class DailyReportService {
     return trimmed;
   }
 
-  private assertSubmitPayload(content: string, imageUrls: string[]) {
+  private assertSubmitPayload(content: string, imageUrls: string[], yieldEstimateKg?: number | null) {
     if (!content.trim()) {
       throw new BadRequestException('Nội dung báo cáo không được để trống khi gửi');
     }
     if (imageUrls.length < 1) {
-      throw new BadRequestException('Cần ít nhất một ảnh đính kèm khi gửi báo cáo');
+      const msg = yieldEstimateKg && yieldEstimateKg > 0 
+        ? 'Báo cáo ghi nhận sản lượng thu hoạch bắt buộc phải có ít nhất một ảnh minh chứng'
+        : 'Cần ít nhất một ảnh đính kèm khi gửi báo cáo';
+      throw new BadRequestException(msg);
     }
   }
 
@@ -166,6 +169,7 @@ export class DailyReportService {
         content,
         imageUrls,
         status: ReportStatus.DRAFT,
+        yieldEstimateKg: dto.yieldEstimateKg ?? undefined,
       },
       include: reportListInclude,
     });
@@ -202,6 +206,7 @@ export class DailyReportService {
         ...(dto.type !== undefined ? { type: dto.type } : {}),
         ...(dto.content !== undefined ? { content: dto.content.trim() } : {}),
         ...(imageUrls !== undefined ? { imageUrls } : {}),
+        ...(dto.yieldEstimateKg !== undefined ? { yieldEstimateKg: dto.yieldEstimateKg } : {}),
       },
       include: reportListInclude,
     });
@@ -227,7 +232,7 @@ export class DailyReportService {
       throw new BadRequestException('Báo cáo đã được gửi hoặc không còn ở trạng thái nháp');
     }
 
-    this.assertSubmitPayload(existing.content, existing.imageUrls);
+    this.assertSubmitPayload(existing.content, existing.imageUrls, existing.yieldEstimateKg);
 
     return this.prisma.dailyReport.update({
       where: { id },
@@ -289,7 +294,15 @@ export class DailyReportService {
       };
     }
 
-    const [rows, total] = await Promise.all([
+    if (query.isHarvest !== undefined) {
+      if (query.isHarvest === 'true') {
+        where.yieldEstimateKg = { gt: 0 };
+      } else if (query.isHarvest === 'false') {
+        where.yieldEstimateKg = { equals: null };
+      }
+    }
+
+    const [rows, total, summary] = await Promise.all([
       this.prisma.dailyReport.findMany({
         where,
         skip,
@@ -298,9 +311,15 @@ export class DailyReportService {
         include: reportListInclude,
       }),
       this.prisma.dailyReport.count({ where }),
+      this.prisma.dailyReport.aggregate({
+        _sum: { yieldEstimateKg: true },
+        where,
+      }),
     ]);
 
-    return new PaginatedResponse(rows, total, page, limit);
+    return new PaginatedResponse(rows, total, page, limit, {
+      totalYield: summary._sum.yieldEstimateKg || 0,
+    });
   }
 
   async findOne(id: string, userId: string) {

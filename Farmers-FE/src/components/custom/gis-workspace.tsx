@@ -19,7 +19,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -1716,6 +1715,17 @@ export default function GISWorkspace({
           <SheetHeader className="border-b pb-4">
             <SheetTitle>Sheet quản lý lô đất</SheetTitle>
             <SheetDescription className="sr-only">Thông tin chi tiết lô đất</SheetDescription>
+
+            {roleLabel === "SUPERVISOR" && (
+              <Button
+                className="mt-2 w-full bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => void handleCreatePlot()}
+                disabled={isSaving}
+              >
+                <Sprout className="mr-2 h-4 w-4" />
+                {isSaving ? "Đang lưu..." : "Gán point theo mã hợp đồng"}
+              </Button>
+            )}
           </SheetHeader>
 
           <div className="space-y-4 p-4">
@@ -1936,18 +1946,7 @@ export default function GISWorkspace({
             )}
           </div>
 
-          {roleLabel !== "SUPERVISOR" && (
-            <SheetFooter>
-              <Button
-                className="w-full bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => void handleCreatePlot()}
-                disabled={isSaving}
-              >
-                <Sprout className="mr-2 h-4 w-4" />
-                {isSaving ? "Đang lưu..." : "Lưu cập nhật vào luồng GIS"}
-              </Button>
-            </SheetFooter>
-          )}
+
         </SheetContent>
       </Sheet>
     </>

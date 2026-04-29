@@ -198,6 +198,7 @@ model AdminProfile {
   orders         Order[]
   assignments    Assignment[]
   warehouses     Warehouse[]
+  plantScanRecords PlantScanRecord[]
 
   @@map("AdminProfiles")
 }
@@ -235,10 +236,11 @@ model SupervisorProfile {
   admin AdminProfile @relation(fields: [adminId], references: [id])
   zone  Zone?        @relation(fields: [zoneId], references: [id])
 
-  assignments  Assignment[]
-  dailyReports DailyReport[]
-  farmers      Farmer[]
-  contracts    Contract[]
+  assignments      Assignment[]
+  dailyReports     DailyReport[]
+  farmers          Farmer[]
+  contracts        Contract[]
+  plantScanRecords PlantScanRecord[]
 
   @@map("SupervisorProfiles")
 }
@@ -345,10 +347,11 @@ model Plot {
   admin  AdminProfile @relation(fields: [adminId], references: [id])
   zone   Zone?        @relation(fields: [zoneId], references: [id])
 
-  assignments  Assignment[]
-  dailyReports DailyReport[]
-  contracts    Contract[]
-  products     Product[]
+  assignments      Assignment[]
+  dailyReports     DailyReport[]
+  contracts        Contract[]
+  products         Product[]
+  plantScanRecords PlantScanRecord[]
 
   @@map("Plots")
 }
@@ -641,4 +644,39 @@ model WarehouseTransaction {
   inventoryLot InventoryLot @relation(fields: [inventoryLotId], references: [id])
 
   @@map("warehouse_transactions")
+}
+
+// =============================================================================
+// DOMAIN 6 — AI PLANT SCAN (từ Farmer-PWA)
+// Lưu kết quả phân tích bệnh cây trồng AI — tự động khi supervisor quét lá
+// =============================================================================
+
+model PlantScanRecord {
+  id           String   @id @default(uuid())
+  adminId      String   // TENANT KEY
+  supervisorId String   // SupervisorProfile.id
+  plotId       String?  // Lô đất (nếu supervisor chọn)
+
+  // Kết quả AI từ Farmer-aivision
+  diseaseEn     String   // disease (tiếng Anh)
+  diseaseVi     String   // benh (tiếng Việt)
+  causingAgent  String   // tac_nhan
+  dangerLevel   String   // do_nguy_hiem: Thấp / Trung bình / Cao / Rất cao
+  category      String   // phan_loai: fungal / bacterial / viral / algal / healthy
+  symptoms      String   @db.Text  // chi_tiet
+  treatment     String   @db.Text  // dieu_tri
+  confidence    Float    // do_chinh_xac (0.0 - 1.0)
+  processingMs  Float?   // thoi_gian_xu_ly_ms
+
+  imageDataUrl  String?  @db.Text  // ảnh đã chụp (base64) nếu muốn lưu
+  scannedAt     DateTime @default(now())
+
+  admin      AdminProfile      @relation(fields: [adminId], references: [id])
+  supervisor SupervisorProfile @relation(fields: [supervisorId], references: [id])
+  plot       Plot?             @relation(fields: [plotId], references: [id])
+
+  @@index([adminId])
+  @@index([supervisorId])
+  @@index([scannedAt])
+  @@map("PlantScanRecords")
 }

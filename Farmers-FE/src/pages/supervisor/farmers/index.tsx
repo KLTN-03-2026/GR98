@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Combobox } from '@/components/custom/combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -48,6 +49,7 @@ import {
   type FarmerResponse,
   type FarmerStatus,
 } from './api';
+import { useVietnamAdministrative } from '@/lib/vn-administrative';
 
 type FarmerForm = {
   fullName: string;
@@ -125,6 +127,7 @@ export default function SupervisorFarmersPage() {
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | FarmerStatus>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const { data: provinceOptions = [] } = useVietnamAdministrative();
 
   const { data: queryData, isLoading } = useSupervisorFarmers({
     page: currentPage,
@@ -153,6 +156,12 @@ export default function SupervisorFarmersPage() {
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof FarmerForm, string>>
   >({});
+  const districtOptions = useMemo(
+    () =>
+      provinceOptions.find((item) => item.value === form.province)?.districts ??
+      [],
+    [provinceOptions, form.province],
+  );
 
   const activeCount = useMemo(
     () => farmers.filter((item) => item.status === 'ACTIVE').length,
@@ -264,11 +273,11 @@ export default function SupervisorFarmersPage() {
             fullName: form.fullName.trim(),
             phone: form.phone.trim(),
             cccd: form.cccd.trim(),
-            province: form.province,
-            address: form.address,
-            bankName: form.bankName,
-            bankBranch: form.bankBranch,
-            bankAccount: form.bankAccount,
+            province: form.province.trim() || undefined,
+            address: form.address.trim() || undefined,
+            bankName: form.bankName.trim() || undefined,
+            bankBranch: form.bankBranch.trim() || undefined,
+            bankAccount: form.bankAccount.trim() || undefined,
             status: form.status,
           },
         });
@@ -551,23 +560,45 @@ export default function SupervisorFarmersPage() {
 
             <div className="space-y-2">
               <Label>Tỉnh/Thành phố</Label>
-              <Input
-                value={form.province}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, province: event.target.value }))
+              <Combobox
+                dataArr={
+                  form.province &&
+                  !provinceOptions.some((item) => item.value === form.province)
+                    ? [{ value: form.province, label: form.province }, ...provinceOptions]
+                    : provinceOptions
                 }
-                placeholder="Đắk Lắk"
+                value={form.province}
+                onChange={(value) => {
+                  const nextProvince = typeof value === 'string' ? value : '';
+                  setForm((prev) => ({
+                    ...prev,
+                    province: nextProvince,
+                    address:
+                      nextProvince === prev.province ? prev.address : '',
+                  }));
+                }}
+                label="tỉnh/thành"
               />
             </div>
 
             <div className="space-y-2">
               <Label>Địa chỉ</Label>
-              <Input
-                value={form.address}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, address: event.target.value }))
+              <Combobox
+                dataArr={
+                  form.address &&
+                  !districtOptions.some((item) => item.value === form.address)
+                    ? [{ value: form.address, label: form.address }, ...districtOptions]
+                    : districtOptions
                 }
-                placeholder="Thôn ..., xã ..., huyện ..."
+                value={form.address}
+                onChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    address: typeof value === 'string' ? value : '',
+                  }))
+                }
+                label="quận/huyện"
+                disabled={!form.province}
               />
             </div>
 

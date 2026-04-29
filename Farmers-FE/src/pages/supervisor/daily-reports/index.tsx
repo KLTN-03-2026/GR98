@@ -20,6 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/custom/combobox';
 import { DataTable } from '@/components/data-table';
@@ -29,7 +30,16 @@ import {
   dailyReportApi,
   useDailyReports,
   type DailyReportResponse,
+  type DailyReportType,
 } from '@/pages/admin/daily-reports/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   SUPERVISOR_DAILY_DASHBOARD_QUERY_KEY,
   useSupervisorDailyDashboard,
@@ -42,10 +52,20 @@ const MAX_IMAGES = 10;
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 
 type StatusTab = 'ALL' | 'DRAFT' | 'SUBMITTED';
+type CategoryTab = 'ALL' | 'HARVEST' | 'OTHER';
 type ImageItem = {
   id: string;
   payload: string;
   previewUrl: string;
+};
+
+const translateCropType = (type?: string) => {
+  if (!type) return '—';
+  const map: Record<string, string> = {
+    'ca-phe': 'Cà phê',
+    'sau-rieng': 'Sầu riêng',
+  };
+  return map[type] || type;
 };
 
 function isBlobUrl(url: string) {
@@ -87,6 +107,12 @@ export default function SupervisorDailyReportsPage() {
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
 
+  const [reportType, setReportType] = useState<DailyReportType>('ROUTINE');
+  const [isHarvest, setIsHarvest] = useState(false);
+  const [yieldEstimateKg, setYieldEstimateKg] = useState<number | string>('');
+
+  const [categoryTab, setCategoryTab] = useState<CategoryTab>('ALL');
+
   const statusParam =
     statusTab === 'ALL' ? undefined : (statusTab as Exclude<StatusTab, 'ALL'>);
 
@@ -94,13 +120,17 @@ export default function SupervisorDailyReportsPage() {
     page: currentPage,
     limit,
     status: statusParam,
+    isHarvest: categoryTab === 'HARVEST' ? 'true' : categoryTab === 'OTHER' ? 'false' : undefined,
   });
 
   const { data: dailyDash } = useSupervisorDailyDashboard();
 
-  const [plotOptionExtra, setPlotOptionExtra] = useState<{ value: string; label: string } | null>(
-    null,
-  );
+  const [plotOptionExtra, setPlotOptionExtra] = useState<{
+    value: string;
+    label: string;
+    cropType?: string;
+    areaHa?: number;
+  } | null>(null);
 
   const submittedTodayPlotIds = useMemo(
     () => new Set(dailyDash?.submittedTodayPlotIds ?? []),
@@ -110,9 +140,12 @@ export default function SupervisorDailyReportsPage() {
   const plotOptions = useMemo(() => {
     const base = (dailyDash?.plots ?? []).map((p) => {
       const sentLabel = submittedTodayPlotIds.has(p.id) ? 'Đã gửi' : 'Chưa gửi';
+      const translatedCrop = translateCropType(p.cropType);
       return {
         value: p.id,
-        label: `${p.plotName || p.lotCode} — ${p.farmerName} (${sentLabel})`,
+        label: `${p.plotName || p.lotCode} — ${p.farmerName} (${translatedCrop}) (${sentLabel})`,
+        cropType: p.cropType,
+        areaHa: p.areaHa,
       };
     });
     if (plotOptionExtra && !base.some((o) => o.value === plotOptionExtra.value)) {
@@ -150,53 +183,85 @@ export default function SupervisorDailyReportsPage() {
     setEditingId(null);
     setPlotId('');
     setContent('');
+    setReportType('ROUTINE');
+    setIsHarvest(false);
+    setYieldEstimateKg('');
   }, [replaceImageItems]);
 
   const openCreate = () => {
     setSheetMode('create');
     setPlotOptionExtra(null);
     resetForm();
+    if (categoryTab === 'HARVEST') {
+      setIsHarvest(true);
+    }
     setSheetOpen(true);
   };
 
-  const openEdit = useCallback((row: DailyReportResponse) => {
-    if (row.status !== 'DRAFT') return;
-    setSheetMode('edit');
-    setEditingId(row.id);
-    setPlotId(row.plotId);
-    setPlotOptionExtra({
+  const openEdit = useCallback(
+    (row: DailyReportResponse) => {
+      if (row.status !== 'DRAFT') return;
+      setSheetMode('edit');
+      setEditingId(row.id);
+      setPlotId(row.plotId);
+      setPlotOptionExtra({
       value: row.plotId,
-      label: `${row.plot?.plotCode ?? row.plotId} — ${row.plot?.farmer?.fullName ?? ''} (Chưa gửi)`,
+      label: `${row.plot?.plotCode ?? row.plotId} — ${row.plot?.farmer?.fullName ?? ''} (${translateCropType(row.plot?.cropType)}) (Chưa gửi)`,
+      cropType: row.plot?.cropType,
+      areaHa: row.plot?.areaHa,
     });
-    setContent(row.content ?? '');
-    replaceImageItems(
-      (row.imageUrls ?? []).map((url, idx) => ({
-        id: `existing-${row.id}-${idx}`,
-        payload: url,
-        previewUrl: url,
-      })),
-    );
-    setSheetOpen(true);
-  }, [replaceImageItems]);
+      setReportType(row.type ?? 'ROUTINE');
+      const yVal = row.yieldEstimateKg;
+      if (yVal && yVal > 0) {
+        setIsHarvest(true);
+        setYieldEstimateKg(yVal);
+      } else {
+        setIsHarvest(false);
+        setYieldEstimateKg('');
+      }
+      replaceImageItems(
+        (row.imageUrls ?? []).map((url, idx) => ({
+          id: `existing-${row.id}-${idx}`,
+          payload: url,
+          previewUrl: url,
+        })),
+      );
+      setSheetOpen(true);
+    },
+    [replaceImageItems],
+  );
 
-  const openView = useCallback((row: DailyReportResponse) => {
-    setSheetMode('view');
-    setEditingId(row.id);
-    setPlotId(row.plotId);
-    setPlotOptionExtra({
+  const openView = useCallback(
+    (row: DailyReportResponse) => {
+      setSheetMode('view');
+      setEditingId(row.id);
+      setPlotId(row.plotId);
+      setPlotOptionExtra({
       value: row.plotId,
-      label: `${row.plot?.plotCode ?? row.plotId} — ${row.plot?.farmer?.fullName ?? ''} (Đã gửi)`,
+      label: `${row.plot?.plotCode ?? row.plotId} — ${row.plot?.farmer?.fullName ?? ''} (${translateCropType(row.plot?.cropType)}) (Đã gửi)`,
+      cropType: row.plot?.cropType,
+      areaHa: row.plot?.areaHa,
     });
-    setContent(row.content ?? '');
-    replaceImageItems(
-      (row.imageUrls ?? []).map((url, idx) => ({
-        id: `existing-${row.id}-${idx}`,
-        payload: url,
-        previewUrl: url,
-      })),
-    );
-    setSheetOpen(true);
-  }, [replaceImageItems]);
+      setReportType(row.type ?? 'ROUTINE');
+      const yValView = row.yieldEstimateKg;
+      if (yValView && yValView > 0) {
+        setIsHarvest(true);
+        setYieldEstimateKg(yValView);
+      } else {
+        setIsHarvest(false);
+        setYieldEstimateKg('');
+      }
+      replaceImageItems(
+        (row.imageUrls ?? []).map((url, idx) => ({
+          id: `existing-${row.id}-${idx}`,
+          payload: url,
+          previewUrl: url,
+        })),
+      );
+      setSheetOpen(true);
+    },
+    [replaceImageItems],
+  );
 
   const handleRowClick = useCallback(
     (row: DailyReportResponse) => {
@@ -207,8 +272,11 @@ export default function SupervisorDailyReportsPage() {
   );
 
   const columns = useMemo(
-    () => createSupervisorDailyReportColumns(openEdit, openView),
-    [openEdit, openView],
+    () =>
+      createSupervisorDailyReportColumns(openEdit, openView, {
+        showYield: categoryTab === 'HARVEST',
+      }),
+    [openEdit, openView, categoryTab],
   );
 
   const handlePaginationChange = useCallback(
@@ -305,15 +373,19 @@ export default function SupervisorDailyReportsPage() {
       if (!editingId) {
         const res = await dailyReportApi.create({
           plotId,
+          type: reportType,
           content: content.trim(),
           imageUrls,
+          yieldEstimateKg: isHarvest ? (Number(yieldEstimateKg) || 0) : undefined,
         });
         extractData(res);
         toast.success('Đã tạo báo cáo nháp');
       } else {
         const res = await dailyReportApi.update(editingId, {
+          type: reportType,
           content: content.trim(),
           imageUrls,
+          yieldEstimateKg: isHarvest ? (Number(yieldEstimateKg) || 0) : undefined,
         });
         extractData(res);
         toast.success('Đã cập nhật nháp');
@@ -351,15 +423,19 @@ export default function SupervisorDailyReportsPage() {
       if (!id) {
         const createdRes = await dailyReportApi.create({
           plotId,
+          type: reportType,
           content: content.trim(),
           imageUrls,
+          yieldEstimateKg: isHarvest ? (Number(yieldEstimateKg) || 0) : undefined,
         });
         id = extractData<DailyReportResponse>(createdRes).id;
       } else {
         extractData(
           await dailyReportApi.update(id, {
+            type: reportType,
             content: content.trim(),
             imageUrls,
+            yieldEstimateKg: isHarvest ? (Number(yieldEstimateKg) || 0) : undefined,
           }),
         );
       }
@@ -405,59 +481,91 @@ export default function SupervisorDailyReportsPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading || isFetching}
-            hiddenSearch
-            enableSorting={false}
-            manualPagination
-            pageCount={totalPages}
-            totalItems={total}
-            onPaginationChange={handlePaginationChange}
-            state={{ pagination: paginationState }}
-            pageSizeOptions={[10, 15, 20, 30, 50]}
-            onRowClick={handleRowClick}
-            onReload={() => void invalidateList()}
-            noResults={
-              <span className="text-muted-foreground">
-                Chưa có báo cáo. Nhấn &quot;Tạo báo cáo&quot; để bắt đầu.
-              </span>
-            }
-            filterToolbar={
-              <div className="flex flex-wrap gap-2 items-center">
-                {(
-                  [
-                    { key: 'ALL' as const, label: 'Tất cả' },
-                    { key: 'DRAFT' as const, label: 'Nháp' },
-                    { key: 'SUBMITTED' as const, label: 'Đã gửi' },
-                  ] as const
-                ).map((t) => (
-                  <Button
-                    key={t.key}
-                    type="button"
-                    variant={statusTab === t.key ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusTab(t.key)}
-                  >
-                    {t.label}
-                  </Button>
-                ))}
+      <Tabs
+        value={categoryTab}
+        onValueChange={(v) => setCategoryTab(v as CategoryTab)}
+        className="w-full"
+      >
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <TabsList>
+            <TabsTrigger value="ALL">Tất cả báo cáo</TabsTrigger>
+            <TabsTrigger value="HARVEST">Báo cáo sản lượng</TabsTrigger>
+            <TabsTrigger value="OTHER">Báo cáo khác</TabsTrigger>
+          </TabsList>
+
+          {categoryTab === 'HARVEST' && listData?.meta && (
+            <div className="flex items-center gap-3 px-4 py-2 bg-primary/5 border border-primary/10 rounded-xl animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="h-8 w-1 bg-primary rounded-full" />
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                  Tổng sản lượng thu hoạch
+                </span>
+                <span className="text-lg font-bold text-primary leading-tight">
+                  {listData.meta.totalYield.toLocaleString()} <span className="text-sm font-medium">kg</span>
+                </span>
               </div>
-            }
-          />
-        </CardContent>
-      </Card>
+            </div>
+          )}
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <DataTable
+              columns={columns}
+              data={rows}
+              isLoading={isLoading || isFetching}
+              hiddenSearch
+              enableSorting={false}
+              manualPagination
+              pageCount={totalPages}
+              totalItems={total}
+              onPaginationChange={handlePaginationChange}
+              state={{ pagination: paginationState }}
+              pageSizeOptions={[10, 15, 20, 30, 50]}
+              onRowClick={handleRowClick}
+              onReload={() => void invalidateList()}
+              noResults={
+                <span className="text-muted-foreground">
+                  Chưa có báo cáo. Nhấn &quot;Tạo báo cáo&quot; để bắt đầu.
+                </span>
+              }
+              filterToolbar={
+                <div className="flex flex-wrap gap-2 items-center">
+                  {(
+                    [
+                      { key: 'ALL' as const, label: 'Tất cả trạng thái' },
+                      { key: 'DRAFT' as const, label: 'Nháp' },
+                      { key: 'SUBMITTED' as const, label: 'Đã gửi' },
+                    ] as const
+                  ).map((t) => (
+                    <Button
+                      key={t.key}
+                      type="button"
+                      variant={statusTab === t.key ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => setStatusTab(t.key)}
+                    >
+                      {t.label}
+                    </Button>
+                  ))}
+                </div>
+              }
+            />
+          </CardContent>
+        </Card>
+      </Tabs>
 
       <Sheet open={sheetOpen} onOpenChange={closeSheet}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto flex flex-col">
           <SheetHeader>
             <SheetTitle>
-              {sheetMode === 'create' && 'Báo cáo mới'}
-              {sheetMode === 'edit' && 'Sửa nháp'}
-              {sheetMode === 'view' && 'Chi tiết báo cáo'}
+              {sheetMode === 'create'
+                ? isHarvest
+                  ? 'Ghi nhận sản lượng thu hoạch'
+                  : 'Báo cáo mới'
+                : sheetMode === 'edit'
+                  ? 'Sửa nháp'
+                  : 'Chi tiết báo cáo'}
             </SheetTitle>
             <SheetDescription>
               {isDraftSheet
@@ -481,7 +589,73 @@ export default function SupervisorDailyReportsPage() {
               {sheetMode === 'edit' && (
                 <p className="text-xs text-muted-foreground">Không đổi lô sau khi đã tạo nháp.</p>
               )}
+              {plotId && (
+                <div className="flex flex-col gap-1 p-3 bg-primary/5 border border-primary/10 rounded-lg animate-in fade-in zoom-in-95 duration-300">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Sản phẩm:</span>
+                    <span className="text-sm font-bold text-primary">
+                      {translateCropType(plotOptions.find((o) => o.value === plotId)?.cropType)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Diện tích lô:</span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {plotOptions.find((o) => o.value === plotId)?.areaHa || '—'} ha
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Loại báo cáo</Label>
+                <Select
+                  value={reportType}
+                  onValueChange={(v) => setReportType(v as DailyReportType)}
+                  disabled={!isDraftSheet}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ROUTINE">Thường kỳ</SelectItem>
+                    <SelectItem value="INCIDENT">Sự cố</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 flex flex-col justify-end">
+                <div className="flex items-center space-x-2 pb-2">
+                  <Checkbox
+                    id="isHarvest"
+                    checked={isHarvest}
+                    onCheckedChange={(checked) => setIsHarvest(!!checked)}
+                    disabled={!isDraftSheet}
+                  />
+                  <label
+                    htmlFor="isHarvest"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Báo cáo thu hoạch
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {isHarvest && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                <Label>Sản lượng thu hoạch (kg)</Label>
+                <Input
+                  type="number"
+                  placeholder="Nhập số kg..."
+                  value={yieldEstimateKg}
+                  onChange={(e) => setYieldEstimateKg(e.target.value)}
+                  disabled={!isDraftSheet}
+                  autoFocus={sheetMode === 'create' && isHarvest}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Nội dung</Label>

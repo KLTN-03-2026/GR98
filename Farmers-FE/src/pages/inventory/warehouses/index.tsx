@@ -17,24 +17,25 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGetWarehouses } from './api/hooks';
 import type { Warehouse } from './api/types';
+import { cn } from '@/lib/utils';
 
 function WarehouseCardSkeleton() {
   return (
-    <Card className="rounded-[24px] border border-border/70 bg-card/85 p-5 shadow-sm">
-      <div className="space-y-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-4 w-32" />
+    <Card className="animate-pulse border-l-4 border-l-emerald-400/40">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-3 w-32" />
           </div>
-          <Skeleton className="h-10 w-10 rounded-[12px]" />
+          <Skeleton className="h-10 w-10 rounded-xl" />
         </div>
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <Skeleton className="h-12 rounded-xl" />
-          <Skeleton className="h-12 rounded-xl" />
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-44" />
         </div>
-        <Skeleton className="h-10 w-full rounded-full" />
-      </div>
+        <Skeleton className="h-8 w-full rounded-full" />
+      </CardContent>
     </Card>
   );
 }
@@ -47,61 +48,51 @@ function WarehouseCard({
   onClick: () => void;
 }) {
   return (
-    <Card className="group relative overflow-hidden rounded-[24px] border border-border/70 bg-card/85 p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5">
-      {/* Decorative background accent */}
-      <div className="absolute -right-4 -top-4 size-24 rounded-full bg-primary/5 blur-2xl transition-all duration-500 group-hover:bg-primary/10" />
-
-      <div className="relative flex flex-col h-full gap-5">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <h3 className="font-manrope text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
-                {warehouse.name}
-              </h3>
-              <Badge
-                variant="outline"
-                className="rounded-full border-emerald-200 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-300"
-              >
-                Hoạt động
-              </Badge>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground leading-relaxed">
-              <MapPin className="size-3 shrink-0" />
-              <span className="truncate max-w-[200px]">{warehouse.locationAddress ?? 'Chưa cập nhật địa chỉ'}</span>
-            </div>
-          </div>
-          <div className="flex size-11 items-center justify-center rounded-[14px] border border-primary/12 bg-primary/8 text-primary shadow-sm group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
-            <WarehouseIcon className="size-5" />
-          </div>
+    <Card className="group rounded-2xl border border-l-4 border-l-emerald-500 bg-linear-to-br from-white to-emerald-50/60 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-lg font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
+            {warehouse.name}
+          </h3>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="size-3 text-emerald-500" />
+            <span className="truncate">{warehouse.locationAddress ?? 'Chưa cập nhật địa chỉ'}</span>
+          </p>
         </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1 rounded-xl border border-border/50 bg-muted/30 p-2.5">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Lô hàng</span>
-            <div className="flex items-center gap-1.5">
-              <Box className="size-3.5 text-primary" />
-              <span className="font-manrope text-sm font-bold">{warehouse.lotCount}</span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1 rounded-xl border border-border/50 bg-muted/30 p-2.5">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Khởi tạo</span>
-            <div className="flex items-center gap-1.5">
-              <Calendar className="size-3.5 text-primary" />
-              <span className="font-manrope text-sm font-bold">
-                {format(new Date(warehouse.createdAt), 'MM/yyyy')}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <Button
-          onClick={onClick}
-          className="w-full rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 border-none group-hover:bg-primary group-hover:text-primary-foreground shadow-none"
+        <Badge
+          variant="outline"
+          className="rounded-full border-none bg-emerald-500/10 text-emerald-700 px-2 py-0.5 text-[10px] font-bold"
         >
-          <span>Xem chi tiết kho</span>
-          <ChevronRight className="size-4 ml-1.5" />
-        </Button>
+          Hoạt động
+        </Badge>
       </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1 rounded-xl border border-slate-200/60 bg-white/50 p-2.5">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Lô hàng</span>
+          <div className="flex items-center gap-1.5">
+            <Box className="size-3.5 text-emerald-600" />
+            <span className="font-manrope text-sm font-bold text-slate-900">{warehouse.lotCount}</span>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1 rounded-xl border border-slate-200/60 bg-white/50 p-2.5">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Khởi tạo</span>
+          <div className="flex items-center gap-1.5">
+            <Calendar className="size-3.5 text-emerald-600" />
+            <span className="font-manrope text-sm font-bold text-slate-900">
+              {format(new Date(warehouse.createdAt), 'MM/yyyy')}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <Button
+        onClick={onClick}
+        className="mt-4 w-full rounded-full bg-emerald-600 text-white hover:bg-emerald-700 h-9 text-xs font-bold transition-all shadow-none"
+      >
+        <span>Xem chi tiết kho</span>
+        <ChevronRight className="size-4 ml-1.5" />
+      </Button>
     </Card>
   );
 }
@@ -117,16 +108,16 @@ export default function InventoryWarehousesPage() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
-      {/* Header & Functional Bar */}
-      <section className="relative shrink-0 overflow-hidden rounded-[22px] border border-primary/10 bg-card/90 p-1 shadow-sm backdrop-blur-md">
-        <div className="relative flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between lg:px-6">
+    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6 font-manrope">
+      {/* Header & Filter Card - Admin Style */}
+      <Card className="border-dashed border-emerald-400/50 bg-white">
+        <CardContent className="space-y-4 p-4 sm:p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
-                <WarehouseIcon className="size-4 text-primary" />
+              <div className="flex size-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+                <WarehouseIcon className="size-4" />
               </div>
-              <h1 className="font-manrope text-xl font-bold tracking-tight text-foreground">
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
                 Quản lý Kho hàng
               </h1>
             </div>
@@ -135,69 +126,54 @@ export default function InventoryWarehousesPage() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative group min-w-[280px]">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
               <Input
                 placeholder="Tìm tên kho, địa chỉ..."
-                className="h-10 rounded-full border-border/80 bg-background/50 pl-9 transition-all focus-visible:ring-primary/20"
+                className="h-10 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-10 rounded-full border-border/60 bg-background"
-                onClick={() => refetch()}
-                disabled={isRefetching}
-              >
-                <RefreshCcw className={`size-4 ${isRefetching ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-10 rounded-full border-slate-200"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+            >
+              <RefreshCcw className={cn("size-4", isRefetching && "animate-spin")} />
+            </Button>
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       {/* Warehouse Grid */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
-          Array.from({ length: 6 }).map((_, i) => <WarehouseCardSkeleton key={i} />)
-        ) : filteredWarehouses && filteredWarehouses.length > 0 ? (
-          filteredWarehouses.map((warehouse: Warehouse) => (
-            <WarehouseCard
-              key={warehouse.id}
-              warehouse={warehouse}
-              onClick={() => navigate(`/inventory/warehouses/${warehouse.id}`)}
-            />
-          ))
-        ) : (
-          <div className="col-span-full py-20">
-            <Card className="border-dashed border-2 bg-muted/20">
-              <CardContent className="flex flex-col items-center justify-center py-10 text-center space-y-4">
-                <div className="p-4 bg-muted/50 rounded-full">
-                  <WarehouseIcon className="h-10 w-10 text-muted-foreground/50" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold">Không tìm thấy kho hàng</h3>
-                  <p className="text-sm text-muted-foreground max-w-sm">
-                    {searchQuery ? 'Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc.' : 'Bạn chưa được phân công quản lý kho hàng nào.'}
-                  </p>
-                </div>
-                {searchQuery && (
-                  <Button
-                    variant="link"
-                    className="text-primary"
-                    onClick={() => setSearchQuery('')}
-                  >
-                    Xóa tìm kiếm
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 pb-4">
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => <WarehouseCardSkeleton key={i} />)
+          ) : filteredWarehouses && filteredWarehouses.length > 0 ? (
+            filteredWarehouses.map((warehouse: Warehouse) => (
+              <WarehouseCard
+                key={warehouse.id}
+                warehouse={warehouse}
+                onClick={() => navigate(`/inventory/warehouses/${warehouse.id}`)}
+              />
+            ))
+          ) : (
+            <div className="col-span-full py-10 text-center">
+              <Card className="border-dashed border-slate-300 bg-slate-50">
+                <CardContent className="py-10">
+                  <WarehouseIcon className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                  <h3 className="text-sm font-bold text-slate-600">Không tìm thấy kho hàng</h3>
+                  <p className="text-xs text-muted-foreground">Bạn chưa có kho nào hoặc từ khóa tìm kiếm không khớp.</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

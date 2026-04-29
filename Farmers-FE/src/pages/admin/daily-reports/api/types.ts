@@ -47,6 +47,9 @@ export interface PaginatedDailyReportsResponse {
   page: number;
   limit: number;
   totalPages: number;
+  meta?: {
+    totalYield: number;
+  };
 }
 
 export interface CreateDailyReportPayload {
@@ -54,12 +57,14 @@ export interface CreateDailyReportPayload {
   type?: DailyReportType;
   content?: string;
   imageUrls?: string[];
+  yieldEstimateKg?: number;
 }
 
 export interface UpdateDailyReportPayload {
   type?: DailyReportType;
   content?: string;
   imageUrls?: string[];
+  yieldEstimateKg?: number;
 }
 
 export type { ApiSuccessResponse };

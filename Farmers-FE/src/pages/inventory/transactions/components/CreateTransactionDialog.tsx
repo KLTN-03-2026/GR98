@@ -79,7 +79,7 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] rounded-[22px]">
+      <DialogContent className="sm:max-w-[500px] rounded-[28px] border-none bg-card/95 backdrop-blur-xl shadow-2xl">
         <DialogHeader>
           <DialogTitle>Ghi nhận giao dịch kho</DialogTitle>
           <DialogDescription>
@@ -256,7 +256,7 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
               <Button
                 type="submit"
                 disabled={createTransactionMutation.isPending}
-                className="rounded-xl min-w-[120px]"
+                className="rounded-xl min-w-[120px] bg-primary hover:bg-primary/90 text-white font-bold"
               >
                 {createTransactionMutation.isPending ? (
                   <Loader2 className="size-4 animate-spin" />

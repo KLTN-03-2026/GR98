@@ -1,5 +1,15 @@
 import { ReportType } from '@prisma/client';
-import { IsArray, IsEnum, IsOptional, IsString, MaxLength, ArrayMaxSize } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ArrayMaxSize,
+  IsNumber,
+  Min,
+} from 'class-validator';
 
 export class CreateDailyReportDto {
   @IsString()
@@ -19,4 +29,12 @@ export class CreateDailyReportDto {
   @IsString({ each: true })
   @ArrayMaxSize(10)
   imageUrls?: string[];
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Transform(({ value }) =>
+    value === '' || value === null ? undefined : Number(value),
+  )
+  yieldEstimateKg?: number;
 }

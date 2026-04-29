@@ -1,25 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
-  Search,
   Plus,
   MapPin,
   Box,
   Info,
   History,
   MoreVertical,
+  Calendar,
+  ChevronRight,
+  RefreshCcw,
+  Search,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,218 +34,238 @@ import { useGetWarehouses } from '../warehouses/api';
 import { format } from 'date-fns';
 import CreateLotModal from './components/CreateLotModal';
 import TraceabilityView from './components/TraceabilityView';
+import type { InventoryLot } from './api/types';
+import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+
+function LotCardSkeleton() {
+  return (
+    <Card className="animate-pulse border-l-4 border-l-emerald-400/40">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <Skeleton className="h-10 w-10 rounded-xl" />
+        </div>
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-44" />
+        </div>
+        <Skeleton className="h-8 w-full rounded-full" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function LotCard({
+  lot,
+  onTrace,
+}: {
+  lot: InventoryLot;
+  onTrace: () => void;
+}) {
+  return (
+    <Card className="group rounded-2xl border border-l-4 border-l-emerald-500 bg-linear-to-br from-white to-emerald-50/60 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
+            {lot.product.name}
+          </h3>
+          <p className="mt-0.5 truncate text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+            SKU: {lot.product.sku}
+          </p>
+        </div>
+        <Badge 
+          variant="outline" 
+          className={cn(
+            "rounded-full border-none px-2 py-0.5 text-[10px] font-bold",
+            lot.qualityGrade === 'A' ? 'bg-emerald-500/10 text-emerald-700' : 
+            lot.qualityGrade === 'B' ? 'bg-amber-500/10 text-amber-700' : 
+            lot.qualityGrade === 'C' ? 'bg-orange-500/10 text-orange-700' : 
+            'bg-rose-500/10 text-rose-700'
+          )}
+        >
+          Hạng {lot.qualityGrade}
+        </Badge>
+      </div>
+
+      <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+        <p className="inline-flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-emerald-500" />
+          <span className="truncate font-medium">{lot.warehouse.name}</span>
+        </p>
+        <p className="inline-flex items-center gap-2">
+          <Box className="h-4 w-4 text-emerald-500" />
+          <span className="font-bold text-slate-900">
+            {lot.quantityKg.toLocaleString()} {lot.product.unit}
+          </span>
+        </p>
+        <div className="flex items-center gap-2 text-xs opacity-70">
+          <Calendar className="h-3.5 w-3.5" />
+          {format(new Date(lot.createdAt), 'dd/MM/yyyy', { locale: vi })}
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center gap-2">
+        <Button
+          onClick={onTrace}
+          className="flex-1 rounded-full bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600 hover:text-white h-8 text-xs font-bold transition-all shadow-none"
+        >
+          Truy xuất nguồn gốc
+          <ChevronRight className="size-3 ml-1" />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-8 rounded-full">
+              <MoreVertical className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="rounded-xl">
+            <DropdownMenuItem onClick={onTrace} className="gap-2">
+              <History className="size-4" /> Truy xuất
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 text-destructive focus:text-destructive">
+              <Info className="size-4" /> Chi tiết
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </Card>
+  );
+}
 
 export default function InventoryLotsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState<string>('all');
   const [gradeFilter, setGradeFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
   const [isTraceOpen, setIsTraceOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-  // Fetch data
-  const { data: lots, isLoading } = useGetLots({
-    warehouseId: warehouseFilter !== 'all' ? warehouseFilter : undefined,
-    qualityGrade: gradeFilter !== 'all' ? gradeFilter : undefined,
-  });
-
-  const { data: warehouses } = useGetWarehouses();
-
-  // Filter local search by Product Name or SKU
-  const filteredLots = useMemo(() => {
-    if (!lots) return [];
-    if (!searchQuery) return lots;
-    
-    const query = searchQuery.toLowerCase();
-    return lots.filter(
-      (lot) =>
-        lot.product.name.toLowerCase().includes(query) ||
-        lot.product.sku.toLowerCase().includes(query)
-    );
-  }, [lots, searchQuery]);
 
   const handleOpenTrace = (id: string) => {
     setSelectedLotId(id);
     setIsTraceOpen(true);
   };
 
-  return (
-    <div className="flex min-h-screen flex-col gap-8 p-4 md:p-8 font-manrope">
-      {/* Header Section */}
-      <section className="relative overflow-hidden rounded-[32px] bg-white p-8 shadow-sm border border-primary/5">
-        <div className="absolute -right-20 -top-20 size-64 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -left-20 -bottom-20 size-64 rounded-full bg-secondary/10 blur-3xl" />
-        
-        <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
-                <Box className="size-6" />
-              </div>
-              <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">
-                Quản lý Lô hàng
-              </h1>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {isLoading ? 'Đang tải dữ liệu...' : `Tổng cộng ${lots?.length ?? 0} lô hàng trong hệ thống`}
-            </p>
-          </div>
+  const { data: lots, isLoading, isRefetching, refetch } = useGetLots({
+    warehouseId: warehouseFilter !== 'all' ? warehouseFilter : undefined,
+    qualityGrade: gradeFilter !== 'all' ? gradeFilter : undefined,
+  });
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+  const { data: warehouses } = useGetWarehouses();
+
+  const filteredLots = lots?.filter((lot) =>
+    lot.product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    lot.product.sku.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6 font-manrope">
+      {/* Header & Filter Card - Admin Style */}
+      <Card className="border-dashed border-emerald-400/50 bg-white">
+        <CardContent className="space-y-4 p-4 sm:p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+                  <Box className="size-4" />
+                </div>
+                <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                  Quản lý Lô hàng
+                </h1>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {isLoading ? 'Đang tải danh sách...' : `Theo dõi và quản lý ${lots?.length ?? 0} lô hàng`}
+              </p>
+            </div>
+
             <Button 
               onClick={() => setIsCreateModalOpen(true)}
-              className="h-10 gap-2 rounded-xl bg-primary shadow-md transition-all hover:shadow-lg active:scale-95"
+              className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-10 px-6"
             >
               <Plus className="size-4" />
-              <span>Nhập kho mới</span>
+              <span className="font-bold text-sm">Nhập kho mới</span>
             </Button>
           </div>
-        </div>
-      </section>
 
-      {/* Filters & Search */}
-      <Card className="rounded-[28px] border-none shadow-sm bg-white/50 backdrop-blur-sm">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-emerald-100/50">
+            <div className="relative group flex-1 min-w-[240px]">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
               <Input
                 placeholder="Tìm sản phẩm, SKU..."
+                className="h-10 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 rounded-xl pl-10 border-primary/10 focus-visible:ring-primary/20"
               />
             </div>
             
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2 rounded-xl bg-background p-1 border border-primary/5 shadow-sm">
-                <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
-                  <SelectTrigger className="h-8 w-[160px] border-none bg-transparent font-medium shadow-none focus:ring-0">
-                    <SelectValue placeholder="Tất cả kho" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-primary/10">
-                    <SelectItem value="all">Tất cả kho</SelectItem>
-                    {warehouses?.map((w) => (
-                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="h-4 w-px bg-muted mx-1" />
-                <Select value={gradeFilter} onValueChange={setGradeFilter}>
-                  <SelectTrigger className="h-8 w-[130px] border-none bg-transparent font-medium shadow-none focus:ring-0">
-                    <SelectValue placeholder="Chất lượng" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-primary/10">
-                    <SelectItem value="all">Mọi loại</SelectItem>
-                    <SelectItem value="A">Hạng A</SelectItem>
-                    <SelectItem value="B">Hạng B</SelectItem>
-                    <SelectItem value="C">Hạng C</SelectItem>
-                    <SelectItem value="REJECT">Loại bỏ</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-hidden rounded-2xl border border-primary/5 bg-white shadow-inner">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="hover:bg-transparent border-primary/5">
-                  <TableHead className="font-bold text-xs uppercase tracking-wider">Lô hàng & SKU</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider">Kho hàng</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider">Số lượng</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider">Chất lượng</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider">Ngày nhập</TableHead>
-                  <TableHead className="text-right"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell colSpan={6}>
-                        <Skeleton className="h-12 w-full rounded-lg" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : filteredLots.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                      Không tìm thấy lô hàng nào.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredLots.map((lot) => (
-                    <TableRow key={lot.id} className="group border-primary/5 hover:bg-primary/[0.02] transition-colors">
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-                            {lot.product.name}
-                          </span>
-                          <span className="text-[10px] font-mono text-muted-foreground">{lot.product.sku}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-xs font-medium">
-                          <MapPin className="size-3 text-muted-foreground" />
-                          {lot.warehouse.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-bold text-sm">
-                          {lot.quantityKg.toLocaleString()} {lot.product.unit}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline" 
-                          className={`
-                            rounded-lg px-2 py-0 text-[10px] font-bold border-none
-                            ${lot.qualityGrade === 'A' ? 'bg-emerald-100 text-emerald-700' : ''}
-                            ${lot.qualityGrade === 'B' ? 'bg-amber-100 text-amber-700' : ''}
-                            ${lot.qualityGrade === 'C' ? 'bg-orange-100 text-orange-700' : ''}
-                            ${lot.qualityGrade === 'REJECT' ? 'bg-rose-100 text-rose-700' : ''}
-                          `}
-                        >
-                          Hạng {lot.qualityGrade}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-medium">
-                        {format(new Date(lot.createdAt), 'dd/MM/yyyy')}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="size-8 p-0 rounded-lg group-hover:bg-white shadow-none">
-                              <MoreVertical className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-xl border-primary/10">
-                            <DropdownMenuItem 
-                              onClick={() => handleOpenTrace(lot.id)}
-                              className="gap-2 cursor-pointer"
-                            >
-                              <History className="size-4" />
-                              <span>Truy xuất nguồn gốc</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 cursor-pointer text-destructive focus:text-destructive">
-                              <Info className="size-4" />
-                              <span>Chi tiết lô hàng</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
+              <SelectTrigger className="h-10 w-[180px] rounded-full border-slate-200 bg-white">
+                <SelectValue placeholder="Tất cả kho" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all">Tất cả kho</SelectItem>
+                {warehouses?.map((w) => (
+                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={gradeFilter} onValueChange={setGradeFilter}>
+              <SelectTrigger className="h-10 w-[140px] rounded-full border-slate-200 bg-white">
+                <SelectValue placeholder="Chất lượng" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all">Mọi hạng</SelectItem>
+                <SelectItem value="A">Hạng A</SelectItem>
+                <SelectItem value="B">Hạng B</SelectItem>
+                <SelectItem value="C">Hạng C</SelectItem>
+                <SelectItem value="REJECT">Loại bỏ</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-10 rounded-full border-slate-200"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+            >
+              <RefreshCcw className={cn("size-4", isRefetching && "animate-spin")} />
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Components */}
+      {/* Lot Grid */}
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
+          {isLoading ? (
+            Array.from({ length: 8 }).map((_, i) => <LotCardSkeleton key={i} />)
+          ) : filteredLots && filteredLots.length > 0 ? (
+            filteredLots.map((lot) => (
+              <LotCard
+                key={lot.id}
+                lot={lot}
+                onTrace={() => handleOpenTrace(lot.id)}
+              />
+            ))
+          ) : (
+            <div className="col-span-full py-10">
+              <Card className="border-dashed border-slate-300 bg-slate-50">
+                <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                  <Box className="h-10 w-10 text-slate-300 mb-3" />
+                  <h3 className="text-sm font-bold text-slate-600">Không tìm thấy lô hàng</h3>
+                  <p className="text-xs text-muted-foreground">Thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      </div>
+
       <CreateLotModal 
         isOpen={isCreateModalOpen} 
         onClose={() => setIsCreateModalOpen(false)} 

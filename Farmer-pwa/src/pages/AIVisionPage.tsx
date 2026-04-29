@@ -2,9 +2,12 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Camera, Upload, Leaf, AlertTriangle, CheckCircle,
-  XCircle, Loader2, ArrowLeft, RotateCcw, HelpCircle, X, FlipHorizontal
+  XCircle, Loader2, ArrowLeft, RotateCcw, HelpCircle, X, FlipHorizontal, MapPin
 } from 'lucide-react';
 import { analyzeLeafImage, type AIVisionResult } from '../services/aiVision';
+import { saveScanResult, mapAIResultToPayload } from '../services/plantScan';
+import { fetchMyPlots, formatCropType, type PlotItem } from '../services/plots';
+
 
 type InputMode = 'upload' | 'camera';
 
@@ -24,6 +27,10 @@ export default function AIVisionPage() {
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [cameraError, setCameraError] = useState<string | null>(null);
 
+  // Lô đất
+  const [plots, setPlots] = useState<PlotItem[]>([]);
+  const [selectedPlotId, setSelectedPlotId] = useState<string>('');
+
   // Cleanup camera stream on unmount
   useEffect(() => {
     return () => {
@@ -32,6 +39,11 @@ export default function AIVisionPage() {
       }
     };
   }, [stream]);
+
+  // Load danh sách lô đất
+  useEffect(() => {
+    fetchMyPlots().then(setPlots);
+  }, []);
 
   // Check browser support for camera
   const isCameraSupported = () => {
@@ -235,6 +247,11 @@ export default function AIVisionPage() {
     try {
       const data = await analyzeLeafImage(imageFile);
       setResult(data);
+
+      // Auto-save kết quả lên server (fire-and-forget, không block UI)
+      void saveScanResult(mapAIResultToPayload(data, {
+        plotId: selectedPlotId || undefined,
+      }));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Không thể phân tích hình ảnh. Vui lòng thử lại.');
     } finally {
@@ -247,10 +264,12 @@ export default function AIVisionPage() {
     setImageFile(null);
     setResult(null);
     setError(null);
+    setSelectedPlotId('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
 
   const getDangerLevel = (level: string) => {
     if (!level) return { color: 'text-gray-600', bg: 'bg-gray-100', icon: HelpCircle };
@@ -406,11 +425,51 @@ export default function AIVisionPage() {
               )}
             </div>
 
+            {/* Chọn lô đất — bắt buộc trước khi phân tích */}
+            {!result && (
+              <div className={`bg-white border rounded-2xl p-4 space-y-2 transition ${
+                selectedPlotId ? 'border-green-300' : 'border-orange-300'
+              }`}>
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <MapPin className={`w-4 h-4 ${selectedPlotId ? 'text-green-600' : 'text-orange-500'}`} />
+                  <span>Lô đất đang chụp</span>
+                  <span className={`ml-auto text-xs font-semibold ${
+                    selectedPlotId ? 'text-green-600' : 'text-orange-500'
+                  }`}>
+                    {selectedPlotId ? '✓ Đã chọn' : '* Bắt buộc'}
+                  </span>
+                </div>
+                <select
+                  value={selectedPlotId}
+                  onChange={(e) => setSelectedPlotId(e.target.value)}
+                  className={`w-full rounded-xl border px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 transition bg-gray-50 ${
+                    selectedPlotId
+                      ? 'border-green-300 focus:ring-green-200 focus:border-green-400'
+                      : 'border-orange-200 focus:ring-orange-200 focus:border-orange-400'
+                  }`}
+                >
+                  <option value="">— Chọn lô đất —</option>
+                  {plots.map((plot) => (
+                    <option key={plot.id} value={plot.id}>
+                      [{plot.lotCode}] {plot.farmerName} — {formatCropType(plot.cropType)}
+                      {plot.district && plot.province ? ` (${plot.district}, ${plot.province})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {plots.length === 0 && (
+                  <p className="text-xs text-gray-400">Không tải được danh sách lô đất.</p>
+                )}
+                {!selectedPlotId && plots.length > 0 && (
+                  <p className="text-xs text-orange-500">Vui lòng chọn lô đất trước khi phân tích.</p>
+                )}
+              </div>
+            )}
+
             {!result && (
               <button
                 onClick={handleAnalyze}
-                disabled={isLoading}
-                className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-4 px-6 rounded-2xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={isLoading || !selectedPlotId}
+                className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-4 px-6 rounded-2xl transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
@@ -420,13 +479,14 @@ export default function AIVisionPage() {
                 ) : (
                   <>
                     <Leaf className="w-5 h-5" />
-                    Phân tích bệnh
+                    {selectedPlotId ? 'Phân tích bệnh' : 'Chọn lô đất để tiếp tục'}
                   </>
                 )}
               </button>
             )}
           </div>
         )}
+
 
         {/* Error Message */}
         {error && (

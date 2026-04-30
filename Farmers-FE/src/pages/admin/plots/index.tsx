@@ -2,15 +2,10 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   Edit3,
   Layers3,
   MapPin,
   Save,
-  Search,
   SlidersHorizontal,
   Sprout,
   Trash2,
@@ -42,6 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { DataGrid } from "@/components/data-grid";
 import {
   usePlots,
   useDeletePlot,
@@ -103,7 +99,7 @@ export default function PlotsPage() {
   const [reopenSheetPlotId, setReopenSheetPlotId] = useState<string | null>(null);
 
   // TanStack Query Hooks
-  const { data: plotsData, isLoading } = usePlots({
+  const { data: plotsData, isLoading, isFetching, isPlaceholderData } = usePlots({
     page: currentPage,
     limit: itemsPerPage,
     search: keyword.trim() || undefined,
@@ -155,15 +151,6 @@ export default function PlotsPage() {
     () => plots.reduce((sum, item) => sum + item.areaHa, 0),
     [plots],
   );
-  const pageFrom = total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const pageTo = Math.min(currentPage * itemsPerPage, total);
-
-  const goFirstPage = () => setCurrentPage(1);
-  const goPrevPage = () => setCurrentPage((prev) => Math.max(1, prev - 1));
-  const goNextPage = () =>
-    setCurrentPage((prev) => Math.min(totalPages, prev + 1));
-  const goLastPage = () => setCurrentPage(totalPages);
-
   useEffect(() => {
     setCurrentPage(1);
   }, [keyword, filter, supervisorFilterId]);
@@ -299,252 +286,196 @@ export default function PlotsPage() {
   const editingPlot = plots.find((item) => item.id === editingId) ?? null;
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-6 p-4 sm:p-6">
-      <Card className="border-dashed border-primary/40">
-        <CardContent className="space-y-3 p-4 sm:p-5">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <SlidersHorizontal className="h-4 w-4" />
-            Bộ lọc nhanh
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value)}
-                className="h-10 rounded-full border-muted pl-9"
-                placeholder="Tìm theo tên lô, mã lô, tỉnh, nông dân..."
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={filter === "all" ? "primary" : "outline"}
-                className="rounded-full"
-                onClick={() => setFilter("all")}
-              >
-                Tất cả
-              </Button>
-              <Button
-                variant={filter === "ca-phe" ? "primary" : "outline"}
-                className="rounded-full"
-                onClick={() => setFilter("ca-phe")}
-              >
-                Cà phê
-              </Button>
-              <Button
-                variant={filter === "sau-rieng" ? "primary" : "outline"}
-                className="rounded-full"
-                onClick={() => setFilter("sau-rieng")}
-              >
-                Sầu riêng
-              </Button>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Hiển thị {plots.length} / {total} lô đất.
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="inline-flex w-full items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 md:w-auto">
-          <Users className="h-4 w-4 text-emerald-700" />
-          <span className="text-sm font-medium text-emerald-800">
-            Lọc theo giám sát viên
-          </span>
-          <select
-            value={supervisorFilterId}
-            onChange={(event) => setSupervisorFilterId(event.target.value)}
-            disabled={isLoadingSupervisors}
-            className="h-8 min-w-52 rounded-md border border-emerald-200 bg-white px-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+    <div className="h-full min-h-0 flex flex-col gap-6 p-0 sm:p-0">
+      <DataGrid<PlotItem>
+        items={plots}
+        title="Quản lý lô đất"
+        titleIcon={<MapPin className="size-4 text-primary" />}
+        description="Danh sách lô đất đang quản lý. Mở chi tiết để chỉnh sửa thông tin lô, giám sát viên phụ trách và dữ liệu liên quan."
+        keyExtractor={(plot) => plot.id}
+        renderCard={(plot) => (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => openSheet(plot)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openSheet(plot);
+              }
+            }}
+            className={cn(
+              "group flex h-full min-h-0 w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:border-emerald-300 hover:shadow-md",
+              editingId === plot.id && "border-emerald-500 ring-2 ring-emerald-200",
+            )}
           >
-            <option value="all">Tất cả giám sát viên</option>
-            {supervisors.map((item) => (
-              <option key={`plot-filter-supervisor-${item.id}`} value={item.id}>
-                {item.name}
-                {item.employeeCode ? ` (${item.employeeCode})` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div className="flex shrink-0 items-start justify-between gap-3">
+              <div>
+                <p className="text-base font-semibold text-slate-900 group-hover:text-emerald-900">
+                  {plot.plotName}
+                </p>
+                <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openSheet(plot);
+                  }}
+                >
+                  <Edit3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    requestDelete(plot);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm text-sky-800">
-            <Layers3 className="h-4 w-4" />
-            <span className="font-medium">Tổng lô:</span>
-            <span className="font-semibold">{total}</span>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-800">
-            <Sprout className="h-4 w-4" />
-            <span className="font-medium">Tổng diện tích:</span>
-            <span className="font-semibold">{totalArea.toFixed(1)} ha</span>
-          </div>
-        </div>
-      </div>
+            <div className="mt-4 min-h-0 flex-1 grid gap-2 text-sm text-muted-foreground">
+              <p className="inline-flex items-center gap-2">
+                <UserRound className="h-4 w-4 shrink-0" />
+                {plot.farmerName}
+              </p>
+              <p className="inline-flex items-center gap-2">
+                <UserRound className="h-4 w-4 shrink-0" />
+                GS: {plot.name_suppervisor || "Chưa phân công"}
+              </p>
+              <p className="inline-flex items-center gap-2">
+                <MapPin className="h-4 w-4 shrink-0" />
+                {plot.district}, {plot.province}
+              </p>
+            </div>
 
-      <div className="min-h-0 flex flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {isLoading ? (
+            <div className="mt-auto flex shrink-0 flex-wrap items-center gap-2 border-t border-dashed border-primary/30 pt-3">
+              <Badge variant="outline" className={getCropBadgeClass(plot.cropType)}>
+                {getCropLabel(plot.cropType)}
+              </Badge>
+              <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                {plot.areaHa} ha
+              </Badge>
+            </div>
+          </div>
+        )}
+        isLoading={isLoading}
+        isAwaitingResults={isFetching && isPlaceholderData}
+        manualPagination
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          totalItems: total,
+          totalPages: Math.max(1, totalPages),
+          onPageChange: setCurrentPage,
+        }}
+        toolbar={{
+          search: {
+            value: keyword,
+            onChange: setKeyword,
+            debounceMs: 0,
+            placeholder: "Tìm theo tên lô, mã lô, tỉnh, nông dân...",
+          },
+          filters: (
+            <>
+              <span
+                className="inline-flex shrink-0 items-center gap-1.5 text-muted-foreground"
+                title="Bộ lọc nhanh"
+              >
+                <SlidersHorizontal className="h-4 w-4 shrink-0" />
+                <span className="hidden text-xs font-medium sm:inline">Bộ lọc</span>
+              </span>
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                <Button
+                  variant={filter === "all" ? "primary" : "outline"}
+                  className="rounded-full"
+                  onClick={() => setFilter("all")}
+                >
+                  Tất cả
+                </Button>
+                <Button
+                  variant={filter === "ca-phe" ? "primary" : "outline"}
+                  className="rounded-full"
+                  onClick={() => setFilter("ca-phe")}
+                >
+                  Cà phê
+                </Button>
+                <Button
+                  variant={filter === "sau-rieng" ? "primary" : "outline"}
+                  className="rounded-full"
+                  onClick={() => setFilter("sau-rieng")}
+                >
+                  Sầu riêng
+                </Button>
+              </div>
+              <div
+                className="inline-flex max-w-full shrink-0 items-center gap-2 rounded-full border border-emerald-200 bg-white px-2.5 py-1"
+                title="Lọc theo giám sát viên"
+              >
+                <Users className="h-4 w-4 shrink-0 text-emerald-700" />
+                <span className="hidden whitespace-nowrap text-xs font-medium text-emerald-800 lg:inline">
+                  Giám sát
+                </span>
+                <select
+                  value={supervisorFilterId}
+                  onChange={(event) => setSupervisorFilterId(event.target.value)}
+                  disabled={isLoadingSupervisors}
+                  className="h-8 min-w-[10rem] max-w-[14rem] rounded-md border border-emerald-200 bg-white px-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <option value="all">Tất cả giám sát viên</option>
+                  {supervisors.map((item) => (
+                    <option key={`plot-filter-supervisor-${item.id}`} value={item.id}>
+                      {item.name}
+                      {item.employeeCode ? ` (${item.employeeCode})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ),
+          quickStats: (
+            <>
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm text-sky-800">
+                <Layers3 className="h-4 w-4" />
+                <span className="font-medium">Tổng lô:</span>
+                <span className="font-semibold">{total}</span>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-800">
+                <Sprout className="h-4 w-4" />
+                <span className="font-medium">Tổng diện tích:</span>
+                <span className="font-semibold">{totalArea.toFixed(1)} ha</span>
+              </div>
+            </>
+          ),
+        }}
+        emptyState={{
+          description: "Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.",
+        }}
+        skeleton={{
+          count: 1,
+          renderSkeletonCard: () => (
             <Card>
               <CardContent className="py-10 text-center text-sm text-muted-foreground">
                 Đang tải dữ liệu lô đất...
               </CardContent>
             </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {plots.map((plot) => (
-                <div
-                  key={plot.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openSheet(plot)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openSheet(plot);
-                    }
-                  }}
-                  className={cn(
-                    "group cursor-pointer overflow-hidden rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:border-emerald-300 hover:shadow-md",
-                    editingId === plot.id &&
-                      "border-emerald-500 ring-2 ring-emerald-200",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-base font-semibold text-slate-900 group-hover:text-emerald-900">
-                        {plot.plotName}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 rounded-full"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openSheet(plot);
-                        }}
-                      >
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          requestDelete(plot);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
-                    <p className="inline-flex items-center gap-2">
-                      <UserRound className="h-4 w-4" />
-                      {plot.farmerName}
-                    </p>
-                    <p className="inline-flex items-center gap-2">
-                      <UserRound className="h-4 w-4" />
-                      GS: {plot.name_suppervisor || "Chưa phân công"}
-                    </p>
-                    <p className="inline-flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      {plot.district}, {plot.province}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dashed border-primary/30 pt-3">
-                    <Badge
-                      variant="outline"
-                      className={getCropBadgeClass(plot.cropType)}
-                    >
-                      {getCropLabel(plot.cropType)}
-                    </Badge>
-                    <Badge
-                      variant="secondary"
-                      className="bg-slate-100 text-slate-700"
-                    >
-                      {plot.areaHa} ha
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!isLoading && !plots.length && (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {!isLoading && total > 0 && (
-          <div className="mt-3 border-t bg-background pt-3">
-            <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-xs text-muted-foreground">
-                Hiển thị {pageFrom}-{pageTo} / {total} lô đất
-              </div>
-
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Trang {currentPage} / {totalPages}
-                </span>
-                <div className="h-3 w-px bg-border" />
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={goFirstPage}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronsLeft className="h-3.5 w-3.5" />
-                    <span className="ml-1 hidden sm:inline">Đầu</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={goPrevPage}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                    <span className="ml-1 hidden sm:inline">Trước</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={goNextPage}
-                    disabled={currentPage === totalPages}
-                  >
-                    <span className="mr-1 hidden sm:inline">Sau</span>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={goLastPage}
-                    disabled={currentPage === totalPages}
-                  >
-                    <span className="mr-1 hidden sm:inline">Cuối</span>
-                    <ChevronsRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+          ),
+        }}
+        layout={{
+          minCardWidth: 280,
+          equalHeightCards: true,
+          itemWrapperClassName: "items-stretch",
+        }}
+        classNames={{ root: "h-full min-h-0", content: "min-h-0 flex-1" }}
+      />
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent

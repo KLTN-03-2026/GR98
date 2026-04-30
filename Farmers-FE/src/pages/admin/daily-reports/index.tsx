@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { CalendarDays, Search } from 'lucide-react';
 import type { PaginationState, Updater } from '@tanstack/react-table';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -199,9 +199,14 @@ export default function AdminDailyReportsPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Báo cáo hàng ngày</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+            <CalendarDays className="size-4 text-primary" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Báo cáo hàng ngày</h1>
+        </div>
+        <p className="text-muted-foreground text-sm">
           Danh sách báo cáo đã gửi từ giám sát viên. Mở chi tiết để xem nội dung và ảnh đính kèm.
         </p>
         <div className="flex flex-wrap items-center gap-2">

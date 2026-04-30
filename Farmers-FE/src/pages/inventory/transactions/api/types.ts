@@ -31,6 +31,7 @@ export interface CreateTransactionInput {
   type: 'inbound' | 'outbound' | 'adjustment';
   quantityKg: number; // For outbound this will be sent as positive but backend handles signed logic
   note?: string;
+  sourceLotId?: string;
 }
 
 export interface TransactionFilters {

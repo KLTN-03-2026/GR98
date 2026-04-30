@@ -95,7 +95,7 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
     // Validation nghiệp vụ bổ sung
     const harvest = startOfDay(new Date(values.harvestDate));
     const now = startOfDay(new Date());
-    
+
     if (isAfter(harvest, now)) {
       form.setError('harvestDate', { message: 'Ngày thu hoạch không thể ở tương lai' });
       return;
@@ -167,7 +167,7 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
                 <FileText className="size-4" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Liên kết nguồn gốc</span>
               </div>
-              
+
               <FormField<CreateLotFormValues, 'contractId'>
                 control={form.control as any}
                 name="contractId"
@@ -247,9 +247,9 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
               <FormField<CreateLotFormValues, 'quantityKg'>
                 control={form.control as any}
                 name="quantityKg"
-                rules={{ 
-                  required: 'Nhập số lượng', 
-                  min: { value: 0.1, message: 'Tối thiểu 0.1kg' } 
+                rules={{
+                  required: 'Nhập số lượng',
+                  min: { value: 0.1, message: 'Tối thiểu 0.1kg' }
                 }}
                 render={({ field }) => (
                   <FormItem>

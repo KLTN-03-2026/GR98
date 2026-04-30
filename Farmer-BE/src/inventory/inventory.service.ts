@@ -716,7 +716,7 @@ export class InventoryService {
       currentUser.role,
     );
 
-    const { warehouseId, productId, inventoryLotId, type, quantityKg, note } =
+    const { warehouseId, productId, inventoryLotId, type, quantityKg, note, sourceLotId } =
       dto;
 
     if (!warehouseIds.includes(warehouseId)) {
@@ -740,10 +740,20 @@ export class InventoryService {
       // Xác định delta cho việc cộng dồn stock
       let delta = 0;
       let signedQty = quantityKg;
+      let stockDelta = 0;
 
       if (type === TransactionType.INBOUND) {
-        delta = quantityKg;
-        signedQty = quantityKg;
+        if (lot.quantityKg < quantityKg) {
+          throw new BadRequestException(
+            `Số lượng nhập vượt quá số lượng hàng từ lô (Hiện có: ${lot.quantityKg}kg)`,
+          );
+        }
+
+        // Logic mới: Lô hàng đóng vai trò nguồn dự kiến/chờ nhập (Staging).
+        // Rút hàng từ Lô (giảm quantity của Lô) -> Nhập vào Kho (tăng Product.stockKg)
+        delta = -quantityKg;      // Lô hàng nguồn sẽ bị giảm số lượng đi
+        signedQty = quantityKg;   // Giao dịch ghi log là số dương (Nhập kho)
+        stockDelta = quantityKg;  // Tồn kho thực tế của Sản phẩm (Kho hàng) tăng lên
       } else if (type === TransactionType.OUTBOUND) {
         if (lot.quantityKg < quantityKg) {
           throw new BadRequestException(
@@ -752,10 +762,11 @@ export class InventoryService {
         }
         delta = -quantityKg;
         signedQty = -quantityKg;
+        stockDelta = -quantityKg;
       } else if (type === TransactionType.ADJUSTMENT) {
-        // Với adjustment, quantityKg có thể dương (tăng) hoặc âm (giảm)
         delta = quantityKg;
         signedQty = quantityKg;
+        stockDelta = quantityKg;
       }
 
       // 2. Tạo giao dịch (signed quantity)
@@ -780,12 +791,14 @@ export class InventoryService {
       });
 
       // 4. Cập nhật tổng tồn kho của Sản phẩm
-      await tx.product.update({
-        where: { id: productId },
-        data: {
-          stockKg: { increment: delta },
-        },
-      });
+      if (stockDelta !== 0) {
+        await tx.product.update({
+          where: { id: productId },
+          data: {
+            stockKg: { increment: stockDelta },
+          },
+        });
+      }
 
       return transaction;
     });

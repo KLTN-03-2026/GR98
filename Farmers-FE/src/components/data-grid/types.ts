@@ -88,7 +88,7 @@ export type DataGridProps<TItem> = {
   description?: string;
   isLoading?: boolean;
   /**
-   * Đang chờ response cho bộ filter/query hiện tại (vd. `isPlaceholderData` từ React Query).
+   * Đang chờ response sau khi đổi filter/tìm kiếm/phân trang (vd. `isFetching && isPlaceholderData` khi hook dùng `placeholderData`).
    * Hiện skeleton lưới nhưng không khóa ô tìm kiếm trên toolbar.
    */
   isAwaitingResults?: boolean;

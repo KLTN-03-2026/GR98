@@ -8,6 +8,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
+import { CreateTransactionDto, TransactionType } from './dto/create-transaction.dto';
+import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
 
 interface InventoryUser {
   id: string;
@@ -465,7 +467,7 @@ export class InventoryService {
     });
   }
 
-  async createLot(currentUser: InventoryUser, data: any) {
+  async createLot(currentUser: InventoryUser, dto: CreateInventoryLotDto) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
@@ -476,15 +478,42 @@ export class InventoryService {
       currentUser.role,
     );
 
-    if (!warehouseIds.includes(data.warehouseId as string)) {
+    if (!warehouseIds.includes(dto.warehouseId)) {
       throw new ForbiddenException('Bạn không có quyền nhập hàng vào kho này');
     }
 
-    const warehouseId = data.warehouseId as string;
-    const productId = data.productId as string;
-    const quantityKg = Number(data.quantityKg);
-    const contractId = (data.contractId as string) || null;
-    const notes = (data.note as string) || 'Nhập kho lô hàng mới';
+    const { warehouseId, productId, quantityKg, contractId, note } = dto;
+    const notes = note || 'Nhập kho lô hàng mới';
+
+    // RECONCILIATION LOGIC: Check for 5% deviation from Supervisor Estimate
+    if (contractId) {
+      const contract = await this.prisma.contract.findUnique({
+        where: { id: contractId },
+        select: { plotId: true },
+      });
+
+      if (contract?.plotId) {
+        const lastReport = await this.prisma.dailyReport.findFirst({
+          where: {
+            plotId: contract.plotId,
+            status: { in: ['SUBMITTED', 'REVIEWED'] },
+            yieldEstimateKg: { not: null },
+          },
+          orderBy: { reportedAt: 'desc' },
+        });
+
+        if (lastReport?.yieldEstimateKg) {
+          const estimate = lastReport.yieldEstimateKg;
+          const deviation = Math.abs(quantityKg - estimate) / estimate;
+
+          if (deviation > 0.05) {
+            throw new BadRequestException(
+              `CẢNH BÁO CHÊNH LỆCH: Sản lượng nhập kho (${quantityKg}kg) sai lệch >5% so với dự báo của Giám sát viên (${estimate}kg). Vui lòng kiểm tra lại với GSV trước khi nhập kho.`,
+            );
+          }
+        }
+      }
+    }
 
     // Transactional creation
     return this.prisma.$transaction(async (tx) => {
@@ -495,13 +524,9 @@ export class InventoryService {
           productId,
           contractId,
           quantityKg,
-          harvestDate: data.harvestDate
-            ? new Date(data.harvestDate as string)
-            : null,
-          expiryDate: data.expiryDate
-            ? new Date(data.expiryDate as string)
-            : null,
-          qualityGrade: data.qualityGrade,
+          harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : null,
+          expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
+          qualityGrade: dto.qualityGrade,
         },
       });
 
@@ -645,7 +670,7 @@ export class InventoryService {
     });
   }
 
-  async createTransaction(currentUser: InventoryUser, data: any) {
+  async createTransaction(currentUser: InventoryUser, dto: CreateTransactionDto) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
       currentUser.id,
@@ -656,12 +681,8 @@ export class InventoryService {
       currentUser.role,
     );
 
-    const warehouseId = data.warehouseId as string;
-    const productId = data.productId as string;
-    const inventoryLotId = data.inventoryLotId as string;
-    const type = data.type as string; // inbound | outbound | adjustment
-    const qtyInput = Number(data.quantityKg);
-    const note = (data.note as string) || '';
+    const { warehouseId, productId, inventoryLotId, type, quantityKg, note } =
+      dto;
 
     if (!warehouseIds.includes(warehouseId)) {
       throw new ForbiddenException('Bạn không có quyền thao tác trên kho này');
@@ -674,31 +695,32 @@ export class InventoryService {
       });
 
       if (!lot || lot.warehouseId !== warehouseId) {
-        throw new Error('Lô hàng không tồn tại trong kho đã chọn');
+        throw new BadRequestException('Lô hàng không tồn tại trong kho đã chọn');
       }
 
       if (lot.productId !== productId) {
-        throw new Error('Sản phẩm không khớp với lô hàng đã chọn');
+        throw new BadRequestException('Sản phẩm không khớp với lô hàng đã chọn');
       }
 
       // Xác định delta cho việc cộng dồn stock
       let delta = 0;
-      let signedQty = qtyInput;
+      let signedQty = quantityKg;
 
-      if (type === 'inbound') {
-        delta = qtyInput;
-        signedQty = qtyInput;
-      } else if (type === 'outbound') {
-        if (lot.quantityKg < qtyInput) {
-          throw new Error('Số lượng tồn trong lô không đủ để xuất kho');
+      if (type === TransactionType.INBOUND) {
+        delta = quantityKg;
+        signedQty = quantityKg;
+      } else if (type === TransactionType.OUTBOUND) {
+        if (lot.quantityKg < quantityKg) {
+          throw new BadRequestException(
+            `Số lượng tồn trong lô không đủ để xuất kho (Hiện có: ${lot.quantityKg}kg)`,
+          );
         }
-        delta = -qtyInput;
-        signedQty = -qtyInput;
-      } else if (type === 'adjustment') {
-        delta = qtyInput; // Với adjustment, qtyInput có thể âm hoặc dương (là delta)
-        signedQty = qtyInput;
-      } else {
-        throw new Error('Loại giao dịch không hợp lệ');
+        delta = -quantityKg;
+        signedQty = -quantityKg;
+      } else if (type === TransactionType.ADJUSTMENT) {
+        // Với adjustment, quantityKg có thể dương (tăng) hoặc âm (giảm)
+        delta = quantityKg;
+        signedQty = quantityKg;
       }
 
       // 2. Tạo giao dịch (signed quantity)
@@ -709,7 +731,7 @@ export class InventoryService {
           inventoryLotId,
           type,
           quantityKg: signedQty,
-          note,
+          note: note || '',
           createdBy: currentUser.id,
         },
       });
@@ -748,18 +770,19 @@ export class InventoryService {
       currentUser.role,
     );
 
+    const cropType = filters.cropType || undefined;
+    const fromDate = filters.fromDate ? new Date(filters.fromDate) : undefined;
+    const toDate = filters.toDate ? new Date(filters.toDate) : undefined;
+
     // 1. Fetch Expected Yield from DailyReports (yieldEstimateKg)
     const dailyReports = await this.prisma.dailyReport.findMany({
       where: {
         adminId,
+        status: { in: ['SUBMITTED', 'REVIEWED'] },
         yieldEstimateKg: { not: null },
-        plot: filters.cropType ? { cropType: filters.cropType } : {},
-        ...(filters.fromDate && {
-          reportedAt: { gte: new Date(filters.fromDate) },
-        }),
-        ...(filters.toDate && {
-          reportedAt: { lte: new Date(filters.toDate) },
-        }),
+        plot: cropType ? { cropType } : {},
+        ...(fromDate && { reportedAt: { gte: fromDate } }),
+        ...(toDate && { reportedAt: { lte: toDate } }),
       },
       include: { plot: { select: { cropType: true } } },
     });
@@ -768,7 +791,7 @@ export class InventoryService {
     const inventoryLots = await this.prisma.inventoryLot.findMany({
       where: {
         warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['NONE'] },
-        product: filters.cropType ? { cropType: filters.cropType } : {},
+        product: cropType ? { cropType } : {},
       },
       include: { product: { select: { cropType: true } } },
     });
@@ -778,6 +801,7 @@ export class InventoryService {
       where: {
         adminId,
         fulfillStatus: { in: ['PENDING', 'PACKING'] },
+        orderItems: cropType ? { some: { product: { cropType } } } : undefined,
       },
       include: {
         orderItems: {

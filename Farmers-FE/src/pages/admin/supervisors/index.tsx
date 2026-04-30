@@ -275,6 +275,17 @@ export default function AdminSupervisorsPage() {
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+            <UserRound className="size-4 text-primary" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Quản lý giám sát viên</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Tìm kiếm, lọc theo trạng thái và thêm hoặc chỉnh sửa hồ sơ giám sát viên.
+        </p>
+      </div>
       <Card className="border-dashed border-primary/40">
         <CardContent className="space-y-3 p-4 sm:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

@@ -129,7 +129,7 @@ function FarmerManagementPage() {
 
   const { data: supervisors = [] } = useAllSupervisors();
 
-  const { data: queryData, isLoading } = useFarmers({
+  const { data: queryData, isLoading, isFetching, isPlaceholderData } = useFarmers({
     page: currentPage,
     limit: PAGE_LIMIT,
     search: debouncedKeyword || undefined,
@@ -298,6 +298,7 @@ function FarmerManagementPage() {
       <DataGrid<FarmerResponse>
         items={farmers}
         title="Quản lý nông dân"
+        titleIcon={<Wheat className="size-4 text-primary" />}
         description="Danh sách hồ sơ nông dân theo tenant Admin. Mở từng hồ sơ để cập nhật thông tin, giám sát viên và trạng thái."
         keyExtractor={(row) => row.id}
         renderCard={(row) => (
@@ -355,6 +356,7 @@ function FarmerManagementPage() {
           </button>
         )}
         isLoading={isLoading}
+        isAwaitingResults={isFetching && isPlaceholderData}
         manualPagination
         manualFiltering
         pagination={{

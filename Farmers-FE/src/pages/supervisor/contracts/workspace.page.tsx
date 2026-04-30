@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Building2,
   CheckCircle2,
+  FilePenLine,
   FileText,
   Landmark,
   Phone,
@@ -246,7 +247,14 @@ function SupervisorContractCreateWorkspace() {
               Danh sách
             </Link>
           </Button>
-          <h1 className="text-xl font-semibold sm:text-2xl">Soạn hợp đồng nháp</h1>
+          <div className="flex items-center gap-2">
+            <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+              <FilePenLine className="size-4 text-primary" />
+            </div>
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+              Soạn hợp đồng nháp
+            </h1>
+          </div>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4" />

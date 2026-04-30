@@ -27,6 +27,8 @@ import { vi } from 'date-fns/locale';
 import CreateLotModal from './components/CreateLotModal';
 import TraceabilityView from './components/TraceabilityView';
 import UpdateGradeModal from './components/UpdateGradeModal';
+import IncomingHarvests from '../transactions/components/IncomingHarvests';
+import CreateTransactionDialog from '../transactions/components/CreateTransactionDialog';
 import type { InventoryLot } from './api/types';
 import { cn } from '@/lib/utils';
 import { DataTable } from '@/components/data-table/data-table';
@@ -49,6 +51,11 @@ export default function InventoryLotsPage() {
   const [isTraceOpen, setIsTraceOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUpdateGradeOpen, setIsUpdateGradeOpen] = useState(false);
+  
+  // States for Receiving Harvest flow
+  const [isReceiveDialogOpen, setIsReceiveDialogOpen] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState<string | undefined>();
+  const [selectedType, setSelectedType] = useState<string | undefined>();
 
   const { data: lots, isLoading, isRefetching, refetch } = useGetLots({
     warehouseId: warehouseFilter !== 'all' ? warehouseFilter : undefined,
@@ -230,6 +237,13 @@ export default function InventoryLotsPage() {
         </Button>
       </div>
 
+      {/* STEP 1: INCOMING HARVESTS */}
+      <IncomingHarvests onReceive={(reportId) => {
+        setSelectedReportId(reportId);
+        setSelectedType('receive_harvest');
+        setIsReceiveDialogOpen(true);
+      }} />
+
       <Card>
         <CardContent className="pt-6">
           <DataTable
@@ -306,6 +320,18 @@ export default function InventoryLotsPage() {
           setIsUpdateGradeOpen(false);
           setLotToUpdate(null);
         }}
+      />
+
+      <CreateTransactionDialog 
+        isOpen={isReceiveDialogOpen} 
+        onClose={() => {
+          setIsReceiveDialogOpen(false);
+          setSelectedReportId(undefined);
+          setSelectedType(undefined);
+          refetch(); // Refresh lots list after receiving
+        }} 
+        defaultReportId={selectedReportId}
+        defaultType={selectedType}
       />
     </div>
   );

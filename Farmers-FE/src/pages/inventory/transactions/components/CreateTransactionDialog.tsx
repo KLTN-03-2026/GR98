@@ -28,33 +28,62 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useGetWarehouses } from '../../warehouses/api';
-import { useGetProducts, useGetLots } from '../../lots/api';
-import { useCreateTransaction } from '../api';
+import { useGetProducts, useGetLots, useGetContracts } from '../../lots/api';
+import { useDailyReports } from '../../../admin/daily-reports/api/use-daily-reports';
+import { useCreateTransaction, useReceiveHarvest } from '../api';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeftRight, TrendingUp, TrendingDown, Settings2, Plus, Minus } from 'lucide-react';
-import type { CreateTransactionInput } from '../api/types';
+import { 
+  Loader2, 
+  ArrowLeftRight, 
+  TrendingUp, 
+  TrendingDown, 
+  Settings2, 
+  Plus, 
+  Minus, 
+  Scale, 
+  AlertCircle,
+  CheckCircle2,
+  FileText
+} from 'lucide-react';
+import type { CreateTransactionInput, ReceiveHarvestInput } from '../api/types';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 interface CreateTransactionDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultReportId?: string;
+  defaultType?: string;
 }
 
-export default function CreateTransactionDialog({ isOpen, onClose }: CreateTransactionDialogProps) {
+export default function CreateTransactionDialog({ 
+  isOpen, 
+  onClose, 
+  defaultReportId, 
+  defaultType 
+}: CreateTransactionDialogProps) {
   // Fetch data
   const { data: warehouses } = useGetWarehouses();
   const { data: allProducts } = useGetProducts();
   const createTransactionMutation = useCreateTransaction();
+  const receiveHarvestMutation = useReceiveHarvest();
 
-  const form = useForm<CreateTransactionInput>({
+  const form = useForm<any>({
     defaultValues: {
       warehouseId: '',
       productId: '',
       inventoryLotId: '',
-      type: 'inbound',
+      type: 'inbound', // inbound, outbound, adjustment, receive_harvest
       quantityKg: 0,
       note: '',
       sourceLotId: '',
+      // Fields for receive_harvest
+      dailyReportId: '',
+      contractId: '',
+      actualWeight: 0,
+      qualityGrade: 'A',
+      justification: '',
     },
   });
 
@@ -62,6 +91,9 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
   const selectedProductId = useWatch({ control: form.control, name: 'productId' });
   const selectedType = useWatch({ control: form.control, name: 'type' });
   const selectedTargetLotId = useWatch({ control: form.control, name: 'inventoryLotId' });
+  const selectedReportId = useWatch({ control: form.control, name: 'dailyReportId' });
+  const selectedContractId = useWatch({ control: form.control, name: 'contractId' });
+  const quantityKgValue = useWatch({ control: form.control, name: 'quantityKg' });
 
   // Fetch all lots in the selected warehouse to know what products are available
   const { data: warehouseLots, isLoading: isLoadingWarehouseLots } = useGetLots({
@@ -85,6 +117,38 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
 
   // Auto-focus quantity field
   React.useEffect(() => {
+    if (isOpen && defaultReportId) {
+      form.reset({
+        type: defaultType || 'receive_harvest',
+        dailyReportId: defaultReportId,
+        warehouseId: '',
+        productId: '',
+        inventoryLotId: '',
+        quantityKg: 0,
+        note: '',
+        contractId: '',
+        actualWeight: 0,
+        qualityGrade: 'A',
+        justification: '',
+      });
+    } else if (isOpen && !defaultReportId) {
+       form.reset({
+        type: 'inbound',
+        dailyReportId: '',
+        warehouseId: '',
+        productId: '',
+        inventoryLotId: '',
+        quantityKg: 0,
+        note: '',
+        contractId: '',
+        actualWeight: 0,
+        qualityGrade: 'A',
+        justification: '',
+      });
+    }
+  }, [isOpen, defaultReportId, defaultType, form]);
+
+  React.useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === 'inventoryLotId' && value.inventoryLotId) {
         setTimeout(() => {
@@ -97,14 +161,46 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
     return () => subscription.unsubscribe();
   }, [form]);
 
-  const onSubmit = async (values: CreateTransactionInput) => {
-    try {
-      const payload = {
-        ...values,
-        quantityKg: parseFloat(values.quantityKg as any),
-      };
+  // Fetch submitted daily reports for receiving flow
+  const { data: submittedReports } = useDailyReports({ status: 'SUBMITTED' });
+  const { data: contracts } = useGetContracts();
 
-      await createTransactionMutation.mutateAsync(payload);
+  // Tolerance check logic
+  const selectedReport = useMemo(() => 
+    submittedReports?.data.find(r => r.id === selectedReportId),
+    [submittedReports, selectedReportId]
+  );
+
+  const deviation = useMemo(() => {
+    if (!selectedReport?.yieldEstimateKg || !quantityKgValue) return 0;
+    const estimate = selectedReport.yieldEstimateKg;
+    const actual = parseFloat(quantityKgValue as any) || 0;
+    return Math.abs(actual - estimate) / estimate;
+  }, [selectedReport, quantityKgValue]);
+
+  const isDeviationExceeded = deviation > 0.05;
+
+  const onSubmit = async (values: any) => {
+    try {
+      if (selectedType === 'receive_harvest') {
+        const payload: ReceiveHarvestInput = {
+          dailyReportId: values.dailyReportId,
+          contractId: values.contractId,
+          warehouseId: values.warehouseId,
+          actualWeight: parseFloat(values.quantityKg as any),
+          qualityGrade: values.qualityGrade,
+          justification: values.justification,
+          note: values.note,
+        };
+        await receiveHarvestMutation.mutateAsync(payload);
+      } else {
+        const payload: CreateTransactionInput = {
+          ...values,
+          quantityKg: parseFloat(values.quantityKg as any),
+        };
+        await createTransactionMutation.mutateAsync(payload);
+      }
+      
       toast.success('Ghi nhận giao dịch thành công');
       form.reset();
       onClose();
@@ -124,16 +220,22 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
               "flex size-12 items-center justify-center rounded-2xl border transition-colors duration-500",
               selectedType === 'inbound' ? "bg-emerald-50 border-emerald-100 text-emerald-600" :
               selectedType === 'outbound' ? "bg-rose-50 border-rose-100 text-rose-600" :
+              selectedType === 'receive_harvest' ? "bg-amber-50 border-amber-100 text-amber-600" :
               "bg-blue-50 border-blue-100 text-blue-600"
             )}>
               {selectedType === 'inbound' ? <TrendingUp className="size-6" /> :
                selectedType === 'outbound' ? <TrendingDown className="size-6" /> :
+               selectedType === 'receive_harvest' ? <Scale className="size-6" /> :
                <Settings2 className="size-6" />}
             </div>
             <div className="space-y-0.5">
-              <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">Ghi nhận giao dịch kho</DialogTitle>
+              <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
+                {selectedType === 'receive_harvest' ? 'Nhận hàng thu hoạch' : 'Ghi nhận giao dịch kho'}
+              </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Thực hiện nhập, xuất hoặc điều chỉnh tồn kho cho sản phẩm.
+                {selectedType === 'receive_harvest' 
+                  ? 'Đối soát sản lượng thực tế và tạo lô hàng nhập kho.' 
+                  : 'Thực hiện nhập, xuất hoặc điều chỉnh tồn kho cho sản phẩm.'}
               </DialogDescription>
             </div>
           </div>
@@ -148,8 +250,9 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
                 control={form.control}
                 name="type"
                 render={({ field }) => (
-                  <div className="grid grid-cols-3 gap-3 p-1 bg-slate-100 rounded-2xl">
+                  <div className="grid grid-cols-4 gap-2 p-1.5 bg-slate-100 rounded-[20px]">
                     {[
+                      { id: 'receive_harvest', label: 'Nhận hàng', color: 'amber', icon: Scale },
                       { id: 'inbound', label: 'Nhập kho', color: 'emerald', icon: TrendingUp },
                       { id: 'outbound', label: 'Xuất kho', color: 'rose', icon: TrendingDown },
                       { id: 'adjustment', label: 'Điều chỉnh', color: 'blue', icon: Settings2 },
@@ -163,15 +266,18 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
                           form.setValue('inventoryLotId', '');
                           form.setValue('sourceLotId', '');
                           form.setValue('quantityKg', 0);
+                          form.setValue('dailyReportId', '');
+                          form.setValue('contractId', '');
+                          form.setValue('justification', '');
                         }}
                         className={cn(
-                          "flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all duration-300",
+                          "flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold transition-all duration-300",
                           field.value === t.id 
-                            ? `bg-white text-${t.color}-600 shadow-sm ring-1 ring-black/5` 
-                            : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+                            ? `bg-white text-${t.color}-600 shadow-md ring-1 ring-black/5` 
+                            : "text-slate-500 hover:text-slate-700 hover:bg-white/40"
                         )}
                       >
-                        <t.icon className="size-3.5" />
+                        <t.icon className="size-3" />
                         {t.label}
                       </button>
                     ))}
@@ -181,115 +287,236 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
 
 
 
-              {/* DESTINATION SELECTION SECTION */}
-              <div className="flex flex-col gap-6">
+              {/* HARVEST RECEIVING FLOW */}
+              {selectedType === 'receive_harvest' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="dailyReportId"
+                      rules={{ required: 'Bắt buộc' }}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Báo cáo thu hoạch</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="rounded-xl border-slate-200 bg-white">
+                                <SelectValue placeholder="Chọn báo cáo" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="rounded-xl">
+                              {submittedReports?.data.map(r => (
+                                <SelectItem key={r.id} value={r.id}>
+                                  BC-{r.id.slice(-4).toUpperCase()} | {r.plot.plotCode} ({r.yieldEstimateKg}kg)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="contractId"
+                      rules={{ required: 'Bắt buộc' }}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Hợp đồng liên kết</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="rounded-xl border-slate-200 bg-white">
+                                <SelectValue placeholder="Chọn hợp đồng" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="rounded-xl">
+                              {contracts?.map(c => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.contractNo} - {c.farmer.fullName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="warehouseId"
+                      rules={{ required: 'Bắt buộc' }}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Kho tiếp nhận</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="rounded-xl border-slate-200 bg-white">
+                                <SelectValue placeholder="Chọn kho" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="rounded-xl">
+                              {warehouses?.map(w => (
+                                <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="qualityGrade"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Phẩm cấp chất lượng</FormLabel>
+                          <div className="grid grid-cols-4 gap-2">
+                            {['A', 'B', 'C', 'REJECT'].map(g => (
+                              <button
+                                key={g}
+                                type="button"
+                                onClick={() => field.onChange(g)}
+                                className={cn(
+                                  "py-2 rounded-lg text-[10px] font-black border transition-all",
+                                  field.value === g 
+                                    ? "bg-slate-900 text-white border-slate-900" 
+                                    : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
+                                )}
+                              >
+                                {g}
+                              </button>
+                            ))}
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* DESTINATION SELECTION SECTION (NON-HARVEST) */}
+              {selectedType !== 'receive_harvest' && (
+                <div className="flex flex-col gap-6 animate-in fade-in duration-500">
+                  <FormField
+                    control={form.control}
+                    name="warehouseId"
+                    rules={{ required: 'Bắt buộc' }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Kho hàng (Đích đến)</FormLabel>
+                        <Select onValueChange={(val) => {
+                          field.onChange(val);
+                          form.setValue('productId', '');
+                          form.setValue('inventoryLotId', '');
+                        }} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="rounded-xl min-h-[3.5rem] h-auto py-3 border-slate-200 font-semibold text-sm bg-white hover:bg-slate-50 transition-colors w-full">
+                              <SelectValue placeholder="Chọn kho" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="rounded-xl shadow-xl border-slate-100">
+                            {warehouses?.map((w) => (
+                              <SelectItem key={w.id} value={w.id} className="font-medium py-2.5 rounded-lg whitespace-normal">
+                                {w.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="inventoryLotId"
+                    rules={{ required: 'Bắt buộc chọn lô hàng' }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider flex justify-between">
+                          Lô hàng (Nguồn cấp)
+                          {currentLot && (
+                            <span className="text-emerald-600 bg-emerald-50 px-2 rounded-full font-black">Sẵn có: {currentLot.quantityKg} kg</span>
+                          )}
+                        </FormLabel>
+                        <FormDescription className="text-[10px] text-slate-400 -mt-1 mb-1 italic">
+                          {selectedType === 'inbound' 
+                            ? "Hàng sẽ được rút từ lô này để nhập vào tồn kho thực tế." 
+                            : "Hàng sẽ được xuất ra khỏi lô này."}
+                        </FormDescription>
+                        <Select 
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            const lot = warehouseLots?.find(l => l.id === val);
+                            if (lot) {
+                              form.setValue('productId', lot.productId);
+                            }
+                            form.trigger('quantityKg');
+                          }} 
+                          value={field.value || undefined}
+                          disabled={!selectedWarehouseId || isLoadingWarehouseLots}
+                        >
+                          <FormControl>
+                          <SelectTrigger className="rounded-xl border-slate-200 min-h-[3.5rem] h-auto py-3 font-semibold text-sm text-slate-900 bg-white hover:bg-slate-50 transition-all w-full">
+                            <div className="w-full text-left">
+                              <SelectValue placeholder="Chọn lô hàng..." />
+                            </div>
+                          </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="rounded-xl shadow-2xl border-slate-100 max-h-[400px] w-[var(--radix-select-trigger-width)]">
+                            {targetLots?.map((l) => (
+                              <SelectItem key={l.id} value={l.id} className="rounded-lg py-3 mb-1 cursor-pointer">
+                                <div className="flex flex-col gap-1 w-full whitespace-normal">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-bold text-slate-900">Lô {l.id.slice(-6).toUpperCase()}</span>
+                                    <span className="text-[10px] text-slate-400 font-black uppercase shrink-0">{l.qualityGrade}</span>
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-semibold text-emerald-700 text-xs">{l.product?.name}</span>
+                                    <span className="text-[11px] text-slate-500 italic">Tồn: {l.quantityKg.toLocaleString()}kg</span>
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* PRODUCT DISPLAY (NON-HARVEST) */}
+              {selectedType !== 'receive_harvest' && (
                 <FormField
                   control={form.control}
-                  name="warehouseId"
+                  name="productId"
                   rules={{ required: 'Bắt buộc' }}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Kho hàng (Target)</FormLabel>
-                      <Select onValueChange={(val) => {
-                        field.onChange(val);
-                        form.setValue('productId', '');
-                        form.setValue('inventoryLotId', '');
-                      }} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="rounded-xl min-h-[3.5rem] h-auto py-3 border-slate-200 font-semibold text-sm bg-white hover:bg-slate-50 transition-colors w-full">
-                            <SelectValue placeholder="Chọn kho" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="rounded-xl shadow-xl border-slate-100">
-                          {warehouses?.map((w) => (
-                            <SelectItem key={w.id} value={w.id} className="font-medium py-2.5 rounded-lg whitespace-normal">
-                              {w.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Sản phẩm của lô</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input 
+                            disabled 
+                            value={currentLot?.product?.name || ''} 
+                            placeholder="Sản phẩm sẽ hiển thị tự động sau khi chọn lô hàng"
+                            className="rounded-xl min-h-[3.5rem] h-auto py-3 border-slate-200 font-bold text-sm bg-slate-100 opacity-70 text-slate-900 whitespace-normal w-full"
+                          />
+                          <input type="hidden" {...field} value={field.value || ''} />
+                        </div>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-                <FormField
-                  control={form.control}
-                  name="inventoryLotId"
-                  rules={{ required: 'Bắt buộc chọn lô hàng' }}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider flex justify-between">
-                        Lô hàng (Destination)
-                        {currentLot && (
-                          <span className="text-emerald-600 bg-emerald-50 px-2 rounded-full font-black">Hiện tại: {currentLot.quantityKg} kg</span>
-                        )}
-                      </FormLabel>
-                      <Select 
-                        onValueChange={(val) => {
-                          field.onChange(val);
-                          const lot = warehouseLots?.find(l => l.id === val);
-                          if (lot) {
-                            form.setValue('productId', lot.productId);
-                          }
-                          form.trigger('quantityKg');
-                        }} 
-                        value={field.value || undefined}
-                        disabled={!selectedWarehouseId || isLoadingWarehouseLots}
-                      >
-                        <FormControl>
-                        <SelectTrigger className="rounded-xl border-slate-200 min-h-[3.5rem] h-auto py-3 font-semibold text-sm text-slate-900 bg-white hover:bg-slate-50 transition-all w-full">
-                          <div className="w-full text-left">
-                            <SelectValue placeholder="Chọn lô hàng..." />
-                          </div>
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="rounded-xl shadow-2xl border-slate-100 max-h-[400px] w-[var(--radix-select-trigger-width)]">
-                          {targetLots?.map((l) => (
-                            <SelectItem key={l.id} value={l.id} className="rounded-lg py-3 mb-1 cursor-pointer">
-                              <div className="flex flex-col gap-1 w-full whitespace-normal">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-bold text-slate-900">Lô {l.id.slice(-6).toUpperCase()}</span>
-                                  <span className="text-[10px] text-slate-400 font-black uppercase shrink-0">{l.qualityGrade}</span>
-                                </div>
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="font-semibold text-emerald-700 text-xs">{l.product?.name}</span>
-                                  <span className="text-[11px] text-slate-500 italic">Tồn: {l.quantityKg.toLocaleString()}kg</span>
-                                </div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* PRODUCT DISPLAY */}
-              <FormField
-                control={form.control}
-                name="productId"
-                rules={{ required: 'Bắt buộc' }}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Sản phẩm của lô</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input 
-                          disabled 
-                          value={currentLot?.product?.name || ''} 
-                          placeholder="Sản phẩm sẽ hiển thị tự động sau khi chọn lô hàng"
-                          className="rounded-xl min-h-[3.5rem] h-auto py-3 border-slate-200 font-bold text-sm bg-slate-100 opacity-70 text-slate-900 whitespace-normal w-full"
-                        />
-                        <input type="hidden" {...field} value={field.value || ''} />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              )}
 
               {/* QUANTITY INPUT AREA */}
               <div className="space-y-4">
@@ -312,6 +539,7 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
                           return `Vượt quá số lượng trong lô (${currentLot.quantityKg}kg)`;
                         }
                       }
+                      // For receive_harvest, we allow any positive amount but check tolerance visually
                       return true;
                     }
                   }}
@@ -381,7 +609,7 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
                             type="button"
                             onClick={() => {
                               const val = parseFloat(form.getValues('quantityKg') as any) || 0;
-                              const max = currentLot?.quantityKg || 999999;
+                              const max = (selectedType === 'inbound' || selectedType === 'outbound') ? (currentLot?.quantityKg || 999999) : 999999;
                               form.setValue('quantityKg', Math.min(max, val + 1), { shouldValidate: true });
                             }}
                             className="size-12 flex items-center justify-center rounded-2xl bg-white shadow-sm text-slate-400 hover:text-slate-600 transition-colors shrink-0"
@@ -391,12 +619,52 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
                         </div>
                       </FormControl>
                       <FormMessage />
+
+                      {/* TOLERANCE WARNING FOR RECEIVE_HARVEST */}
+                      {selectedType === 'receive_harvest' && selectedReport && (
+                        <div className="mt-4 space-y-4 animate-in fade-in zoom-in-95 duration-500">
+                          <Alert variant={isDeviationExceeded ? "destructive" : "default"} className={cn(
+                            "rounded-2xl border-2",
+                            isDeviationExceeded ? "bg-rose-50 border-rose-200" : "bg-emerald-50 border-emerald-200"
+                          )}>
+                            {isDeviationExceeded ? <AlertCircle className="size-4" /> : <CheckCircle2 className="size-4" />}
+                            <AlertTitle className="text-xs font-black uppercase tracking-tight">
+                              {isDeviationExceeded ? 'Cảnh báo sai lệch sản lượng' : 'Sản lượng trong mức cho phép'}
+                            </AlertTitle>
+                            <AlertDescription className="text-[11px] font-medium">
+                              Sản lượng thực tế lệch **{(deviation * 100).toFixed(1)}%** so với dự báo của GSV ({selectedReport.yieldEstimateKg}kg).
+                              {isDeviationExceeded && " Vui lòng nhập lý do giải trình để tiếp tục."}
+                            </AlertDescription>
+                          </Alert>
+
+                          {isDeviationExceeded && (
+                            <FormField
+                              control={form.control}
+                              name="justification"
+                              rules={{ required: 'Bắt buộc giải trình khi sai lệch > 5%' }}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-rose-600 font-bold text-[10px] uppercase">Lý do giải trình sai lệch *</FormLabel>
+                                  <FormControl>
+                                    <Textarea 
+                                      {...field} 
+                                      placeholder="VD: Hao hụt do vận chuyển, GSV ước tính sai..."
+                                      className="rounded-xl border-rose-200 focus-visible:ring-rose-500 min-h-[80px]"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          )}
+                        </div>
+                      )}
                     </FormItem>
                   )}
                 />
 
-                {/* VISUAL PREDICTION BOX */}
-                {selectedTargetLotId && parseFloat(form.getValues('quantityKg') as any) > 0 && (
+                {/* VISUAL PREDICTION BOX (NON-HARVEST) */}
+                {selectedType !== 'receive_harvest' && selectedTargetLotId && parseFloat(form.getValues('quantityKg') as any) > 0 && (
                   <div className={cn(
                     "rounded-[24px] p-6 border-2 transition-all duration-500 animate-in zoom-in-95",
                     selectedType === 'inbound' ? "bg-emerald-50/50 border-emerald-200" : 
@@ -481,15 +749,16 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
               </Button>
               <Button
                 type="submit"
-                disabled={createTransactionMutation.isPending}
+                disabled={createTransactionMutation.isPending || receiveHarvestMutation.isPending}
                 className={cn(
                   "rounded-xl min-w-[180px] h-11 text-white font-bold text-sm shadow-sm transition-all active:scale-95",
                   selectedType === 'inbound' ? "bg-emerald-600 hover:bg-emerald-700" : 
                   selectedType === 'outbound' ? "bg-rose-600 hover:bg-rose-700" : 
+                  selectedType === 'receive_harvest' ? "bg-amber-600 hover:bg-amber-700" :
                   "bg-blue-600 hover:bg-blue-700"
                 )}
               >
-                {createTransactionMutation.isPending ? (
+                {createTransactionMutation.isPending || receiveHarvestMutation.isPending ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   "Xác nhận giao dịch"

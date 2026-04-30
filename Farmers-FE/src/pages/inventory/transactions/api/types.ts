@@ -41,3 +41,13 @@ export interface TransactionFilters {
   fromDate?: string;
   toDate?: string;
 }
+
+export interface ReceiveHarvestInput {
+  dailyReportId: string;
+  contractId: string;
+  warehouseId: string;
+  actualWeight: number;
+  qualityGrade: string;
+  justification?: string;
+  note?: string;
+}

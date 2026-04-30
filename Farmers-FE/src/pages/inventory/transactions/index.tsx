@@ -7,6 +7,7 @@ import {
   Settings2,
   Search,
   RefreshCcw,
+  Scale,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import { useGetTransactions } from './api';
 import { useGetWarehouses } from '../warehouses/api';
 import { format } from 'date-fns';
 import CreateTransactionDialog from './components/CreateTransactionDialog';
+import IncomingHarvests from './components/IncomingHarvests';
 import { DataTable } from '@/components/data-table/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { WarehouseTransaction } from './api/types';
@@ -31,6 +33,8 @@ export default function InventoryTransactionsPage() {
   const [warehouseFilter, setWarehouseFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState<string | undefined>();
+  const [selectedType, setSelectedType] = useState<string | undefined>();
 
   // Fetch data
   const { data: transactions, isLoading, refetch, isRefetching } = useGetTransactions({
@@ -91,6 +95,12 @@ export default function InventoryTransactionsPage() {
                 ĐIỀU CHỈNH
               </div>
             )}
+            {row.original.type === 'receive_harvest' && (
+              <div className="flex items-center gap-1 text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-amber-100">
+                <Scale className="size-3" />
+                NHẬN HÀNG
+              </div>
+            )}
           </div>
         ),
       },
@@ -99,7 +109,7 @@ export default function InventoryTransactionsPage() {
         header: 'Số lượng',
         cell: ({ row }) => (
           <span className={`font-manrope text-sm font-bold tabular-nums ${
-            row.original.type === 'inbound' ? 'text-emerald-600' : 
+            (row.original.type === 'inbound' || row.original.type === 'receive_harvest') ? 'text-emerald-600' : 
             row.original.type === 'outbound' ? 'text-rose-600' : 'text-slate-900'
           }`}>
             {row.original.type === 'outbound' ? '-' : '+'}{Math.abs(row.original.quantityKg).toLocaleString('vi-VN')} <span className="text-[11px] font-medium opacity-70">kg</span>
@@ -140,13 +150,23 @@ export default function InventoryTransactionsPage() {
             </div>
 
             <Button 
-              onClick={() => setIsCreateDialogOpen(true)}
+              onClick={() => {
+                setSelectedReportId(undefined);
+                setSelectedType(undefined);
+                setIsCreateDialogOpen(true);
+              }}
               className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-10 px-6"
             >
               <Plus className="size-4" />
               <span className="font-bold text-sm">Ghi nhận giao dịch</span>
             </Button>
           </div>
+
+          <IncomingHarvests onReceive={(reportId) => {
+            setSelectedReportId(reportId);
+            setSelectedType('receive_harvest');
+            setIsCreateDialogOpen(true);
+          }} />
 
           <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-emerald-100/50">
             <div className="relative group min-w-[240px]">
@@ -178,6 +198,7 @@ export default function InventoryTransactionsPage() {
                 <SelectItem value="inbound">Nhập kho</SelectItem>
                 <SelectItem value="outbound">Xuất kho</SelectItem>
                 <SelectItem value="adjustment">Điều chỉnh</SelectItem>
+                <SelectItem value="receive_harvest">Nhận hàng (Harvest)</SelectItem>
               </SelectContent>
             </Select>
 
@@ -208,7 +229,13 @@ export default function InventoryTransactionsPage() {
 
       <CreateTransactionDialog 
         isOpen={isCreateDialogOpen} 
-        onClose={() => setIsCreateDialogOpen(false)} 
+        onClose={() => {
+          setIsCreateDialogOpen(false);
+          setSelectedReportId(undefined);
+          setSelectedType(undefined);
+        }} 
+        defaultReportId={selectedReportId}
+        defaultType={selectedType}
       />
     </div>
   );

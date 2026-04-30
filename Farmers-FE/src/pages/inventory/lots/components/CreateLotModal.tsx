@@ -1,4 +1,5 @@
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
+import { useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -29,9 +30,10 @@ import { useGetWarehouses } from '../../warehouses/api';
 import { useGetProducts, useGetContracts, useCreateLot } from '../api';
 import type { CreateLotInput } from '../api';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info, Package, FileText, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { format, isAfter, isBefore, startOfDay } from 'date-fns';
+import { Label } from '@/components/ui/label';
 
-// Define the form type locally for better type inference with react-hook-form
 type CreateLotFormValues = Omit<CreateLotInput, 'quantityKg'> & { quantityKg: string };
 
 interface CreateLotModalProps {
@@ -51,14 +53,48 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
       productId: '',
       contractId: '',
       quantityKg: '',
-      harvestDate: new Date().toISOString().split('T')[0],
-      expiryDate: undefined,
+      harvestDate: format(new Date(), 'yyyy-MM-dd'),
+      expiryDate: '',
       qualityGrade: 'A',
       note: '',
     },
   });
 
+  const selectedContractId = useWatch({ control: form.control, name: 'contractId' });
+
+  // Nghiệp vụ Auto-fill: Khi chọn hợp đồng, tự động điền Sản phẩm và Phẩm cấp
+  useEffect(() => {
+    if (selectedContractId && selectedContractId !== 'none' && contracts) {
+      const contract = contracts.find(c => c.id === selectedContractId);
+      if (contract) {
+        form.setValue('productId', contract.product?.id || '');
+        form.setValue('qualityGrade', contract.grade);
+        toast.info(`Đã tự động lấy dữ liệu từ Hợp đồng ${contract.contractNo}`, {
+          description: `Sản phẩm: ${contract.product?.name}`,
+          duration: 3000,
+        });
+      }
+    }
+  }, [selectedContractId, contracts, form]);
+
   const onSubmit = async (values: CreateLotFormValues) => {
+    // Validation nghiệp vụ bổ sung
+    const harvest = startOfDay(new Date(values.harvestDate));
+    const now = startOfDay(new Date());
+    
+    if (isAfter(harvest, now)) {
+      form.setError('harvestDate', { message: 'Ngày thu hoạch không thể ở tương lai' });
+      return;
+    }
+
+    if (values.expiryDate) {
+      const expiry = startOfDay(new Date(values.expiryDate));
+      if (isBefore(expiry, harvest)) {
+        form.setError('expiryDate', { message: 'Ngày hết hạn phải sau ngày thu hoạch' });
+        return;
+      }
+    }
+
     try {
       await createLotMutation.mutateAsync({
         ...values,
@@ -66,7 +102,9 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
         quantityKg: parseFloat(values.quantityKg),
         expiryDate: values.expiryDate || undefined,
       });
-      toast.success('Nhập kho lô hàng thành công');
+      toast.success('Nhập kho lô hàng thành công', {
+        description: `Lô hàng mới đã được ghi nhận vào hệ thống.`,
+      });
       form.reset();
       onClose();
     } catch (error) {
@@ -76,16 +114,55 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] rounded-[22px]">
-        <DialogHeader>
-          <DialogTitle>Nhập kho lô hàng mới</DialogTitle>
-          <DialogDescription>
-            Ghi nhận nông sản mới nhập kho. Hệ thống sẽ tự động tạo phiếu nhập kho tương ứng.
-          </DialogDescription>
+      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden font-manrope">
+        <DialogHeader className="p-6 pb-0">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Package className="size-5 text-primary" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-semibold">Nhập kho lô hàng mới</DialogTitle>
+              <DialogDescription className="text-xs">
+                Ghi nhận nông sản thực tế nhập kho. Dữ liệu sẽ được dùng để truy xuất nguồn gốc.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 pt-4 space-y-5">
+            {/* Source Linking Section */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3">
+              <div className="flex items-center gap-2 text-slate-600">
+                <FileText className="size-4" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Liên kết nguồn gốc</span>
+              </div>
+              
+              <FormField<CreateLotFormValues, 'contractId'>
+                control={form.control as any}
+                name="contractId"
+                render={({ field }) => (
+                  <FormItem>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-10 text-xs font-semibold">
+                          <SelectValue placeholder="Chọn hợp đồng để tự động điền dữ liệu" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none" className="text-xs italic">Nhập thủ công (Không qua HĐ)</SelectItem>
+                        {contracts?.map((c) => (
+                          <SelectItem key={c.id} value={c.id} className="text-xs font-semibold">
+                            {c.contractNo} — {c.farmer.fullName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <FormField<CreateLotFormValues, 'warehouseId'>
                 control={form.control as any}
@@ -93,20 +170,20 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
                 rules={{ required: 'Vui lòng chọn kho' }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Kho hàng</FormLabel>
+                    <FormLabel className="text-xs font-semibold">Kho lưu trữ</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger className="rounded-xl">
+                        <SelectTrigger className="h-10 text-xs">
                           <SelectValue placeholder="Chọn kho" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {warehouses?.map((w) => (
-                          <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                          <SelectItem key={w.id} value={w.id} className="text-xs font-medium">{w.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-[10px]" />
                   </FormItem>
                 )}
               />
@@ -117,63 +194,40 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
                 rules={{ required: 'Vui lòng chọn sản phẩm' }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Sản phẩm</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel className="text-xs font-semibold">Sản phẩm</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="rounded-xl">
+                        <SelectTrigger className="h-10 text-xs">
                           <SelectValue placeholder="Chọn sản phẩm" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {products?.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
+                          <SelectItem key={p.id} value={p.id} className="text-xs font-medium">{p.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-[10px]" />
                   </FormItem>
                 )}
               />
             </div>
 
-            <FormField<CreateLotFormValues, 'contractId'>
-              control={form.control as any}
-              name="contractId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Hợp đồng nguồn (Không bắt buộc)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue placeholder="Chọn hợp đồng để truy xuất nguồn gốc" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Không có hợp đồng</SelectItem>
-                      {contracts?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.contractNo} — {c.farmer.fullName} ({c.plot.plotCode})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <div className="grid grid-cols-2 gap-4">
               <FormField<CreateLotFormValues, 'quantityKg'>
                 control={form.control as any}
                 name="quantityKg"
-                rules={{ required: 'Nhập số lượng', min: { value: 0.1, message: 'Tối thiểu 0.1kg' } }}
+                rules={{ 
+                  required: 'Nhập số lượng', 
+                  min: { value: 0.1, message: 'Tối thiểu 0.1kg' } 
+                }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Số lượng (kg)</FormLabel>
+                    <FormLabel className="text-xs font-semibold">Số lượng (kg)</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.1" {...field} className="rounded-xl" />
+                      <Input type="number" step="0.1" {...field} className="h-10 text-sm font-semibold" />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-[10px]" />
                   </FormItem>
                 )}
               />
@@ -183,21 +237,20 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
                 name="qualityGrade"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Chất lượng</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel className="text-xs font-semibold">Phẩm cấp</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="rounded-xl">
+                        <SelectTrigger className="h-10 text-xs">
                           <SelectValue placeholder="Chọn hạng" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="A">Hạng A</SelectItem>
-                        <SelectItem value="B">Hạng B</SelectItem>
-                        <SelectItem value="C">Hạng C</SelectItem>
-                        <SelectItem value="REJECT">Loại bỏ</SelectItem>
+                        <SelectItem value="A">Hạng A (Xuất khẩu)</SelectItem>
+                        <SelectItem value="B">Hạng B (Nội địa)</SelectItem>
+                        <SelectItem value="C">Hạng C (Chế biến)</SelectItem>
+                        <SelectItem value="REJECT" className="text-rose-500">Loại bỏ (Reject)</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -209,11 +262,13 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
                 name="harvestDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ngày thu hoạch</FormLabel>
+                    <FormLabel className="text-xs font-semibold flex items-center gap-1">
+                      <CalendarIcon className="size-3 text-muted-foreground" /> Ngày thu hoạch
+                    </FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} className="rounded-xl" />
+                      <Input type="date" {...field} className="h-10 text-sm font-medium" />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-[10px]" />
                   </FormItem>
                 )}
               />
@@ -223,11 +278,13 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
                 name="expiryDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ngày hết hạn (Nếu có)</FormLabel>
+                    <FormLabel className="text-xs font-semibold flex items-center gap-1 text-amber-700">
+                      <Clock className="size-3" /> Ngày hết hạn
+                    </FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} className="rounded-xl" />
+                      <Input type="date" {...field} className="h-10 text-sm font-medium bg-amber-50/30 border-amber-100" />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-[10px]" />
                   </FormItem>
                 )}
               />
@@ -238,37 +295,36 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
               name="note"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ghi chú</FormLabel>
+                  <FormLabel className="text-xs font-semibold">Ghi chú vận hành</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Ghi chú về lô hàng này..."
-                      className="rounded-xl min-h-[80px]"
+                      placeholder="VD: Hàng mới về từ vườn ông A, đã qua kiểm dịch sơ bộ..."
+                      className="text-sm min-h-[80px] resize-none"
                       {...field}
                     />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
 
-            <DialogFooter className="pt-4">
+            <DialogFooter className="pt-2 gap-2 sm:gap-0">
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 onClick={onClose}
-                className="rounded-xl"
+                className="text-sm font-medium text-muted-foreground"
               >
-                Hủy
+                Hủy bỏ
               </Button>
               <Button
                 type="submit"
                 disabled={createLotMutation.isPending}
-                className="rounded-xl min-w-[120px]"
+                className="min-w-[140px]"
               >
                 {createLotMutation.isPending ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
-                  'Xác nhận nhập'
+                  'Xác nhận nhập kho'
                 )}
               </Button>
             </DialogFooter>

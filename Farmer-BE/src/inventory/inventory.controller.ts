@@ -22,6 +22,8 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { InventoryService } from './inventory.service';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
 
 @ApiTags('inventory')
 @ApiBearerAuth()
@@ -111,8 +113,8 @@ export class InventoryController {
   @Roles(Role.ADMIN, Role.INVENTORY)
   @ApiOperation({ summary: 'Nhập kho lô hàng mới' })
   @ApiResponse({ status: 201, description: 'Lô hàng đã được tạo' })
-  createLot(@Request() req: { user: any }, @Body() data: any) {
-    return this.inventoryService.createLot(req.user, data);
+  createLot(@Request() req: { user: any }, @Body() dto: CreateInventoryLotDto) {
+    return this.inventoryService.createLot(req.user, dto);
   }
 
   @Get('lots/:id')
@@ -164,8 +166,11 @@ export class InventoryController {
   @Roles(Role.ADMIN, Role.INVENTORY)
   @ApiOperation({ summary: 'Tạo giao dịch kho mới (Nhập/Xuất/Điều chỉnh)' })
   @ApiResponse({ status: 201, description: 'Giao dịch đã được tạo' })
-  createTransaction(@Request() req: { user: any }, @Body() data: any) {
-    return this.inventoryService.createTransaction(req.user, data);
+  createTransaction(
+    @Request() req: { user: any },
+    @Body() dto: CreateTransactionDto,
+  ) {
+    return this.inventoryService.createTransaction(req.user, dto);
   }
 
   @Get('supply-demand')

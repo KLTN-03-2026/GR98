@@ -1,4 +1,5 @@
 import type { QualityGrade } from '../../warehouses/api/types';
+export type { QualityGrade };
 
 export interface InventoryLot {
   id: string;

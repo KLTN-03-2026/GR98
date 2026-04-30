@@ -16,4 +16,7 @@ export const lotApi = {
 
   getContracts: () =>
     apiGet<{ id: string; contractNo: string; farmer: { fullName: string }; plot: { plotCode: string } }[]>('/inventory/contracts'),
+
+  updateLotGrade: (id: string, data: { qualityGrade: string; note: string }) =>
+    apiPost<InventoryLot>(`/inventory/lots/${id}/grade`, data),
 };

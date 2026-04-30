@@ -16,10 +16,18 @@ import {
   Layers,
   Warehouse,
   Info,
-  ExternalLink,
+  Calendar,
+  History,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Settings2,
+  Navigation,
+  Box,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 interface TraceabilityViewProps {
   lotId: string | null;
@@ -35,24 +43,29 @@ export default function TraceabilityView({ lotId, isOpen, onClose }: Traceabilit
     icon: Icon,
     children,
     isLast = false,
+    status = 'done',
   }: {
     title: string;
     icon: React.ElementType;
     children: React.ReactNode;
     isLast?: boolean;
+    status?: 'done' | 'pending' | 'warning';
   }) => (
-    <div className="relative flex gap-4 pb-8">
+    <div className="relative flex gap-4 pb-6">
       {!isLast && (
-        <div className="absolute left-[15px] top-8 h-full w-px bg-primary/20" />
+        <div className="absolute left-[15px] top-8 h-full w-px bg-slate-200" />
       )}
-      <div className="z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-background shadow-sm">
-        <Icon className="size-4 text-primary" />
+      <div className={cn(
+        "z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-slate-200 shadow-sm transition-colors",
+        status === 'done' ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-400"
+      )}>
+        <Icon className="size-3.5" />
       </div>
       <div className="flex-1 space-y-2">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-primary/80">
+        <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           {title}
         </h3>
-        <div className="rounded-2xl border border-primary/5 bg-primary/5 p-4 backdrop-blur-sm">
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
           {children}
         </div>
       </div>
@@ -61,124 +74,172 @@ export default function TraceabilityView({ lotId, isOpen, onClose }: Traceabilit
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="sm:max-w-md overflow-y-auto">
-        <SheetHeader className="pb-6">
-          <SheetTitle className="flex items-center gap-2">
-            <Layers className="size-5 text-primary" />
-            Truy xuất nguồn gốc
-          </SheetTitle>
+      <SheetContent className="sm:max-w-lg overflow-y-auto font-manrope flex flex-col">
+        <SheetHeader className="pb-6 border-b">
+          <div className="flex items-center gap-2 text-primary mb-1">
+            <Layers className="size-4" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Traceability</span>
+          </div>
+          <SheetTitle className="text-2xl font-semibold">Truy xuất nguồn gốc</SheetTitle>
           <SheetDescription>
-            Bản ghi chuỗi cung ứng của lô hàng từ thu hoạch đến kho.
+            Thông tin chi tiết về chuỗi cung ứng và nhật ký biến động của lô hàng.
           </SheetDescription>
         </SheetHeader>
 
-        {isLoading ? (
-          <div className="space-y-6">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full rounded-2xl" />
-            ))}
-          </div>
-        ) : trace ? (
-          <div className="space-y-2 py-4">
-            {/* Step 1: Farmer */}
-            <Step title="Nguồn gốc (Nông dân)" icon={User}>
-              {trace.contract ? (
-                <div className="space-y-1">
-                  <div className="font-bold text-foreground font-manrope">
-                    {trace.contract.farmer.fullName}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-                    <MapPin className="size-3" />
-                    {trace.contract.plot.plotCode} — {trace.contract.plot.zone.name}
-                  </div>
-                  <div className="pt-1">
-                    <Badge variant="outline" className="text-[10px] bg-background">
-                      {trace.contract.plot.cropType}
-                    </Badge>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs text-muted-foreground italic">
-                  Không có dữ liệu hợp đồng nguồn (Nhập kho thủ công)
-                </div>
-              )}
-            </Step>
+        <div className="flex-1 py-6">
+          {isLoading ? (
+            <div className="space-y-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-32 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : trace ? (
+            <div className="space-y-2">
+              {/* Step 1: Source */}
+              <Step title="Nguồn gốc thu hoạch" icon={User}>
+                {trace.contract ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center">
+                        <User className="size-5 text-slate-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-900">{trace.contract.farmer.fullName}</div>
+                        <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">Mã NS: {trace.contract.farmer.id.slice(-6)}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2 bg-slate-50 rounded-lg border flex flex-col">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Lô đất</span>
+                        <span className="text-xs font-semibold">{trace.contract.plot.plotCode}</span>
+                      </div>
+                      <div className="p-2 bg-slate-50 rounded-lg border flex flex-col">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Khu vực</span>
+                        <span className="text-xs font-semibold">{trace.contract.plot.zone.name}</span>
+                      </div>
+                    </div>
 
-            {/* Step 2: Harvest */}
-            <Step title="Thu hoạch & Hợp đồng" icon={FileText}>
-              <div className="space-y-2">
-                {trace.contract && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Mã hợp đồng:</span>
-                    <span className="text-xs font-bold font-mono">{trace.contract.contractNo}</span>
+                    <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase tracking-wider gap-2">
+                      <Navigation className="size-3" /> Định vị vườn
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-4 text-center">
+                    <Info className="size-8 text-slate-200 mb-2" />
+                    <p className="text-xs text-muted-foreground font-medium italic">Không có dữ liệu hợp đồng nguồn</p>
                   </div>
                 )}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Ngày thu hoạch:</span>
-                  <span className="text-xs font-bold">
-                    {trace.harvestDate
-                      ? format(new Date(trace.harvestDate), 'dd/MM/yyyy', { locale: vi })
-                      : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Chất lượng:</span>
-                  <Badge variant="outline" className="text-[10px]">
-                    Hạng {trace.qualityGrade}
-                  </Badge>
-                </div>
-              </div>
-            </Step>
+              </Step>
 
-            {/* Step 3: Warehouse */}
-            <Step title="Lưu kho" icon={Warehouse}>
-              <div className="space-y-2">
-                <div className="font-bold text-sm">{trace.warehouse.name}</div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Số lượng nhập:</span>
-                  <span className="text-sm font-bold text-primary">
-                    {trace.quantityKg.toLocaleString()} {trace.product.unit}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Ngày nhập:</span>
-                  <span className="text-xs font-medium">
-                    {format(new Date(trace.createdAt), 'HH:mm — dd/MM/yyyy', { locale: vi })}
-                  </span>
-                </div>
-              </div>
-            </Step>
+              {/* Step 2: Quality & Contract */}
+              <Step title="Thu hoạch & Chất lượng" icon={FileText}>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="size-4 text-muted-foreground" />
+                      <span className="text-xs font-medium">Ngày thu hoạch:</span>
+                    </div>
+                    <span className="text-sm font-semibold">
+                      {trace.harvestDate ? format(new Date(trace.harvestDate), 'dd/MM/yyyy') : '—'}
+                    </span>
+                  </div>
+                  
+                  <Separator className="opacity-50" />
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="size-4 text-muted-foreground" />
+                      <span className="text-xs font-medium">Phẩm cấp:</span>
+                    </div>
+                    <Badge variant="outline" className={cn(
+                      "rounded px-2 py-0.5 text-[10px] font-bold border-none",
+                      trace.qualityGrade === 'A' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                    )}>
+                      HẠNG {trace.qualityGrade}
+                    </Badge>
+                  </div>
 
-            {/* Step 4: Final Product */}
-            <Step title="Hiện trạng" icon={Info} isLast>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-background border border-primary/10">
-                    <Layers className="size-5 text-primary" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold">{trace.product.name}</span>
-                    <span className="text-[10px] text-muted-foreground">ID: {trace.id}</span>
+                  {trace.contract && (
+                    <div className="mt-2 p-3 bg-slate-50 rounded-lg border flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">Hợp đồng bao tiêu</span>
+                        <span className="text-xs font-semibold">{trace.contract.contractNo}</span>
+                      </div>
+                      <Badge variant="success" className="text-[9px] font-bold">SIGNED</Badge>
+                    </div>
+                  )}
+                </div>
+              </Step>
+
+              {/* Step 3: Logistics Timeline */}
+              <Step title="Nhật ký biến động lô" icon={History}>
+                <div className="space-y-4">
+                  {trace.transactions && trace.transactions.length > 0 ? (
+                    <div className="space-y-4">
+                      {trace.transactions.map((tx) => (
+                        <div key={tx.id} className="flex items-start gap-3">
+                          <div className={cn(
+                            "mt-1 size-5 rounded flex items-center justify-center shrink-0",
+                            tx.type === 'inbound' ? "bg-emerald-50 text-emerald-600" : 
+                            tx.type === 'outbound' ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"
+                          )}>
+                            {tx.type === 'inbound' ? <ArrowDownLeft className="size-3" /> : 
+                             tx.type === 'outbound' ? <ArrowUpRight className="size-3" /> : <Settings2 className="size-3" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold truncate capitalize">{tx.type === 'inbound' ? 'Nhập kho' : tx.type === 'outbound' ? 'Xuất kho' : 'Điều chỉnh'}</span>
+                              <span className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">{format(new Date(tx.createdAt), 'HH:mm - dd/MM')}</span>
+                            </div>
+                            <div className="text-xs font-semibold text-slate-600 mt-0.5">
+                              {tx.quantityKg > 0 ? '+' : ''}{tx.quantityKg} kg
+                            </div>
+                            {tx.note && <p className="text-[10px] text-muted-foreground italic truncate mt-0.5">{tx.note}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-2 text-center text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Không có lịch sử</div>
+                  )}
+
+                  <Separator className="opacity-50" />
+
+                  <div className="flex items-center justify-between bg-primary p-4 rounded-xl text-primary-foreground">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase opacity-70">Tồn kho hiện tại</div>
+                      <div className="text-xl font-bold">{trace.quantityKg.toLocaleString()} <span className="text-xs opacity-70">kg</span></div>
+                    </div>
+                    <Warehouse className="size-6 opacity-30" />
                   </div>
                 </div>
-                <div className="p-3 bg-background rounded-xl border border-primary/10 flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Tồn kho còn lại</span>
-                    <span className="text-lg font-bold text-primary">{trace.quantityKg.toLocaleString()} kg</span>
+              </Step>
+
+              {/* Step 4: Product Info */}
+              <Step title="Thông tin sản phẩm" icon={Layers} isLast>
+                <div className="flex items-center gap-4">
+                  <div className="size-12 rounded-lg bg-slate-100 flex items-center justify-center border shrink-0">
+                    <Box className="size-6 text-slate-400" />
                   </div>
-                  <Button size="icon" variant="ghost" className="rounded-full">
-                    <ExternalLink className="size-4" />
-                  </Button>
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-slate-900 text-sm truncate leading-tight">{trace.product.name}</h4>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-tight">SKU: {trace.product.sku}</p>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <div className="size-1.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase">Sẵn sàng xuất kho</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </Step>
-          </div>
-        ) : (
-          <div className="py-20 text-center opacity-40">
-            <Info className="size-10 mx-auto mb-2" />
-            <p className="text-sm">Không tìm thấy dữ liệu</p>
-          </div>
-        )}
+              </Step>
+            </div>
+          ) : (
+            <div className="py-20 text-center opacity-40">
+              <Info className="size-10 mx-auto mb-2 text-slate-300" />
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Không tìm thấy dữ liệu</p>
+            </div>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   );

@@ -1,16 +1,19 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DataGridToolbar } from "./data-grid-toolbar";
 import { DataGridPagination } from "./data-grid-pagination";
 import { DataGridSkeleton } from "./data-grid-skeleton";
-import type { DataGridProps } from "./types";
+import type { DataGridPaginationConfig, DataGridProps } from "./types";
 
 export function DataGrid<TItem>({
   items,
+  data,
   renderCard,
   keyExtractor,
   title,
+  titleIcon,
   description,
   isLoading = false,
   isAwaitingResults = false,
@@ -18,18 +21,159 @@ export function DataGrid<TItem>({
   onRetry,
   toolbar,
   pagination,
+  totalItems,
+  pageCount,
+  pageSizeOptions,
+  manualPagination = false,
+  manualFiltering = false,
+  state,
+  initialState,
+  onPaginationChange,
+  onSearchChange,
+  resetPageOnSearchChange = true,
+  autoClampPageIndex = true,
+  searchFn,
+  filterFn,
   layout,
   skeleton,
   emptyState,
   classNames,
   appearance = "management",
 }: DataGridProps<TItem>) {
+  const sourceData = data ?? items ?? [];
+  const initialPageIndex = initialState?.pagination?.pageIndex ?? 0;
+  const initialPageSize = initialState?.pagination?.pageSize ?? pagination?.pageSize ?? 10;
+  const initialKeyword = initialState?.keyword ?? toolbar?.search?.value ?? "";
+
+  const [internalPagination, setInternalPagination] = useState({
+    pageIndex: initialPageIndex,
+    pageSize: initialPageSize,
+  });
+  const [internalKeyword, setInternalKeyword] = useState(initialKeyword);
+  /** Chỉ reset trang khi từ khóa thực sự đổi — tránh gọi lặp do callback/search effect. */
+  const lastSearchEmittedForPaginationRef = useRef<string | null>(null);
+
+  const resolvedPaginationState = state?.pagination ?? internalPagination;
+  const resolvedKeyword = state?.keyword ?? internalKeyword;
   const minCardWidth = layout?.minCardWidth ?? 280;
   const gapClassName = layout?.gapClassName ?? "gap-4";
   const equalHeightCards = layout?.equalHeightCards ?? false;
-  const resolvedSkeletonCount = skeleton?.count ?? pagination?.pageSize ?? 8;
+  const resolvedSkeletonCount =
+    skeleton?.count ?? resolvedPaginationState.pageSize ?? pagination?.pageSize ?? 8;
   const useManagementAppearance = appearance === "management";
   const showGridSkeleton = isLoading || isAwaitingResults;
+
+  const normalizedKeyword = resolvedKeyword.trim().toLowerCase();
+
+  const defaultSearchFn = (item: TItem, keyword: string) => {
+    if (!keyword) return true;
+    return JSON.stringify(item).toLowerCase().includes(keyword);
+  };
+
+  const filteredItems = useMemo(() => {
+    if (manualFiltering) return sourceData;
+    return sourceData.filter((item) => {
+      if (filterFn && !filterFn(item)) return false;
+      return (searchFn ?? defaultSearchFn)(item, normalizedKeyword);
+    });
+  }, [manualFiltering, sourceData, filterFn, searchFn, normalizedKeyword]);
+
+  const derivedTotalItems = manualPagination
+    ? totalItems ?? pagination?.totalItems ?? sourceData.length
+    : filteredItems.length;
+  const derivedPageCount = manualPagination
+    ? Math.max(1, pageCount ?? pagination?.totalPages ?? Math.ceil(derivedTotalItems / resolvedPaginationState.pageSize))
+    : Math.max(1, Math.ceil(derivedTotalItems / Math.max(1, resolvedPaginationState.pageSize)));
+
+  const maxPageIndex = Math.max(0, derivedPageCount - 1);
+  const safePageIndex = Math.min(Math.max(0, resolvedPaginationState.pageIndex), maxPageIndex);
+
+  useEffect(() => {
+    if (!autoClampPageIndex || safePageIndex === resolvedPaginationState.pageIndex) return;
+    if (state?.pagination && onPaginationChange) {
+      onPaginationChange({ ...resolvedPaginationState, pageIndex: safePageIndex });
+      return;
+    }
+    setInternalPagination((prev) => ({ ...prev, pageIndex: safePageIndex }));
+  }, [
+    autoClampPageIndex,
+    onPaginationChange,
+    resolvedPaginationState,
+    safePageIndex,
+    state?.pagination,
+  ]);
+
+  const pageItems = useMemo(() => {
+    if (manualPagination) return sourceData;
+    const start = safePageIndex * resolvedPaginationState.pageSize;
+    const end = start + resolvedPaginationState.pageSize;
+    return filteredItems.slice(start, end);
+  }, [manualPagination, sourceData, safePageIndex, resolvedPaginationState.pageSize, filteredItems]);
+
+  const handleSearchChange = (value: string) => {
+    onSearchChange?.(value);
+    if (state?.keyword === undefined) {
+      setInternalKeyword(value);
+    }
+    const trimmedForCompare = value.trim();
+    if (resetPageOnSearchChange) {
+      if (lastSearchEmittedForPaginationRef.current !== trimmedForCompare) {
+        lastSearchEmittedForPaginationRef.current = trimmedForCompare;
+        const next = { ...resolvedPaginationState, pageIndex: 0 };
+        onPaginationChange?.(next);
+        if (!state?.pagination) {
+          setInternalPagination(next);
+        }
+      }
+    }
+    toolbar?.search?.onChange?.(value);
+  };
+
+  const handlePageChange = (page: number) => {
+    const next = { ...resolvedPaginationState, pageIndex: Math.max(0, page - 1) };
+    onPaginationChange?.(next);
+    if (!state?.pagination) setInternalPagination(next);
+    pagination?.onPageChange?.(Math.max(1, page));
+  };
+
+  const handlePageSizeChange = (nextPageSize: number) => {
+    const next = { pageIndex: 0, pageSize: nextPageSize };
+    onPaginationChange?.(next);
+    if (!state?.pagination) setInternalPagination(next);
+    pagination?.onPageSizeChange?.(nextPageSize);
+  };
+
+  const shouldShowPagination =
+    Boolean(pagination) ||
+    Boolean(manualPagination) ||
+    totalItems !== undefined ||
+    pageCount !== undefined;
+
+  const resolvedPaginationConfig: DataGridPaginationConfig | undefined =
+    shouldShowPagination
+      ? {
+          page: safePageIndex + 1,
+          pageSize: resolvedPaginationState.pageSize,
+          totalItems: derivedTotalItems,
+          totalPages: derivedPageCount,
+          onPageChange: handlePageChange,
+          onPageSizeChange: handlePageSizeChange,
+          pageSizeOptions: pageSizeOptions ?? pagination?.pageSizeOptions ?? [10, 20, 30, 50, 100],
+        }
+      : undefined;
+
+  const resolvedToolbar = toolbar
+    ? {
+        ...toolbar,
+        search: toolbar.search
+          ? {
+              ...toolbar.search,
+              value: resolvedKeyword,
+              onChange: handleSearchChange,
+            }
+          : undefined,
+      }
+    : undefined;
 
   return (
     <div
@@ -41,12 +185,21 @@ export function DataGrid<TItem>({
     >
       {(title || description) && (
         <div className={cn("space-y-1", classNames?.header)}>
-          {title && <h2 className="text-2xl font-bold">{title}</h2>}
+          {title && (
+            <div className="flex items-center gap-2">
+              {titleIcon && (
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+                  {titleIcon}
+                </div>
+              )}
+              <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+            </div>
+          )}
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
       )}
 
-      {toolbar && (
+      {resolvedToolbar && (
         <Card
           className={cn(
             useManagementAppearance && "border-dashed border-primary/40",
@@ -55,7 +208,7 @@ export function DataGrid<TItem>({
         >
           <CardContent className={cn(useManagementAppearance ? "p-3 sm:p-4" : "p-3")}>
             <DataGridToolbar
-              config={toolbar}
+              config={resolvedToolbar}
               isLoading={isLoading}
               isAwaitingResults={isAwaitingResults}
               className={classNames?.toolbar}
@@ -84,7 +237,7 @@ export function DataGrid<TItem>({
               minCardWidth={minCardWidth}
               gapClassName={gapClassName}
             />
-          ) : items.length === 0 ? (
+          ) : pageItems.length === 0 ? (
             <Card>
               <CardContent className="space-y-1 py-10 text-center">
                 <p className="text-sm font-medium">
@@ -99,7 +252,7 @@ export function DataGrid<TItem>({
           ) : (
             <div
               className={cn(
-                "grid",
+                "grid items-stretch",
                 gapClassName,
                 layout?.cardContainerClassName,
                 classNames?.grid,
@@ -108,12 +261,12 @@ export function DataGrid<TItem>({
                 gridTemplateColumns: `repeat(auto-fill, minmax(${minCardWidth}px, 1fr))`,
               }}
             >
-              {items.map((item, index) => (
+              {pageItems.map((item, index) => (
                 <div
                   key={keyExtractor(item, index)}
                   className={cn(
                     "min-w-0",
-                    equalHeightCards && "flex h-full",
+                    equalHeightCards && "flex h-full min-h-0",
                     layout?.itemWrapperClassName,
                   )}
                 >
@@ -124,9 +277,9 @@ export function DataGrid<TItem>({
           )}
         </div>
 
-        {pagination && (
+        {resolvedPaginationConfig && (
           <div className={cn("mt-2 border-t bg-background pt-2", classNames?.pagination)}>
-            <DataGridPagination config={pagination} />
+            <DataGridPagination config={resolvedPaginationConfig} />
           </div>
         )}
       </div>

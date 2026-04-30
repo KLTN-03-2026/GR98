@@ -5,6 +5,8 @@ export type DataGridSearchConfig = {
   onChange: (value: string) => void;
   placeholder?: string;
   debounceMs?: number;
+  disabled?: boolean;
+  hidden?: boolean;
 };
 
 export type DataGridToolbarConfig = {
@@ -31,6 +33,16 @@ export type DataGridPaginationConfig = {
   onPageChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
+};
+
+export type DataGridPaginationState = {
+  pageIndex: number;
+  pageSize: number;
+};
+
+export type DataGridState = {
+  pagination?: DataGridPaginationState;
+  keyword?: string;
 };
 
 export type DataGridLayoutConfig = {
@@ -66,10 +78,13 @@ export type DataGridClassNames = {
 export type DataGridAppearance = "management" | "plain";
 
 export type DataGridProps<TItem> = {
-  items: TItem[];
+  items?: TItem[];
+  data?: TItem[];
   renderCard: (item: TItem, index: number) => React.ReactNode;
   keyExtractor: (item: TItem, index: number) => string;
   title?: string;
+  /** Icon Lucide hoặc node — hiển thị trong ô bo góc cạnh tiêu đề (cùng pattern trang kho). */
+  titleIcon?: React.ReactNode;
   description?: string;
   isLoading?: boolean;
   /**
@@ -81,6 +96,19 @@ export type DataGridProps<TItem> = {
   onRetry?: () => void;
   toolbar?: DataGridToolbarConfig;
   pagination?: DataGridPaginationConfig;
+  totalItems?: number;
+  pageCount?: number;
+  pageSizeOptions?: number[];
+  manualPagination?: boolean;
+  manualFiltering?: boolean;
+  state?: DataGridState;
+  initialState?: Partial<DataGridState>;
+  onPaginationChange?: (next: DataGridPaginationState) => void;
+  onSearchChange?: (keyword: string) => void;
+  resetPageOnSearchChange?: boolean;
+  autoClampPageIndex?: boolean;
+  searchFn?: (item: TItem, keyword: string) => boolean;
+  filterFn?: (item: TItem) => boolean;
   layout?: DataGridLayoutConfig;
   skeleton?: DataGridSkeletonConfig;
   emptyState?: DataGridEmptyState;

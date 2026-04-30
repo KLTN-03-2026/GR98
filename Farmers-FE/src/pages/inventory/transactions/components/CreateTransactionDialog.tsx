@@ -252,7 +252,7 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
                     <div className="size-16 rounded-xl bg-white border border-slate-200 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-sm">
                       {allProducts?.find(p => p.id === selectedProductId)?.imageUrls?.[0] ? (
                         <img 
-                          src={allProducts.find(p => p.id === selectedProductId)?.imageUrls?.[0]} 
+                          src={allProducts?.find(p => p.id === selectedProductId)?.imageUrls?.[0]} 
                           alt="Product" 
                           className="w-full h-full object-cover transition-transform hover:scale-110 duration-500"
                         />

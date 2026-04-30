@@ -10,6 +10,7 @@ import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { CreateTransactionDto, TransactionType } from './dto/create-transaction.dto';
 import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
+import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
 
 interface InventoryUser {
   id: string;
@@ -595,6 +596,40 @@ export class InventoryService {
     }
 
     return lot;
+  }
+
+  async updateLotGrade(id: string, currentUser: InventoryUser, dto: UpdateLotGradeDto) {
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+    const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
+    const warehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
+
+    const lot = await this.prisma.inventoryLot.findUnique({ where: { id } });
+    if (!lot || !warehouseIds.includes(lot.warehouseId)) {
+      throw new ForbiddenException('Lô hàng không tồn tại hoặc bạn không có quyền truy cập');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedLot = await tx.inventoryLot.update({
+        where: { id },
+        data: { qualityGrade: dto.qualityGrade },
+        include: { warehouse: true, product: true }
+      });
+
+      // Create an adjustment transaction to log the grade change (quantityKg = 0)
+      await tx.warehouseTransaction.create({
+        data: {
+          warehouseId: lot.warehouseId,
+          productId: lot.productId,
+          inventoryLotId: lot.id,
+          type: 'adjustment',
+          quantityKg: 0,
+          note: `Đổi phẩm cấp từ ${lot.qualityGrade} sang ${dto.qualityGrade}. Lý do: ${dto.note}`,
+          createdBy: currentUser.id,
+        },
+      });
+
+      return updatedLot;
+    });
   }
 
   async getProducts(currentUser: InventoryUser) {

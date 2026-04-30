@@ -82,4 +82,5 @@ export interface CreateLotInput {
   expiryDate?: string;
   qualityGrade: QualityGrade;
   note?: string;
+  deviationReason?: string;
 }

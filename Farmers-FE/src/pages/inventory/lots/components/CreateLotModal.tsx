@@ -1,5 +1,5 @@
 import { useForm, useWatch } from 'react-hook-form';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -34,7 +34,7 @@ import { Loader2, Info, Package, FileText, Calendar as CalendarIcon, Clock } fro
 import { format, isAfter, isBefore, startOfDay } from 'date-fns';
 import { Label } from '@/components/ui/label';
 
-type CreateLotFormValues = Omit<CreateLotInput, 'quantityKg'> & { quantityKg: string };
+type CreateLotFormValues = Omit<CreateLotInput, 'quantityKg'> & { quantityKg: string; deviationReason?: string };
 
 interface CreateLotModalProps {
   isOpen: boolean;
@@ -46,6 +46,8 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
   const { data: products } = useGetProducts();
   const { data: contracts } = useGetContracts();
   const createLotMutation = useCreateLot();
+  const [needsDeviationReason, setNeedsDeviationReason] = useState(false);
+  const [deviationWarning, setDeviationWarning] = useState('');
 
   const form = useForm<CreateLotFormValues>({
     defaultValues: {
@@ -57,10 +59,12 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
       expiryDate: '',
       qualityGrade: 'A',
       note: '',
+      deviationReason: '',
     },
   });
 
   const selectedContractId = useWatch({ control: form.control, name: 'contractId' });
+  const harvestDateWatch = useWatch({ control: form.control, name: 'harvestDate' });
 
   // Nghiệp vụ Auto-fill: Khi chọn hợp đồng, tự động điền Sản phẩm và Phẩm cấp
   useEffect(() => {
@@ -76,6 +80,16 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
       }
     }
   }, [selectedContractId, contracts, form]);
+
+  // Tự động tính hạn sử dụng (Mặc định 30 ngày)
+  useEffect(() => {
+    if (harvestDateWatch) {
+      const harvest = new Date(harvestDateWatch);
+      const expiry = new Date(harvest);
+      expiry.setDate(expiry.getDate() + 30); // Giả định 30 ngày
+      form.setValue('expiryDate', format(expiry, 'yyyy-MM-dd'));
+    }
+  }, [harvestDateWatch, form]);
 
   const onSubmit = async (values: CreateLotFormValues) => {
     // Validation nghiệp vụ bổ sung
@@ -101,19 +115,35 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
         contractId: values.contractId === 'none' ? undefined : values.contractId,
         quantityKg: parseFloat(values.quantityKg),
         expiryDate: values.expiryDate || undefined,
+        deviationReason: values.deviationReason || undefined,
       });
       toast.success('Nhập kho lô hàng thành công', {
         description: `Lô hàng mới đã được ghi nhận vào hệ thống.`,
       });
       form.reset();
+      setNeedsDeviationReason(false);
       onClose();
-    } catch (error) {
-      toast.error('Có lỗi xảy ra khi nhập kho');
+    } catch (error: any) {
+      // Bắt lỗi CẢNH BÁO CHÊNH LỆCH từ backend
+      const errMsg = error?.response?.data?.message || error.message;
+      if (errMsg && errMsg.includes('CẢNH BÁO CHÊNH LỆCH')) {
+        setNeedsDeviationReason(true);
+        setDeviationWarning(errMsg);
+        toast.error('Có sự chênh lệch sản lượng', { description: 'Vui lòng điền lý do giải trình để tiếp tục.' });
+      } else {
+        toast.error('Có lỗi xảy ra khi nhập kho', { description: errMsg });
+      }
     }
   };
 
+  const handleClose = () => {
+    setNeedsDeviationReason(false);
+    setDeviationWarning('');
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden font-manrope">
         <DialogHeader className="p-6 pb-0">
           <div className="flex items-center gap-3 mb-2">
@@ -307,11 +337,40 @@ export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps)
               )}
             />
 
+            {needsDeviationReason && (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-3 animate-in fade-in slide-in-from-top-4">
+                <div className="flex items-start gap-2">
+                  <Info className="size-4 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-800 font-medium">
+                    {deviationWarning}
+                  </p>
+                </div>
+                <FormField<CreateLotFormValues, 'deviationReason'>
+                  control={form.control as any}
+                  name="deviationReason"
+                  rules={{ required: 'Vui lòng điền lý do giải trình' }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold text-amber-900">Lý do giải trình (Bắt buộc)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="VD: Do mưa lớn nên rụng trái nhiều hơn dự kiến..."
+                          className="h-10 text-sm border-amber-300 focus-visible:ring-amber-500"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-[10px]" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
             <DialogFooter className="pt-2 gap-2 sm:gap-0">
               <Button
                 type="button"
                 variant="ghost"
-                onClick={onClose}
+                onClick={handleClose}
                 className="text-sm font-medium text-muted-foreground"
               >
                 Hủy bỏ

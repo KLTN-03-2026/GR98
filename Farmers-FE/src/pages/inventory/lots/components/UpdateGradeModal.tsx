@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -52,12 +53,14 @@ export default function UpdateGradeModal({ lot, isOpen, onClose }: UpdateGradeMo
   });
 
   // Reset form when lot changes
-  if (lot && form.getValues('qualityGrade') !== lot.qualityGrade && !form.formState.isDirty) {
-    form.reset({
-      qualityGrade: lot.qualityGrade,
-      note: '',
-    });
-  }
+  useEffect(() => {
+    if (lot && isOpen) {
+      form.reset({
+        qualityGrade: lot.qualityGrade,
+        note: '',
+      });
+    }
+  }, [lot, isOpen, form]);
 
   const onSubmit = async (values: UpdateGradeFormValues) => {
     if (!lot) return;

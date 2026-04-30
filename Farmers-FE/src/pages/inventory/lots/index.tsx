@@ -71,11 +71,11 @@ export default function InventoryLotsPage() {
     () => [
       {
         accessorKey: 'id',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Mã Lô" />,
+        header: ({ column }) => <div className="flex items-center justify-center w-full h-full"><DataTableColumnHeader column={column} title="Mã Lô" /></div>,
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <QrCode className="size-4 text-muted-foreground" />
-            <span className="font-mono text-xs font-medium uppercase text-slate-500">
+          <div className="flex items-center justify-center gap-2 w-[80px] mx-auto h-full">
+            <QrCode className="size-4 text-muted-foreground shrink-0" />
+            <span className="font-mono text-xs font-medium uppercase text-slate-500 truncate">
               {row.original.id.slice(-8)}
             </span>
           </div>
@@ -83,20 +83,20 @@ export default function InventoryLotsPage() {
       },
       {
         accessorKey: 'product',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Sản phẩm" />,
+        header: ({ column }) => <div className="flex items-center justify-center w-full h-full"><DataTableColumnHeader column={column} title="Sản phẩm" /></div>,
         cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm">
+          <div className="flex flex-col items-center justify-center min-h-[44px] min-w-[160px] max-w-[220px] mx-auto text-center h-full">
+            <span className="font-semibold text-sm truncate w-full">
               {row.original.product.name}
             </span>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-muted-foreground font-medium uppercase px-1 bg-slate-100 rounded">
+            <div className="flex items-center justify-center gap-2 mt-0.5 w-full">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase px-1.5 py-0.5 bg-slate-100 rounded leading-none shrink-0">
                 {row.original.product.sku}
               </span>
               <Badge 
                 variant="outline" 
                 className={cn(
-                  "h-4 rounded px-1.5 py-0 text-[9px] font-bold border-none",
+                  "h-[18px] rounded px-1.5 py-0 text-[9px] font-bold border-none shrink-0",
                   row.original.qualityGrade === 'A' ? 'bg-emerald-50 text-emerald-700' : 
                   row.original.qualityGrade === 'B' ? 'bg-amber-50 text-amber-700' : 
                   row.original.qualityGrade === 'C' ? 'bg-orange-50 text-orange-700' : 
@@ -111,56 +111,66 @@ export default function InventoryLotsPage() {
       },
       {
         accessorKey: 'warehouse',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Kho lưu trữ" />,
+        header: ({ column }) => <div className="flex items-center justify-center w-full h-full"><DataTableColumnHeader column={column} title="Kho lưu trữ" /></div>,
         cell: ({ row }) => (
-          <span className="text-sm font-medium">
-            {row.original.warehouse.name}
-          </span>
+          <div className="flex items-center justify-center w-[120px] max-w-[160px] mx-auto text-center h-full">
+            <span className="text-sm font-medium truncate">
+              {row.original.warehouse.name}
+            </span>
+          </div>
         ),
       },
       {
         accessorKey: 'quantityKg',
         header: ({ column }) => (
-          <div className="text-right w-full">
+          <div className="flex items-center justify-center w-full h-full">
             <DataTableColumnHeader column={column} title="Số lượng" />
           </div>
         ),
         cell: ({ row }) => (
-          <div className="text-right tabular-nums">
-            <span className="text-sm font-bold">
+          <div className="flex items-center justify-center tabular-nums w-[110px] mx-auto h-full">
+            <span className="text-sm font-bold truncate">
               {row.original.quantityKg.toLocaleString('vi-VN')}
             </span>
-            <span className="ml-1 text-[10px] text-muted-foreground font-medium uppercase">
-              {row.original.product.unit}
+            <span className="ml-1 text-[10px] text-muted-foreground font-medium uppercase inline-block text-left shrink-0">
+              {row.original.product.unit || 'kg'}
             </span>
           </div>
         ),
       },
       {
         accessorKey: 'expiryDate',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Hạn sử dụng" />,
+        header: ({ column }) => <div className="flex items-center justify-center w-full h-full"><DataTableColumnHeader column={column} title="Hạn sử dụng" /></div>,
         cell: ({ row }) => {
-          if (!row.original.expiryDate) return <span className="text-xs text-muted-foreground italic">N/A</span>;
+          if (!row.original.expiryDate) {
+            return (
+              <div className="flex flex-col items-center justify-center min-h-[44px] w-[100px] mx-auto h-full">
+                <span className="text-xs text-muted-foreground italic">N/A</span>
+              </div>
+            );
+          }
           
           const expiryDate = new Date(row.original.expiryDate);
           const daysLeft = differenceInDays(expiryDate, new Date());
           const isExpired = isPast(expiryDate);
           
           return (
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col items-center justify-center min-h-[44px] w-[100px] mx-auto text-center h-full">
               <span className={cn(
-                "text-xs font-semibold",
+                "text-xs font-semibold truncate",
                 isExpired ? "text-rose-600" : daysLeft < 7 ? "text-amber-600" : "text-slate-600"
               )}>
                 {format(expiryDate, 'dd/MM/yyyy')}
               </span>
-              <div className="flex items-center gap-1">
-                {isExpired ? (
-                  <Badge variant="destructive" className="h-3.5 px-1 text-[8px] font-bold uppercase">Quá hạn</Badge>
-                ) : daysLeft < 7 ? (
-                  <Badge className="h-3.5 px-1 bg-amber-100 text-amber-700 border-none text-[8px] font-bold uppercase">Sắp hết ({daysLeft}n)</Badge>
-                ) : null}
-              </div>
+              {(isExpired || daysLeft < 7) && (
+                <div className="flex items-center justify-center mt-0.5">
+                  {isExpired ? (
+                    <Badge variant="destructive" className="h-[18px] px-1.5 text-[8px] font-bold uppercase border-none shrink-0">Quá hạn</Badge>
+                  ) : (
+                    <Badge className="h-[18px] px-1.5 bg-amber-100 text-amber-700 border-none text-[8px] font-bold uppercase shrink-0">Sắp hết ({daysLeft}n)</Badge>
+                  )}
+                </div>
+              )}
             </div>
           );
         },
@@ -168,7 +178,7 @@ export default function InventoryLotsPage() {
       {
         id: 'actions',
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div className="flex items-center justify-center w-[40px] mx-auto h-full">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="size-8">

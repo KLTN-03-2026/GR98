@@ -12,6 +12,10 @@ export interface InventoryLot {
   createdAt: string;
   updatedAt: string;
   
+  // Virtual fields from BE
+  isUpcoming?: boolean;
+  statusLabel?: string;
+
   // Relations
   warehouse: {
     id: string;

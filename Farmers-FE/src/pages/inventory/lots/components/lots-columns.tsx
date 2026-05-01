@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import type { InventoryLot } from '../api/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 export function createLotColumns(handlers: {
   onViewDetail: (lot: InventoryLot) => void;
@@ -13,21 +14,11 @@ export function createLotColumns(handlers: {
     {
       accessorKey: 'id',
       header: 'Mã Lô',
-      cell: ({ row }) => {
-        const isUpcoming = row.original.harvestDate && new Date(row.original.harvestDate) > new Date();
-        return (
-          <div className="flex flex-col gap-1">
-            <span className="font-mono font-medium text-slate-900 text-xs">
-              #{row.original.id.slice(-6).toUpperCase()}
-            </span>
-            {isUpcoming && (
-              <Badge variant="secondary" className="w-fit text-[10px] py-0 px-1.5 bg-blue-50 text-blue-600 border-blue-100">
-                Sắp về
-              </Badge>
-            )}
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="font-mono font-medium text-slate-900 text-xs">
+          {row.original.id.slice(-6).toUpperCase()}
+        </span>
+      ),
     },
     {
       id: 'product',
@@ -46,15 +37,35 @@ export function createLotColumns(handlers: {
       cell: ({ row }) => {
         const grade = row.original.qualityGrade;
         return (
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className={
               grade === 'A' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-              grade === 'B' ? "bg-blue-50 text-blue-600 border-blue-100" :
-              "bg-amber-50 text-amber-600 border-amber-100"
+                grade === 'B' ? "bg-blue-50 text-blue-600 border-blue-100" :
+                  "bg-amber-50 text-amber-600 border-amber-100"
             }
           >
             Loại {grade}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: 'status',
+      header: 'Trạng thái',
+      cell: ({ row }) => {
+        const isUpcoming = row.original.isUpcoming;
+        return (
+          <Badge 
+            variant="secondary" 
+            className={cn(
+              "font-medium text-[10px] uppercase tracking-wider",
+              isUpcoming 
+                ? "bg-slate-100 text-slate-500" 
+                : "bg-emerald-100 text-emerald-700"
+            )}
+          >
+            {isUpcoming ? 'Dự kiến' : 'Trong kho'}
           </Badge>
         );
       },
@@ -94,9 +105,9 @@ export function createLotColumns(handlers: {
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex justify-end">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={(e) => {
               e.stopPropagation();
               handlers.onViewDetail(row.original);

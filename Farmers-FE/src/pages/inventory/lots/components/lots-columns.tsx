@@ -2,7 +2,6 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DataTableColumnHeader } from '@/components/data-table';
 import type { InventoryLot } from '../api/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -13,9 +12,7 @@ export function createLotColumns(handlers: {
   const columns: ColumnDef<InventoryLot>[] = [
     {
       accessorKey: 'id',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Mã Lô" />
-      ),
+      header: 'Mã Lô',
       cell: ({ row }) => (
         <span className="font-mono font-medium text-slate-900 text-xs">
           {row.original.id.slice(-6).toUpperCase()}
@@ -24,9 +21,7 @@ export function createLotColumns(handlers: {
     },
     {
       id: 'product',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Sản phẩm & SKU" />
-      ),
+      header: 'Sản phẩm & SKU',
       accessorFn: (row) => `${row.product.name} ${row.product.sku}`,
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
@@ -37,9 +32,7 @@ export function createLotColumns(handlers: {
     },
     {
       accessorKey: 'qualityGrade',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Phẩm cấp" />
-      ),
+      header: 'Phẩm cấp',
       cell: ({ row }) => {
         const grade = row.original.qualityGrade;
         return (
@@ -58,9 +51,7 @@ export function createLotColumns(handlers: {
     },
     {
       accessorKey: 'quantityKg',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Số lượng (kg)" />
-      ),
+      header: 'Số lượng (kg)',
       cell: ({ row }) => (
         <span className="font-medium tabular-nums">
           {row.original.quantityKg.toLocaleString('vi-VN')}
@@ -69,9 +60,7 @@ export function createLotColumns(handlers: {
     },
     {
       id: 'warehouse',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Kho chứa" />
-      ),
+      header: 'Kho chứa',
       accessorFn: (row) => row.warehouse.name,
       cell: ({ row }) => (
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -82,9 +71,7 @@ export function createLotColumns(handlers: {
     },
     {
       accessorKey: 'createdAt',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Ngày nhập" />
-      ),
+      header: 'Ngày nhập',
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {format(new Date(row.original.createdAt), 'dd/MM/yyyy', { locale: vi })}
@@ -114,3 +101,4 @@ export function createLotColumns(handlers: {
   ];
   return columns;
 }
+

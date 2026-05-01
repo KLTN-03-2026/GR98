@@ -74,3 +74,14 @@ export const useGetWarehouses = () => {
     },
   });
 };
+
+export const useGetLotTimeline = (id: string) => {
+  return useQuery({
+    queryKey: [...lotKeys.all, 'timeline', id],
+    queryFn: async () => {
+      const response = await lotApi.getLotTimeline(id);
+      return extractData<any[]>(response);
+    },
+    enabled: !!id,
+  });
+};

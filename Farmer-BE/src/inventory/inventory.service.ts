@@ -352,9 +352,21 @@ export class InventoryService {
     const lots = await this.prisma.inventoryLot.findMany({
       where,
       include: {
-        warehouse: { select: { id: true, name: true } },
+        warehouse: { select: { id: true, name: true, locationAddress: true } },
         product: { select: { id: true, name: true, sku: true, unit: true } },
-        contract: { select: { id: true, contractNo: true, farmer: { select: { fullName: true } } } },
+        contract: {
+          select: {
+            id: true,
+            contractNo: true,
+            farmer: { select: { fullName: true, phone: true } },
+            plot: {
+              select: {
+                plotCode: true,
+                zone: { select: { name: true } },
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -377,6 +389,31 @@ export class InventoryService {
         };
       }),
     );
+  }
+
+  async getLotTimeline(currentUser: InventoryUser, lotId: string) {
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+    const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
+    const warehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
+
+    // Kiểm tra xem lô hàng có thuộc quyền quản lý của user không
+    const lot = await this.prisma.inventoryLot.findUnique({
+      where: { id: lotId },
+      select: { warehouseId: true },
+    });
+
+    if (!lot || (currentUser.role === Role.INVENTORY && !warehouseIds.includes(lot.warehouseId))) {
+      throw new ForbiddenException('Bạn không có quyền truy cập thông tin lô hàng này');
+    }
+
+    return this.prisma.warehouseTransaction.findMany({
+      where: { inventoryLotId: lotId },
+      include: {
+        warehouse: { select: { name: true } },
+        product: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async createLot(currentUser: InventoryUser, dto: CreateInventoryLotDto) {

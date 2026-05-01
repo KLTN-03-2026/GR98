@@ -4,16 +4,19 @@ export interface InventoryLot {
   id: string;
   warehouseId: string;
   productId: string;
-  contractId: string | null;
+  contractId?: string;
   quantityKg: number;
-  harvestDate: string | null;
-  expiryDate: string | null;
   qualityGrade: QualityGrade;
+  harvestDate?: string;
+  expiryDate?: string;
   createdAt: string;
   updatedAt: string;
+  
+  // Relations
   warehouse: {
     id: string;
     name: string;
+    locationAddress?: string;
   };
   product: {
     id: string;
@@ -21,51 +24,45 @@ export interface InventoryLot {
     sku: string;
     unit: string;
   };
+  contract?: {
+    id: string;
+    contractNo: string;
+    farmer: {
+      fullName: string;
+      phone: string;
+    };
+    plot: {
+      plotCode: string;
+      zone: {
+        name: string;
+      };
+    };
+  };
 }
 
-export interface LotTrace extends InventoryLot {
-  transactions: any[];
-  contract?: any;
+export interface LotTransaction {
+  id: string;
+  type: 'receive' | 'inbound' | 'outbound' | 'adjustment' | 'transfer';
+  quantityKg: number;
+  note?: string;
+  createdAt: string;
+  warehouse: { name: string };
+  product: { name: string };
 }
 
 export interface CreateLotInput {
   warehouseId: string;
   productId: string;
   contractId?: string;
-  reportId?: string; // Liên kết với báo cáo thu hoạch
   quantityKg: number;
-  harvestDate: string;
-  expiryDate?: string;
   qualityGrade: QualityGrade;
-  note?: string;
-  deviationReason?: string;
+  harvestDate?: string;
+  expiryDate?: string;
+  reportId?: string;
 }
 
-export interface PendingHarvest {
-  id: string;
-  plotId: string;
-  supervisorId: string;
-  yieldEstimateKg: number;
-  reportedAt: string;
-  status: string;
-  plot: {
-    plotCode: string;
-    cropType: string;
-    farmer: {
-      fullName: string;
-    };
-    contracts: {
-      id: string;
-      contractNo: string;
-      product?: {
-        id: string;
-        name: string;
-      };
-    }[];
-  };
-  supervisor: {
-    user: {
-      fullName: string;
-    };
-  };
+export interface GetLotsFilters {
+  warehouseId?: string;
+  productId?: string;
+  qualityGrade?: QualityGrade;
 }

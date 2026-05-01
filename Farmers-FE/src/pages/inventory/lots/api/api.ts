@@ -26,4 +26,7 @@ export const lotApi = {
 
   getWarehouses: () =>
     apiGet<any[]>('/inventory/warehouses'),
+
+  getLotTimeline: (id: string) =>
+    apiGet<any[]>(`/inventory/lots/${id}/timeline`),
 };

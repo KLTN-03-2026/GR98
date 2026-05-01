@@ -44,7 +44,7 @@ export function SupplyDemandTable({
       ),
       cell: ({ row }) => (
         <div className="text-right text-sm tabular-nums">
-          {row.original.expectedKg.toLocaleString('vi-VN')} kg
+          {(row.original.expectedKg ?? 0).toLocaleString('vi-VN')} kg
         </div>
       ),
     },
@@ -57,7 +57,7 @@ export function SupplyDemandTable({
       ),
       cell: ({ row }) => (
         <div className="text-right font-medium text-sm tabular-nums">
-          {row.original.actualStockKg.toLocaleString('vi-VN')} kg
+          {(row.original.actualStockKg ?? 0).toLocaleString('vi-VN')} kg
         </div>
       ),
     },
@@ -70,7 +70,7 @@ export function SupplyDemandTable({
       ),
       cell: ({ row }) => (
         <div className="text-right text-sm tabular-nums">
-          {row.original.pendingOrderKg.toLocaleString('vi-VN')} kg
+          {(row.original.pendingOrderKg ?? 0).toLocaleString('vi-VN')} kg
         </div>
       ),
     },
@@ -82,7 +82,7 @@ export function SupplyDemandTable({
         </div>
       ),
       cell: ({ row }) => {
-        const balance = row.original.actualStockKg - row.original.pendingOrderKg;
+        const balance = (row.original.actualStockKg ?? 0) - (row.original.pendingOrderKg ?? 0);
         return (
           <div className="text-right">
             <Badge

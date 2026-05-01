@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { extractData } from '@/client/lib/api-client';
 import { lotApi } from './api';
 import type { Product } from '@/client/types';
-import type { InventoryLot, LotTrace, CreateLotInput, QualityGrade } from './types';
+import type { InventoryLot, LotTrace, CreateLotInput, PendingHarvest, LotTransaction } from './types';
 
 export const lotKeys = {
   all: ['lots'] as const,
@@ -10,6 +10,7 @@ export const lotKeys = {
   list: (params: Record<string, unknown>) => [...lotKeys.lists(), params] as const,
   details: () => [...lotKeys.all, 'detail'] as const,
   detail: (id: string) => [...lotKeys.details(), id] as const,
+  pendingHarvests: () => [...lotKeys.all, 'pending-harvests'] as const,
 };
 
 export const useGetLots = (params: { warehouseId?: string; productId?: string; qualityGrade?: string }) => {
@@ -22,33 +23,9 @@ export const useGetLots = (params: { warehouseId?: string; productId?: string; q
   });
 };
 
-export const useCreateLot = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: CreateLotInput) => {
-      const response = await lotApi.createLot(data);
-      return extractData<InventoryLot>(response);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: lotKeys.lists() });
-    },
-  });
-};
-
-export const useGetLotTrace = (id: string) => {
-  return useQuery({
-    queryKey: lotKeys.detail(id),
-    queryFn: async () => {
-      const response = await lotApi.getLotTrace(id);
-      return extractData<LotTrace>(response);
-    },
-    enabled: !!id,
-  });
-};
-
 export const useGetProducts = () => {
   return useQuery({
-    queryKey: ['inventory', 'products'],
+    queryKey: ['inventory-products'],
     queryFn: async () => {
       const response = await lotApi.getProducts();
       return extractData<Product[]>(response);
@@ -58,31 +35,54 @@ export const useGetProducts = () => {
 
 export const useGetContracts = () => {
   return useQuery({
-    queryKey: ['inventory', 'contracts'],
+    queryKey: ['inventory-contracts'],
     queryFn: async () => {
       const response = await lotApi.getContracts();
-      return extractData<{ 
-        id: string; 
-        contractNo: string; 
-        farmer: { fullName: string }; 
-        plot: { plotCode: string };
-        product: { id: string; name: string };
-        grade: QualityGrade;
-      }[]>(response);
+      return extractData<any[]>(response);
     },
   });
 };
 
-export const useUpdateLotGrade = () => {
+export const useCreateLot = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; qualityGrade: string; note: string }) => {
-      const response = await lotApi.updateLotGrade(id, data);
+    mutationFn: async (data: CreateLotInput) => {
+      const response = await lotApi.createLot(data);
       return extractData<InventoryLot>(response);
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: lotKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: lotKeys.detail(data.id) });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: lotKeys.all });
     },
+  });
+};
+
+export const useGetPendingHarvests = () => {
+  return useQuery({
+    queryKey: lotKeys.pendingHarvests(),
+    queryFn: async () => {
+      const response = await lotApi.getPendingHarvests();
+      return extractData<PendingHarvest[]>(response);
+    },
+  });
+};
+
+export const useGetWarehouses = () => {
+  return useQuery({
+    queryKey: ['inventory-warehouses'],
+    queryFn: async () => {
+      const response = await lotApi.getWarehouses();
+      return extractData<any[]>(response);
+    },
+  });
+};
+
+export const useGetLotTimeline = (id: string) => {
+  return useQuery({
+    queryKey: [...lotKeys.all, 'timeline', id],
+    queryFn: async () => {
+      const response = await lotApi.getLotTimeline(id);
+      return extractData<LotTransaction[]>(response);
+    },
+    enabled: !!id,
   });
 };

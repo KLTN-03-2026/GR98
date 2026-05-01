@@ -1,241 +1,148 @@
-import { useMemo, useState } from 'react';
-import {
-  Plus,
-  ArrowLeftRight,
-  TrendingDown,
-  TrendingUp,
-  Settings2,
-  Search,
-  RefreshCcw,
-  Scale,
+import React, { useState } from 'react';
+import { 
+  History, 
+  Plus, 
+  Search, 
+  Filter,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Settings2
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
 } from '@/components/ui/select';
-import { useGetTransactions } from './api';
-import { useGetWarehouses } from '../warehouses/api';
-import { format } from 'date-fns';
+import { Card, CardContent } from '@/components/ui/card';
+import { useGetTransactions, useGetTransactionWarehouses } from './api/hooks';
+import { TransactionTable } from './components/TransactionTable';
 import CreateTransactionDialog from './components/CreateTransactionDialog';
-import IncomingHarvests from './components/IncomingHarvests';
-import { DataTable } from '@/components/data-table/data-table';
-import type { ColumnDef } from '@tanstack/react-table';
-import type { WarehouseTransaction } from './api/types';
 import { cn } from '@/lib/utils';
 
 export default function InventoryTransactionsPage() {
-  const [warehouseFilter, setWarehouseFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [selectedReportId, setSelectedReportId] = useState<string | undefined>();
-  const [selectedType, setSelectedType] = useState<string | undefined>();
-
-  // Fetch data
-  const { data: transactions, isLoading, refetch, isRefetching } = useGetTransactions({
-    warehouseId: warehouseFilter !== 'all' ? warehouseFilter : undefined,
-    type: typeFilter !== 'all' ? typeFilter : undefined,
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    warehouseId: 'all',
+    type: 'all',
+    productId: '',
   });
 
-  const { data: warehouses } = useGetWarehouses();
+  const apiFilters = {
+    warehouseId: filters.warehouseId === 'all' ? undefined : filters.warehouseId,
+    type: filters.type === 'all' ? undefined : filters.type,
+    productId: filters.productId || undefined,
+  };
 
-  const columns = useMemo<ColumnDef<WarehouseTransaction>[]>(
-    () => [
-      {
-        accessorKey: 'createdAt',
-        header: 'Thời gian',
-        cell: ({ row }) => (
-          <div className="flex flex-col text-xs text-muted-foreground">
-            <span className="font-bold text-slate-900">{format(new Date(row.original.createdAt), 'dd/MM/yyyy')}</span>
-            <span className="text-[10px] opacity-70 tabular-nums">{format(new Date(row.original.createdAt), 'HH:mm')}</span>
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'productName',
-        header: 'Sản phẩm & Kho',
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-bold text-sm text-slate-900">
-              {row.original.product?.name}
-            </span>
-            <span className="text-[10px] text-muted-foreground uppercase flex items-center gap-1.5 mt-0.5">
-              <span className="font-semibold text-emerald-600">{row.original.warehouse?.name}</span>
-              <span className="opacity-30">•</span>
-              <span>Lô: {row.original.inventoryLotId.slice(-8).toUpperCase()}</span>
-            </span>
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'type',
-        header: 'Loại',
-        cell: ({ row }) => (
-          <div className="flex items-center gap-1.5">
-            {row.original.type === 'inbound' && (
-              <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-emerald-100">
-                <TrendingUp className="size-3" />
-                NHẬP KHO
-              </div>
-            )}
-            {row.original.type === 'outbound' && (
-              <div className="flex items-center gap-1 text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-rose-100">
-                <TrendingDown className="size-3" />
-                XUẤT KHO
-              </div>
-            )}
-            {row.original.type === 'adjustment' && (
-              <div className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-blue-100">
-                <Settings2 className="size-3" />
-                ĐIỀU CHỈNH
-              </div>
-            )}
-            {row.original.type === 'receive_harvest' && (
-              <div className="flex items-center gap-1 text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-amber-100">
-                <Scale className="size-3" />
-                NHẬN HÀNG
-              </div>
-            )}
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'quantityKg',
-        header: 'Số lượng',
-        cell: ({ row }) => (
-          <span className={`font-manrope text-sm font-bold tabular-nums ${
-            (row.original.type === 'inbound' || row.original.type === 'receive_harvest') ? 'text-emerald-600' : 
-            row.original.type === 'outbound' ? 'text-rose-600' : 'text-slate-900'
-          }`}>
-            {row.original.type === 'outbound' ? '-' : '+'}{Math.abs(row.original.quantityKg).toLocaleString('vi-VN')} <span className="text-[11px] font-medium opacity-70">kg</span>
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'note',
-        header: 'Ghi chú',
-        cell: ({ row }) => (
-          <span className="text-xs text-muted-foreground italic max-w-[150px] truncate block">
-            {row.original.note || '—'}
-          </span>
-        ),
-      },
-    ],
-    []
-  );
+  const { data: transactions = [], isLoading, refetch } = useGetTransactions(apiFilters);
+  const { data: warehouses = [] } = useGetTransactionWarehouses();
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6 font-manrope">
-      {/* Header & Filter Card - Admin Style */}
-      <Card className="border-dashed border-emerald-400/50 shadow-sm bg-white">
-        <CardContent className="space-y-4 p-4 sm:p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="flex size-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
-                  <ArrowLeftRight className="size-4" />
-                </div>
-                <h1 className="text-xl font-bold tracking-tight text-slate-900">
-                  Nhật ký Giao dịch
-                </h1>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {isLoading ? 'Đang tải dữ liệu...' : `Hiển thị ${transactions?.length ?? 0} giao dịch gần đây`}
+    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
+      {/* Header Section */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg shadow-slate-200">
+              <History className="size-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Lịch sử Giao dịch</h1>
+              <p className="text-sm text-muted-foreground font-medium">
+                Theo dõi toàn bộ biến động nhập, xuất và điều chỉnh kho hàng.
               </p>
+            </div>
+          </div>
+        </div>
+
+        <Button 
+          onClick={() => setIsDialogOpen(true)}
+          className="rounded-2xl h-12 px-6 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xl shadow-slate-200 gap-2 transition-all active:scale-95"
+        >
+          <Plus className="size-5" />
+          Tạo giao dịch mới
+        </Button>
+      </div>
+
+      {/* Quick Stats or Highlights can go here */}
+
+      {/* Filters Section */}
+      <Card className="rounded-[24px] border-none shadow-sm bg-slate-50/50">
+        <CardContent className="p-6">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[240px] space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Tìm kiếm sản phẩm</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                <Input 
+                  placeholder="Nhập tên sản phẩm..." 
+                  className="pl-10 h-11 rounded-xl bg-white border-slate-200 focus:ring-slate-900"
+                  value={filters.productId}
+                  onChange={(e) => setFilters(f => ({ ...f, productId: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="w-[200px] space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Kho hàng</label>
+              <Select 
+                value={filters.warehouseId} 
+                onValueChange={(val) => setFilters(f => ({ ...f, warehouseId: val }))}
+              >
+                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
+                  <SelectValue placeholder="Tất cả kho" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="all">Tất cả kho</SelectItem>
+                  {warehouses.map(w => (
+                    <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-[180px] space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Loại giao dịch</label>
+              <Select 
+                value={filters.type} 
+                onValueChange={(val) => setFilters(f => ({ ...f, type: val }))}
+              >
+                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
+                  <SelectValue placeholder="Tất cả loại" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="all">Tất cả loại</SelectItem>
+                  <SelectItem value="inbound">Nhập kho</SelectItem>
+                  <SelectItem value="outbound">Xuất kho</SelectItem>
+                  <SelectItem value="adjustment">Điều chỉnh</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Button 
-              onClick={() => {
-                setSelectedReportId(undefined);
-                setSelectedType(undefined);
-                setIsCreateDialogOpen(true);
-              }}
-              className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-10 px-6"
+              variant="outline" 
+              onClick={() => setFilters({ warehouseId: 'all', type: 'all', productId: '' })}
+              className="h-11 rounded-xl px-4 border-slate-200 text-slate-500 hover:text-slate-900"
             >
-              <Plus className="size-4" />
-              <span className="font-bold text-sm">Ghi nhận giao dịch</span>
-            </Button>
-          </div>
-
-          <IncomingHarvests onReceive={(reportId) => {
-            setSelectedReportId(reportId);
-            setSelectedType('receive_harvest');
-            setIsCreateDialogOpen(true);
-          }} />
-
-          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-emerald-100/50">
-            <div className="relative group min-w-[240px]">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
-              <Input
-                placeholder="Tìm kiếm giao dịch..."
-                className="h-10 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500"
-              />
-            </div>
-
-            <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
-              <SelectTrigger className="h-10 w-[200px] rounded-full border-slate-200 bg-white">
-                <SelectValue placeholder="Tất cả kho" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="all">Tất cả kho</SelectItem>
-                {warehouses?.map((w) => (
-                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="h-10 w-[180px] rounded-full border-slate-200 bg-white">
-                <SelectValue placeholder="Loại giao dịch" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value="inbound">Nhập kho</SelectItem>
-                <SelectItem value="outbound">Xuất kho</SelectItem>
-                <SelectItem value="adjustment">Điều chỉnh</SelectItem>
-                <SelectItem value="receive_harvest">Nhận hàng (Harvest)</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-10 rounded-full border-slate-200"
-              onClick={() => refetch()}
-              disabled={isRefetching}
-            >
-              <RefreshCcw className={cn("size-4", isRefetching && "animate-spin")} />
+              <Filter className="size-4 mr-2" />
+              Xóa lọc
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* DataTable Container */}
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <DataTable
-          columns={columns}
-          data={transactions ?? []}
-          isLoading={isLoading}
-          hiddenSearch={true} // Already have custom search in header card
-          className="h-full flex flex-col"
-          tableClassName="rounded-xl border border-slate-200 shadow-sm overflow-hidden"
-        />
+      {/* Main Table Section */}
+      <div className="rounded-[32px] border border-slate-100 bg-white shadow-sm overflow-hidden">
+        <TransactionTable data={transactions} isLoading={isLoading} />
       </div>
 
+      {/* Dialog */}
       <CreateTransactionDialog 
-        isOpen={isCreateDialogOpen} 
-        onClose={() => {
-          setIsCreateDialogOpen(false);
-          setSelectedReportId(undefined);
-          setSelectedType(undefined);
-        }} 
-        defaultReportId={selectedReportId}
-        defaultType={selectedType}
+        isOpen={isDialogOpen} 
+        onClose={() => setIsDialogOpen(false)} 
       />
     </div>
   );

@@ -20,7 +20,7 @@ interface InventoryUser {
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private async resolveAdminId(
     currentUserId: string,
@@ -146,26 +146,26 @@ export class InventoryService {
     const [totalStockResult, pendingOrdersCount, expiringLotsCount, stagnantLotsResult, recentTransactions, pendingOrdersList] = await Promise.all([
       warehouseIds.length > 0
         ? this.prisma.inventoryLot.aggregate({
-            where: { warehouseId: { in: warehouseIds } },
-            _sum: { quantityKg: true },
-          })
+          where: { warehouseId: { in: warehouseIds } },
+          _sum: { quantityKg: true },
+        })
         : { _sum: { quantityKg: null } },
       this.prisma.order.count({
         where: { adminId, fulfillStatus: 'PENDING', paymentStatus: { in: ['PENDING', 'PAID'] } },
       }),
       warehouseIds.length > 0
         ? this.prisma.inventoryLot.count({
-            where: { warehouseId: { in: warehouseIds }, expiryDate: { lte: sevenDaysLater } },
-          })
+          where: { warehouseId: { in: warehouseIds }, expiryDate: { lte: sevenDaysLater } },
+        })
         : 0,
       this.prisma.inventoryLot.count({
         where: warehouseIds.length > 0
-            ? {
-                warehouseId: { in: warehouseIds },
-                createdAt: { lte: thirtyDaysAgo },
-                NOT: { transactions: { some: { type: 'outbound', createdAt: { gte: thirtyDaysAgo } } } },
-              }
-            : { warehouseId: 'IMPOSSIBLE' },
+          ? {
+            warehouseId: { in: warehouseIds },
+            createdAt: { lte: thirtyDaysAgo },
+            NOT: { transactions: { some: { type: 'outbound', createdAt: { gte: thirtyDaysAgo } } } },
+          }
+          : { warehouseId: 'IMPOSSIBLE' },
       }),
       this.prisma.warehouseTransaction.findMany({
         where: {
@@ -251,10 +251,10 @@ export class InventoryService {
     const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
 
     const where = currentUser.role === Role.ADMIN
-        ? { adminId }
-        : inventoryProfileId
-          ? { adminId, managedBy: inventoryProfileId, isActive: true }
-          : { adminId, isActive: true };
+      ? { adminId }
+      : inventoryProfileId
+        ? { adminId, managedBy: inventoryProfileId, isActive: true }
+        : { adminId, isActive: true };
 
     const warehouses = await this.prisma.warehouse.findMany({
       where,
@@ -349,7 +349,7 @@ export class InventoryService {
     if (filters.productId) where.productId = filters.productId;
     if (filters.qualityGrade) where.qualityGrade = filters.qualityGrade;
 
-    return this.prisma.inventoryLot.findMany({
+    const lots = await this.prisma.inventoryLot.findMany({
       where,
       include: {
         warehouse: { select: { id: true, name: true } },
@@ -358,6 +358,25 @@ export class InventoryService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Tính toán số dư thực tế cho từng lô tại kho được chọn
+    // Nếu không chọn warehouseId cụ thể, lấy số dư tại kho mặc định của nó
+    return Promise.all(
+      lots.map(async (lot) => {
+        const targetWarehouseId = filters.warehouseId || lot.warehouseId;
+        const aggregate = await this.prisma.warehouseTransaction.aggregate({
+          where: {
+            inventoryLotId: lot.id,
+            warehouseId: targetWarehouseId,
+          },
+          _sum: { quantityKg: true },
+        });
+        return {
+          ...lot,
+          quantityKg: aggregate._sum.quantityKg || 0,
+        };
+      }),
+    );
   }
 
   async createLot(currentUser: InventoryUser, dto: CreateInventoryLotDto) {
@@ -463,7 +482,7 @@ export class InventoryService {
       });
 
       // B. Create Inbound Transaction Log
-      const transactionNote = justification 
+      const transactionNote = justification
         ? `[ĐỐI SOÁT] Lệch >5%. Lý do: ${justification}. ${note || ''}`
         : `Nhận hàng từ thực địa. ${note || ''}`;
 
@@ -539,34 +558,76 @@ export class InventoryService {
       const lot = await tx.inventoryLot.findUnique({ where: { id: dto.inventoryLotId } });
       if (!lot) throw new BadRequestException('Lô hàng không tồn tại');
 
-      let delta = 0;
-      let stockDelta = 0;
+      // 1. Tính toán số dư thực tế của lô tại kho xuất
+      const aggregate = await tx.warehouseTransaction.aggregate({
+        where: {
+          inventoryLotId: dto.inventoryLotId,
+          warehouseId: dto.warehouseId,
+        },
+        _sum: { quantityKg: true },
+      });
+      const currentLotBalance = aggregate._sum.quantityKg || 0;
+
+      let delta = 0; // Biến động cho Kho xuất
+      let stockDelta = 0; // Biến động cho Product stockKg (Kho tổng hệ thống)
 
       if (dto.type === TransactionType.INBOUND) {
-        if (lot.quantityKg < dto.quantityKg) throw new BadRequestException('Số lượng trong lô không đủ');
-        delta = -dto.quantityKg;
+        delta = dto.quantityKg;
         stockDelta = dto.quantityKg;
       } else if (dto.type === TransactionType.OUTBOUND) {
+        if (currentLotBalance < dto.quantityKg) {
+          throw new BadRequestException(`Lô hàng tại kho này không đủ số lượng (Hiện còn: ${currentLotBalance}kg)`);
+        }
         delta = -dto.quantityKg;
-        stockDelta = -dto.quantityKg;
+        stockDelta = dto.isTransfer ? 0 : -dto.quantityKg; // Nếu điều chuyển thì kho tổng không đổi
+      } else if (dto.type === TransactionType.ADJUSTMENT) {
+        // Adjustment tính dựa trên chênh lệch với số dư thực tế
+        delta = dto.quantityKg - currentLotBalance;
+        stockDelta = delta;
       }
 
+      // 2. Tạo bản ghi giao dịch cho kho xuất
       const transaction = await tx.warehouseTransaction.create({
         data: {
           warehouseId: dto.warehouseId,
           productId: dto.productId,
           inventoryLotId: dto.inventoryLotId,
           type: dto.type,
-          quantityKg: dto.type === TransactionType.OUTBOUND ? -dto.quantityKg : dto.quantityKg,
+          quantityKg: delta,
           note: dto.note || '',
           createdBy: currentUser.id,
         },
       });
 
-      await tx.inventoryLot.update({ where: { id: dto.inventoryLotId }, data: { quantityKg: { increment: delta } } });
-      if (stockDelta !== 0) {
-        await tx.product.update({ where: { id: dto.productId }, data: { stockKg: { increment: stockDelta } } });
+      // 3. Nếu là điều chuyển, tạo bản ghi nhập cho kho nhận
+      if (dto.isTransfer && dto.targetWarehouseId) {
+        if (dto.targetWarehouseId === dto.warehouseId) {
+          throw new BadRequestException('Kho nhận phải khác kho xuất');
+        }
+        await tx.warehouseTransaction.create({
+          data: {
+            warehouseId: dto.targetWarehouseId,
+            productId: dto.productId,
+            inventoryLotId: dto.inventoryLotId,
+            type: TransactionType.INBOUND,
+            quantityKg: dto.quantityKg,
+            note: `[ĐIỀU CHUYỂN] Từ kho ${dto.warehouseId}. ${dto.note || ''}`,
+            createdBy: currentUser.id,
+          },
+        });
       }
+
+      // 4. Cập nhật kho tổng Product (chỉ khi có biến động hệ thống)
+      if (stockDelta !== 0) {
+        await tx.product.update({
+          where: { id: dto.productId },
+          data: { stockKg: { increment: stockDelta } },
+        });
+      }
+
+      // Lưu ý: Chúng ta KHÔNG cập nhật quantityKg trong bảng InventoryLot theo yêu cầu.
+      // Tuy nhiên, nếu là giao dịch INBOUND ĐẦU TIÊN của lô hàng mới, ta có thể cần cập nhật để hiển thị.
+      // Nhưng theo thiết kế của bạn, ta sẽ dựa hoàn toàn vào bảng WarehouseTransaction để tính toán.
 
       return transaction;
     });

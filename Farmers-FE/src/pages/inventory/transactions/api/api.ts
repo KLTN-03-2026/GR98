@@ -1,12 +1,20 @@
-import type { WarehouseTransaction, CreateTransactionInput, TransactionFilters, ReceiveHarvestInput } from './types';
+import { apiGet, apiPost } from '@/client/lib/api-client';
+import type { WarehouseTransaction, CreateTransactionInput, TransactionFilters } from './types';
+import type { Product } from '@/client/types';
 
 export const transactionApi = {
-  getTransactions: (params: TransactionFilters) =>
-    apiGet<WarehouseTransaction[]>('/inventory/transactions', { params }),
-  
+  getTransactions: (filters: TransactionFilters) =>
+    apiGet<WarehouseTransaction[]>('/inventory/transactions', { params: filters }),
+
   createTransaction: (data: CreateTransactionInput) =>
     apiPost<WarehouseTransaction>('/inventory/transactions', data),
 
-  receiveHarvest: (data: ReceiveHarvestInput) =>
-    apiPost<any>('/inventory/receive-harvest', data),
+  getProducts: () =>
+    apiGet<Product[]>('/inventory/products'),
+
+  getWarehouses: () =>
+    apiGet<any[]>('/inventory/warehouses'),
+    
+  getLots: (warehouseId?: string) =>
+    apiGet<any[]>('/inventory/lots', { params: { warehouseId } }),
 };

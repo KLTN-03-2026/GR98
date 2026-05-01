@@ -59,7 +59,22 @@ export class ProductsService {
       return profile.adminId;
     }
 
-    throw new ForbiddenException('Bạn không có quyền thực hiện thao tác này');
+  private async calculateDynamicStock(productId: string) {
+    const now = new Date();
+    const [actual, upcoming] = await Promise.all([
+      this.prisma.inventoryLot.aggregate({
+        where: { productId, harvestDate: { lte: now } },
+        _sum: { quantityKg: true }
+      }),
+      this.prisma.inventoryLot.aggregate({
+        where: { productId, harvestDate: { gt: now } },
+        _sum: { quantityKg: true }
+      })
+    ]);
+    return {
+      actualStockKg: actual._sum.quantityKg || 0,
+      upcomingStockKg: upcoming._sum.quantityKg || 0
+    };
   }
 
   // ─── CRUD ──────────────────────────────────────────────────────────────────
@@ -106,11 +121,15 @@ export class ProductsService {
     ]);
 
     return {
-      items: items.map((item) => ({
-        ...item,
-        categories: item.categories.map((pc) => pc.category),
-        orderCount: item._count.orderItems,
-        _count: undefined,
+      items: await Promise.all(items.map(async (item) => {
+        const dynamicStock = await this.calculateDynamicStock(item.id);
+        return {
+          ...item,
+          ...dynamicStock,
+          categories: item.categories.map((pc) => pc.category),
+          orderCount: item._count.orderItems,
+          _count: undefined,
+        };
       })),
       total,
       page,
@@ -134,8 +153,11 @@ export class ProductsService {
 
     if (!item) throw new NotFoundException('Sản phẩm không tồn tại');
 
+    const dynamicStock = await this.calculateDynamicStock(item.id);
+
     return {
       ...item,
+      ...dynamicStock,
       categories: item.categories.map((pc) => pc.category),
     };
   }

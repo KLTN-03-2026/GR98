@@ -1,11 +1,3 @@
-// =============================================================================
-// schema.prisma — Agri-Integrator
-// Nguồn: db.md (2026) + giữ các model đang dùng cho chức năng hiện tại
-//
-// Stack : Prisma + PostgreSQL
-// Auth  : JWT stateless — role + adminId stored in token
-// =============================================================================
-
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
@@ -16,9 +8,481 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =============================================================================
-// ENUMS
-// =============================================================================
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("RefreshTokens")
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("PasswordResets")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  passwordHash      String
+  fullName          String
+  phone             String?
+  avatar            String?
+  role              Role
+  status            UserStatus         @default(ACTIVE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  adminProfile      AdminProfile?
+  clientProfile     ClientProfile?
+  inventoryProfile  InventoryProfile?
+  passwordResets    PasswordReset[]
+  refreshToken      RefreshToken?
+  supervisorProfile SupervisorProfile?
+
+  @@map("users")
+}
+
+model AdminProfile {
+  id               String              @id @default(cuid())
+  userId           String              @unique
+  businessName     String
+  taxCode          String?
+  bankAccount      String?
+  province         String
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments      Assignment[]
+  contracts        Contract[]
+  farmers          Farmer[]
+  inventoryStaff   InventoryProfile[]
+  orders           Order[]
+  plantScanRecords PlantScanRecord[]
+  plots            Plot[]
+  priceBoards      PriceBoard[]
+  products         Product[]
+  supervisors      SupervisorProfile[]
+  zones            Zone[]
+  warehouses       Warehouse[]
+
+  @@map("AdminProfiles")
+}
+
+model InventoryProfile {
+  id           String       @id @default(cuid())
+  userId       String       @unique
+  adminId      String
+  employeeCode String       @unique
+  hiredAt      DateTime     @default(now())
+  admin        AdminProfile @relation(fields: [adminId], references: [id])
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  warehouses   Warehouse[]
+
+  @@map("InventoryProfiles")
+}
+
+model SupervisorProfile {
+  id               String            @id @default(cuid())
+  userId           String            @unique
+  adminId          String
+  zoneId           String?
+  employeeCode     String            @unique
+  hiredAt          DateTime          @default(now())
+  lat              Float?
+  lng              Float?
+  lastSeenAt       DateTime?
+  assignments      Assignment[]
+  contracts        Contract[]
+  dailyReports     DailyReport[]
+  farmers          Farmer[]
+  plantScanRecords PlantScanRecord[]
+  admin            AdminProfile      @relation(fields: [adminId], references: [id])
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zone             Zone?             @relation(fields: [zoneId], references: [id])
+
+  @@map("SupervisorProfiles")
+}
+
+model ClientProfile {
+  id                String                  @id @default(cuid())
+  userId            String                  @unique
+  adminId           String?
+  province          String?
+  createdAt         DateTime                @default(now())
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shippingAddresses ClientShippingAddress[]
+  orders            Order[]
+  reviews           Review[]
+
+  @@map("ClientProfiles")
+}
+
+model ClientShippingAddress {
+  id              String        @id @default(cuid())
+  clientProfileId String
+  fullName        String
+  phone           String
+  addressLine     String
+  district        String?
+  province        String
+  isDefault       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  clientProfile   ClientProfile @relation(fields: [clientProfileId], references: [id], onDelete: Cascade)
+
+  @@index([clientProfileId])
+  @@map("ClientShippingAddresses")
+}
+
+model Zone {
+  id          String              @id @default(cuid())
+  adminId     String
+  name        String
+  province    String
+  district    String
+  centerLat   Float?
+  centerLng   Float?
+  totalAreaHa Float               @default(0)
+  plots       Plot[]
+  supervisors SupervisorProfile[]
+  admin       AdminProfile        @relation(fields: [adminId], references: [id])
+
+  @@map("Zones")
+}
+
+model Farmer {
+  id           String             @id @default(cuid())
+  adminId      String
+  fullName     String
+  phone        String
+  cccd         String             @unique
+  bankAccount  String?
+  bankName     String?
+  bankBranch   String?
+  address      String?
+  province     String?
+  status       FarmerStatus       @default(ACTIVE)
+  createdAt    DateTime           @default(now())
+  supervisorId String?
+  contracts    Contract[]
+  admin        AdminProfile       @relation(fields: [adminId], references: [id])
+  supervisor   SupervisorProfile? @relation(fields: [supervisorId], references: [id])
+  plots        Plot[]
+
+  @@map("Farmers")
+}
+
+model Plot {
+  id               String            @id @default(cuid())
+  farmerId         String
+  adminId          String
+  zoneId           String?
+  plotCode         String            @unique
+  cropType         String
+  areaHa           Float
+  lat              Float?
+  lng              Float?
+  status           PlotStatus        @default(ACTIVE)
+  plantingDate     DateTime?
+  expectedHarvest  DateTime?
+  estimatedYieldKg Float?
+  createdAt        DateTime          @default(now())
+  assignments      Assignment[]
+  contracts        Contract[]
+  dailyReports     DailyReport[]
+  plantScanRecords PlantScanRecord[]
+  admin            AdminProfile      @relation(fields: [adminId], references: [id])
+  farmer           Farmer            @relation(fields: [farmerId], references: [id])
+  zone             Zone?             @relation(fields: [zoneId], references: [id])
+  products         Product[]
+
+  @@map("Plots")
+}
+
+model Assignment {
+  id           String            @id @default(cuid())
+  supervisorId String
+  plotId       String
+  adminId      String
+  status       AssignStatus      @default(PENDING)
+  assignedAt   DateTime          @default(now())
+  dueDate      DateTime?
+  note         String?
+  admin        AdminProfile      @relation(fields: [adminId], references: [id])
+  plot         Plot              @relation(fields: [plotId], references: [id])
+  supervisor   SupervisorProfile @relation(fields: [supervisorId], references: [id])
+
+  @@map("Assignments")
+}
+
+model DailyReport {
+  id              String            @id @default(cuid())
+  supervisorId    String
+  plotId          String
+  adminId         String
+  type            ReportType        @default(ROUTINE)
+  content         String
+  imageUrls       String[]
+  isSynced        Boolean           @default(false)
+  reportedAt      DateTime          @default(now())
+  syncedAt        DateTime?
+  status          ReportStatus      @default(DRAFT)
+  aiVisionResult  Json?
+  yieldEstimateKg Float?
+  plot            Plot              @relation(fields: [plotId], references: [id])
+  supervisor      SupervisorProfile @relation(fields: [supervisorId], references: [id])
+
+  @@map("DailyReports")
+}
+
+model PriceBoard {
+  id            String       @id @default(cuid())
+  adminId       String
+  cropType      String
+  grade         QualityGrade
+  buyPrice      Float
+  sellPrice     Float
+  effectiveDate DateTime     @default(now())
+  isActive      Boolean      @default(true)
+  admin         AdminProfile @relation(fields: [adminId], references: [id])
+
+  @@map("PriceBoards")
+}
+
+model Contract {
+  id                       String            @id @default(cuid())
+  adminId                  String
+  supervisorId             String
+  farmerId                 String
+  plotId                   String?
+  contractNo               String            @unique
+  cropType                 String
+  grade                    QualityGrade
+  status                   ContractStatus    @default(DRAFT)
+  signedAt                 DateTime?
+  harvestDue               DateTime?
+  signatureUrl             String?
+  traceabilityQr           String?
+  submittedAt              DateTime?
+  approvedAt               DateTime?
+  approvedBy               String?
+  rejectedReason           String?
+  plotDraftProvince        String?
+  plotDraftDistrict        String?
+  plotDraftAreaHa          Float?
+  plotDraftCoordinatesText String?
+  createdAt                DateTime          @default(now())
+  admin                    AdminProfile      @relation(fields: [adminId], references: [id])
+  farmer                   Farmer            @relation(fields: [farmerId], references: [id])
+  plot                     Plot?             @relation(fields: [plotId], references: [id])
+  supervisor               SupervisorProfile @relation(fields: [supervisorId], references: [id])
+  product                  Product?
+  inventoryLots            InventoryLot[]
+
+  @@map("Contracts")
+}
+
+model Product {
+  id                String                 @id @default(cuid())
+  adminId           String
+  plotId            String?
+  contractId        String?                @unique
+  name              String
+  slug              String                 @unique
+  sku               String                 @unique
+  description       String?
+  cropType          String
+  grade             QualityGrade
+  pricePerKg        Float
+  stockKg           Float                  @default(0)
+  minOrderKg        Float                  @default(1)
+  unit              String                 @default("kg")
+  qrCode            String                 @unique
+  imageUrls         String[]
+  thumbnailUrl      String?
+  status            ProductStatus          @default(DRAFT)
+  harvestDate       DateTime?
+  aiConfidenceScore Float?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  orderItems        OrderItem[]
+  categories        ProductCategory[]
+  admin             AdminProfile           @relation(fields: [adminId], references: [id])
+  contract          Contract?              @relation(fields: [contractId], references: [id])
+  plot              Plot?                  @relation(fields: [plotId], references: [id])
+  reviews           Review[]
+  inventoryLots     InventoryLot[]
+  transactions      WarehouseTransaction[]
+
+  @@map("Products")
+}
+
+model Category {
+  id          String            @id @default(cuid())
+  name        String
+  slug        String            @unique
+  description String?
+  imageUrl    String?
+  isActive    Boolean           @default(true)
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  products    ProductCategory[]
+
+  @@map("Categories")
+}
+
+model ProductCategory {
+  productId  String
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@map("ProductCategories")
+}
+
+model Order {
+  id               String        @id @default(cuid())
+  clientId         String
+  adminId          String
+  orderNo          String        @unique
+  orderCode        String        @unique
+  subtotal         Float
+  shippingFee      Float         @default(0)
+  discount         Float         @default(0)
+  total            Float
+  paymentMethod    PaymentMethod
+  paymentRef       String?
+  paymentStatus    PaymentStatus @default(PENDING)
+  fulfillStatus    FulfillStatus @default(PENDING)
+  shippingAddr     Json
+  shippingAddrText String?
+  trackingCode     String?
+  note             String?
+  orderedAt        DateTime      @default(now())
+  paidAt           DateTime?
+  orderItems       OrderItem[]
+  admin            AdminProfile  @relation(fields: [adminId], references: [id])
+  client           ClientProfile @relation(fields: [clientId], references: [id])
+
+  @@map("Orders")
+}
+
+model OrderItem {
+  id            String  @id @default(cuid())
+  orderId       String
+  productId     String
+  nameSnapshot  String
+  priceSnapshot Float
+  quantityKg    Float
+  subtotal      Float
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product @relation(fields: [productId], references: [id])
+
+  @@map("OrderItems")
+}
+
+model Review {
+  id               String        @id @default(cuid())
+  productId        String
+  clientId         String
+  rating           Int
+  comment          String?
+  imageUrls        String[]
+  verifiedPurchase Boolean       @default(false)
+  status           ReviewStatus  @default(PENDING)
+  createdAt        DateTime      @default(now())
+  client           ClientProfile @relation(fields: [clientId], references: [id])
+  product          Product       @relation(fields: [productId], references: [id])
+
+  @@map("Reviews")
+}
+
+model Warehouse {
+  id              String                 @id @default(cuid())
+  name            String
+  locationAddress String?
+  isActive        Boolean                @default(true)
+  createdAt       DateTime               @default(now())
+  managedBy       String?
+  adminId         String
+  inventoryLots   InventoryLot[]
+  transactions    WarehouseTransaction[]
+  admin           AdminProfile           @relation(fields: [adminId], references: [id])
+  inventory       InventoryProfile?      @relation(fields: [managedBy], references: [id])
+
+  @@map("warehouses")
+}
+
+model InventoryLot {
+  id           String                 @id @default(cuid())
+  warehouseId  String
+  productId    String
+  contractId   String?
+  quantityKg   Float
+  harvestDate  DateTime?
+  expiryDate   DateTime?
+  qualityGrade QualityGrade
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  contract     Contract?              @relation(fields: [contractId], references: [id])
+  product      Product                @relation(fields: [productId], references: [id])
+  warehouse    Warehouse              @relation(fields: [warehouseId], references: [id])
+  transactions WarehouseTransaction[]
+
+  @@map("inventory_lots")
+}
+
+model WarehouseTransaction {
+  id             String       @id @default(cuid())
+  warehouseId    String
+  productId      String
+  inventoryLotId String
+  type           String
+  quantityKg     Float
+  note           String?
+  createdBy      String
+  createdAt      DateTime     @default(now())
+  inventoryLot   InventoryLot @relation(fields: [inventoryLotId], references: [id])
+  product        Product      @relation(fields: [productId], references: [id])
+  warehouse      Warehouse    @relation(fields: [warehouseId], references: [id])
+
+  @@map("warehouse_transactions")
+}
+
+model PlantScanRecord {
+  id           String            @id @default(uuid())
+  adminId      String
+  supervisorId String
+  plotId       String?
+  diseaseEn    String
+  diseaseVi    String
+  causingAgent String
+  dangerLevel  String
+  category     String
+  symptoms     String
+  treatment    String
+  confidence   Float
+  processingMs Float?
+  imageDataUrl String?
+  scannedAt    DateTime          @default(now())
+  admin        AdminProfile      @relation(fields: [adminId], references: [id])
+  plot         Plot?             @relation(fields: [plotId], references: [id])
+  supervisor   SupervisorProfile @relation(fields: [supervisorId], references: [id])
+
+  @@index([adminId])
+  @@index([supervisorId])
+  @@index([scannedAt])
+  @@map("PlantScanRecords")
+}
 
 enum Role {
   ADMIN
@@ -39,12 +503,12 @@ enum FarmerStatus {
 }
 
 enum PlotStatus {
-  ACTIVE // đang trồng
+  ACTIVE
   HARVESTED
   IDLE
   SUSPENDED
-  AVAILABLE // Sẵn sàng để ký HĐ
-  CONTRACTED // Đã có hợp đồng
+  AVAILABLE
+  CONTRACTED
 }
 
 enum AssignStatus {
@@ -116,567 +580,4 @@ enum ReportStatus {
   DRAFT
   SUBMITTED
   REVIEWED
-}
-
-// =============================================================================
-// DOMAIN 0 — AUTH & TOKEN
-// =============================================================================
-
-model RefreshToken {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("RefreshTokens")
-}
-
-model PasswordReset {
-  id        String    @id @default(cuid())
-  userId    String
-  token     String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("PasswordResets")
-}
-
-// Nguồn duy nhất cho authentication (Admin/Supervisor/Client)
-// Role được lưu trong JWT — không có Permission table
-model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String
-  fullName     String
-  phone        String?
-  avatar       String?    @db.Text
-  role         Role
-  status       UserStatus @default(ACTIVE)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  adminProfile      AdminProfile?
-  supervisorProfile SupervisorProfile?
-  inventoryProfile  InventoryProfile?
-  clientProfile     ClientProfile?
-  refreshToken      RefreshToken?
-  passwordResets    PasswordReset[]
-
-  @@map("users")
-}
-
-// =============================================================================
-// DOMAIN 1 — USER PROFILES
-// =============================================================================
-
-// Profile mở rộng cho ADMIN
-// adminId = User.id — dùng làm tenant key trên tất cả bảng khác
-model AdminProfile {
-  id           String  @id @default(cuid())
-  userId       String  @unique
-  businessName String
-  taxCode      String?
-  bankAccount  String?
-  province     String
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  zones          Zone[]
-  supervisors    SupervisorProfile[]
-  inventoryStaff InventoryProfile[]
-  farmers        Farmer[]
-  plots          Plot[]
-  contracts      Contract[]
-  priceBoards    PriceBoard[]
-  products       Product[]
-  orders         Order[]
-  assignments    Assignment[]
-  warehouses     Warehouse[]
-  plantScanRecords PlantScanRecord[]
-
-  @@map("AdminProfiles")
-}
-
-// Profile mở rộng cho INVENTORY STAFF
-model InventoryProfile {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  adminId      String // TENANT KEY
-  employeeCode String   @unique
-  hiredAt      DateTime @default(now())
-
-  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  admin AdminProfile @relation(fields: [adminId], references: [id])
-
-  warehouses Warehouse[]
-
-  @@map("InventoryProfiles")
-}
-
-// Profile mở rộng cho SUPERVISOR
-// adminId -> biết Supervisor thuộc Admin nào (tenant isolation)
-model SupervisorProfile {
-  id           String    @id @default(cuid())
-  userId       String    @unique
-  adminId      String // TENANT KEY
-  zoneId       String?
-  employeeCode String    @unique
-  hiredAt      DateTime  @default(now())
-  lat          Float? // GPS hiện tại
-  lng          Float?
-  lastSeenAt   DateTime?
-
-  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  admin AdminProfile @relation(fields: [adminId], references: [id])
-  zone  Zone?        @relation(fields: [zoneId], references: [id])
-
-  assignments      Assignment[]
-  dailyReports     DailyReport[]
-  farmers          Farmer[]
-  contracts        Contract[]
-  plantScanRecords PlantScanRecord[]
-
-  @@map("SupervisorProfiles")
-}
-
-// Profile mở rộng cho CLIENT
-model ClientProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  adminId   String? // TENANT KEY — multi-tenant buyer
-  province  String?
-  createdAt DateTime @default(now())
-
-  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders            Order[]
-  reviews           Review[]
-  shippingAddresses ClientShippingAddress[]
-
-  @@map("ClientProfiles")
-}
-
-// Địa chỉ giao hàng của CLIENT (db.md: clients.shipping_address mở rộng)
-model ClientShippingAddress {
-  id              String   @id @default(cuid())
-  clientProfileId String
-  fullName        String
-  phone           String
-  addressLine     String
-  district        String?
-  province        String
-  isDefault       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  clientProfile ClientProfile @relation(fields: [clientProfileId], references: [id], onDelete: Cascade)
-
-  @@index([clientProfileId])
-  @@map("ClientShippingAddresses")
-}
-
-// =============================================================================
-// DOMAIN 2 — HRM & BUSINESS AREA (giữ nguyên từ schema cũ)
-// =============================================================================
-
-// Khu vực sản xuất — "Business Area" của Admin
-model Zone {
-  id          String @id @default(cuid())
-  adminId     String // TENANT KEY
-  name        String
-  province    String
-  district    String
-  centerLat   Float?
-  centerLng   Float?
-  totalAreaHa Float  @default(0)
-
-  admin       AdminProfile        @relation(fields: [adminId], references: [id])
-  supervisors SupervisorProfile[]
-  plots       Plot[]
-
-  @@map("Zones")
-}
-
-// Nông dân ký hợp đồng bao tiêu
-model Farmer {
-  id           String       @id @default(cuid())
-  adminId      String // TENANT KEY
-  fullName     String
-  phone        String
-  cccd         String       @unique // Số CCCD
-  bankAccount  String?
-  bankName     String?
-  bankBranch   String?
-  address      String?
-  province     String?
-  status       FarmerStatus @default(ACTIVE)
-  createdAt    DateTime     @default(now())
-  supervisorId String?
-
-  admin      AdminProfile       @relation(fields: [adminId], references: [id])
-  supervisor SupervisorProfile? @relation(fields: [supervisorId], references: [id])
-  plots      Plot[]
-  contracts  Contract[]
-
-  @@map("Farmers")
-}
-
-// Lô đất
-model Plot {
-  id               String     @id @default(cuid())
-  farmerId         String
-  adminId          String // TENANT KEY
-  zoneId           String?
-  plotCode         String     @unique
-  cropType         String
-  areaHa           Float
-  lat              Float?
-  lng              Float?
-  status           PlotStatus @default(ACTIVE)
-  plantingDate     DateTime?
-  expectedHarvest  DateTime?
-  estimatedYieldKg Float?
-  createdAt        DateTime   @default(now())
-
-  farmer Farmer       @relation(fields: [farmerId], references: [id])
-  admin  AdminProfile @relation(fields: [adminId], references: [id])
-  zone   Zone?        @relation(fields: [zoneId], references: [id])
-
-  assignments      Assignment[]
-  dailyReports     DailyReport[]
-  contracts        Contract[]
-  products         Product[]
-  plantScanRecords PlantScanRecord[]
-
-  @@map("Plots")
-}
-
-// Giao việc cho Supervisor
-model Assignment {
-  id           String       @id @default(cuid())
-  supervisorId String
-  plotId       String
-  adminId      String // TENANT KEY
-  status       AssignStatus @default(PENDING)
-  assignedAt   DateTime     @default(now())
-  dueDate      DateTime?
-  note         String?
-
-  supervisor SupervisorProfile @relation(fields: [supervisorId], references: [id])
-  plot       Plot              @relation(fields: [plotId], references: [id])
-  admin      AdminProfile      @relation(fields: [adminId], references: [id])
-
-  @@map("Assignments")
-}
-
-// Báo cáo hàng ngày
-model DailyReport {
-  id              String       @id @default(cuid())
-  supervisorId    String
-  plotId          String
-  adminId         String // TENANT KEY
-  type            ReportType   @default(ROUTINE)
-  content         String
-  imageUrls       String[]
-  isSynced        Boolean      @default(false)
-  reportedAt      DateTime     @default(now())
-  syncedAt        DateTime?
-  status          ReportStatus @default(DRAFT)
-  aiVisionResult  Json?
-  yieldEstimateKg Float?
-
-  supervisor SupervisorProfile @relation(fields: [supervisorId], references: [id])
-  plot       Plot              @relation(fields: [plotId], references: [id])
-
-  @@map("DailyReports")
-}
-
-// Bảng giá
-model PriceBoard {
-  id            String       @id @default(cuid())
-  adminId       String // TENANT KEY
-  cropType      String
-  grade         QualityGrade
-  buyPrice      Float
-  sellPrice     Float
-  effectiveDate DateTime     @default(now())
-  isActive      Boolean      @default(true)
-
-  admin AdminProfile @relation(fields: [adminId], references: [id])
-
-  @@map("PriceBoards")
-}
-
-// =============================================================================
-// DOMAIN 3 — CONTRACT & PRODUCT
-// =============================================================================
-
-model Contract {
-  id           String         @id @default(cuid())
-  adminId      String // TENANT KEY
-  supervisorId String
-  farmerId     String
-  plotId       String?
-  contractNo   String         @unique
-  cropType     String
-  grade        QualityGrade
-  status       ContractStatus @default(DRAFT)
-  signedAt     DateTime?
-  harvestDue   DateTime?
-  signatureUrl String?
-  traceabilityQr String?
-  submittedAt  DateTime?
-  approvedAt   DateTime?
-  approvedBy   String?
-  rejectedReason String?      @db.Text
-
-  // Draft thông tin lô đất (dùng để ADMIN tạo Plot sau khi approve)
-  plotDraftProvince String?
-  plotDraftDistrict String?
-  plotDraftAreaHa   Float?
-  plotDraftCoordinatesText String?
-
-
-  createdAt    DateTime       @default(now())
-
-  admin         AdminProfile   @relation(fields: [adminId], references: [id])
-  supervisor    SupervisorProfile @relation(fields: [supervisorId], references: [id])
-  farmer        Farmer         @relation(fields: [farmerId], references: [id])
-  plot          Plot?          @relation(fields: [plotId], references: [id])
-  product       Product?
-  inventoryLots InventoryLot[]
-
-  @@map("Contracts")
-}
-
-model Product {
-  id                String        @id @default(cuid())
-  adminId           String // TENANT KEY
-  plotId            String?
-  contractId        String?       @unique
-  name              String
-  slug              String        @unique
-  sku               String        @unique
-  description       String?
-  cropType          String
-  grade             QualityGrade
-  pricePerKg        Float
-  stockKg           Float         @default(0)
-  minOrderKg        Float         @default(1)
-  unit              String        @default("kg")
-  qrCode            String        @unique
-  imageUrls         String[]
-  thumbnailUrl      String?
-  status            ProductStatus @default(DRAFT)
-  harvestDate       DateTime?
-  aiConfidenceScore Float?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-
-  admin         AdminProfile           @relation(fields: [adminId], references: [id])
-  plot          Plot?                  @relation(fields: [plotId], references: [id])
-  contract      Contract?              @relation(fields: [contractId], references: [id])
-  categories    ProductCategory[]
-  orderItems    OrderItem[]
-  reviews       Review[]
-  transactions  WarehouseTransaction[]
-  inventoryLots InventoryLot[]
-
-  @@map("Products")
-}
-
-// Danh mục sản phẩm — SHARED (không phân tenant)
-model Category {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String?  @db.Text
-  imageUrl    String?
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-
-  products ProductCategory[]
-
-  @@map("Categories")
-}
-
-model ProductCategory {
-  productId  String
-  categoryId String
-
-  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@id([productId, categoryId])
-  @@map("ProductCategories")
-}
-
-// =============================================================================
-// DOMAIN 4 — E-COMMERCE (CLIENT)
-// =============================================================================
-
-// Order dùng ClientProfile (User+ClientProfile) — không cần bảng Client riêng
-model Order {
-  id               String        @id @default(cuid())
-  clientId         String
-  adminId          String // TENANT KEY
-  orderNo          String        @unique
-  orderCode        String        @unique // mã hiển thị: ĐH-20260409-001
-  subtotal         Float
-  shippingFee      Float         @default(0)
-  discount         Float         @default(0)
-  total            Float
-  paymentMethod    PaymentMethod
-  paymentRef       String?
-  paymentStatus    PaymentStatus @default(PENDING)
-  fulfillStatus    FulfillStatus @default(PENDING)
-  shippingAddr     Json // { fullName, phone, addressLine, district, province }
-  shippingAddrText String?       @db.Text // địa chỉ dạng text đơn giản
-  trackingCode     String?
-  note             String?
-  orderedAt        DateTime      @default(now())
-  paidAt           DateTime?
-
-  client     ClientProfile @relation(fields: [clientId], references: [id])
-  admin      AdminProfile  @relation(fields: [adminId], references: [id])
-  orderItems OrderItem[]
-
-  @@map("Orders")
-}
-
-model OrderItem {
-  id            String @id @default(cuid())
-  orderId       String
-  productId     String
-  nameSnapshot  String
-  priceSnapshot Float
-  quantityKg    Float
-  subtotal      Float
-
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
-
-  @@map("OrderItems")
-}
-
-model Review {
-  id               String       @id @default(cuid())
-  productId        String
-  clientId         String
-  rating           Int
-  comment          String?      @db.Text
-  imageUrls        String[]
-  verifiedPurchase Boolean      @default(false)
-  status           ReviewStatus @default(PENDING)
-  createdAt        DateTime     @default(now())
-
-  product Product       @relation(fields: [productId], references: [id])
-  client  ClientProfile @relation(fields: [clientId], references: [id])
-
-  @@map("Reviews")
-}
-
-// =============================================================================
-// DOMAIN 5 — WAREHOUSE & INVENTORY (từ db.md)
-// =============================================================================
-
-// Kho hàng
-model Warehouse {
-  id              String   @id @default(cuid())
-  name            String
-  locationAddress String?  @db.Text
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-
-  managedBy String?
-  adminId   String
-
-  admin     AdminProfile      @relation(fields: [adminId], references: [id])
-  inventory InventoryProfile? @relation(fields: [managedBy], references: [id])
-
-  inventoryLots InventoryLot[]
-  transactions  WarehouseTransaction[]
-
-  @@map("warehouses")
-}
-
-// Lô hàng nhập kho
-model InventoryLot {
-  id           String       @id @default(cuid())
-  warehouseId  String
-  productId    String
-  contractId   String? // nguồn truy xuất nếu có
-  quantityKg   Float
-  harvestDate  DateTime?
-  expiryDate   DateTime?
-  qualityGrade QualityGrade
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-
-  warehouse    Warehouse              @relation(fields: [warehouseId], references: [id])
-  product      Product                @relation(fields: [productId], references: [id])
-  contract     Contract?              @relation(fields: [contractId], references: [id])
-  transactions WarehouseTransaction[]
-
-  @@map("inventory_lots")
-}
-
-// Log xuất/nhập/điều chỉnh kho (append-only)
-model WarehouseTransaction {
-  id             String   @id @default(cuid())
-  warehouseId    String
-  productId      String
-  inventoryLotId String
-  type           String // inbound | outbound | adjustment
-  quantityKg     Float
-  note           String?  @db.Text
-  createdBy      String
-  createdAt      DateTime @default(now())
-
-  warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
-  product      Product      @relation(fields: [productId], references: [id])
-  inventoryLot InventoryLot @relation(fields: [inventoryLotId], references: [id])
-
-  @@map("warehouse_transactions")
-}
-
-// =============================================================================
-// DOMAIN 6 — AI PLANT SCAN (từ Farmer-PWA)
-// Lưu kết quả phân tích bệnh cây trồng AI — tự động khi supervisor quét lá
-// =============================================================================
-
-model PlantScanRecord {
-  id           String   @id @default(uuid())
-  adminId      String   // TENANT KEY
-  supervisorId String   // SupervisorProfile.id
-  plotId       String?  // Lô đất (nếu supervisor chọn)
-
-  // Kết quả AI từ Farmer-aivision
-  diseaseEn     String   // disease (tiếng Anh)
-  diseaseVi     String   // benh (tiếng Việt)
-  causingAgent  String   // tac_nhan
-  dangerLevel   String   // do_nguy_hiem: Thấp / Trung bình / Cao / Rất cao
-  category      String   // phan_loai: fungal / bacterial / viral / algal / healthy
-  symptoms      String   @db.Text  // chi_tiet
-  treatment     String   @db.Text  // dieu_tri
-  confidence    Float    // do_chinh_xac (0.0 - 1.0)
-  processingMs  Float?   // thoi_gian_xu_ly_ms
-
-  imageDataUrl  String?  @db.Text  // ảnh đã chụp (base64) nếu muốn lưu
-  scannedAt     DateTime @default(now())
-
-  admin      AdminProfile      @relation(fields: [adminId], references: [id])
-  supervisor SupervisorProfile @relation(fields: [supervisorId], references: [id])
-  plot       Plot?             @relation(fields: [plotId], references: [id])
-
-  @@index([adminId])
-  @@index([supervisorId])
-  @@index([scannedAt])
-  @@map("PlantScanRecords")
 }

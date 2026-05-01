@@ -148,10 +148,7 @@ export class InventoryService {
         ? this.prisma.inventoryLot.aggregate({
           where: { 
             warehouseId: { in: warehouseIds },
-            OR: [
-              { harvestDate: null },
-              { harvestDate: { lte: now } }
-            ]
+            harvestDate: { lte: now } // Chỉ tính lô đã đến ngày thu hoạch
           },
           _sum: { quantityKg: true },
         })
@@ -377,6 +374,7 @@ export class InventoryService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const now = new Date();
     // Tính toán số dư thực tế cho từng lô tại kho được chọn
     // Nếu không chọn warehouseId cụ thể, lấy số dư tại kho mặc định của nó
     return Promise.all(
@@ -389,9 +387,15 @@ export class InventoryService {
           },
           _sum: { quantityKg: true },
         });
+
+        // Xác định trạng thái ảo dựa trên harvestDate
+        const isUpcoming = lot.harvestDate && lot.harvestDate > now;
+
         return {
           ...lot,
           quantityKg: aggregate._sum.quantityKg || 0,
+          isUpcoming,
+          statusLabel: isUpcoming ? 'Dự kiến' : 'Trong kho',
         };
       }),
     );
@@ -601,6 +605,11 @@ export class InventoryService {
       const lot = await tx.inventoryLot.findUnique({ where: { id: dto.inventoryLotId } });
       if (!lot) throw new BadRequestException('Lô hàng không tồn tại');
 
+      const now = new Date();
+      if (dto.type === TransactionType.OUTBOUND && lot.harvestDate && lot.harvestDate > now) {
+        throw new BadRequestException('Không thể xuất kho lô hàng chưa nhập kho thực tế (hàng sắp về)');
+      }
+
       // 1. Tính toán số dư thực tế của lô tại kho xuất
       const aggregate = await tx.warehouseTransaction.aggregate({
         where: {
@@ -682,7 +691,32 @@ export class InventoryService {
 
   async getProducts(currentUser: InventoryUser) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
-    return this.prisma.product.findMany({ where: { adminId }, orderBy: { name: 'asc' } });
+    const products = await this.prisma.product.findMany({ 
+      where: { adminId }, 
+      orderBy: { name: 'asc' } 
+    });
+
+    const now = new Date();
+
+    return Promise.all(products.map(async (p) => {
+      const [actual, upcoming] = await Promise.all([
+        this.prisma.inventoryLot.aggregate({
+          where: { productId: p.id, harvestDate: { lte: now } },
+          _sum: { quantityKg: true }
+        }),
+        this.prisma.inventoryLot.aggregate({
+          where: { productId: p.id, harvestDate: { gt: now } },
+          _sum: { quantityKg: true }
+        })
+      ]);
+
+      return {
+        ...p,
+        actualStockKg: actual._sum.quantityKg || 0,
+        upcomingStockKg: upcoming._sum.quantityKg || 0,
+        totalStockKg: (actual._sum.quantityKg || 0) + (upcoming._sum.quantityKg || 0)
+      };
+    }));
   }
 
   async getActiveContracts(currentUser: InventoryUser) {
@@ -727,13 +761,7 @@ export class InventoryService {
 
     // 2. Lấy tồn kho thực tế (Cung hiện tại)
     const stocks = await this.prisma.inventoryLot.aggregate({
-      where: { 
-        warehouse: { adminId },
-        OR: [
-          { harvestDate: null },
-          { harvestDate: { lte: new Date() } }
-        ]
-      },
+      where: { warehouse: { adminId } },
       _sum: { quantityKg: true },
     });
 

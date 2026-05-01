@@ -61,6 +61,35 @@ export interface CreateLotInput {
   reportId?: string;
 }
 
+export interface LotTrace extends InventoryLot {
+  transactions: LotTransaction[];
+}
+
+export interface PendingHarvest {
+  id: string;
+  plotId: string;
+  yieldEstimateKg: number;
+  reportedAt: string;
+  plot: {
+    plotCode: string;
+    farmer: {
+      fullName: string;
+    };
+    contracts: Array<{
+      id: string;
+      product: {
+        id: string;
+        name: string;
+      };
+    }>;
+  };
+  supervisor: {
+    user: {
+      fullName: string;
+    };
+  };
+}
+
 export interface GetLotsFilters {
   warehouseId?: string;
   productId?: string;

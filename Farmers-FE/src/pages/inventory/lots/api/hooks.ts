@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { extractData } from '@/client/lib/api-client';
 import { lotApi } from './api';
-import type { InventoryLot, LotTrace, CreateLotInput, PendingHarvest } from './types';
+import type { Product } from '@/client/types';
+import type { InventoryLot, LotTrace, CreateLotInput, PendingHarvest, LotTransaction } from './types';
 
 export const lotKeys = {
   all: ['lots'] as const,
@@ -27,7 +28,7 @@ export const useGetProducts = () => {
     queryKey: ['inventory-products'],
     queryFn: async () => {
       const response = await lotApi.getProducts();
-      return extractData<any[]>(response);
+      return extractData<Product[]>(response);
     },
   });
 };
@@ -80,7 +81,7 @@ export const useGetLotTimeline = (id: string) => {
     queryKey: [...lotKeys.all, 'timeline', id],
     queryFn: async () => {
       const response = await lotApi.getLotTimeline(id);
-      return extractData<any[]>(response);
+      return extractData<LotTransaction[]>(response);
     },
     enabled: !!id,
   });

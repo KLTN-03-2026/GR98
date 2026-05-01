@@ -211,4 +211,12 @@ export class InventoryController {
       toDate,
     });
   }
+
+  @Get('pending-harvests')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách báo cáo thu hoạch chờ đối soát' })
+  @ApiResponse({ status: 200, description: 'Danh sách báo cáo' })
+  getPendingHarvests(@Request() req: { user: any }) {
+    return this.inventoryService.getPendingHarvests(req.user);
+  }
 }

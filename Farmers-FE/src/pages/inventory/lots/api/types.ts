@@ -1,5 +1,4 @@
-import type { QualityGrade } from '../../warehouses/api/types';
-export type { QualityGrade };
+export type QualityGrade = 'A' | 'B' | 'C' | 'REJECT';
 
 export interface InventoryLot {
   id: string;
@@ -24,63 +23,49 @@ export interface InventoryLot {
   };
 }
 
-export interface LotTransaction {
-  id: string;
-  type: string;
-  quantityKg: number;
-  createdAt: string;
-  note: string | null;
-}
-
-export interface LotContract {
-  id: string;
-  contractNo: string;
-  farmer: {
-    id: string;
-    fullName: string;
-    phone: string;
-  };
-  plot: {
-    id: string;
-    plotCode: string;
-    cropType: string;
-    zone: {
-      id: string;
-      name: string;
-    };
-  };
-}
-
 export interface LotTrace extends InventoryLot {
-  transactions: LotTransaction[];
-  contract?: {
-    id: string;
-    contractNo: string;
-    farmer: {
-      id: string;
-      fullName: string;
-      phone: string;
-    };
-    plot: {
-      id: string;
-      plotCode: string;
-      cropType: string;
-      zone: {
-        id: string;
-        name: string;
-      };
-    };
-  };
+  transactions: any[];
+  contract?: any;
 }
 
 export interface CreateLotInput {
   warehouseId: string;
   productId: string;
   contractId?: string;
+  reportId?: string; // Liên kết với báo cáo thu hoạch
   quantityKg: number;
   harvestDate: string;
   expiryDate?: string;
   qualityGrade: QualityGrade;
   note?: string;
   deviationReason?: string;
+}
+
+export interface PendingHarvest {
+  id: string;
+  plotId: string;
+  supervisorId: string;
+  yieldEstimateKg: number;
+  reportedAt: string;
+  status: string;
+  plot: {
+    plotCode: string;
+    cropType: string;
+    farmer: {
+      fullName: string;
+    };
+    contracts: {
+      id: string;
+      contractNo: string;
+      product?: {
+        id: string;
+        name: string;
+      };
+    }[];
+  };
+  supervisor: {
+    user: {
+      fullName: string;
+    };
+  };
 }

@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { extractData } from '@/client/lib/api-client';
 import { lotApi } from './api';
-import type { Product } from '@/client/types';
-import type { InventoryLot, LotTrace, CreateLotInput, QualityGrade } from './types';
+import type { InventoryLot, LotTrace, CreateLotInput, PendingHarvest } from './types';
 
 export const lotKeys = {
   all: ['lots'] as const,
@@ -10,6 +9,7 @@ export const lotKeys = {
   list: (params: Record<string, unknown>) => [...lotKeys.lists(), params] as const,
   details: () => [...lotKeys.all, 'detail'] as const,
   detail: (id: string) => [...lotKeys.details(), id] as const,
+  pendingHarvests: () => [...lotKeys.all, 'pending-harvests'] as const,
 };
 
 export const useGetLots = (params: { warehouseId?: string; productId?: string; qualityGrade?: string }) => {
@@ -22,6 +22,26 @@ export const useGetLots = (params: { warehouseId?: string; productId?: string; q
   });
 };
 
+export const useGetProducts = () => {
+  return useQuery({
+    queryKey: ['inventory-products'],
+    queryFn: async () => {
+      const response = await lotApi.getProducts();
+      return extractData<any[]>(response);
+    },
+  });
+};
+
+export const useGetContracts = () => {
+  return useQuery({
+    queryKey: ['inventory-contracts'],
+    queryFn: async () => {
+      const response = await lotApi.getContracts();
+      return extractData<any[]>(response);
+    },
+  });
+};
+
 export const useCreateLot = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -30,59 +50,27 @@ export const useCreateLot = () => {
       return extractData<InventoryLot>(response);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: lotKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: lotKeys.all });
     },
   });
 };
 
-export const useGetLotTrace = (id: string) => {
+export const useGetPendingHarvests = () => {
   return useQuery({
-    queryKey: lotKeys.detail(id),
+    queryKey: lotKeys.pendingHarvests(),
     queryFn: async () => {
-      const response = await lotApi.getLotTrace(id);
-      return extractData<LotTrace>(response);
+      const response = await lotApi.getPendingHarvests();
+      return extractData<PendingHarvest[]>(response);
     },
-    enabled: !!id,
   });
 };
 
-export const useGetProducts = () => {
+export const useGetWarehouses = () => {
   return useQuery({
-    queryKey: ['inventory', 'products'],
+    queryKey: ['inventory-warehouses'],
     queryFn: async () => {
-      const response = await lotApi.getProducts();
-      return extractData<Product[]>(response);
-    },
-  });
-};
-
-export const useGetContracts = () => {
-  return useQuery({
-    queryKey: ['inventory', 'contracts'],
-    queryFn: async () => {
-      const response = await lotApi.getContracts();
-      return extractData<{ 
-        id: string; 
-        contractNo: string; 
-        farmer: { fullName: string }; 
-        plot: { plotCode: string };
-        product: { id: string; name: string };
-        grade: QualityGrade;
-      }[]>(response);
-    },
-  });
-};
-
-export const useUpdateLotGrade = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; qualityGrade: string; note: string }) => {
-      const response = await lotApi.updateLotGrade(id, data);
-      return extractData<InventoryLot>(response);
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: lotKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: lotKeys.detail(data.id) });
+      const response = await lotApi.getWarehouses();
+      return extractData<any[]>(response);
     },
   });
 };

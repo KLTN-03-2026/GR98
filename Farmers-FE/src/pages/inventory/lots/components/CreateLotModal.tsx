@@ -1,11 +1,12 @@
-import { useForm, useWatch } from 'react-hook-form';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -15,7 +16,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -23,369 +27,217 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { useGetWarehouses } from '../../warehouses/api';
-import { useGetProducts, useGetContracts, useCreateLot } from '../api';
-import type { CreateLotInput } from '../api';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { Loader2, Info, Package, FileText, Calendar as CalendarIcon, Clock } from 'lucide-react';
-import { format, isAfter, isBefore, startOfDay } from 'date-fns';
-import { Label } from '@/components/ui/label';
+import type { PendingHarvest, QualityGrade, CreateLotInput } from '../api/types';
 
-type CreateLotFormValues = Omit<CreateLotInput, 'quantityKg'> & { quantityKg: string; deviationReason?: string };
+const formSchema = z.object({
+  warehouseId: z.string().min(1, 'Vui lòng chọn kho hàng'),
+  quantityKg: z.number({ message: 'Vui lòng nhập số' }).positive('Số lượng phải lớn hơn 0'),
+  qualityGrade: z.string().min(1, 'Vui lòng chọn phẩm cấp'),
+  harvestDate: z.string().min(1, 'Vui lòng chọn ngày thu hoạch'),
+  note: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface CreateLotModalProps {
+  harvest: PendingHarvest | null;
   isOpen: boolean;
   onClose: () => void;
+  onSubmit: (data: CreateLotInput) => void;
+  warehouses: any[];
 }
 
-export default function CreateLotModal({ isOpen, onClose }: CreateLotModalProps) {
-  const { data: warehouses } = useGetWarehouses();
-  const { data: products } = useGetProducts();
-  const { data: contracts } = useGetContracts();
-  const createLotMutation = useCreateLot();
-  const [needsDeviationReason, setNeedsDeviationReason] = useState(false);
-  const [deviationWarning, setDeviationWarning] = useState('');
-
-  const form = useForm<CreateLotFormValues>({
+export function CreateLotModal({
+  harvest,
+  isOpen,
+  onClose,
+  onSubmit,
+  warehouses,
+}: CreateLotModalProps) {
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       warehouseId: '',
-      productId: '',
-      contractId: '',
-      quantityKg: '',
-      harvestDate: format(new Date(), 'yyyy-MM-dd'),
-      expiryDate: '',
+      quantityKg: 0,
       qualityGrade: 'A',
+      harvestDate: new Date().toISOString().split('T')[0],
       note: '',
-      deviationReason: '',
     },
   });
 
-  const selectedContractId = useWatch({ control: form.control, name: 'contractId' });
-  const harvestDateWatch = useWatch({ control: form.control, name: 'harvestDate' });
+  const actualWeight = form.watch('quantityKg');
+  const estimateWeight = harvest?.yieldEstimateKg || 0;
 
-  // Nghiệp vụ Auto-fill: Khi chọn hợp đồng, tự động điền Sản phẩm và Phẩm cấp
+  const deviation = useMemo(() => {
+    if (!estimateWeight || !actualWeight) return 0;
+    return Math.abs(actualWeight - estimateWeight) / estimateWeight;
+  }, [actualWeight, estimateWeight]);
+
+  const isDeviationHigh = deviation > 0.05;
+
   useEffect(() => {
-    if (selectedContractId && selectedContractId !== 'none' && contracts) {
-      const contract = contracts.find(c => c.id === selectedContractId);
-      if (contract) {
-        form.setValue('productId', contract.product?.id || '');
-        form.setValue('qualityGrade', contract.grade);
-        toast.info(`Đã tự động lấy dữ liệu từ Hợp đồng ${contract.contractNo}`, {
-          description: `Sản phẩm: ${contract.product?.name}`,
-          duration: 3000,
-        });
-      }
+    if (harvest) {
+      form.reset({
+        warehouseId: '',
+        quantityKg: harvest.yieldEstimateKg,
+        qualityGrade: 'A',
+        harvestDate: new Date().toISOString().split('T')[0],
+        note: '',
+      });
     }
-  }, [selectedContractId, contracts, form]);
+  }, [harvest, form]);
 
-  // Tự động tính hạn sử dụng (Mặc định 30 ngày)
-  useEffect(() => {
-    if (harvestDateWatch) {
-      const harvest = new Date(harvestDateWatch);
-      const expiry = new Date(harvest);
-      expiry.setDate(expiry.getDate() + 30); // Giả định 30 ngày
-      form.setValue('expiryDate', format(expiry, 'yyyy-MM-dd'));
-    }
-  }, [harvestDateWatch, form]);
+  const handleFormSubmit = (values: FormValues) => {
+    console.log('Harvest data for submission:', harvest);
+    if (!harvest) return;
 
-  const onSubmit = async (values: CreateLotFormValues) => {
-    // Validation nghiệp vụ bổ sung
-    const harvest = startOfDay(new Date(values.harvestDate));
-    const now = startOfDay(new Date());
-
-    if (isAfter(harvest, now)) {
-      form.setError('harvestDate', { message: 'Ngày thu hoạch không thể ở tương lai' });
+    if (isDeviationHigh && !values.note) {
+      form.setError('note', { message: 'Bắt buộc nhập lý do khi sai lệch > 5%' });
       return;
     }
 
-    if (values.expiryDate) {
-      const expiry = startOfDay(new Date(values.expiryDate));
-      if (isBefore(expiry, harvest)) {
-        form.setError('expiryDate', { message: 'Ngày hết hạn phải sau ngày thu hoạch' });
-        return;
-      }
+    const activeContract = harvest.plot.contracts[0];
+    const realProductId = activeContract?.product?.id || '';
+
+    if (!realProductId) {
+      toast.error('Không tìm thấy thông tin sản phẩm liên kết với hợp đồng này.');
+      return;
     }
 
-    try {
-      await createLotMutation.mutateAsync({
-        ...values,
-        contractId: values.contractId === 'none' ? undefined : values.contractId,
-        quantityKg: parseFloat(values.quantityKg),
-        expiryDate: values.expiryDate || undefined,
-        deviationReason: values.deviationReason || undefined,
-      });
-      toast.success('Nhập kho lô hàng thành công', {
-        description: `Lô hàng mới đã được ghi nhận vào hệ thống.`,
-      });
-      form.reset();
-      setNeedsDeviationReason(false);
-      onClose();
-    } catch (error: any) {
-      // Bắt lỗi CẢNH BÁO CHÊNH LỆCH từ backend
-      const errMsg = error?.response?.data?.message || error.message;
-      if (errMsg && errMsg.includes('CẢNH BÁO CHÊNH LỆCH')) {
-        setNeedsDeviationReason(true);
-        setDeviationWarning(errMsg);
-        toast.error('Có sự chênh lệch sản lượng', { description: 'Vui lòng điền lý do giải trình để tiếp tục.' });
-      } else {
-        toast.error('Có lỗi xảy ra khi nhập kho', { description: errMsg });
-      }
-    }
-  };
-
-  const handleClose = () => {
-    setNeedsDeviationReason(false);
-    setDeviationWarning('');
-    onClose();
+    onSubmit({
+      ...values,
+      qualityGrade: values.qualityGrade as QualityGrade,
+      reportId: harvest.id,
+      productId: realProductId,
+      contractId: activeContract?.id,
+      deviationReason: isDeviationHigh ? values.note : undefined,
+    });
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden font-manrope">
-        <DialogHeader className="p-6 pb-0">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Package className="size-5 text-primary" />
-            </div>
-            <div>
-              <DialogTitle className="text-xl font-semibold">Nhập kho lô hàng mới</DialogTitle>
-              <DialogDescription className="text-xs">
-                Ghi nhận nông sản thực tế nhập kho. Dữ liệu sẽ được dùng để truy xuất nguồn gốc.
-              </DialogDescription>
-            </div>
-          </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Đối soát & Nhập lô hàng</DialogTitle>
         </DialogHeader>
 
+        {harvest && (
+          <div className="bg-muted/50 p-3 rounded-lg mb-4 text-sm flex gap-4">
+            <div className="flex-1">
+              <p className="text-muted-foreground">Sản phẩm</p>
+              <p className="font-semibold">{harvest.plot.cropType}</p>
+            </div>
+            <div className="flex-1">
+              <p className="text-muted-foreground">Dự kiến (Supervisor)</p>
+              <p className="font-semibold text-primary">{harvest.yieldEstimateKg.toLocaleString()} kg</p>
+            </div>
+          </div>
+        )}
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 pt-4 space-y-5">
-            {/* Source Linking Section */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3">
-              <div className="flex items-center gap-2 text-slate-600">
-                <FileText className="size-4" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Liên kết nguồn gốc</span>
-              </div>
-
-              <FormField<CreateLotFormValues, 'contractId'>
-                control={form.control as any}
-                name="contractId"
-                render={({ field }) => (
-                  <FormItem>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-10 text-xs font-semibold">
-                          <SelectValue placeholder="Chọn hợp đồng để tự động điền dữ liệu" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none" className="text-xs italic">Nhập thủ công (Không qua HĐ)</SelectItem>
-                        {contracts?.map((c) => (
-                          <SelectItem key={c.id} value={c.id} className="text-xs font-semibold">
-                            {c.contractNo} — {c.farmer.fullName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField<CreateLotFormValues, 'warehouseId'>
-                control={form.control as any}
-                name="warehouseId"
-                rules={{ required: 'Vui lòng chọn kho' }}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Kho lưu trữ</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-10 text-xs">
-                          <SelectValue placeholder="Chọn kho" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {warehouses?.map((w) => (
-                          <SelectItem key={w.id} value={w.id} className="text-xs font-medium">{w.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="text-[10px]" />
-                  </FormItem>
-                )}
-              />
-
-              <FormField<CreateLotFormValues, 'productId'>
-                control={form.control as any}
-                name="productId"
-                rules={{ required: 'Vui lòng chọn sản phẩm' }}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Sản phẩm</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-10 text-xs">
-                          <SelectValue placeholder="Chọn sản phẩm" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {products?.map((p) => (
-                          <SelectItem key={p.id} value={p.id} className="text-xs font-medium">{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="text-[10px]" />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField<CreateLotFormValues, 'quantityKg'>
-                control={form.control as any}
-                name="quantityKg"
-                rules={{
-                  required: 'Nhập số lượng',
-                  min: { value: 0.1, message: 'Tối thiểu 0.1kg' }
-                }}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Số lượng (kg)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.1" {...field} className="h-10 text-sm font-semibold" />
-                    </FormControl>
-                    <FormMessage className="text-[10px]" />
-                  </FormItem>
-                )}
-              />
-
-              <FormField<CreateLotFormValues, 'qualityGrade'>
-                control={form.control as any}
-                name="qualityGrade"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Phẩm cấp</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-10 text-xs">
-                          <SelectValue placeholder="Chọn hạng" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="A">Hạng A (Xuất khẩu)</SelectItem>
-                        <SelectItem value="B">Hạng B (Nội địa)</SelectItem>
-                        <SelectItem value="C">Hạng C (Chế biến)</SelectItem>
-                        <SelectItem value="REJECT" className="text-rose-500">Loại bỏ (Reject)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField<CreateLotFormValues, 'harvestDate'>
-                control={form.control as any}
-                name="harvestDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold flex items-center gap-1">
-                      <CalendarIcon className="size-3 text-muted-foreground" /> Ngày thu hoạch
-                    </FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} className="h-10 text-sm font-medium" />
-                    </FormControl>
-                    <FormMessage className="text-[10px]" />
-                  </FormItem>
-                )}
-              />
-
-              <FormField<CreateLotFormValues, 'expiryDate'>
-                control={form.control as any}
-                name="expiryDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold flex items-center gap-1 text-amber-700">
-                      <Clock className="size-3" /> Ngày hết hạn
-                    </FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} className="h-10 text-sm font-medium bg-amber-50/30 border-amber-100" />
-                    </FormControl>
-                    <FormMessage className="text-[10px]" />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField<CreateLotFormValues, 'note'>
-              control={form.control as any}
-              name="note"
+          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="warehouseId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs font-semibold">Ghi chú vận hành</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="VD: Hàng mới về từ vườn ông A, đã qua kiểm dịch sơ bộ..."
-                      className="text-sm min-h-[80px] resize-none"
-                      {...field}
-                    />
-                  </FormControl>
+                  <FormLabel>Kho tiếp nhận</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn kho hàng" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {warehouses.map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
                 </FormItem>
               )}
             />
 
-            {needsDeviationReason && (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-3 animate-in fade-in slide-in-from-top-4">
-                <div className="flex items-start gap-2">
-                  <Info className="size-4 text-amber-600 mt-0.5 shrink-0" />
-                  <p className="text-xs text-amber-800 font-medium">
-                    {deviationWarning}
-                  </p>
-                </div>
-                <FormField<CreateLotFormValues, 'deviationReason'>
-                  control={form.control as any}
-                  name="deviationReason"
-                  rules={{ required: 'Vui lòng điền lý do giải trình' }}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold text-amber-900">Lý do giải trình (Bắt buộc)</FormLabel>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="quantityKg"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Khối lượng thực tế (kg)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        {...field} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val === '' ? 0 : Number(val));
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="qualityGrade"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phẩm cấp</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <Input
-                          placeholder="VD: Do mưa lớn nên rụng trái nhiều hơn dự kiến..."
-                          className="h-10 text-sm border-amber-300 focus-visible:ring-amber-500"
-                          {...field}
-                        />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn phẩm cấp" />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormMessage className="text-[10px]" />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                      <SelectContent>
+                        <SelectItem value="A">Loại A</SelectItem>
+                        <SelectItem value="B">Loại B</SelectItem>
+                        <SelectItem value="C">Loại C</SelectItem>
+                        <SelectItem value="REJECT">Loại Loại bỏ (Reject)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {isDeviationHigh && (
+              <Alert variant="destructive" className="bg-amber-50 border-amber-200 text-amber-800">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertTitle>Cảnh báo sai lệch sản lượng</AlertTitle>
+                <AlertDescription>
+                  Sản lượng thực tế lệch {(deviation * 100).toFixed(1)}% so với dự kiến. Vui lòng nhập lý do giải trình.
+                </AlertDescription>
+              </Alert>
             )}
 
-            <DialogFooter className="pt-2 gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleClose}
-                className="text-sm font-medium text-muted-foreground"
-              >
-                Hủy bỏ
-              </Button>
-              <Button
-                type="submit"
-                disabled={createLotMutation.isPending}
-                className="min-w-[140px]"
-              >
-                {createLotMutation.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  'Xác nhận nhập kho'
-                )}
-              </Button>
+            <FormField
+              control={form.control}
+              name="note"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ghi chú / Giải trình {isDeviationHigh && <span className="text-destructive">*</span>}</FormLabel>
+                  <FormControl>
+                    <Input placeholder={isDeviationHigh ? "Nhập lý do sai lệch..." : "Ghi chú thêm..."} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
+              <Button type="submit">Xác nhận nhập kho</Button>
             </DialogFooter>
           </form>
         </Form>

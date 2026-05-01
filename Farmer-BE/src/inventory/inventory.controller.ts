@@ -24,6 +24,8 @@ import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
+import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
+import { ReceiveHarvestDto } from './dto/receive-harvest.dto';
 
 @ApiTags('inventory')
 @ApiBearerAuth()
@@ -117,12 +119,32 @@ export class InventoryController {
     return this.inventoryService.createLot(req.user, dto);
   }
 
+  @Post('receive-harvest')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Nhận hàng từ thực địa (Giai đoạn 2)' })
+  @ApiResponse({ status: 201, description: 'Lô hàng đã được tạo và báo cáo đã được duyệt' })
+  receiveHarvest(@Request() req: { user: any }, @Body() dto: ReceiveHarvestDto) {
+    return this.inventoryService.receiveHarvest(req.user, dto);
+  }
+
   @Get('lots/:id')
   @Roles(Role.ADMIN, Role.INVENTORY)
   @ApiOperation({ summary: 'Chi tiết lô hàng — Traceability' })
   @ApiResponse({ status: 200, description: 'Chi tiết lô hàng' })
   getLotById(@Param('id') id: string, @Request() req: { user: any }) {
     return this.inventoryService.getLotById(id, req.user);
+  }
+
+  @Post('lots/:id/grade')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Cập nhật phẩm cấp lô hàng' })
+  @ApiResponse({ status: 200, description: 'Cập nhật thành công' })
+  updateLotGrade(
+    @Param('id') id: string,
+    @Request() req: { user: any },
+    @Body() dto: UpdateLotGradeDto,
+  ) {
+    return this.inventoryService.updateLotGrade(id, req.user, dto);
   }
 
   @Get('products')

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { extractData } from '@/client/lib/api-client';
 import { transactionApi } from './api';
-import type { WarehouseTransaction, TransactionFilters, CreateTransactionInput } from './types';
+import type { WarehouseTransaction, TransactionFilters, CreateTransactionInput, ReceiveHarvestInput } from './types';
 
 export const transactionKeys = {
   all: ['inventory-transactions'] as const,
@@ -28,9 +28,25 @@ export const useCreateTransaction = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
-      // Also invalidate lots and product dashboard as they are affected
       queryClient.invalidateQueries({ queryKey: ['lots'] });
       queryClient.invalidateQueries({ queryKey: ['inventory', 'dashboard'] });
+    },
+  });
+};
+
+export const useReceiveHarvest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: ReceiveHarvestInput) => {
+      const response = await transactionApi.receiveHarvest(data);
+      return extractData<any>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['lots'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-reports'] });
     },
   });
 };

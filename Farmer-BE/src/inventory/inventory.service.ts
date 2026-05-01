@@ -10,6 +10,8 @@ import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { CreateTransactionDto, TransactionType } from './dto/create-transaction.dto';
 import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
+import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
+import { ReceiveHarvestDto } from './dto/receive-harvest.dto';
 
 interface InventoryUser {
   id: string;
@@ -555,6 +557,104 @@ export class InventoryService {
     });
   }
 
+  async receiveHarvest(currentUser: InventoryUser, dto: ReceiveHarvestDto) {
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+    const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
+    const warehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
+
+    if (!warehouseIds.includes(dto.warehouseId)) {
+      throw new ForbiddenException('Bạn không có quyền nhập hàng vào kho này');
+    }
+
+    const { dailyReportId, contractId, warehouseId, actualWeight, qualityGrade, justification, note } = dto;
+
+    // 1. Fetch Daily Report and Contract for validation
+    const [report, contract] = await Promise.all([
+      this.prisma.dailyReport.findUnique({
+        where: { id: dailyReportId },
+        select: { id: true, yieldEstimateKg: true, adminId: true, status: true, plotId: true }
+      }),
+      this.prisma.contract.findUnique({
+        where: { id: contractId },
+        select: { id: true, adminId: true, status: true, product: { select: { id: true } } }
+      })
+    ]);
+
+    if (!report || report.adminId !== adminId) {
+      throw new NotFoundException('Báo cáo thực địa không tồn tại');
+    }
+
+    if (!contract || contract.adminId !== adminId) {
+      throw new NotFoundException('Hợp đồng không tồn tại');
+    }
+
+    if (!contract.product) {
+      throw new BadRequestException('Hợp đồng này chưa được liên kết với sản phẩm thương mại');
+    }
+
+    // 2. Tolerance Logic (5%)
+    if (report.yieldEstimateKg) {
+      const estimate = report.yieldEstimateKg;
+      const deviation = Math.abs(actualWeight - estimate) / estimate;
+
+      if (deviation > 0.05 && !justification) {
+        throw new BadRequestException({
+          code: 'DISCREPANCY_EXCEEDED',
+          message: `Sản lượng thực tế (${actualWeight}kg) lệch >5% so với dự báo (${estimate}kg). Vui lòng nhập lý do giải trình.`,
+          deviation: (deviation * 100).toFixed(2),
+        });
+      }
+    }
+
+    // 3. Atomic Transaction
+    return this.prisma.$transaction(async (tx) => {
+      // A. Create the Inventory Lot
+      const lot = await tx.inventoryLot.create({
+        data: {
+          warehouseId,
+          productId: contract.product!.id,
+          contractId,
+          quantityKg: actualWeight,
+          qualityGrade,
+          harvestDate: new Date(),
+        },
+      });
+
+      // B. Create Inbound Transaction Log
+      const transactionNote = justification 
+        ? `[ĐỐI SOÁT] Lệch >5%. Lý do: ${justification}. ${note || ''}`
+        : `Nhận hàng từ thực địa. ${note || ''}`;
+
+      await tx.warehouseTransaction.create({
+        data: {
+          warehouseId,
+          productId: contract.product!.id,
+          inventoryLotId: lot.id,
+          type: 'inbound',
+          quantityKg: actualWeight,
+          note: transactionNote,
+          createdBy: currentUser.id,
+        },
+      });
+
+      // C. Update Product stockKg
+      await tx.product.update({
+        where: { id: contract.product!.id },
+        data: {
+          stockKg: { increment: actualWeight },
+        },
+      });
+
+      // D. Update Daily Report Status
+      await tx.dailyReport.update({
+        where: { id: dailyReportId },
+        data: { status: 'REVIEWED' }
+      });
+
+      return lot;
+    });
+  }
+
   async getLotById(id: string, currentUser: InventoryUser) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(
@@ -595,6 +695,40 @@ export class InventoryService {
     }
 
     return lot;
+  }
+
+  async updateLotGrade(id: string, currentUser: InventoryUser, dto: UpdateLotGradeDto) {
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+    const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
+    const warehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
+
+    const lot = await this.prisma.inventoryLot.findUnique({ where: { id } });
+    if (!lot || !warehouseIds.includes(lot.warehouseId)) {
+      throw new ForbiddenException('Lô hàng không tồn tại hoặc bạn không có quyền truy cập');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedLot = await tx.inventoryLot.update({
+        where: { id },
+        data: { qualityGrade: dto.qualityGrade },
+        include: { warehouse: true, product: true }
+      });
+
+      // Create an adjustment transaction to log the grade change (quantityKg = 0)
+      await tx.warehouseTransaction.create({
+        data: {
+          warehouseId: lot.warehouseId,
+          productId: lot.productId,
+          inventoryLotId: lot.id,
+          type: 'adjustment',
+          quantityKg: 0,
+          note: `Đổi phẩm cấp từ ${lot.qualityGrade} sang ${dto.qualityGrade}. Lý do: ${dto.note}`,
+          createdBy: currentUser.id,
+        },
+      });
+
+      return updatedLot;
+    });
   }
 
   async getProducts(currentUser: InventoryUser) {
@@ -681,7 +815,7 @@ export class InventoryService {
       currentUser.role,
     );
 
-    const { warehouseId, productId, inventoryLotId, type, quantityKg, note } =
+    const { warehouseId, productId, inventoryLotId, type, quantityKg, note, sourceLotId } =
       dto;
 
     if (!warehouseIds.includes(warehouseId)) {
@@ -705,10 +839,20 @@ export class InventoryService {
       // Xác định delta cho việc cộng dồn stock
       let delta = 0;
       let signedQty = quantityKg;
+      let stockDelta = 0;
 
       if (type === TransactionType.INBOUND) {
-        delta = quantityKg;
-        signedQty = quantityKg;
+        if (lot.quantityKg < quantityKg) {
+          throw new BadRequestException(
+            `Số lượng nhập vượt quá số lượng hàng từ lô (Hiện có: ${lot.quantityKg}kg)`,
+          );
+        }
+
+        // Logic mới: Lô hàng đóng vai trò nguồn dự kiến/chờ nhập (Staging).
+        // Rút hàng từ Lô (giảm quantity của Lô) -> Nhập vào Kho (tăng Product.stockKg)
+        delta = -quantityKg;      // Lô hàng nguồn sẽ bị giảm số lượng đi
+        signedQty = quantityKg;   // Giao dịch ghi log là số dương (Nhập kho)
+        stockDelta = quantityKg;  // Tồn kho thực tế của Sản phẩm (Kho hàng) tăng lên
       } else if (type === TransactionType.OUTBOUND) {
         if (lot.quantityKg < quantityKg) {
           throw new BadRequestException(
@@ -717,10 +861,11 @@ export class InventoryService {
         }
         delta = -quantityKg;
         signedQty = -quantityKg;
+        stockDelta = -quantityKg;
       } else if (type === TransactionType.ADJUSTMENT) {
-        // Với adjustment, quantityKg có thể dương (tăng) hoặc âm (giảm)
         delta = quantityKg;
         signedQty = quantityKg;
+        stockDelta = quantityKg;
       }
 
       // 2. Tạo giao dịch (signed quantity)
@@ -745,12 +890,14 @@ export class InventoryService {
       });
 
       // 4. Cập nhật tổng tồn kho của Sản phẩm
-      await tx.product.update({
-        where: { id: productId },
-        data: {
-          stockKg: { increment: delta },
-        },
-      });
+      if (stockDelta !== 0) {
+        await tx.product.update({
+          where: { id: productId },
+          data: {
+            stockKg: { increment: stockDelta },
+          },
+        });
+      }
 
       return transaction;
     });

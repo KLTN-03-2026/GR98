@@ -1,5 +1,4 @@
-import { apiGet, apiPost } from '@/client/lib/api-client';
-import type { WarehouseTransaction, CreateTransactionInput, TransactionFilters } from './types';
+import type { WarehouseTransaction, CreateTransactionInput, TransactionFilters, ReceiveHarvestInput } from './types';
 
 export const transactionApi = {
   getTransactions: (params: TransactionFilters) =>
@@ -7,4 +6,7 @@ export const transactionApi = {
   
   createTransaction: (data: CreateTransactionInput) =>
     apiPost<WarehouseTransaction>('/inventory/transactions', data),
+
+  receiveHarvest: (data: ReceiveHarvestInput) =>
+    apiPost<any>('/inventory/receive-harvest', data),
 };

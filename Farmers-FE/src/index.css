@@ -526,91 +526,116 @@ body {
   animation: progress-bar 4s linear forwards;
 }
 
-/* Custom Scrollbar Styling */
+/* ═══════════════════════════════════════════════════════════════
+   Custom Scrollbar Styling — Premium Design System
+   ═══════════════════════════════════════════════════════════════ */
+
 /* Webkit browsers (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--muted);
-  border-radius: calc(var(--radius) / 2);
+  background: transparent;
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: calc(var(--radius) / 2);
-  transition: background-color 0.2s ease;
+  background: color-mix(in oklab, var(--base-primary) 30%, var(--border));
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.25s ease, width 0.25s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  background: color-mix(in oklab, var(--base-primary) 55%, var(--border));
 }
 
 ::-webkit-scrollbar-thumb:active {
-  background: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
+  background: color-mix(in oklab, var(--base-primary) 75%, var(--border));
 }
 
 ::-webkit-scrollbar-corner {
-  background: var(--muted);
+  background: transparent;
 }
 
 /* Firefox scrollbar styling */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) var(--muted);
+  scrollbar-color: color-mix(in oklab, var(--base-primary) 30%, var(--border)) transparent;
 }
 
 /* Dark mode specific adjustments */
 .dark ::-webkit-scrollbar-track {
-  background: var(--muted);
+  background: transparent;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: color-mix(in oklab, var(--base-primary) 35%, var(--border));
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
+  background: color-mix(in oklab, var(--base-primary) 55%, var(--border));
 }
 
 .dark ::-webkit-scrollbar-thumb:active {
-  background: color-mix(in oklab, var(--muted-foreground) 90%, transparent);
+  background: color-mix(in oklab, var(--base-primary) 75%, var(--border));
 }
 
 .dark * {
-  scrollbar-color: var(--border) var(--muted);
+  scrollbar-color: color-mix(in oklab, var(--base-primary) 35%, var(--border)) transparent;
 }
 
-/* Custom scrollbar for specific containers if needed */
-.custom-scrollbar {
-  overflow: auto;
+/* ─── Radix ScrollArea overrides ─────────────────────────── */
+
+/* Scrollbar track: fade in/out smoothly */
+[data-slot="scroll-area-scrollbar"] {
+  transition: opacity 0.3s ease, width 0.2s ease, height 0.2s ease;
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Ensure the Radix thumb transitions smoothly */
+[data-slot="scroll-area-thumb"] {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--primary) 60%, transparent);
-  border-radius: calc(var(--radius) / 2);
+/* Subtle glow on thumb hover (light mode) */
+[data-slot="scroll-area-thumb"]:hover {
+  box-shadow: 0 0 6px color-mix(in oklab, var(--base-primary) 30%, transparent);
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--primary) 80%, transparent);
+.dark [data-slot="scroll-area-thumb"]:hover {
+  box-shadow: 0 0 8px color-mix(in oklab, var(--base-primary) 25%, transparent);
 }
 
-/* Thin scrollbar variant */
-.scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+/* ─── CustomScrollArea thumb styling ─────────────────────── */
+
+.custom-scroll-thumb {
+  background: color-mix(in oklab, var(--base-primary) 35%, var(--border));
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 2px;
+.custom-scroll-thumb:hover {
+  background: color-mix(in oklab, var(--base-primary) 55%, var(--border));
+  box-shadow: 0 0 6px color-mix(in oklab, var(--base-primary) 30%, transparent);
+}
+
+.custom-scroll-thumb:active {
+  background: color-mix(in oklab, var(--base-primary) 70%, var(--border));
+}
+
+.dark .custom-scroll-thumb {
+  background: color-mix(in oklab, var(--base-primary) 30%, var(--border));
+}
+
+.dark .custom-scroll-thumb:hover {
+  background: color-mix(in oklab, var(--base-primary) 50%, var(--border));
+  box-shadow: 0 0 8px color-mix(in oklab, var(--base-primary) 25%, transparent);
+}
+
+.dark .custom-scroll-thumb:active {
+  background: color-mix(in oklab, var(--base-primary) 65%, var(--border));
 }
 
 /* Animation improvements */

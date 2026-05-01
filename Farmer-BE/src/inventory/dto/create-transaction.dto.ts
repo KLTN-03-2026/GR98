@@ -36,4 +36,9 @@ export class CreateTransactionDto {
   @IsString()
   @IsOptional()
   note?: string;
+
+  @ApiProperty({ description: 'ID của lô hàng nguồn (cho điều chuyển)', required: false })
+  @IsString()
+  @IsOptional()
+  sourceLotId?: string;
 }

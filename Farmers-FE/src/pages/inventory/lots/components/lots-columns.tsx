@@ -13,11 +13,21 @@ export function createLotColumns(handlers: {
     {
       accessorKey: 'id',
       header: 'Mã Lô',
-      cell: ({ row }) => (
-        <span className="font-mono font-medium text-slate-900 text-xs">
-          {row.original.id.slice(-6).toUpperCase()}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const isUpcoming = row.original.harvestDate && new Date(row.original.harvestDate) > new Date();
+        return (
+          <div className="flex flex-col gap-1">
+            <span className="font-mono font-medium text-slate-900 text-xs">
+              #{row.original.id.slice(-6).toUpperCase()}
+            </span>
+            {isUpcoming && (
+              <Badge variant="secondary" className="w-fit text-[10px] py-0 px-1.5 bg-blue-50 text-blue-600 border-blue-100">
+                Sắp về
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: 'product',

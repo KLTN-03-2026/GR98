@@ -146,7 +146,13 @@ export class InventoryService {
     const [totalStockResult, pendingOrdersCount, expiringLotsCount, stagnantLotsResult, recentTransactions, pendingOrdersList] = await Promise.all([
       warehouseIds.length > 0
         ? this.prisma.inventoryLot.aggregate({
-          where: { warehouseId: { in: warehouseIds } },
+          where: { 
+            warehouseId: { in: warehouseIds },
+            OR: [
+              { harvestDate: null },
+              { harvestDate: { lte: now } }
+            ]
+          },
           _sum: { quantityKg: true },
         })
         : { _sum: { quantityKg: null } },
@@ -721,7 +727,13 @@ export class InventoryService {
 
     // 2. Lấy tồn kho thực tế (Cung hiện tại)
     const stocks = await this.prisma.inventoryLot.aggregate({
-      where: { warehouse: { adminId } },
+      where: { 
+        warehouse: { adminId },
+        OR: [
+          { harvestDate: null },
+          { harvestDate: { lte: new Date() } }
+        ]
+      },
       _sum: { quantityKg: true },
     });
 

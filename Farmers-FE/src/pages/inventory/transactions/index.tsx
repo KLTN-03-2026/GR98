@@ -10,21 +10,17 @@ import type { TransactionFilters } from './api/types';
 
 export default function InventoryTransactionsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [filters, setFilters] = useState<TransactionFilters>({
-    warehouseId: 'all',
-    type: 'all',
-    productId: '',
-  });
+  const [filters, setFilters] = useState<TransactionFilters>({});
 
-  const apiFilters = {
-    warehouseId: filters.warehouseId === 'all' ? undefined : filters.warehouseId,
-    type: filters.type === 'all' ? undefined : filters.type,
-    productId: filters.productId || undefined,
-    fromDate: filters.fromDate || undefined,
-    toDate: filters.toDate || undefined,
-    inventoryLotId: filters.inventoryLotId || undefined,
-    noteSearch: filters.noteSearch || undefined,
-  };
+  const apiFilters = useMemo(() => ({
+    warehouseId: filters.warehouseId,
+    type: filters.type,
+    productId: filters.productId,
+    fromDate: filters.fromDate,
+    toDate: filters.toDate,
+    inventoryLotId: filters.inventoryLotId,
+    noteSearch: filters.noteSearch,
+  }), [filters]);
 
   const { data: transactions = [], isLoading, isFetching, refetch } = useGetTransactions(apiFilters);
   const { data: warehouses = [] } = useGetTransactionWarehouses();

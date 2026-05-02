@@ -739,34 +739,51 @@ export class InventoryService {
   ) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
-    const warehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
+    const allowedWarehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
+
+    // Xác định danh sách kho cuối cùng sau khi áp dụng bộ lọc người dùng
+    let finalWarehouseIds = allowedWarehouseIds;
+    if (filters.warehouseId) {
+      // Nếu user chọn kho cụ thể, kiểm tra xem kho đó có nằm trong danh sách được phép không
+      finalWarehouseIds = allowedWarehouseIds.includes(filters.warehouseId)
+        ? [filters.warehouseId]
+        : ['NONE'];
+    }
 
     const where: any = {
-      warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['NONE'] },
+      AND: [
+        { warehouseId: { in: finalWarehouseIds.length > 0 ? finalWarehouseIds : ['NONE'] } },
+      ],
     };
 
-    // --- Nhóm 1: Định danh & Phân loại ---
-    if (filters.warehouseId) where.warehouseId = filters.warehouseId;
-    if (filters.type) where.type = filters.type;
-    if (filters.productId) where.productId = filters.productId;
+    // --- Các bộ lọc khác ---
+    if (filters.type) {
+      where.AND.push({ type: filters.type });
+    }
+    if (filters.productId) {
+      where.AND.push({ productId: filters.productId });
+    }
+    if (filters.inventoryLotId) {
+      where.AND.push({ inventoryLotId: filters.inventoryLotId });
+    }
 
-    // --- Nhóm 2: Thời gian ---
+    // --- Thời gian ---
     if (filters.fromDate || filters.toDate) {
-      where.createdAt = {};
-      if (filters.fromDate) where.createdAt.gte = new Date(filters.fromDate);
+      const dateFilter: any = {};
+      if (filters.fromDate) dateFilter.gte = new Date(filters.fromDate);
       if (filters.toDate) {
         const endOfDay = new Date(filters.toDate);
         endOfDay.setHours(23, 59, 59, 999);
-        where.createdAt.lte = endOfDay;
+        dateFilter.lte = endOfDay;
       }
+      where.AND.push({ createdAt: dateFilter });
     }
 
-    // --- Nhóm 3: Nguồn gốc ---
-    if (filters.inventoryLotId) where.inventoryLotId = filters.inventoryLotId;
-
-    // --- Nhóm 4: Tìm kiếm ghi chú ---
-    if (filters.noteSearch) {
-      where.note = { contains: filters.noteSearch, mode: 'insensitive' };
+    // --- Tìm kiếm ghi chú ---
+    if (filters.noteSearch && filters.noteSearch.trim() !== '') {
+      where.AND.push({
+        note: { contains: filters.noteSearch.trim(), mode: 'insensitive' },
+      });
     }
 
     return this.prisma.warehouseTransaction.findMany({

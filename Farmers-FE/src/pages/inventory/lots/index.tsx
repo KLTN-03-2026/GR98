@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Package, RefreshCw, Warehouse, History } from 'lucide-react';
-import { useGetLots } from './api/hooks';
+import { useGetLots, useGetWarehouses, useGetProducts } from './api/hooks';
 import { LotDetailDrawer } from './components/LotDetailDrawer';
+import { LotsFilterBar } from './components/LotsFilterBar';
 import { DataTable } from '@/components/data-table';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { createLotColumns } from './components/lots-columns';
-import type { InventoryLot } from './api/types';
+import type { InventoryLot, GetLotsFilters } from './api/types';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -16,8 +17,11 @@ export default function InventoryLotsPage() {
   const [selectedLot, setSelectedLot] = useState<InventoryLot | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('in-stock');
+  const [filters, setFilters] = useState<GetLotsFilters>({});
 
-  const { data: lots = [], isLoading, isFetching, refetch } = useGetLots({});
+  const { data: lots = [], isLoading, isFetching, refetch } = useGetLots(filters);
+  const { data: warehouses = [] } = useGetWarehouses();
+  const { data: products = [] } = useGetProducts();
 
   // Phân loại lô hàng
   const { inStock, upcoming, stats } = useMemo(() => {
@@ -89,6 +93,15 @@ export default function InventoryLotsPage() {
         </div>
       </div>
 
+      {/* Filter Bar */}
+      <LotsFilterBar
+        filters={filters}
+        onFiltersChange={setFilters}
+        warehouses={warehouses.map((w: any) => ({ id: w.id, name: w.name }))}
+        products={products.map((p: any) => ({ id: p.id, name: p.name }))}
+        isLoading={isLoading}
+      />
+
       <Tabs defaultValue="in-stock" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex items-center justify-between mb-4">
           <TabsList className="bg-slate-100/50 p-1">
@@ -141,4 +154,3 @@ export default function InventoryLotsPage() {
     </div>
   );
 }
-

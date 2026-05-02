@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { extractData } from '@/client/lib/api-client';
 import { lotApi } from './api';
 import type { Product } from '@/client/types';
-import type { InventoryLot, LotTrace, CreateLotInput, UpdateLotInput, PendingHarvest, LotTransaction } from './types';
+import type { InventoryLot, LotTrace, CreateLotInput, UpdateLotInput, PendingHarvest, LotTransaction, GetLotsFilters } from './types';
 
 export const lotKeys = {
   all: ['lots'] as const,
@@ -13,7 +13,7 @@ export const lotKeys = {
   pendingHarvests: () => [...lotKeys.all, 'pending-harvests'] as const,
 };
 
-export const useGetLots = (params: { warehouseId?: string; productId?: string; qualityGrade?: string }) => {
+export const useGetLots = (params: GetLotsFilters) => {
   return useQuery({
     queryKey: lotKeys.list(params as Record<string, unknown>),
     queryFn: async () => {

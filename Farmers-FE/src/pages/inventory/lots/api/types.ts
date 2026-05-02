@@ -14,6 +14,8 @@ export interface InventoryLot {
   
   // Virtual fields from BE
   isUpcoming?: boolean;
+  isExpired?: boolean;
+  isExpiringSoon?: boolean;
   statusLabel?: string;
 
   // Relations
@@ -106,4 +108,7 @@ export interface GetLotsFilters {
   warehouseId?: string;
   productId?: string;
   qualityGrade?: QualityGrade;
+  status?: 'upcoming' | 'in-stock' | 'empty';
+  expiryStatus?: 'expiring-soon' | 'expired';
+  contractId?: string;
 }

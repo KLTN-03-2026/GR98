@@ -192,6 +192,8 @@ export class InventoryController {
     @Query('productId') productId?: string,
     @Query('fromDate') fromDate?: string,
     @Query('toDate') toDate?: string,
+    @Query('inventoryLotId') inventoryLotId?: string,
+    @Query('noteSearch') noteSearch?: string,
   ) {
     return this.inventoryService.getTransactions(req.user, {
       warehouseId,
@@ -199,6 +201,8 @@ export class InventoryController {
       productId,
       fromDate,
       toDate,
+      inventoryLotId,
+      noteSearch,
     });
   }
 

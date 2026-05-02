@@ -61,6 +61,7 @@ interface DataTableProps<TData, TValue> {
   pageCount?: number;
   onPaginationChange?: OnChangeFn<PaginationState>;
   onSortingChange?: OnChangeFn<SortingState>;
+  onGlobalFilterChange?: OnChangeFn<any>;
   state?: any; // To override internal state for SSR
   /** Truyền xuống DataTablePagination (vd: [10, 15, 20, 30]) */
   pageSizeOptions?: number[];
@@ -106,10 +107,12 @@ export function DataTable<TData, TValue>({
   pageCount,
   onPaginationChange,
   onSortingChange,
+  onGlobalFilterChange,
   state: externalState,
   pageSizeOptions,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = React.useState<any>("");
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
@@ -174,6 +177,7 @@ export function DataTable<TData, TValue>({
       columnVisibility,
       rowSelection,
       columnFilters,
+      globalFilter,
       pagination,
       ...externalState,
     },
@@ -181,6 +185,7 @@ export function DataTable<TData, TValue>({
     onRowSelectionChange: setRowSelection,
     onSortingChange: onSortingChange || setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: onGlobalFilterChange || setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: onPaginationChange || setPagination,
     

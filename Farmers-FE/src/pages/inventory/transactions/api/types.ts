@@ -23,6 +23,7 @@ export interface WarehouseTransaction {
   actor?: {
     fullName: string;
   };
+  createdBy?: string;
 }
 
 export interface CreateTransactionInput {
@@ -42,4 +43,6 @@ export interface TransactionFilters {
   productId?: string;
   fromDate?: string;
   toDate?: string;
+  inventoryLotId?: string;
+  noteSearch?: string;
 }

@@ -725,13 +725,52 @@ export class InventoryService {
   // TRANSACTIONS (STAGE 3 & 4)
   // ===========================================================================
 
-  async getTransactions(currentUser: InventoryUser, filters: any) {
+  async getTransactions(
+    currentUser: InventoryUser,
+    filters: {
+      warehouseId?: string;
+      type?: string;
+      productId?: string;
+      fromDate?: string;
+      toDate?: string;
+      inventoryLotId?: string;
+      noteSearch?: string;
+    },
+  ) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
     const warehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
 
+    const where: any = {
+      warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['NONE'] },
+    };
+
+    // --- Nhóm 1: Định danh & Phân loại ---
+    if (filters.warehouseId) where.warehouseId = filters.warehouseId;
+    if (filters.type) where.type = filters.type;
+    if (filters.productId) where.productId = filters.productId;
+
+    // --- Nhóm 2: Thời gian ---
+    if (filters.fromDate || filters.toDate) {
+      where.createdAt = {};
+      if (filters.fromDate) where.createdAt.gte = new Date(filters.fromDate);
+      if (filters.toDate) {
+        const endOfDay = new Date(filters.toDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.createdAt.lte = endOfDay;
+      }
+    }
+
+    // --- Nhóm 3: Nguồn gốc ---
+    if (filters.inventoryLotId) where.inventoryLotId = filters.inventoryLotId;
+
+    // --- Nhóm 4: Tìm kiếm ghi chú ---
+    if (filters.noteSearch) {
+      where.note = { contains: filters.noteSearch, mode: 'insensitive' };
+    }
+
     return this.prisma.warehouseTransaction.findMany({
-      where: { warehouseId: { in: warehouseIds } },
+      where,
       include: {
         warehouse: { select: { id: true, name: true } },
         product: { select: { id: true, name: true, sku: true, unit: true } },

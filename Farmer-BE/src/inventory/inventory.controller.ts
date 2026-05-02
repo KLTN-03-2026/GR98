@@ -26,6 +26,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
 import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
 import { ReceiveHarvestDto } from './dto/receive-harvest.dto';
+import { ConfirmReceiptDto } from './dto/confirm-receipt.dto';
 import { UpdateInventoryLotDto } from './dto/update-inventory-lot.dto';
 
 @ApiTags('inventory')
@@ -145,6 +146,18 @@ export class InventoryController {
     return this.inventoryService.receiveHarvest(req.user, dto);
   }
 
+  @Post('lots/:id/confirm')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Xác nhận nhập kho thực tế (Giai đoạn 3)' })
+  @ApiResponse({ status: 200, description: 'Lô hàng đã được xác nhận nhập kho' })
+  confirmReceipt(
+    @Param('id') id: string,
+    @Request() req: { user: any },
+    @Body() dto: ConfirmReceiptDto
+  ) {
+    return this.inventoryService.confirmReceipt(req.user, id, dto.actualWeight, dto.note);
+  }
+
   @Get('lots/:id')
   @Roles(Role.ADMIN, Role.INVENTORY)
   @ApiOperation({ summary: 'Chi tiết lô hàng — Traceability' })
@@ -192,6 +205,11 @@ export class InventoryController {
     @Query('productId') productId?: string,
     @Query('fromDate') fromDate?: string,
     @Query('toDate') toDate?: string,
+    @Query('inventoryLotId') inventoryLotId?: string,
+    @Query('createdBy') createdBy?: string,
+    @Query('minQuantity') minQuantity?: string,
+    @Query('maxQuantity') maxQuantity?: string,
+    @Query('noteSearch') noteSearch?: string,
   ) {
     return this.inventoryService.getTransactions(req.user, {
       warehouseId,
@@ -199,6 +217,11 @@ export class InventoryController {
       productId,
       fromDate,
       toDate,
+      inventoryLotId,
+      createdBy,
+      minQuantity,
+      maxQuantity,
+      noteSearch,
     });
   }
 

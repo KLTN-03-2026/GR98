@@ -42,4 +42,9 @@ export interface TransactionFilters {
   productId?: string;
   fromDate?: string;
   toDate?: string;
+  inventoryLotId?: string;
+  createdBy?: string;
+  minQuantity?: number;
+  maxQuantity?: number;
+  noteSearch?: string;
 }

@@ -32,4 +32,10 @@ export const lotApi = {
 
   getLotTimeline: (id: string) =>
     apiGet<LotTransaction[]>(`/inventory/lots/${id}/timeline`),
+
+  confirmReceipt: (data: { lotId: string; actualWeight: number; note?: string }) =>
+    apiPost<InventoryLot>(`/inventory/lots/${data.lotId}/confirm`, { 
+      actualWeight: data.actualWeight, 
+      note: data.note 
+    }),
 };

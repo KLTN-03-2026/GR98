@@ -431,6 +431,7 @@ model InventoryLot {
   harvestDate  DateTime?
   expiryDate   DateTime?
   qualityGrade QualityGrade
+  status       InventoryLotStatus     @default(SCHEDULED)
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
   contract     Contract?              @relation(fields: [contractId], references: [id])
@@ -439,6 +440,13 @@ model InventoryLot {
   transactions WarehouseTransaction[]
 
   @@map("inventory_lots")
+}
+
+enum InventoryLotStatus {
+  SCHEDULED    // Hàng sắp về (tương lai)
+  ARRIVED      // Chờ nhập kho (đã đến ngày nhưng chưa xác nhận)
+  RECEIVED     // Đã vào kho (đã có transaction)
+  REJECTED     // Bị từ chối
 }
 
 model WarehouseTransaction {

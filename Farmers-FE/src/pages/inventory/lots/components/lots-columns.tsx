@@ -9,6 +9,7 @@ import { vi } from 'date-fns/locale';
 
 export function createLotColumns(handlers: {
   onViewDetail: (lot: InventoryLot) => void;
+  onConfirm: (lot: InventoryLot) => void;
 }) {
   const columns: ColumnDef<InventoryLot>[] = [
     {
@@ -54,17 +55,28 @@ export function createLotColumns(handlers: {
       header: 'Trạng thái',
       enableSorting: false,
       cell: ({ row }) => {
-        const { isUpcoming, isExpired, isExpiringSoon } = row.original;
-        if (isUpcoming) {
-          return <Badge variant="secondary">Dự kiến</Badge>;
+        const lot = row.original;
+        
+        if (lot.status === 'SCHEDULED') {
+          return <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50">Đơn hàng dự kiến</Badge>;
         }
+        if (lot.status === 'ARRIVED') {
+          return <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-50">Chờ nhập kho</Badge>;
+        }
+        if (lot.status === 'RECEIVED') {
+          return <Badge variant="success">Đã nhập kho</Badge>;
+        }
+        
+        // Cảnh báo hết hạn (chỉ cho hàng đã nhập kho)
+        const { isExpired, isExpiringSoon } = lot;
         if (isExpired) {
           return <Badge variant="destructive">Hết hạn</Badge>;
         }
         if (isExpiringSoon) {
           return <Badge variant="warning">Sắp hết hạn</Badge>;
         }
-        return <Badge variant="success">Trong kho</Badge>;
+        
+        return <Badge variant="outline">{lot.status}</Badge>;
       },
     },
     {
@@ -106,10 +118,24 @@ export function createLotColumns(handlers: {
       header: '',
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {row.original.status === 'ARRIVED' && (
+            <Button
+              variant="primary"
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 h-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlers.onConfirm(row.original);
+              }}
+            >
+              Xác nhận
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
+            className="h-8"
             onClick={(e) => {
               e.stopPropagation();
               handlers.onViewDetail(row.original);

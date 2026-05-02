@@ -475,6 +475,12 @@ export class InventoryService {
   async createLot(currentUser: InventoryUser, dto: CreateInventoryLotDto) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     return this.prisma.$transaction(async (tx) => {
+      const harvestDate = dto.harvestDate ? new Date(dto.harvestDate) : null;
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      
+      const lotStatus = harvestDate && harvestDate > now ? 'SCHEDULED' : 'ARRIVED';
+
       const lot = await tx.inventoryLot.create({
         data: {
           warehouseId: dto.warehouseId,
@@ -482,20 +488,9 @@ export class InventoryService {
           contractId: dto.contractId || null,
           quantityKg: dto.quantityKg,
           qualityGrade: dto.qualityGrade,
-          harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : null,
+          harvestDate: harvestDate,
           expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
-        },
-      });
-
-      await tx.warehouseTransaction.create({
-        data: {
-          warehouseId: dto.warehouseId,
-          productId: dto.productId,
-          inventoryLotId: lot.id,
-          type: 'receive',
-          quantityKg: dto.quantityKg,
-          note: dto.deviationReason || dto.note || 'Nhập lô hàng mới',
-          createdBy: currentUser.id,
+          status: lotStatus,
         },
       });
 
@@ -562,7 +557,7 @@ export class InventoryService {
 
     // 3. Atomic Transaction
     return this.prisma.$transaction(async (tx) => {
-      // A. Create the Inventory Lot
+      // A. Create the Inventory Lot - Giai đoạn ARRIVED (Chờ kho xác nhận)
       const lot = await tx.inventoryLot.create({
         data: {
           warehouseId,
@@ -571,41 +566,63 @@ export class InventoryService {
           quantityKg: actualWeight,
           qualityGrade,
           harvestDate: new Date(),
+          status: 'ARRIVED',
         },
       });
 
-      // B. Create Inbound Transaction Log
-      const transactionNote = justification
-        ? `[ĐỐI SOÁT] Lệch >5%. Lý do: ${justification}. ${note || ''}`
-        : `Nhận hàng từ thực địa. ${note || ''}`;
-
-      await tx.warehouseTransaction.create({
-        data: {
-          warehouseId,
-          productId: contract.product!.id,
-          inventoryLotId: lot.id,
-          type: 'inbound',
-          quantityKg: actualWeight,
-          note: transactionNote,
-          createdBy: currentUser.id,
-        },
-      });
-
-      // C. Update Product stockKg
-      await tx.product.update({
-        where: { id: contract.product!.id },
-        data: {
-          stockKg: { increment: actualWeight },
-        },
-      });
-
-      // D. Update Daily Report Status
+      // B. Update Daily Report Status
       await tx.dailyReport.update({
         where: { id: dailyReportId },
         data: { status: 'REVIEWED' }
       });
 
       return lot;
+    });
+  }
+
+  async confirmReceipt(currentUser: InventoryUser, lotId: string, actualWeight: number, note?: string) {
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+    
+    return this.prisma.$transaction(async (tx) => {
+      const lot = await tx.inventoryLot.findUnique({
+        where: { id: lotId },
+        include: { product: true }
+      });
+
+      if (!lot) throw new NotFoundException('Không tìm thấy lô hàng');
+      if (lot.status === 'RECEIVED') throw new BadRequestException('Lô hàng này đã được nhập kho trước đó');
+
+      // 1. Cập nhật lô hàng sang RECEIVED
+      const updatedLot = await tx.inventoryLot.update({
+        where: { id: lotId },
+        data: {
+          status: 'RECEIVED',
+          quantityKg: actualWeight, // Cập nhật khối lượng thực nhập
+        }
+      });
+
+      // 2. Tạo bản ghi giao dịch kho (Transaction)
+      await tx.warehouseTransaction.create({
+        data: {
+          warehouseId: lot.warehouseId,
+          productId: lot.productId,
+          inventoryLotId: lot.id,
+          type: 'inbound',
+          quantityKg: actualWeight,
+          note: note || 'Xác nhận nhập kho thực tế',
+          createdBy: currentUser.id,
+        }
+      });
+
+      // 3. Cập nhật tồn kho sản phẩm (stockKg)
+      await tx.product.update({
+        where: { id: lot.productId },
+        data: {
+          stockKg: { increment: actualWeight }
+        }
+      });
+
+      return updatedLot;
     });
   }
 
@@ -730,8 +747,43 @@ export class InventoryService {
     const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
     const warehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
 
-    return this.prisma.warehouseTransaction.findMany({
-      where: { warehouseId: { in: warehouseIds } },
+    const where: any = {
+      warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['NONE'] },
+    };
+
+    // --- Nhóm Lọc Cơ Bản (đã có từ trước nhưng chưa được áp dụng) ---
+    if (filters.warehouseId) where.warehouseId = filters.warehouseId;
+    if (filters.type) where.type = filters.type;
+    if (filters.productId) where.productId = filters.productId;
+
+    // --- Nhóm 2: Lọc Theo Thời Gian ---
+    if (filters.fromDate || filters.toDate) {
+      where.createdAt = {};
+      if (filters.fromDate) where.createdAt.gte = new Date(filters.fromDate);
+      if (filters.toDate) {
+        // Đặt thời gian cuối ngày để bao gồm cả ngày toDate
+        const endOfDay = new Date(filters.toDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.createdAt.lte = endOfDay;
+      }
+    }
+
+    // --- Nhóm 3: Lọc Theo Nguồn Gốc & Đối Soát ---
+    if (filters.inventoryLotId) where.inventoryLotId = filters.inventoryLotId;
+    if (filters.createdBy) where.createdBy = filters.createdBy;
+
+    // --- Nhóm 4: Lọc Theo Quy Mô & Ghi Chú ---
+    if (filters.minQuantity || filters.maxQuantity) {
+      where.quantityKg = {};
+      if (filters.minQuantity) where.quantityKg.gte = Number(filters.minQuantity);
+      if (filters.maxQuantity) where.quantityKg.lte = Number(filters.maxQuantity);
+    }
+    if (filters.noteSearch) {
+      where.note = { contains: filters.noteSearch, mode: 'insensitive' };
+    }
+
+    const transactions = await this.prisma.warehouseTransaction.findMany({
+      where,
       include: {
         warehouse: { select: { id: true, name: true } },
         product: { select: { id: true, name: true, sku: true, unit: true } },
@@ -739,6 +791,21 @@ export class InventoryService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Lookup tên người tạo (createdBy là userId, không có relation)
+    const creatorIds = [...new Set(transactions.map(t => t.createdBy).filter(Boolean))];
+    const creators = creatorIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, fullName: true },
+        })
+      : [];
+    const creatorMap = new Map(creators.map(c => [c.id, c.fullName]));
+
+    return transactions.map(t => ({
+      ...t,
+      actor: t.createdBy ? { fullName: creatorMap.get(t.createdBy) || 'Không rõ' } : null,
+    }));
   }
 
   async createTransaction(currentUser: InventoryUser, dto: CreateTransactionDto) {

@@ -24,15 +24,16 @@ import { vi } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useUpdateLot, useGetLotById, useGetLotTimeline } from '../api/hooks';
+import { useUpdateLot, useGetLotById, useGetLotTimeline, useConfirmReceipt } from '../api/hooks';
 import { WeightAdjustmentDialog } from './WeightAdjustmentDialog';
 import { QualityGradingDialog } from './QualityGradingDialog';
 import { ExpiryUpdateDialog } from './ExpiryUpdateDialog';
+import { ConfirmReceiptDialog } from './ConfirmReceiptDialog';
 import { toast } from 'sonner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
-import { Edit2, Scale, RefreshCw } from 'lucide-react';
+import { Edit2, Scale, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 interface LotDetailDrawerProps {
   lot: InventoryLot | null;
@@ -48,9 +49,12 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
   const [isAdjustingWeight, setIsAdjustingWeight] = React.useState(false);
   const [isUpdatingGrade, setIsUpdatingGrade] = React.useState(false);
   const [isUpdatingExpiry, setIsUpdatingExpiry] = React.useState(false);
+  const [isConfirmingReceipt, setIsConfirmingReceipt] = React.useState(false);
 
   const lot = currentLot || initialLot;
-  const isUpcoming = lot?.isUpcoming || (lot?.harvestDate ? new Date(lot.harvestDate) > new Date() : false);
+  const isUpcoming = lot?.status === 'SCHEDULED';
+  const isArrived = lot?.status === 'ARRIVED';
+  const isReceived = lot?.status === 'RECEIVED';
 
 
 
@@ -68,6 +72,17 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
               <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wider">
                 Chi tiết lô hàng
               </Badge>
+              <Badge className={cn(
+                "text-[10px] font-bold uppercase tracking-wider",
+                lot.status === 'SCHEDULED' ? "bg-blue-100 text-blue-700 border-blue-200" :
+                lot.status === 'ARRIVED' ? "bg-amber-100 text-amber-700 border-amber-200" :
+                lot.status === 'RECEIVED' ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                "bg-slate-100 text-slate-700 border-slate-200"
+              )}>
+                {lot.status === 'SCHEDULED' ? 'Đơn hàng dự kiến' :
+                 lot.status === 'ARRIVED' ? 'Chờ nhập kho' :
+                 lot.status === 'RECEIVED' ? 'Đã nhập kho' : lot.status}
+              </Badge>
               {isLoadingLot && <RefreshCw className="size-3 animate-spin text-muted-foreground" />}
             </div>
             <SheetTitle className="text-xl font-bold tracking-tight">
@@ -82,7 +97,7 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
             {/* 1. Quick Stats Card */}
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl border p-4 bg-slate-900 text-white shadow-sm">
-                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Tồn kho hiện tại</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Trọng lượng ban đầu</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl font-bold tabular-nums">{lot.quantityKg.toLocaleString('vi-VN')}</span>
                   <span className="text-xs text-slate-400 font-medium">kg</span>
@@ -253,22 +268,34 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
           </div>
 
           <div className="p-4 border-t bg-slate-50/50 space-y-3">
+            {!isReceived && (
+              <Button 
+                className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-200 transition-all active:scale-95"
+                onClick={() => setIsConfirmingReceipt(true)}
+              >
+                <CheckCircle2 className="size-4 mr-2" />
+                Xác nhận nhập kho thực tế
+              </Button>
+            )}
+
+            {isReceived && (
+              <Button 
+                className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 transition-all active:scale-95"
+                onClick={() => setIsAdjustingWeight(true)}
+              >
+                <Scale className="size-4 mr-2" />
+                Điều chỉnh khối lượng tồn kho
+              </Button>
+            )}
+            
             {isUpcoming && (
               <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 flex items-start gap-2">
                 <Settings2 className="size-3.5 text-amber-600 mt-0.5" />
-                <p className="text-[11px] text-amber-700 leading-tight">
-                  Lô hàng dự kiến chưa về kho. Các chức năng điều chỉnh sẽ khả dụng sau khi hàng đã nhập kho thực tế.
+                <p className="text-[11px] text-amber-700 leading-tight font-medium">
+                  Đây là lô hàng dự kiến (Scheduled). Bạn có thể xác nhận nhập kho ngay nếu hàng đã về thực tế.
                 </p>
               </div>
             )}
-            <Button 
-              className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
-              onClick={() => setIsAdjustingWeight(true)}
-              disabled={isUpcoming}
-            >
-              <Scale className="size-4 mr-2" />
-              Điều chỉnh khối lượng thực tế
-            </Button>
           </div>
         </SheetContent>
       </Sheet>
@@ -290,6 +317,12 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
         lot={lot}
         isOpen={isAdjustingWeight}
         onClose={() => setIsAdjustingWeight(false)}
+      />
+
+      <ConfirmReceiptDialog
+        lot={lot}
+        isOpen={isConfirmingReceipt}
+        onClose={() => setIsConfirmingReceipt(false)}
       />
     </>
   );

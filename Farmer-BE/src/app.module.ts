@@ -19,6 +19,7 @@ import { ProductsModule } from './products/products.module';
 import { ContractModule } from './contract/contract.module';
 import { DailyReportModule } from './daily-report/daily-report.module';
 import { PlantScanModule } from './plant-scan/plant-scan.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
@@ -40,6 +41,7 @@ import { PlantScanModule } from './plant-scan/plant-scan.module';
     ContractModule,
     DailyReportModule,
     PlantScanModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

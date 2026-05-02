@@ -1,8 +1,8 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  Settings2
+import { 
+  ArrowDownLeft, 
+  ArrowUpRight, 
+  Settings2 
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DataTableColumnHeader } from '@/components/data-table';
@@ -83,33 +83,10 @@ export const createTransactionColumns = () => {
         const isNegative = type === 'outbound';
         return (
           <div className={`text-right font-semibold tabular-nums ${isNegative ? 'text-destructive' : 'text-emerald-600'}`}>
-            {isNegative ? '-' : '+'}{Math.abs(row.original.quantityKg).toLocaleString('vi-VN')} {row.original.product.unit}
+            {isNegative ? '-' : '+'}{row.original.quantityKg.toLocaleString('vi-VN')} {row.original.product.unit}
           </div>
         );
       },
-    },
-    {
-      id: 'lotCode',
-      header: 'Mã Lô',
-      enableSorting: false,
-      cell: ({ row }) => {
-        const lotId = row.original.inventoryLotId;
-        if (!lotId) return <span className="text-muted-foreground">—</span>;
-        return (
-          <span className="font-medium text-xs bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100" title={lotId}>
-            {lotId.slice(-6).toUpperCase()}
-          </span>
-        );
-      },
-    },
-    {
-      id: 'actor',
-      header: 'Người thực hiện',
-      cell: ({ row }) => (
-        <span className="text-xs font-medium text-slate-500">
-          USER-{row.original.createdBy?.slice(-6).toUpperCase() || 'SYS'}
-        </span>
-      ),
     },
     {
       id: 'warehouse',
@@ -117,6 +94,16 @@ export const createTransactionColumns = () => {
       accessorFn: (row) => row.warehouse.name,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.warehouse.name}</span>
+      ),
+    },
+    {
+      id: 'actor',
+      header: 'Người tạo',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {row.original.actor?.fullName || '—'}
+        </span>
       ),
     },
     {

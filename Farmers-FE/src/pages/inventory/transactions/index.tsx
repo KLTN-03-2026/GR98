@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { History, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data-table';
-import { useGetTransactions, useGetTransactionWarehouses, useGetTransactionProducts } from './api/hooks';
+import { useGetTransactions, useGetTransactionWarehouses } from './api/hooks';
 import { createTransactionColumns } from './components/transactions-columns';
 import { TransactionsFilterBar } from './components/TransactionsFilterBar';
 import CreateTransactionDialog from './components/CreateTransactionDialog';
@@ -10,21 +10,20 @@ import type { TransactionFilters } from './api/types';
 
 export default function InventoryTransactionsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [filters, setFilters] = useState<TransactionFilters>({});
+  const [filters, setFilters] = useState<TransactionFilters>({
+    warehouseId: 'all',
+    type: 'all',
+    productId: '',
+  });
 
-  const apiFilters = useMemo(() => ({
-    warehouseId: filters.warehouseId,
-    type: filters.type,
-    productId: filters.productId,
-    fromDate: filters.fromDate,
-    toDate: filters.toDate,
-    inventoryLotId: filters.inventoryLotId,
-    noteSearch: filters.noteSearch,
-  }), [filters]);
+  const apiFilters = {
+    warehouseId: filters.warehouseId === 'all' ? undefined : filters.warehouseId,
+    type: filters.type === 'all' ? undefined : filters.type,
+    productId: filters.productId || undefined,
+  };
 
   const { data: transactions = [], isLoading, isFetching, refetch } = useGetTransactions(apiFilters);
   const { data: warehouses = [] } = useGetTransactionWarehouses();
-  const { data: products = [] } = useGetTransactionProducts();
 
   const columns = useMemo(() => createTransactionColumns(), []);
 
@@ -33,7 +32,6 @@ export default function InventoryTransactionsPage() {
       filters={filters}
       onFiltersChange={setFilters}
       warehouses={warehouses.map(w => ({ id: w.id, name: w.name }))}
-      products={products.map(p => ({ id: p.id, name: p.name }))}
     />
   );
 
@@ -75,9 +73,7 @@ export default function InventoryTransactionsPage() {
           onReload={() => refetch()}
           filterToolbar={filterToolbar}
           customActions={customActions}
-          searchPlaceholder="Tìm kiếm ghi chú..."
-          manualFiltering={true}
-          onGlobalFilterChange={(val) => setFilters(f => ({ ...f, noteSearch: val }))}
+          searchPlaceholder="Tìm kiếm sản phẩm..."
         />
       </div>
 

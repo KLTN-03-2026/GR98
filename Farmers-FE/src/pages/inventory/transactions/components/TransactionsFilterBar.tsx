@@ -6,8 +6,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { X, Calendar } from 'lucide-react';
 import type { TransactionFilters } from '../api/types';
 import { cn } from '@/lib/utils';
@@ -16,41 +16,57 @@ interface TransactionsFilterBarProps {
   filters: TransactionFilters;
   onFiltersChange: (filters: TransactionFilters) => void;
   warehouses: Array<{ id: string; name: string }>;
-  products: Array<{ id: string; name: string }>;
 }
 
-export function TransactionsFilterBar({ filters, onFiltersChange, warehouses, products }: TransactionsFilterBarProps) {
+function getDatePreset(key: string): { fromDate: string; toDate: string } {
+  const now = new Date();
+  const toDate = now.toISOString().split('T')[0];
+
+  switch (key) {
+    case 'today':
+      return { fromDate: toDate, toDate };
+    case '7days': {
+      const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return { fromDate: from.toISOString().split('T')[0], toDate };
+    }
+    case '30days': {
+      const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return { fromDate: from.toISOString().split('T')[0], toDate };
+    }
+    case 'month': {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { fromDate: from.toISOString().split('T')[0], toDate };
+    }
+    default:
+      return { fromDate: '', toDate: '' };
+  }
+}
+
+export function TransactionsFilterBar({ filters, onFiltersChange, warehouses }: TransactionsFilterBarProps) {
   const activeFilterCount = Object.entries(filters).filter(
-    ([key, val]) => val && val !== 'all' && val !== ''
+    ([_, v]) => v && v !== 'all' && v !== ''
   ).length;
 
   const updateFilter = (key: keyof TransactionFilters, value: string | undefined) => {
     onFiltersChange({ ...filters, [key]: value });
   };
 
+  const applyDatePreset = (preset: string) => {
+    if (preset === 'all') {
+      onFiltersChange({ ...filters, fromDate: undefined, toDate: undefined });
+      return;
+    }
+    const { fromDate, toDate } = getDatePreset(preset);
+    onFiltersChange({ ...filters, fromDate, toDate });
+  };
+
   const clearAllFilters = () => {
     onFiltersChange({});
   };
 
-  const setDatePreset = (preset: 'today' | '7days' | 'month') => {
-    const now = new Date();
-    const toDate = now.toISOString().split('T')[0];
-    let fromDate = toDate;
-
-    if (preset === '7days') {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      fromDate = d.toISOString().split('T')[0];
-    } else if (preset === 'month') {
-      fromDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    }
-
-    onFiltersChange({ ...filters, fromDate, toDate });
-  };
-
   return (
-    <>
-      {/* Warehouse */}
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Warehouse Filter */}
       <Select
         value={filters.warehouseId || 'all'}
         onValueChange={(val) => updateFilter('warehouseId', val === 'all' ? undefined : val)}
@@ -69,32 +85,13 @@ export function TransactionsFilterBar({ filters, onFiltersChange, warehouses, pr
         </SelectContent>
       </Select>
 
-      {/* Product */}
-      <Select
-        value={filters.productId || 'all'}
-        onValueChange={(val) => updateFilter('productId', val === 'all' ? undefined : val)}
-      >
-        <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[140px] text-sm",
-          filters.productId && filters.productId !== 'all' && "border-primary text-primary"
-        )}>
-          <SelectValue placeholder="Sản phẩm" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả sản phẩm</SelectItem>
-          {products.map(p => (
-            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Type */}
+      {/* Type Filter */}
       <Select
         value={filters.type || 'all'}
         onValueChange={(val) => updateFilter('type', val === 'all' ? undefined : val)}
       >
         <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[130px] text-sm",
+          "h-9 w-auto min-w-[140px] text-sm",
           filters.type && filters.type !== 'all' && "border-primary text-primary"
         )}>
           <SelectValue placeholder="Loại giao dịch" />
@@ -107,58 +104,49 @@ export function TransactionsFilterBar({ filters, onFiltersChange, warehouses, pr
         </SelectContent>
       </Select>
 
-      {/* Date Range */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+      {/* Date Range Preset */}
+      <Select
+        value={
+          !filters.fromDate && !filters.toDate
+            ? 'all'
+            : 'custom'
+        }
+        onValueChange={(val) => applyDatePreset(val)}
+      >
+        <SelectTrigger className={cn(
+          "h-9 w-auto min-w-[150px] text-sm",
+          (filters.fromDate || filters.toDate) && "border-primary text-primary"
+        )}>
+          <Calendar className="size-3 mr-1.5 shrink-0" />
+          <SelectValue placeholder="Thời gian" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Tất cả thời gian</SelectItem>
+          <SelectItem value="today">Hôm nay</SelectItem>
+          <SelectItem value="7days">7 ngày qua</SelectItem>
+          <SelectItem value="30days">30 ngày qua</SelectItem>
+          <SelectItem value="month">Tháng này</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Custom Date Range Inputs */}
+      {(filters.fromDate || filters.toDate) && (
+        <>
           <Input
             type="date"
             value={filters.fromDate || ''}
             onChange={(e) => updateFilter('fromDate', e.target.value || undefined)}
-            className="h-9 w-[130px] pl-7 text-xs"
-            placeholder="Từ ngày"
+            className="h-9 w-auto min-w-[140px] text-sm"
           />
-        </div>
-        <span className="text-xs text-muted-foreground">→</span>
-        <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <span className="text-xs text-muted-foreground">—</span>
           <Input
             type="date"
             value={filters.toDate || ''}
             onChange={(e) => updateFilter('toDate', e.target.value || undefined)}
-            className="h-9 w-[130px] pl-7 text-xs"
-            placeholder="Đến ngày"
+            className="h-9 w-auto min-w-[140px] text-sm"
           />
-        </div>
-      </div>
-
-      {/* Date Presets */}
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-xs rounded-full"
-          onClick={() => setDatePreset('today')}
-        >
-          Hôm nay
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-xs rounded-full"
-          onClick={() => setDatePreset('7days')}
-        >
-          7 ngày
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-xs rounded-full"
-          onClick={() => setDatePreset('month')}
-        >
-          Tháng này
-        </Button>
-      </div>
+        </>
+      )}
 
       {/* Clear All */}
       {activeFilterCount > 0 && (
@@ -172,6 +160,6 @@ export function TransactionsFilterBar({ filters, onFiltersChange, warehouses, pr
           <X className="ml-2 h-4 w-4" />
         </Button>
       )}
-    </>
+    </div>
   );
 }

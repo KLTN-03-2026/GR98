@@ -193,6 +193,9 @@ export class InventoryController {
     @Query('fromDate') fromDate?: string,
     @Query('toDate') toDate?: string,
     @Query('inventoryLotId') inventoryLotId?: string,
+    @Query('createdBy') createdBy?: string,
+    @Query('minQuantity') minQuantity?: string,
+    @Query('maxQuantity') maxQuantity?: string,
     @Query('noteSearch') noteSearch?: string,
   ) {
     return this.inventoryService.getTransactions(req.user, {
@@ -202,6 +205,9 @@ export class InventoryController {
       fromDate,
       toDate,
       inventoryLotId,
+      createdBy,
+      minQuantity,
+      maxQuantity,
       noteSearch,
     });
   }

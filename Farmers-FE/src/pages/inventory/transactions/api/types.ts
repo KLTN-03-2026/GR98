@@ -23,7 +23,6 @@ export interface WarehouseTransaction {
   actor?: {
     fullName: string;
   };
-  createdBy?: string;
 }
 
 export interface CreateTransactionInput {
@@ -44,5 +43,8 @@ export interface TransactionFilters {
   fromDate?: string;
   toDate?: string;
   inventoryLotId?: string;
+  createdBy?: string;
+  minQuantity?: number;
+  maxQuantity?: number;
   noteSearch?: string;
 }

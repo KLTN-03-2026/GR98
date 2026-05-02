@@ -725,68 +725,47 @@ export class InventoryService {
   // TRANSACTIONS (STAGE 3 & 4)
   // ===========================================================================
 
-  async getTransactions(
-    currentUser: InventoryUser,
-    filters: {
-      warehouseId?: string;
-      type?: string;
-      productId?: string;
-      fromDate?: string;
-      toDate?: string;
-      inventoryLotId?: string;
-      noteSearch?: string;
-    },
-  ) {
+  async getTransactions(currentUser: InventoryUser, filters: any) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
-    const allowedWarehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
-
-    // Xác định danh sách kho cuối cùng sau khi áp dụng bộ lọc người dùng
-    let finalWarehouseIds = allowedWarehouseIds;
-    if (filters.warehouseId) {
-      // Nếu user chọn kho cụ thể, kiểm tra xem kho đó có nằm trong danh sách được phép không
-      finalWarehouseIds = allowedWarehouseIds.includes(filters.warehouseId)
-        ? [filters.warehouseId]
-        : ['NONE'];
-    }
+    const warehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
 
     const where: any = {
-      AND: [
-        { warehouseId: { in: finalWarehouseIds.length > 0 ? finalWarehouseIds : ['NONE'] } },
-      ],
+      warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['NONE'] },
     };
 
-    // --- Các bộ lọc khác ---
-    if (filters.type) {
-      where.AND.push({ type: filters.type });
-    }
-    if (filters.productId) {
-      where.AND.push({ productId: filters.productId });
-    }
-    if (filters.inventoryLotId) {
-      where.AND.push({ inventoryLotId: filters.inventoryLotId });
-    }
+    // --- Nhóm Lọc Cơ Bản (đã có từ trước nhưng chưa được áp dụng) ---
+    if (filters.warehouseId) where.warehouseId = filters.warehouseId;
+    if (filters.type) where.type = filters.type;
+    if (filters.productId) where.productId = filters.productId;
 
-    // --- Thời gian ---
+    // --- Nhóm 2: Lọc Theo Thời Gian ---
     if (filters.fromDate || filters.toDate) {
-      const dateFilter: any = {};
-      if (filters.fromDate) dateFilter.gte = new Date(filters.fromDate);
+      where.createdAt = {};
+      if (filters.fromDate) where.createdAt.gte = new Date(filters.fromDate);
       if (filters.toDate) {
+        // Đặt thời gian cuối ngày để bao gồm cả ngày toDate
         const endOfDay = new Date(filters.toDate);
         endOfDay.setHours(23, 59, 59, 999);
-        dateFilter.lte = endOfDay;
+        where.createdAt.lte = endOfDay;
       }
-      where.AND.push({ createdAt: dateFilter });
     }
 
-    // --- Tìm kiếm ghi chú ---
-    if (filters.noteSearch && filters.noteSearch.trim() !== '') {
-      where.AND.push({
-        note: { contains: filters.noteSearch.trim(), mode: 'insensitive' },
-      });
+    // --- Nhóm 3: Lọc Theo Nguồn Gốc & Đối Soát ---
+    if (filters.inventoryLotId) where.inventoryLotId = filters.inventoryLotId;
+    if (filters.createdBy) where.createdBy = filters.createdBy;
+
+    // --- Nhóm 4: Lọc Theo Quy Mô & Ghi Chú ---
+    if (filters.minQuantity || filters.maxQuantity) {
+      where.quantityKg = {};
+      if (filters.minQuantity) where.quantityKg.gte = Number(filters.minQuantity);
+      if (filters.maxQuantity) where.quantityKg.lte = Number(filters.maxQuantity);
+    }
+    if (filters.noteSearch) {
+      where.note = { contains: filters.noteSearch, mode: 'insensitive' };
     }
 
-    return this.prisma.warehouseTransaction.findMany({
+    const transactions = await this.prisma.warehouseTransaction.findMany({
       where,
       include: {
         warehouse: { select: { id: true, name: true } },
@@ -795,6 +774,21 @@ export class InventoryService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Lookup tên người tạo (createdBy là userId, không có relation)
+    const creatorIds = [...new Set(transactions.map(t => t.createdBy).filter(Boolean))];
+    const creators = creatorIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, fullName: true },
+        })
+      : [];
+    const creatorMap = new Map(creators.map(c => [c.id, c.fullName]));
+
+    return transactions.map(t => ({
+      ...t,
+      actor: t.createdBy ? { fullName: creatorMap.get(t.createdBy) || 'Không rõ' } : null,
+    }));
   }
 
   async createTransaction(currentUser: InventoryUser, dto: CreateTransactionDto) {

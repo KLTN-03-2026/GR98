@@ -1,37 +1,39 @@
+export type TransactionType = 'inbound' | 'outbound' | 'adjustment';
+
 export interface WarehouseTransaction {
   id: string;
   warehouseId: string;
   productId: string;
-  inventoryLotId: string;
-  type: 'inbound' | 'outbound' | 'adjustment';
+  inventoryLotId: string | null;
+  type: TransactionType;
   quantityKg: number;
   note: string | null;
-  createdBy: string;
   createdAt: string;
-  warehouse?: {
-    id: string;
+  warehouse: {
     name: string;
   };
-  product?: {
-    id: string;
+  product: {
     name: string;
     sku: string;
     unit: string;
   };
   inventoryLot?: {
     id: string;
-    qualityGrade: string;
+  } | null;
+  actor?: {
+    fullName: string;
   };
 }
 
 export interface CreateTransactionInput {
   warehouseId: string;
   productId: string;
-  inventoryLotId: string;
-  type: 'inbound' | 'outbound' | 'adjustment';
-  quantityKg: number; // For outbound this will be sent as positive but backend handles signed logic
+  inventoryLotId?: string;
+  type: TransactionType;
+  quantityKg: number;
   note?: string;
-  sourceLotId?: string;
+  targetWarehouseId?: string;
+  isTransfer?: boolean;
 }
 
 export interface TransactionFilters {
@@ -40,14 +42,4 @@ export interface TransactionFilters {
   productId?: string;
   fromDate?: string;
   toDate?: string;
-}
-
-export interface ReceiveHarvestInput {
-  dailyReportId: string;
-  contractId: string;
-  warehouseId: string;
-  actualWeight: number;
-  qualityGrade: string;
-  justification?: string;
-  note?: string;
 }

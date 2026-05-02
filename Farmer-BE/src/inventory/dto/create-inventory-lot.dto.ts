@@ -42,4 +42,14 @@ export class CreateInventoryLotDto {
   @IsString()
   @IsOptional()
   note?: string;
+
+  @ApiProperty({ description: 'Lý do giải trình sai lệch sản lượng', required: false })
+  @IsString()
+  @IsOptional()
+  deviationReason?: string;
+
+  @ApiProperty({ description: 'ID của báo cáo thu hoạch (để cập nhật trạng thái)', required: false })
+  @IsString()
+  @IsOptional()
+  reportId?: string;
 }

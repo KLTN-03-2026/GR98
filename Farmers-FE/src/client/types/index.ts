@@ -96,6 +96,8 @@ export interface Product {
   grade: QualityGrade;
   pricePerKg: number;
   stockKg: number;
+  actualStockKg?: number;
+  upcomingStockKg?: number;
   minOrderKg: number;
   qrCode: string;
   sku: string;

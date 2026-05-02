@@ -111,6 +111,17 @@ export class InventoryController {
     });
   }
 
+  @Get('lots/:id/timeline')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Lịch sử giao dịch của một lô hàng' })
+  @ApiResponse({ status: 200, description: 'Danh sách giao dịch' })
+  getLotTimeline(
+    @Param('id') id: string,
+    @Request() req: { user: any },
+  ) {
+    return this.inventoryService.getLotTimeline(req.user, id);
+  }
+
   @Post('lots')
   @Roles(Role.ADMIN, Role.INVENTORY)
   @ApiOperation({ summary: 'Nhập kho lô hàng mới' })
@@ -210,5 +221,13 @@ export class InventoryController {
       fromDate,
       toDate,
     });
+  }
+
+  @Get('pending-harvests')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách báo cáo thu hoạch chờ đối soát' })
+  @ApiResponse({ status: 200, description: 'Danh sách báo cáo' })
+  getPendingHarvests(@Request() req: { user: any }) {
+    return this.inventoryService.getPendingHarvests(req.user);
   }
 }

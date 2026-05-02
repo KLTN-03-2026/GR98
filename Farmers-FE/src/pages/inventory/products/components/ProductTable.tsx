@@ -144,9 +144,16 @@ export function ProductTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className="bg-slate-50 border-slate-100 h-6 rounded-lg tabular-nums font-bold text-slate-600 px-2 shadow-xs">
-                      {p.stockKg.toLocaleString('vi-VN')} kg
-                    </Badge>
+                    <div className="flex flex-col items-center gap-1">
+                      <Badge variant="outline" className="bg-emerald-50 border-emerald-100 h-6 rounded-lg tabular-nums font-bold text-emerald-700 px-2 shadow-xs">
+                        {(p.actualStockKg ?? p.stockKg).toLocaleString('vi-VN')} kg
+                      </Badge>
+                      {p.upcomingStockKg !== undefined && p.upcomingStockKg > 0 && (
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                          + {p.upcomingStockKg.toLocaleString('vi-VN')} sắp về
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex justify-center">

@@ -1,20 +1,26 @@
-import type { QualityGrade } from '../../warehouses/api/types';
-export type { QualityGrade };
+export type QualityGrade = 'A' | 'B' | 'C' | 'REJECT';
 
 export interface InventoryLot {
   id: string;
   warehouseId: string;
   productId: string;
-  contractId: string | null;
+  contractId?: string;
   quantityKg: number;
-  harvestDate: string | null;
-  expiryDate: string | null;
   qualityGrade: QualityGrade;
+  harvestDate?: string;
+  expiryDate?: string;
   createdAt: string;
   updatedAt: string;
+  
+  // Virtual fields from BE
+  isUpcoming?: boolean;
+  statusLabel?: string;
+
+  // Relations
   warehouse: {
     id: string;
     name: string;
+    locationAddress?: string;
   };
   product: {
     id: string;
@@ -22,55 +28,30 @@ export interface InventoryLot {
     sku: string;
     unit: string;
   };
-}
-
-export interface LotTransaction {
-  id: string;
-  type: string;
-  quantityKg: number;
-  createdAt: string;
-  note: string | null;
-}
-
-export interface LotContract {
-  id: string;
-  contractNo: string;
-  farmer: {
-    id: string;
-    fullName: string;
-    phone: string;
-  };
-  plot: {
-    id: string;
-    plotCode: string;
-    cropType: string;
-    zone: {
-      id: string;
-      name: string;
-    };
-  };
-}
-
-export interface LotTrace extends InventoryLot {
-  transactions: LotTransaction[];
   contract?: {
     id: string;
     contractNo: string;
     farmer: {
-      id: string;
       fullName: string;
       phone: string;
     };
     plot: {
-      id: string;
       plotCode: string;
-      cropType: string;
       zone: {
-        id: string;
         name: string;
       };
     };
   };
+}
+
+export interface LotTransaction {
+  id: string;
+  type: 'receive' | 'inbound' | 'outbound' | 'adjustment' | 'transfer';
+  quantityKg: number;
+  note?: string;
+  createdAt: string;
+  warehouse: { name: string };
+  product: { name: string };
 }
 
 export interface CreateLotInput {
@@ -78,9 +59,43 @@ export interface CreateLotInput {
   productId: string;
   contractId?: string;
   quantityKg: number;
-  harvestDate: string;
-  expiryDate?: string;
   qualityGrade: QualityGrade;
-  note?: string;
-  deviationReason?: string;
+  harvestDate?: string;
+  expiryDate?: string;
+  reportId?: string;
+}
+
+export interface LotTrace extends InventoryLot {
+  transactions: LotTransaction[];
+}
+
+export interface PendingHarvest {
+  id: string;
+  plotId: string;
+  yieldEstimateKg: number;
+  reportedAt: string;
+  plot: {
+    plotCode: string;
+    farmer: {
+      fullName: string;
+    };
+    contracts: Array<{
+      id: string;
+      product: {
+        id: string;
+        name: string;
+      };
+    }>;
+  };
+  supervisor: {
+    user: {
+      fullName: string;
+    };
+  };
+}
+
+export interface GetLotsFilters {
+  warehouseId?: string;
+  productId?: string;
+  qualityGrade?: QualityGrade;
 }

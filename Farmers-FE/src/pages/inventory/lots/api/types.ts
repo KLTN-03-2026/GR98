@@ -65,6 +65,14 @@ export interface CreateLotInput {
   reportId?: string;
 }
 
+export interface UpdateLotInput {
+  qualityGrade?: QualityGrade;
+  harvestDate?: string;
+  expiryDate?: string;
+  note?: string;
+  reason?: string;
+}
+
 export interface LotTrace extends InventoryLot {
   transactions: LotTransaction[];
 }

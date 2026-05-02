@@ -147,7 +147,7 @@ export class InventoryService {
     const [totalStockResult, pendingOrdersCount, expiringLotsCount, stagnantLotsResult, recentTransactions, pendingOrdersList] = await Promise.all([
       warehouseIds.length > 0
         ? this.prisma.inventoryLot.aggregate({
-          where: { 
+          where: {
             warehouseId: { in: warehouseIds },
             harvestDate: { lte: now } // Chỉ tính lô đã đến ngày thu hoạch
           },
@@ -568,22 +568,22 @@ export class InventoryService {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const lot = await this.prisma.inventoryLot.findUnique({
       where: { id },
-      include: { 
-        warehouse: true, 
-        product: true, 
-        contract: { 
-          include: { 
+      include: {
+        warehouse: true,
+        product: true,
+        contract: {
+          include: {
             farmer: true,
             plot: {
               include: { zone: true }
             }
-          } 
-        }, 
-        transactions: true 
+          }
+        },
+        transactions: true
       },
     });
     if (!lot || lot.warehouse.adminId !== adminId) throw new NotFoundException('Không tìm thấy lô hàng');
-    
+
     const now = new Date();
     const isUpcoming = lot.harvestDate && lot.harvestDate > now;
 
@@ -603,6 +603,7 @@ export class InventoryService {
 
   async updateLot(id: string, currentUser: InventoryUser, dto: UpdateInventoryLotDto) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+
     const lot = await this.prisma.inventoryLot.findUnique({
       where: { id },
       include: { warehouse: true },
@@ -612,13 +613,38 @@ export class InventoryService {
       throw new NotFoundException('Không tìm thấy lô hàng hoặc bạn không có quyền chỉnh sửa');
     }
 
-    return this.prisma.inventoryLot.update({
-      where: { id },
-      data: {
-        qualityGrade: dto.qualityGrade,
-        expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
-        harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : undefined,
-      },
+    const now = new Date();
+    if (lot.harvestDate && lot.harvestDate > now) {
+      throw new BadRequestException('Không thể cập nhật thông tin cho lô hàng chưa về kho (dự kiến)');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Cập nhật Lot
+      const updatedLot = await tx.inventoryLot.update({
+        where: { id },
+        data: {
+          qualityGrade: dto.qualityGrade,
+          expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+          harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : undefined,
+        },
+      });
+
+      // 2. Nếu có thay đổi phẩm cấp, ghi log vào Timeline
+      if (dto.qualityGrade && dto.qualityGrade !== lot.qualityGrade) {
+        await tx.warehouseTransaction.create({
+          data: {
+            warehouseId: lot.warehouseId,
+            productId: lot.productId,
+            inventoryLotId: lot.id,
+            type: 'adjustment',
+            quantityKg: 0,
+            note: `[CẬP NHẬT PHẨM CẤP] Thay đổi từ Loại ${lot.qualityGrade} sang Loại ${dto.qualityGrade}. ${dto.reason || ''}`,
+            createdBy: currentUser.id,
+          },
+        });
+      }
+
+      return updatedLot;
     });
   }
 
@@ -677,7 +703,7 @@ export class InventoryService {
       } else if (dto.type === TransactionType.ADJUSTMENT) {
         // Adjustment tính dựa trên chênh lệch với số dư thực tế
         delta = dto.quantityKg - currentLotBalance;
-        
+
         // Kiểm tra độ lệch 5%
         const deviation = Math.abs(delta) / (currentLotBalance || 1);
         if (deviation > 0.05 && !dto.note) {
@@ -687,7 +713,7 @@ export class InventoryService {
             deviation: (deviation * 100).toFixed(2)
           });
         }
-        
+
         stockDelta = delta;
       }
 
@@ -744,9 +770,9 @@ export class InventoryService {
 
   async getProducts(currentUser: InventoryUser) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
-    const products = await this.prisma.product.findMany({ 
-      where: { adminId }, 
-      orderBy: { name: 'asc' } 
+    const products = await this.prisma.product.findMany({
+      where: { adminId },
+      orderBy: { name: 'asc' }
     });
 
     const now = new Date();

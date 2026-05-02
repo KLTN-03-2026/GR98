@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { extractData } from '@/client/lib/api-client';
 import { lotApi } from './api';
 import type { Product } from '@/client/types';
-import type { InventoryLot, LotTrace, CreateLotInput, PendingHarvest, LotTransaction } from './types';
+import type { InventoryLot, LotTrace, CreateLotInput, UpdateLotInput, PendingHarvest, LotTransaction } from './types';
 
 export const lotKeys = {
   all: ['lots'] as const,
@@ -90,7 +90,7 @@ export const useGetWarehouses = () => {
 export const useUpdateLot = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<InventoryLot> & { note?: string } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: UpdateLotInput }) => {
       const response = await lotApi.updateLot(id, data);
       return extractData<InventoryLot>(response);
     },

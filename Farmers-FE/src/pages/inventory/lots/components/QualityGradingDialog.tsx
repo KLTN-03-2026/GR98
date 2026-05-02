@@ -53,7 +53,9 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
     }
   };
 
-  const grades: QualityGrade[] = ['A', 'B', 'C', 'REJECT'];
+  const grades: QualityGrade[] = lot.status === 'RECEIVED' 
+    ? ['A', 'B', 'C'] 
+    : ['A', 'B', 'C', 'REJECT'];
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>

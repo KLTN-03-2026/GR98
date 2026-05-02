@@ -657,6 +657,15 @@ export class InventoryService {
   }
 
   async updateLotGrade(id: string, currentUser: InventoryUser, dto: UpdateLotGradeDto) {
+    const lot = await this.prisma.inventoryLot.findUnique({
+      where: { id },
+      select: { status: true }
+    });
+
+    if (lot?.status === 'RECEIVED' && dto.qualityGrade === 'REJECT') {
+      throw new BadRequestException('Không thể loại bỏ (REJECT) lô hàng đã được xác nhận nhập kho');
+    }
+
     return this.prisma.inventoryLot.update({
       where: { id },
       data: { qualityGrade: dto.qualityGrade },
@@ -673,6 +682,10 @@ export class InventoryService {
 
     if (!lot || lot.warehouse.adminId !== adminId) {
       throw new NotFoundException('Không tìm thấy lô hàng hoặc bạn không có quyền chỉnh sửa');
+    }
+
+    if (lot.status === 'RECEIVED' && dto.qualityGrade === 'REJECT') {
+      throw new BadRequestException('Không thể loại bỏ (REJECT) lô hàng đã được xác nhận nhập kho');
     }
 
     const now = new Date();

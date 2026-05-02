@@ -5,10 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, QualityGrade, ReportStatus, ReportType, ContractStatus } from '@prisma/client';
+import { Role, QualityGrade, ReportStatus, ReportType, ContractStatus, TransactionType, TransactionAction } from '@prisma/client';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
-import { CreateTransactionDto, TransactionType } from './dto/create-transaction.dto';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
 import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
 import { ReceiveHarvestDto } from './dto/receive-harvest.dto';
@@ -167,7 +167,7 @@ export class InventoryService {
           ? {
             warehouseId: { in: warehouseIds },
             createdAt: { lte: thirtyDaysAgo },
-            NOT: { transactions: { some: { type: 'outbound', createdAt: { gte: thirtyDaysAgo } } } },
+            NOT: { transactions: { some: { type: TransactionType.OUTBOUND, createdAt: { gte: thirtyDaysAgo } } } },
           }
           : { warehouseId: 'IMPOSSIBLE' },
       }),
@@ -227,21 +227,21 @@ export class InventoryService {
 
       const [inRes, outRes, adjRes] = await Promise.all([
         this.prisma.warehouseTransaction.aggregate({
-          where: { warehouseId: { in: warehouseIds }, type: 'inbound', createdAt: { gte: dayStart, lt: dayEnd } },
+          where: { warehouseId: { in: warehouseIds }, type: TransactionType.INBOUND, createdAt: { gte: dayStart, lt: dayEnd } },
           _sum: { quantityKg: true },
         }),
         this.prisma.warehouseTransaction.aggregate({
-          where: { warehouseId: { in: warehouseIds }, type: 'outbound', createdAt: { gte: dayStart, lt: dayEnd } },
+          where: { warehouseId: { in: warehouseIds }, type: TransactionType.OUTBOUND, createdAt: { gte: dayStart, lt: dayEnd } },
           _sum: { quantityKg: true },
         }),
         this.prisma.warehouseTransaction.aggregate({
-          where: { warehouseId: { in: warehouseIds }, type: 'adjustment', createdAt: { gte: dayStart, lt: dayEnd } },
+          where: { warehouseId: { in: warehouseIds }, type: TransactionType.ADJUSTMENT, createdAt: { gte: dayStart, lt: dayEnd } },
           _sum: { quantityKg: true },
         }),
       ]);
-      inbound.push(inRes._sum.quantityKg ?? 0);
-      outbound.push(outRes._sum.quantityKg ?? 0);
-      adjustment.push(adjRes._sum.quantityKg ?? 0);
+      inbound.push(inRes._sum?.quantityKg ?? 0);
+      outbound.push(outRes._sum?.quantityKg ?? 0);
+      adjustment.push(adjRes._sum?.quantityKg ?? 0);
     }
     return { labels, inbound, outbound, adjustment };
   }
@@ -613,7 +613,8 @@ export class InventoryService {
           warehouseId: lot.warehouseId,
           productId: lot.productId,
           inventoryLotId: lot.id,
-          type: 'inbound',
+          type: TransactionType.INBOUND,
+          action: TransactionAction.RECEIPT,
           quantityKg: actualWeight,
           note: note || 'Xác nhận nhập kho thực tế',
           createdBy: currentUser.id,
@@ -662,7 +663,8 @@ export class InventoryService {
           warehouseId: lot.warehouseId,
           productId: lot.productId,
           inventoryLotId: lot.id,
-          type: 'adjustment',
+          type: TransactionType.ADJUSTMENT,
+          action: TransactionAction.REJECTION,
           quantityKg: 0,
           note: `[TỪ CHỐI LÔ HÀNG] Lý do: ${reason}`,
           createdBy: currentUser.id,
@@ -758,7 +760,8 @@ export class InventoryService {
             warehouseId: lot.warehouseId,
             productId: lot.productId,
             inventoryLotId: lot.id,
-            type: 'adjustment',
+            type: TransactionType.ADJUSTMENT,
+            action: TransactionAction.GRADE_UPDATE,
             quantityKg: 0,
             note: `[CẬP NHẬT PHẨM CẤP] Thay đổi từ Loại ${lot.qualityGrade} sang Loại ${dto.qualityGrade}. ${dto.reason || ''}`,
             createdBy: currentUser.id,
@@ -785,7 +788,8 @@ export class InventoryService {
               warehouseId: lot.warehouseId,
               productId: lot.productId,
               inventoryLotId: lot.id,
-              type: 'adjustment',
+              type: TransactionType.ADJUSTMENT,
+              action: TransactionAction.EXPIRY_UPDATE,
               quantityKg: 0,
               note: `[CẬP NHẬT HẠN DÙNG] Thay đổi từ ${oldLabel} sang ${newLabel}. Lý do: ${dto.reason || ''}`,
               createdBy: currentUser.id,
@@ -917,20 +921,31 @@ export class InventoryService {
         stockDelta = delta;
       }
 
-      // 2. Tạo bản ghi giao dịch cho kho xuất
+      // 2. Xác định action nếu chưa có
+      let action = dto.action;
+      if (!action) {
+        if (dto.isTransfer) action = TransactionAction.INTERNAL_TRANSFER;
+        else if (dto.type === TransactionType.INBOUND) action = TransactionAction.RECEIPT;
+        else if (dto.type === TransactionType.OUTBOUND) action = TransactionAction.SALE;
+        else if (dto.type === TransactionType.ADJUSTMENT) action = TransactionAction.WEIGHT_ADJUST;
+        else action = TransactionAction.OTHER;
+      }
+
+      // 3. Tạo bản ghi giao dịch cho kho xuất
       const transaction = await tx.warehouseTransaction.create({
         data: {
           warehouseId: dto.warehouseId,
           productId: dto.productId,
           inventoryLotId: dto.inventoryLotId,
           type: dto.type,
+          action: action,
           quantityKg: delta,
           note: dto.note || '',
           createdBy: currentUser.id,
         },
       });
 
-      // 3. Nếu là điều chuyển, tạo bản ghi nhập cho kho nhận
+      // 4. Nếu là điều chuyển, tạo bản ghi nhập cho kho nhận
       if (dto.isTransfer && dto.targetWarehouseId) {
         if (dto.targetWarehouseId === dto.warehouseId) {
           throw new BadRequestException('Kho nhận phải khác kho xuất');
@@ -941,6 +956,7 @@ export class InventoryService {
             productId: dto.productId,
             inventoryLotId: dto.inventoryLotId,
             type: TransactionType.INBOUND,
+            action: TransactionAction.INTERNAL_TRANSFER,
             quantityKg: dto.quantityKg,
             note: `[ĐIỀU CHUYỂN] Từ kho ${dto.warehouseId}. ${dto.note || ''}`,
             createdBy: currentUser.id,

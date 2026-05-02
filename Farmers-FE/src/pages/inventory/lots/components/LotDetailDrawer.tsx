@@ -230,23 +230,26 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
                           <TableRow key={tx.id} className="text-xs">
                             <TableCell>
                               <div className="flex items-center gap-2">
-                                {tx.type === 'receive' || tx.type === 'inbound' ? <ArrowDownLeft className="size-3 text-emerald-500" /> :
-                                 tx.type === 'outbound' ? <ArrowUpRight className="size-3 text-rose-500" /> :
-                                 tx.type === 'transfer' ? <ArrowRightLeft className="size-3 text-blue-500" /> :
+                                {tx.type === 'INBOUND' ? <ArrowDownLeft className="size-3 text-emerald-500" /> :
+                                 tx.type === 'OUTBOUND' ? <ArrowUpRight className="size-3 text-rose-500" /> :
+                                 tx.action === 'INTERNAL_TRANSFER' ? <ArrowRightLeft className="size-3 text-blue-500" /> :
                                  <Settings2 className="size-3 text-amber-500" />}
                                 <span className="font-medium">
-                                  {tx.type === 'receive' ? 'Thu hoạch' :
-                                   tx.type === 'inbound' ? 'Nhập kho' :
-                                   tx.type === 'outbound' ? 'Xuất kho' :
-                                   tx.type === 'transfer' ? 'Điều chuyển' : 'Điều chỉnh'}
+                                  {tx.action === 'RECEIPT' ? 'Nhập kho' :
+                                   tx.action === 'SALE' ? 'Xuất kho' :
+                                   tx.action === 'INTERNAL_TRANSFER' ? 'Điều chuyển' :
+                                   tx.action === 'REJECTION' ? 'Từ chối' :
+                                   tx.action === 'GRADE_UPDATE' ? 'Đổi phẩm cấp' :
+                                   tx.action === 'WEIGHT_ADJUST' ? 'Đổi trọng lượng' :
+                                   tx.action === 'EXPIRY_UPDATE' ? 'Đổi hạn dùng' : 'Điều chỉnh'}
                                 </span>
                               </div>
                             </TableCell>
                             <TableCell className={cn(
                               "text-right font-semibold tabular-nums",
-                              tx.type === 'outbound' ? "text-rose-600" : "text-emerald-600"
+                              tx.type === 'OUTBOUND' ? "text-rose-600" : "text-emerald-600"
                             )}>
-                              {tx.type === 'outbound' ? '-' : '+'}{tx.quantityKg.toLocaleString('vi-VN')}
+                              {tx.type === 'OUTBOUND' ? '-' : '+'}{tx.quantityKg.toLocaleString('vi-VN')}
                             </TableCell>
                             <TableCell className="text-right text-muted-foreground">
                               {format(new Date(tx.createdAt), 'dd/MM/yy')}

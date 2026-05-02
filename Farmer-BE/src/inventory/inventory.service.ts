@@ -147,7 +147,7 @@ export class InventoryService {
     const [totalStockResult, pendingOrdersCount, expiringLotsCount, stagnantLotsResult, recentTransactions, pendingOrdersList] = await Promise.all([
       warehouseIds.length > 0
         ? this.prisma.inventoryLot.aggregate({
-          where: { 
+          where: {
             warehouseId: { in: warehouseIds },
             harvestDate: { lte: now } // Chỉ tính lô đã đến ngày thu hoạch
           },
@@ -341,17 +341,50 @@ export class InventoryService {
   // INVENTORY LOTS (STAGE 2)
   // ===========================================================================
 
-  async getLots(currentUser: InventoryUser, filters: { warehouseId?: string; productId?: string; qualityGrade?: string }) {
+  async getLots(
+    currentUser: InventoryUser,
+    filters: {
+      warehouseId?: string;
+      productId?: string;
+      qualityGrade?: string;
+      status?: string;         // 'upcoming' | 'in-stock' | 'empty'
+      expiryStatus?: string;   // 'expiring-soon' | 'expired'
+      contractId?: string;
+    },
+  ) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
     const warehouseIds = await this.getWarehouseIds(adminId, inventoryProfileId, currentUser.role);
 
+    const now = new Date();
+
     const where: any = {
       warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['NONE'] },
     };
+
+    // --- Nhóm Lọc Theo Nguồn Gốc & Vị Trí ---
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     if (filters.productId) where.productId = filters.productId;
+    if (filters.contractId) where.contractId = filters.contractId;
+
+    // --- Nhóm Lọc Theo Chất Lượng ---
     if (filters.qualityGrade) where.qualityGrade = filters.qualityGrade;
+
+    // --- Nhóm Lọc Theo Trạng Thái Vận Hành (harvestDate) ---
+    if (filters.status === 'upcoming') {
+      where.harvestDate = { gt: now };
+    } else if (filters.status === 'in-stock') {
+      where.harvestDate = { lte: now };
+    }
+    // 'empty' sẽ được lọc sau khi tính toán quantityKg thực tế
+
+    // --- Nhóm Lọc Theo Rủi Ro Hết Hạn ---
+    if (filters.expiryStatus === 'expired') {
+      where.expiryDate = { lt: now };
+    } else if (filters.expiryStatus === 'expiring-soon') {
+      const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      where.expiryDate = { gte: now, lte: sevenDaysLater };
+    }
 
     const lots = await this.prisma.inventoryLot.findMany({
       where,
@@ -375,10 +408,8 @@ export class InventoryService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const now = new Date();
-    // Tính toán số dư thực tế cho từng lô tại kho được chọn
-    // Nếu không chọn warehouseId cụ thể, lấy số dư tại kho mặc định của nó
-    return Promise.all(
+    // Tính toán số dư thực tế cho từng lô
+    const enrichedLots = await Promise.all(
       lots.map(async (lot) => {
         const targetWarehouseId = filters.warehouseId || lot.warehouseId;
         const aggregate = await this.prisma.warehouseTransaction.aggregate({
@@ -389,17 +420,31 @@ export class InventoryService {
           _sum: { quantityKg: true },
         });
 
-        // Xác định trạng thái ảo dựa trên harvestDate
         const isUpcoming = lot.harvestDate && lot.harvestDate > now;
+        const quantityKg = aggregate._sum.quantityKg || 0;
+
+        // Tính trạng thái hết hạn
+        const isExpired = lot.expiryDate && new Date(lot.expiryDate) < now;
+        const isExpiringSoon = lot.expiryDate && !isExpired
+          && new Date(lot.expiryDate) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
         return {
           ...lot,
-          quantityKg: aggregate._sum.quantityKg || 0,
+          quantityKg,
           isUpcoming,
-          statusLabel: isUpcoming ? 'Dự kiến' : 'Trong kho',
+          isExpired,
+          isExpiringSoon,
+          statusLabel: isUpcoming ? 'Dự kiến' : quantityKg <= 0 ? 'Đã hết' : 'Trong kho',
         };
       }),
     );
+
+    // Lọc hậu xử lý cho trạng thái 'empty' (cần quantityKg đã tính)
+    if (filters.status === 'empty') {
+      return enrichedLots.filter((lot) => lot.quantityKg <= 0);
+    }
+
+    return enrichedLots;
   }
 
   async getLotTimeline(currentUser: InventoryUser, lotId: string) {
@@ -568,22 +613,30 @@ export class InventoryService {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const lot = await this.prisma.inventoryLot.findUnique({
       where: { id },
-      include: { 
-        warehouse: true, 
-        product: true, 
-        contract: { 
-          include: { 
+      include: {
+        warehouse: true,
+        product: true,
+        contract: {
+          include: {
             farmer: true,
             plot: {
               include: { zone: true }
             }
-          } 
-        }, 
-        transactions: true 
+          }
+        },
+        transactions: true
       },
     });
     if (!lot || lot.warehouse.adminId !== adminId) throw new NotFoundException('Không tìm thấy lô hàng');
-    return lot;
+
+    const now = new Date();
+    const isUpcoming = lot.harvestDate && lot.harvestDate > now;
+
+    return {
+      ...lot,
+      isUpcoming,
+      statusLabel: isUpcoming ? 'Dự kiến' : 'Trong kho',
+    };
   }
 
   async updateLotGrade(id: string, currentUser: InventoryUser, dto: UpdateLotGradeDto) {
@@ -595,6 +648,7 @@ export class InventoryService {
 
   async updateLot(id: string, currentUser: InventoryUser, dto: UpdateInventoryLotDto) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+
     const lot = await this.prisma.inventoryLot.findUnique({
       where: { id },
       include: { warehouse: true },
@@ -604,13 +658,66 @@ export class InventoryService {
       throw new NotFoundException('Không tìm thấy lô hàng hoặc bạn không có quyền chỉnh sửa');
     }
 
-    return this.prisma.inventoryLot.update({
-      where: { id },
-      data: {
-        qualityGrade: dto.qualityGrade,
-        expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
-        harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : undefined,
-      },
+    const now = new Date();
+    if (lot.harvestDate && lot.harvestDate > now) {
+      throw new BadRequestException('Không thể cập nhật thông tin cho lô hàng chưa về kho (dự kiến)');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Cập nhật Lot
+      const updatedLot = await tx.inventoryLot.update({
+        where: { id },
+        data: {
+          qualityGrade: dto.qualityGrade,
+          expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+          harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : undefined,
+        },
+      });
+
+      // 2. Nếu có thay đổi phẩm cấp, ghi log vào Timeline
+      if (dto.qualityGrade && dto.qualityGrade !== lot.qualityGrade) {
+        await tx.warehouseTransaction.create({
+          data: {
+            warehouseId: lot.warehouseId,
+            productId: lot.productId,
+            inventoryLotId: lot.id,
+            type: 'adjustment',
+            quantityKg: 0,
+            note: `[CẬP NHẬT PHẨM CẤP] Thay đổi từ Loại ${lot.qualityGrade} sang Loại ${dto.qualityGrade}. ${dto.reason || ''}`,
+            createdBy: currentUser.id,
+          },
+        });
+      }
+
+      // 3. Nếu có thay đổi ngày hết hạn, ghi log
+      if (dto.expiryDate) {
+        const newExpiry = new Date(dto.expiryDate);
+        const oldExpiry = lot.expiryDate ? new Date(lot.expiryDate) : null;
+
+        // Kiểm tra logic: Hết hạn phải sau thu hoạch
+        if (lot.harvestDate && newExpiry < new Date(lot.harvestDate)) {
+          throw new BadRequestException('Ngày hết hạn không thể trước ngày thu hoạch');
+        }
+
+        if (!oldExpiry || newExpiry.getTime() !== oldExpiry.getTime()) {
+          const oldLabel = oldExpiry ? oldExpiry.toLocaleDateString('vi-VN') : 'Chưa thiết lập';
+          const newLabel = newExpiry.toLocaleDateString('vi-VN');
+
+          await tx.warehouseTransaction.create({
+            data: {
+              warehouseId: lot.warehouseId,
+              productId: lot.productId,
+              inventoryLotId: lot.id,
+              type: 'adjustment',
+              quantityKg: 0,
+              note: `[CẬP NHẬT HẠN DÙNG] Thay đổi từ ${oldLabel} sang ${newLabel}. Lý do: ${dto.reason || ''}`,
+              createdBy: currentUser.id,
+            },
+          });
+        }
+      }
+
+      return updatedLot;
     });
   }
 
@@ -669,7 +776,7 @@ export class InventoryService {
       } else if (dto.type === TransactionType.ADJUSTMENT) {
         // Adjustment tính dựa trên chênh lệch với số dư thực tế
         delta = dto.quantityKg - currentLotBalance;
-        
+
         // Kiểm tra độ lệch 5%
         const deviation = Math.abs(delta) / (currentLotBalance || 1);
         if (deviation > 0.05 && !dto.note) {
@@ -679,7 +786,7 @@ export class InventoryService {
             deviation: (deviation * 100).toFixed(2)
           });
         }
-        
+
         stockDelta = delta;
       }
 
@@ -736,9 +843,9 @@ export class InventoryService {
 
   async getProducts(currentUser: InventoryUser) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
-    const products = await this.prisma.product.findMany({ 
-      where: { adminId }, 
-      orderBy: { name: 'asc' } 
+    const products = await this.prisma.product.findMany({
+      where: { adminId },
+      orderBy: { name: 'asc' }
     });
 
     const now = new Date();

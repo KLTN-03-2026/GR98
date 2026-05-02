@@ -74,8 +74,8 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
   if (!lot) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] overflow-hidden p-0 rounded-3xl border-none shadow-2xl">
+    <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">

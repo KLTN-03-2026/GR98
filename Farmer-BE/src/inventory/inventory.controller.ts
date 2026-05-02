@@ -104,11 +104,17 @@ export class InventoryController {
     @Query('warehouseId') warehouseId?: string,
     @Query('productId') productId?: string,
     @Query('qualityGrade') qualityGrade?: string,
+    @Query('status') status?: string,
+    @Query('expiryStatus') expiryStatus?: string,
+    @Query('contractId') contractId?: string,
   ) {
     return this.inventoryService.getLots(req.user, {
       warehouseId,
       productId,
       qualityGrade,
+      status,
+      expiryStatus,
+      contractId,
     });
   }
 

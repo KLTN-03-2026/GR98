@@ -12,7 +12,6 @@ import {
   MapPin, 
   FileText, 
   Calendar,
-  History,
   ArrowDownLeft,
   ArrowUpRight,
   ArrowRightLeft,
@@ -27,12 +26,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useUpdateLot, useGetLotById, useGetLotTimeline } from '../api/hooks';
 import { WeightAdjustmentDialog } from './WeightAdjustmentDialog';
+import { QualityGradingDialog } from './QualityGradingDialog';
+import { ExpiryUpdateDialog } from './ExpiryUpdateDialog';
 import { toast } from 'sonner';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
-import { Edit2, Save, X, Scale, RefreshCw } from 'lucide-react';
+import { Edit2, Scale, RefreshCw } from 'lucide-react';
 
 interface LotDetailDrawerProps {
   lot: InventoryLot | null;
@@ -46,264 +46,251 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
   const updateLot = useUpdateLot();
   
   const [isAdjustingWeight, setIsAdjustingWeight] = React.useState(false);
+  const [isUpdatingGrade, setIsUpdatingGrade] = React.useState(false);
+  const [isUpdatingExpiry, setIsUpdatingExpiry] = React.useState(false);
 
   const lot = currentLot || initialLot;
+  const isUpcoming = lot?.isUpcoming || (lot?.harvestDate ? new Date(lot.harvestDate) > new Date() : false);
 
-  const handleUpdateGrade = async (grade: any) => {
-    if (!lot) return;
-    try {
-      await updateLot.mutateAsync({
-        id: lot.id,
-        data: { qualityGrade: grade }
-      });
-      toast.success('Cập nhật phẩm cấp thành công');
-    } catch (e) {
-      toast.error('Cập nhật thất bại');
-    }
-  };
 
-  const handleUpdateExpiry = async (date: Date | undefined) => {
-    if (!lot || !date) return;
-    try {
-      await updateLot.mutateAsync({
-        id: lot.id,
-        data: { expiryDate: date.toISOString() }
-      });
-      toast.success('Cập nhật ngày hết hạn thành công');
-    } catch (e) {
-      toast.error('Cập nhật thất bại');
-    }
-  };
+
   if (!lot) return null;
 
   return (
-    <Sheet open={isOpen} onOpenChange={(val) => !val && onClose()}>
-      <SheetContent className="sm:max-w-[550px] flex flex-col gap-0 p-0">
-        <SheetHeader className="p-6 border-b bg-slate-50/50">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex size-8 items-center justify-center rounded-lg border bg-white shadow-sm">
-              <Package className="size-4 text-primary" />
-            </div>
-            <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wider">
-              Chi tiết lô hàng
-            </Badge>
-            {isLoadingLot && <RefreshCw className="size-3 animate-spin text-muted-foreground" />}
-          </div>
-          <SheetTitle className="text-xl font-bold tracking-tight">
-            #{lot.id.slice(-6).toUpperCase()} - {lot.product.name}
-          </SheetTitle>
-          <SheetDescription className="text-sm">
-            {lot.product.sku} • Cập nhật lúc {format(new Date(lot.updatedAt), 'HH:mm - dd/MM/yyyy', { locale: vi })}
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* 1. Quick Stats Card */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl border p-4 bg-slate-900 text-white shadow-sm">
-              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Tồn kho hiện tại</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold tabular-nums">{lot.quantityKg.toLocaleString('vi-VN')}</span>
-                <span className="text-xs text-slate-400 font-medium">kg</span>
+    <>
+      <Sheet open={isOpen} onOpenChange={(val) => !val && onClose()}>
+        <SheetContent className="sm:max-w-[550px] flex flex-col gap-0 p-0">
+          <SheetHeader className="p-6 border-b bg-slate-50/50">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex size-8 items-center justify-center rounded-lg border bg-white shadow-sm">
+                <Package className="size-4 text-primary" />
               </div>
+              <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wider">
+                Chi tiết lô hàng
+              </Badge>
+              {isLoadingLot && <RefreshCw className="size-3 animate-spin text-muted-foreground" />}
             </div>
-            <div className="rounded-xl border p-4 bg-white shadow-sm relative group">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Phẩm cấp</p>
-              <div className="flex items-center justify-between">
-                <Badge className={cn(
-                  "rounded-lg px-2.5 py-0.5 border-none font-bold text-xs",
-                  lot.qualityGrade === 'A' ? "bg-emerald-500 text-white" :
-                  lot.qualityGrade === 'B' ? "bg-blue-500 text-white" :
-                  lot.qualityGrade === 'C' ? "bg-amber-500 text-white" :
-                  "bg-rose-500 text-white"
-                )}>
-                  {lot.qualityGrade === 'REJECT' ? 'REJECT' : `Loại ${lot.qualityGrade}`}
-                </Badge>
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md hover:bg-slate-100 transition-colors">
+            <SheetTitle className="text-xl font-bold tracking-tight">
+              #{lot.id.slice(-6).toUpperCase()} - {lot.product.name}
+            </SheetTitle>
+            <SheetDescription className="text-sm">
+              {lot.product.sku} • Cập nhật lúc {format(new Date(lot.updatedAt), 'HH:mm - dd/MM/yyyy', { locale: vi })}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* 1. Quick Stats Card */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-xl border p-4 bg-slate-900 text-white shadow-sm">
+                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Tồn kho hiện tại</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-bold tabular-nums">{lot.quantityKg.toLocaleString('vi-VN')}</span>
+                  <span className="text-xs text-slate-400 font-medium">kg</span>
+                </div>
+              </div>
+              <div className="rounded-xl border p-4 bg-white shadow-sm relative group">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Phẩm cấp</p>
+                <div className="flex items-center justify-between">
+                  <Badge className={cn(
+                    "rounded-lg px-2.5 py-0.5 border-none font-bold text-xs",
+                    lot.qualityGrade === 'A' ? "bg-emerald-500 text-white" :
+                    lot.qualityGrade === 'B' ? "bg-blue-500 text-white" :
+                    lot.qualityGrade === 'C' ? "bg-amber-500 text-white" :
+                    "bg-rose-500 text-white"
+                  )}>
+                    {lot.qualityGrade === 'REJECT' ? 'REJECT' : `Loại ${lot.qualityGrade}`}
+                  </Badge>
+                  
+                  {!isUpcoming && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 rounded-md hover:bg-slate-100 transition-colors"
+                      onClick={() => setIsUpdatingGrade(true)}
+                    >
                       <Edit2 className="size-3 text-slate-400" />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {['A', 'B', 'C', 'REJECT'].map((g) => (
-                      <DropdownMenuItem 
-                        key={g} 
-                        onSelect={() => handleUpdateGrade(g)}
-                        disabled={lot.qualityGrade === g || updateLot.isPending}
-                        className={cn(
-                          "cursor-pointer",
-                          g === 'REJECT' && "text-rose-600 font-bold focus:text-rose-700"
-                        )}
-                      >
-                        {g === 'REJECT' ? 'HỦY (REJECT)' : `Loại ${g}`}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* 2. Info Sections */}
-          <Tabs defaultValue="info" className="w-full">
-            <TabsList className="w-full grid grid-cols-2">
-              <TabsTrigger value="info">Thông tin cơ bản</TabsTrigger>
-              <TabsTrigger value="timeline">Nhật ký biến động</TabsTrigger>
-            </TabsList>
+            {/* 2. Info Sections */}
+            <Tabs defaultValue="info" className="w-full">
+              <TabsList className="w-full grid grid-cols-2">
+                <TabsTrigger value="info">Thông tin cơ bản</TabsTrigger>
+                <TabsTrigger value="timeline">Nhật ký biến động</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="info" className="mt-4 space-y-4">
-              <div className="rounded-xl border bg-white p-4 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="size-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500">
-                    <FileText className="size-4" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nguồn gốc (Hợp đồng)</p>
-                    {lot.contract ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-semibold">{lot.contract.contractNo}</span>
-                          <Badge variant="secondary" className="text-[10px]">{lot.contract?.plot?.plotCode}</Badge>
-                        </div>
-                        <p className="text-sm text-slate-600">
-                          {lot.contract.farmer?.fullName} • {lot.contract.plot?.zone?.name}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-slate-500 italic">Không có thông tin hợp đồng</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t flex items-start gap-3">
-                  <div className="size-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500">
-                    <MapPin className="size-4" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Kho chứa</p>
-                    <p className="text-sm font-semibold">{lot.warehouse.name}</p>
-                    <p className="text-xs text-muted-foreground">{lot.warehouse.locationAddress || '—'}</p>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t flex items-start gap-3">
-                  <div className="size-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500">
-                    <Calendar className="size-4" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Các mốc thời gian</p>
-                    <div className="grid grid-cols-2 gap-4 pt-1">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase">Thu hoạch</p>
-                        <p className="text-sm font-medium">{lot.harvestDate ? format(new Date(lot.harvestDate), 'dd/MM/yyyy') : '—'}</p>
-                      </div>
-                      <div className="group relative">
-                        <p className="text-[10px] text-muted-foreground uppercase">Hết hạn</p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-rose-600">
-                            {lot.expiryDate ? format(new Date(lot.expiryDate), 'dd/MM/yyyy') : '—'}
+              <TabsContent value="info" className="mt-4 space-y-4">
+                <div className="rounded-xl border bg-white p-4 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="size-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500">
+                      <FileText className="size-4" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nguồn gốc (Hợp đồng)</p>
+                      {lot.contract ? (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-semibold">{lot.contract.contractNo}</span>
+                            <Badge variant="secondary" className="text-[10px]">{lot.contract?.plot?.plotCode}</Badge>
+                          </div>
+                          <p className="text-sm text-slate-600">
+                            {lot.contract.farmer?.fullName} • {lot.contract.plot?.zone?.name}
                           </p>
-                          
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500 italic">Không có thông tin hợp đồng</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t flex items-start gap-3">
+                    <div className="size-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500">
+                      <MapPin className="size-4" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Kho chứa</p>
+                      <p className="text-sm font-semibold">{lot.warehouse.name}</p>
+                      <p className="text-xs text-muted-foreground">{lot.warehouse.locationAddress || '—'}</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t flex items-start gap-3">
+                    <div className="size-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500">
+                      <Calendar className="size-4" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Các mốc thời gian</p>
+                      <div className="grid grid-cols-2 gap-4 pt-1">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase">Thu hoạch</p>
+                          <p className="text-sm font-medium">{lot.harvestDate ? format(new Date(lot.harvestDate), 'dd/MM/yyyy') : '—'}</p>
+                        </div>
+                        <div className="group relative">
+                          <p className="text-[10px] text-muted-foreground uppercase">Hết hạn</p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-rose-600">
+                              {lot.expiryDate ? format(new Date(lot.expiryDate), 'dd/MM/yyyy') : '—'}
+                            </p>
+                            
+                            {!isUpcoming && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => setIsUpdatingExpiry(true)}
+                              >
                                 <Edit2 className="size-3" />
                               </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="end">
-                              <CalendarComponent
-                                mode="single"
-                                selected={lot.expiryDate ? new Date(lot.expiryDate) : undefined}
-                                onSelect={handleUpdateExpiry}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </TabsContent>
+              </TabsContent>
 
-            <TabsContent value="timeline" className="mt-4">
-              <div className="rounded-xl border bg-white overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-slate-50/50">
-                    <TableRow>
-                      <TableHead className="text-[10px] uppercase font-bold">Loại</TableHead>
-                      <TableHead className="text-[10px] uppercase font-bold text-right">SL (kg)</TableHead>
-                      <TableHead className="text-[10px] uppercase font-bold text-right">Thời gian</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLoadingTimeline ? (
-                      Array.from({ length: 3 }).map((_, i) => (
-                        <TableRow key={i}>
-                          <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
-                        </TableRow>
-                      ))
-                    ) : timeline?.length ? (
-                      timeline.map((tx) => (
-                        <TableRow key={tx.id} className="text-xs">
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {tx.type === 'receive' || tx.type === 'inbound' ? <ArrowDownLeft className="size-3 text-emerald-500" /> :
-                               tx.type === 'outbound' ? <ArrowUpRight className="size-3 text-rose-500" /> :
-                               tx.type === 'transfer' ? <ArrowRightLeft className="size-3 text-blue-500" /> :
-                               <Settings2 className="size-3 text-amber-500" />}
-                              <span className="font-medium">
-                                {tx.type === 'receive' ? 'Thu hoạch' :
-                                 tx.type === 'inbound' ? 'Nhập kho' :
-                                 tx.type === 'outbound' ? 'Xuất kho' :
-                                 tx.type === 'transfer' ? 'Điều chuyển' : 'Điều chỉnh'}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className={cn(
-                            "text-right font-semibold tabular-nums",
-                            tx.type === 'outbound' ? "text-rose-600" : "text-emerald-600"
-                          )}>
-                            {tx.type === 'outbound' ? '-' : '+'}{tx.quantityKg.toLocaleString('vi-VN')}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {format(new Date(tx.createdAt), 'dd/MM/yy')}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
+              <TabsContent value="timeline" className="mt-4">
+                <div className="rounded-xl border bg-white overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-50/50">
                       <TableRow>
-                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                          Chưa có lịch sử biến động
-                        </TableCell>
+                        <TableHead className="text-[10px] uppercase font-bold">Loại</TableHead>
+                        <TableHead className="text-[10px] uppercase font-bold text-right">SL (kg)</TableHead>
+                        <TableHead className="text-[10px] uppercase font-bold text-right">Thời gian</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoadingTimeline ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                          <TableRow key={i}>
+                            <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
+                          </TableRow>
+                        ))
+                      ) : timeline?.length ? (
+                        timeline.map((tx) => (
+                          <TableRow key={tx.id} className="text-xs">
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {tx.type === 'receive' || tx.type === 'inbound' ? <ArrowDownLeft className="size-3 text-emerald-500" /> :
+                                 tx.type === 'outbound' ? <ArrowUpRight className="size-3 text-rose-500" /> :
+                                 tx.type === 'transfer' ? <ArrowRightLeft className="size-3 text-blue-500" /> :
+                                 <Settings2 className="size-3 text-amber-500" />}
+                                <span className="font-medium">
+                                  {tx.type === 'receive' ? 'Thu hoạch' :
+                                   tx.type === 'inbound' ? 'Nhập kho' :
+                                   tx.type === 'outbound' ? 'Xuất kho' :
+                                   tx.type === 'transfer' ? 'Điều chuyển' : 'Điều chỉnh'}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className={cn(
+                              "text-right font-semibold tabular-nums",
+                              tx.type === 'outbound' ? "text-rose-600" : "text-emerald-600"
+                            )}>
+                              {tx.type === 'outbound' ? '-' : '+'}{tx.quantityKg.toLocaleString('vi-VN')}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {format(new Date(tx.createdAt), 'dd/MM/yy')}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                            Chưa có lịch sử biến động
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          <div className="p-4 border-t bg-slate-50/50 space-y-3">
+            {isUpcoming && (
+              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 flex items-start gap-2">
+                <Settings2 className="size-3.5 text-amber-600 mt-0.5" />
+                <p className="text-[11px] text-amber-700 leading-tight">
+                  Lô hàng dự kiến chưa về kho. Các chức năng điều chỉnh sẽ khả dụng sau khi hàng đã nhập kho thực tế.
+                </p>
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+            )}
+            <Button 
+              className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+              onClick={() => setIsAdjustingWeight(true)}
+              disabled={isUpcoming}
+            >
+              <Scale className="size-4 mr-2" />
+              Điều chỉnh khối lượng thực tế
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
-        <div className="p-4 border-t bg-slate-50/50">
-          <Button 
-            className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 transition-all active:scale-95"
-            onClick={() => setIsAdjustingWeight(true)}
-          >
-            <Scale className="size-4 mr-2" />
-            Điều chỉnh khối lượng thực tế
-          </Button>
-        </div>
+      {/* Render Dialogs ở đây để đảm bảo z-index cao hơn Drawer */}
+      <QualityGradingDialog 
+        lot={lot}
+        isOpen={isUpdatingGrade}
+        onClose={() => setIsUpdatingGrade(false)}
+      />
 
-        <WeightAdjustmentDialog 
-          lot={lot}
-          isOpen={isAdjustingWeight}
-          onClose={() => setIsAdjustingWeight(false)}
-        />
-      </SheetContent>
-    </Sheet>
+      <ExpiryUpdateDialog 
+        lot={lot}
+        isOpen={isUpdatingExpiry}
+        onClose={() => setIsUpdatingExpiry(false)}
+      />
+
+      <WeightAdjustmentDialog 
+        lot={lot}
+        isOpen={isAdjustingWeight}
+        onClose={() => setIsAdjustingWeight(false)}
+      />
+    </>
   );
 }

@@ -22,4 +22,9 @@ export class UpdateInventoryLotDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

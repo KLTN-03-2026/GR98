@@ -14,6 +14,8 @@ export interface InventoryLot {
   
   // Virtual fields from BE
   isUpcoming?: boolean;
+  isExpired?: boolean;
+  isExpiringSoon?: boolean;
   statusLabel?: string;
 
   // Relations
@@ -65,6 +67,14 @@ export interface CreateLotInput {
   reportId?: string;
 }
 
+export interface UpdateLotInput {
+  qualityGrade?: QualityGrade;
+  harvestDate?: string;
+  expiryDate?: string;
+  note?: string;
+  reason?: string;
+}
+
 export interface LotTrace extends InventoryLot {
   transactions: LotTransaction[];
 }
@@ -98,4 +108,7 @@ export interface GetLotsFilters {
   warehouseId?: string;
   productId?: string;
   qualityGrade?: QualityGrade;
+  status?: 'upcoming' | 'in-stock' | 'empty';
+  expiryStatus?: 'expiring-soon' | 'expired';
+  contractId?: string;
 }

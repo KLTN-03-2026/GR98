@@ -1,9 +1,9 @@
 import { apiGet, apiPost, apiPatch } from '@/client/lib/api-client';
 import type { Product } from '@/client/types';
-import type { InventoryLot, LotTrace, CreateLotInput, PendingHarvest, LotTransaction } from './types';
+import type { InventoryLot, LotTrace, CreateLotInput, PendingHarvest, LotTransaction, GetLotsFilters } from './types';
 
 export const lotApi = {
-  getLots: (params: { warehouseId?: string; productId?: string; qualityGrade?: string }) =>
+  getLots: (params: GetLotsFilters) =>
     apiGet<InventoryLot[]>('/inventory/lots', { params }),
   
   createLot: (data: CreateLotInput) =>

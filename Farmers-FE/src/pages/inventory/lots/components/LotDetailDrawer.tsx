@@ -48,6 +48,7 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
   const [isAdjustingWeight, setIsAdjustingWeight] = React.useState(false);
 
   const lot = currentLot || initialLot;
+  const isUpcoming = lot?.isUpcoming || (lot?.harvestDate ? new Date(lot.harvestDate) > new Date() : false);
 
   const handleUpdateGrade = async (grade: any) => {
     if (!lot) return;
@@ -120,28 +121,30 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
                   {lot.qualityGrade === 'REJECT' ? 'REJECT' : `Loại ${lot.qualityGrade}`}
                 </Badge>
                 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md hover:bg-slate-100 transition-colors">
-                      <Edit2 className="size-3 text-slate-400" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {['A', 'B', 'C', 'REJECT'].map((g) => (
-                      <DropdownMenuItem 
-                        key={g} 
-                        onSelect={() => handleUpdateGrade(g)}
-                        disabled={lot.qualityGrade === g || updateLot.isPending}
-                        className={cn(
-                          "cursor-pointer",
-                          g === 'REJECT' && "text-rose-600 font-bold focus:text-rose-700"
-                        )}
-                      >
-                        {g === 'REJECT' ? 'HỦY (REJECT)' : `Loại ${g}`}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {!isUpcoming && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md hover:bg-slate-100 transition-colors">
+                        <Edit2 className="size-3 text-slate-400" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {['A', 'B', 'C', 'REJECT'].map((g) => (
+                        <DropdownMenuItem 
+                          key={g} 
+                          onSelect={() => handleUpdateGrade(g)}
+                          disabled={lot.qualityGrade === g || updateLot.isPending}
+                          className={cn(
+                            "cursor-pointer",
+                            g === 'REJECT' && "text-rose-600 font-bold focus:text-rose-700"
+                          )}
+                        >
+                          {g === 'REJECT' ? 'HỦY (REJECT)' : `Loại ${g}`}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
           </div>
@@ -206,21 +209,23 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
                             {lot.expiryDate ? format(new Date(lot.expiryDate), 'dd/MM/yyyy') : '—'}
                           </p>
                           
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Edit2 className="size-3" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="end">
-                              <CalendarComponent
-                                mode="single"
-                                selected={lot.expiryDate ? new Date(lot.expiryDate) : undefined}
-                                onSelect={handleUpdateExpiry}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
+                          {!isUpcoming && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Edit2 className="size-3" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="end">
+                                <CalendarComponent
+                                  mode="single"
+                                  selected={lot.expiryDate ? new Date(lot.expiryDate) : undefined}
+                                  onSelect={handleUpdateExpiry}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -288,10 +293,19 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
           </Tabs>
         </div>
 
-        <div className="p-4 border-t bg-slate-50/50">
+        <div className="p-4 border-t bg-slate-50/50 space-y-3">
+          {isUpcoming && (
+            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 flex items-start gap-2">
+              <Settings2 className="size-3.5 text-amber-600 mt-0.5" />
+              <p className="text-[11px] text-amber-700 leading-tight">
+                Lô hàng dự kiến chưa về kho. Các chức năng điều chỉnh sẽ khả dụng sau khi hàng đã nhập kho thực tế.
+              </p>
+            </div>
+          )}
           <Button 
-            className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 transition-all active:scale-95"
+            className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
             onClick={() => setIsAdjustingWeight(true)}
+            disabled={isUpcoming}
           >
             <Scale className="size-4 mr-2" />
             Điều chỉnh khối lượng thực tế

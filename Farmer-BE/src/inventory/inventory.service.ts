@@ -583,7 +583,15 @@ export class InventoryService {
       },
     });
     if (!lot || lot.warehouse.adminId !== adminId) throw new NotFoundException('Không tìm thấy lô hàng');
-    return lot;
+    
+    const now = new Date();
+    const isUpcoming = lot.harvestDate && lot.harvestDate > now;
+
+    return {
+      ...lot,
+      isUpcoming,
+      statusLabel: isUpcoming ? 'Dự kiến' : 'Trong kho',
+    };
   }
 
   async updateLotGrade(id: string, currentUser: InventoryUser, dto: UpdateLotGradeDto) {

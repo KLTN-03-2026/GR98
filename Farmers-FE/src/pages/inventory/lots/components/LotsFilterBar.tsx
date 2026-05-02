@@ -49,8 +49,8 @@ export function LotsFilterBar({ filters, onFiltersChange, warehouses, products }
         onValueChange={(val) => updateFilter('warehouseId', val === 'all' ? undefined : val)}
       >
         <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[140px] text-sm",
-          filters.warehouseId && "border-primary text-primary"
+          "h-9 w-auto min-w-[140px] text-sm rounded-lg bg-background",
+          filters.warehouseId && "border-primary text-primary bg-primary/5"
         )}>
           <SelectValue placeholder="Kho chứa" />
         </SelectTrigger>
@@ -68,8 +68,8 @@ export function LotsFilterBar({ filters, onFiltersChange, warehouses, products }
         onValueChange={(val) => updateFilter('productId', val === 'all' ? undefined : val)}
       >
         <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[140px] text-sm",
-          filters.productId && "border-primary text-primary"
+          "h-9 w-auto min-w-[140px] text-sm rounded-lg bg-background",
+          filters.productId && "border-primary text-primary bg-primary/5"
         )}>
           <SelectValue placeholder="Sản phẩm" />
         </SelectTrigger>
@@ -87,8 +87,8 @@ export function LotsFilterBar({ filters, onFiltersChange, warehouses, products }
         onValueChange={(val) => updateFilter('qualityGrade', val === 'all' ? undefined : val)}
       >
         <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[120px] text-sm",
-          filters.qualityGrade && "border-primary text-primary"
+          "h-9 w-auto min-w-[120px] text-sm rounded-lg bg-background",
+          filters.qualityGrade && "border-primary text-primary bg-primary/5"
         )}>
           <SelectValue placeholder="Phẩm cấp" />
         </SelectTrigger>
@@ -106,8 +106,8 @@ export function LotsFilterBar({ filters, onFiltersChange, warehouses, products }
         onValueChange={(val) => updateFilter('expiryStatus', val === 'all' ? undefined : val)}
       >
         <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[160px] text-sm",
-          filters.expiryStatus && "border-destructive text-destructive"
+          "h-9 w-auto min-w-[160px] text-sm rounded-lg bg-background",
+          filters.expiryStatus && "border-destructive text-destructive bg-destructive/5"
         )}>
           <SelectValue placeholder="Hạn sử dụng" />
         </SelectTrigger>
@@ -124,7 +124,7 @@ export function LotsFilterBar({ filters, onFiltersChange, warehouses, products }
         <Button
           variant="ghost"
           size="sm"
-          className="h-9 px-3 text-sm font-medium"
+          className="h-9 px-3 text-sm font-medium rounded-lg"
           onClick={clearAllFilters}
         >
           Xóa lọc

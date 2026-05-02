@@ -420,8 +420,14 @@ export class InventoryService {
           _sum: { quantityKg: true },
         });
 
-        const isUpcoming = lot.harvestDate && lot.harvestDate > now;
-        const quantityKg = aggregate._sum.quantityKg || 0;
+        const isUpcoming = lot.status === 'SCHEDULED' || (lot.harvestDate && lot.harvestDate > now);
+        
+        // Logic tính toán số lượng:
+        // - Nếu là hàng Sắp về/Chờ nhập: Lấy số lượng dự tính từ field quantityKg trong DB
+        // - Nếu là hàng Đã vào kho: Tính toán dựa trên các giao dịch thực tế (Transactions)
+        const quantityKg = (lot.status === 'SCHEDULED' || lot.status === 'ARRIVED')
+          ? lot.quantityKg
+          : (aggregate._sum.quantityKg || 0);
 
         // Tính trạng thái hết hạn
         const isExpired = lot.expiryDate && new Date(lot.expiryDate) < now;

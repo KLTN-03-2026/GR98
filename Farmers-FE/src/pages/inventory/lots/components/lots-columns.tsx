@@ -6,11 +6,15 @@ import { DataTableColumnHeader } from '@/components/data-table';
 import type { InventoryLot } from '../api/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 export function createLotColumns(handlers: {
   onViewDetail: (lot: InventoryLot) => void;
   onConfirm: (lot: InventoryLot) => void;
+  mode?: 'in-stock' | 'pending' | 'upcoming';
 }) {
+  const { mode = 'in-stock' } = handlers;
+  
   const columns: ColumnDef<InventoryLot>[] = [
     {
       accessorKey: 'id',
@@ -18,8 +22,8 @@ export function createLotColumns(handlers: {
         <DataTableColumnHeader column={column} title="Mã Lô" />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">
-          {row.original.id.slice(-6).toUpperCase()}
+        <span className="font-mono text-xs font-bold text-primary/80 bg-primary/5 px-2 py-1 rounded-md">
+          #{row.original.id.slice(-6).toUpperCase()}
         </span>
       ),
     },
@@ -28,9 +32,9 @@ export function createLotColumns(handlers: {
       header: 'Sản phẩm',
       accessorFn: (row) => `${row.product.name} ${row.product.sku}`,
       cell: ({ row }) => (
-        <div>
-          <div className="font-medium">{row.original.product.name}</div>
-          <div className="text-sm text-muted-foreground">{row.original.product.sku}</div>
+        <div className="flex flex-col">
+          <span className="font-semibold text-slate-900 leading-tight">{row.original.product.name}</span>
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-0.5">{row.original.product.sku}</span>
         </div>
       ),
     },
@@ -41,10 +45,18 @@ export function createLotColumns(handlers: {
       cell: ({ row }) => {
         const grade = row.original.qualityGrade;
         if (grade === 'REJECT') {
-          return <Badge variant="destructive">Reject</Badge>;
+          return <Badge variant="destructive" className="font-bold uppercase tracking-tighter">Reject</Badge>;
         }
         return (
-          <Badge variant={grade === 'A' ? 'success' : grade === 'B' ? 'outline' : 'secondary'}>
+          <Badge 
+            variant="outline" 
+            className={cn(
+              "font-bold px-2.5 py-0.5 rounded-full border-2",
+              grade === 'A' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+              grade === 'B' ? "bg-blue-50 text-blue-700 border-blue-100" :
+              "bg-slate-50 text-slate-700 border-slate-200"
+            )}
+          >
             Loại {grade}
           </Badge>
         );
@@ -58,36 +70,41 @@ export function createLotColumns(handlers: {
         const lot = row.original;
         
         if (lot.status === 'SCHEDULED') {
-          return <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50">Đơn hàng dự kiến</Badge>;
+          return <Badge variant="outline" className="bg-blue-50/50 text-blue-600 border-blue-100/50 rounded-lg">Đơn hàng dự kiến</Badge>;
         }
         if (lot.status === 'ARRIVED') {
-          return <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-50">Chờ nhập kho</Badge>;
+          return <Badge variant="outline" className="bg-amber-50/50 text-amber-600 border-amber-100/50 rounded-lg">Chờ nhập kho</Badge>;
         }
         if (lot.status === 'RECEIVED') {
-          return <Badge variant="success">Đã nhập kho</Badge>;
+          return <Badge variant="outline" className="bg-emerald-50/50 text-emerald-600 border-emerald-100/50 rounded-lg">Đã nhập kho</Badge>;
         }
         
-        // Cảnh báo hết hạn (chỉ cho hàng đã nhập kho)
         const { isExpired, isExpiringSoon } = lot;
         if (isExpired) {
-          return <Badge variant="destructive">Hết hạn</Badge>;
+          return <Badge variant="destructive" className="rounded-lg shadow-sm">Hết hạn</Badge>;
         }
         if (isExpiringSoon) {
-          return <Badge variant="warning">Sắp hết hạn</Badge>;
+          return <Badge variant="warning" className="rounded-lg shadow-sm text-amber-800">Sắp hết hạn</Badge>;
         }
         
-        return <Badge variant="outline">{lot.status}</Badge>;
+        return <Badge variant="outline" className="rounded-lg">{lot.status}</Badge>;
       },
     },
     {
       accessorKey: 'quantityKg',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Số lượng (kg)" />
+        <DataTableColumnHeader 
+          column={column} 
+          title={mode === 'upcoming' ? "Sản lượng dự tính" : "Số lượng (kg)"} 
+        />
       ),
       cell: ({ row }) => (
-        <span className="font-medium tabular-nums">
-          {row.original.quantityKg.toLocaleString('vi-VN')}
-        </span>
+        <div className="flex items-baseline gap-1">
+          <span className="text-base font-bold text-slate-900 tabular-nums">
+            {row.original.quantityKg.toLocaleString('vi-VN')}
+          </span>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase">kg</span>
+        </div>
       ),
     },
     {
@@ -96,22 +113,37 @@ export function createLotColumns(handlers: {
       enableSorting: false,
       accessorFn: (row) => row.warehouse.name,
       cell: ({ row }) => (
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <MapPin className="size-3.5" />
-          <span className="text-sm">{row.original.warehouse.name}</span>
+        <div className="flex items-center gap-2 group cursor-default">
+          <div className="size-7 rounded-lg bg-slate-100 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+            <MapPin className="size-3.5 text-slate-500 group-hover:text-primary transition-colors" />
+          </div>
+          <span className="text-sm font-medium text-slate-700">{row.original.warehouse.name}</span>
         </div>
       ),
     },
     {
-      accessorKey: 'createdAt',
+      id: 'date',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Ngày nhập" />
+        <DataTableColumnHeader 
+          column={column} 
+          title={mode === 'upcoming' ? "Ngày nhập dự kiến" : "Ngày nhập"} 
+        />
       ),
-      cell: ({ row }) => (
-        <span className="whitespace-nowrap text-sm text-muted-foreground">
-          {format(new Date(row.original.createdAt), 'dd/MM/yyyy', { locale: vi })}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const dateValue = mode === 'upcoming' ? row.original.harvestDate : row.original.createdAt;
+        if (!dateValue) return <span className="text-muted-foreground italic text-xs">Chưa cập nhật</span>;
+        
+        return (
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-slate-800">
+              {format(new Date(dateValue), 'dd/MM/yyyy', { locale: vi })}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {format(new Date(dateValue), 'HH:mm', { locale: vi })}
+            </span>
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
@@ -123,7 +155,7 @@ export function createLotColumns(handlers: {
             <Button
               variant="primary"
               size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 h-8"
+              className="bg-emerald-600 hover:bg-emerald-700 h-8 rounded-lg shadow-sm shadow-emerald-200"
               onClick={(e) => {
                 e.stopPropagation();
                 handlers.onConfirm(row.original);
@@ -133,15 +165,15 @@ export function createLotColumns(handlers: {
             </Button>
           )}
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 rounded-lg border-slate-200 hover:bg-slate-50 hover:text-primary transition-all"
             onClick={(e) => {
               e.stopPropagation();
               handlers.onViewDetail(row.original);
             }}
           >
-            <Eye className="h-4 w-4 mr-1" />
+            <Eye className="h-4 w-4 mr-2 text-primary/70" />
             Chi tiết
           </Button>
         </div>

@@ -86,7 +86,7 @@ export default function SupervisorPlotsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const itemsPerPage = 6;
 
-  const { data: plotsData, isLoading, isFetching, isPlaceholderData } = usePlots({
+  const { data: plotsData, isLoading, isFetching } = usePlots({
     page: currentPage,
     limit: itemsPerPage,
     search: keyword.trim() || undefined,
@@ -265,7 +265,7 @@ export default function SupervisorPlotsPage() {
           );
         }}
         isLoading={isLoading}
-        isAwaitingResults={isFetching && isPlaceholderData}
+        isAwaitingResults={isFetching && !isLoading}
         manualPagination
         manualFiltering
         pagination={{
@@ -364,16 +364,7 @@ export default function SupervisorPlotsPage() {
         emptyState={{
           description: "Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.",
         }}
-        skeleton={{
-          count: 1,
-          renderSkeletonCard: () => (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Đang tải dữ liệu lô đất...
-              </CardContent>
-            </Card>
-          ),
-        }}
+        skeleton={{ count: itemsPerPage }}
         layout={{
           minCardWidth: 280,
           equalHeightCards: true,

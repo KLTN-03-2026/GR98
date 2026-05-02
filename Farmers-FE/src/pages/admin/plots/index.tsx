@@ -99,7 +99,7 @@ export default function PlotsPage() {
   const [reopenSheetPlotId, setReopenSheetPlotId] = useState<string | null>(null);
 
   // TanStack Query Hooks
-  const { data: plotsData, isLoading, isFetching, isPlaceholderData } = usePlots({
+  const { data: plotsData, isLoading, isFetching } = usePlots({
     page: currentPage,
     limit: itemsPerPage,
     search: keyword.trim() || undefined,
@@ -368,7 +368,7 @@ export default function PlotsPage() {
           </div>
         )}
         isLoading={isLoading}
-        isAwaitingResults={isFetching && isPlaceholderData}
+        isAwaitingResults={isFetching && !isLoading}
         manualPagination
         pagination={{
           page: currentPage,
@@ -459,16 +459,7 @@ export default function PlotsPage() {
         emptyState={{
           description: "Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.",
         }}
-        skeleton={{
-          count: 1,
-          renderSkeletonCard: () => (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Đang tải dữ liệu lô đất...
-              </CardContent>
-            </Card>
-          ),
-        }}
+        skeleton={{ count: itemsPerPage }}
         layout={{
           minCardWidth: 280,
           equalHeightCards: true,

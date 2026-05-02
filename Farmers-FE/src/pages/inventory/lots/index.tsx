@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { createLotColumns } from './components/lots-columns';
 import type { InventoryLot, GetLotsFilters } from './api/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConfirmReceiptDialog } from './components/ConfirmReceiptDialog';
 
 export default function InventoryLotsPage() {
   const [selectedLot, setSelectedLot] = useState<InventoryLot | null>(null);
@@ -20,12 +21,15 @@ export default function InventoryLotsPage() {
   const { data: products = [] } = useGetProducts();
 
   // Phân loại lô hàng
-  const { inStock, upcoming, stats } = useMemo(() => {
+  const { inStock, upcoming, pending, stats } = useMemo(() => {
     return lots.reduce((acc, lot) => {
-      if (lot.isUpcoming) {
+      if (lot.status === 'SCHEDULED') {
         acc.upcoming.push(lot);
         acc.stats.upcomingTotal += lot.quantityKg;
-      } else {
+      } else if (lot.status === 'ARRIVED') {
+        acc.pending.push(lot);
+        acc.stats.pendingTotal += lot.quantityKg;
+      } else if (lot.status === 'RECEIVED') {
         acc.inStock.push(lot);
         acc.stats.actualTotal += lot.quantityKg;
       }
@@ -33,17 +37,25 @@ export default function InventoryLotsPage() {
     }, {
       inStock: [] as InventoryLot[],
       upcoming: [] as InventoryLot[],
-      stats: { actualTotal: 0, upcomingTotal: 0 }
+      pending: [] as InventoryLot[],
+      stats: { actualTotal: 0, upcomingTotal: 0, pendingTotal: 0 }
     });
   }, [lots]);
+
+  const [confirmLot, setConfirmLot] = useState<InventoryLot | null>(null);
 
   const handleViewDetail = (lot: InventoryLot) => {
     setSelectedLot(lot);
     setIsDrawerOpen(true);
   };
 
+  const handleConfirm = (lot: InventoryLot) => {
+    setConfirmLot(lot);
+  };
+
   const columns = useMemo(() => createLotColumns({
-    onViewDetail: handleViewDetail
+    onViewDetail: handleViewDetail,
+    onConfirm: handleConfirm
   }), []);
 
   const filterToolbar = (
@@ -79,6 +91,10 @@ export default function InventoryLotsPage() {
               <p className="text-xs font-medium text-emerald-600 uppercase tracking-wider">Thực tồn</p>
               <p className="text-sm font-semibold text-emerald-700">{stats.actualTotal.toLocaleString('vi-VN')} kg</p>
             </div>
+            <div className="px-3 py-1.5 rounded-md bg-amber-50 border border-amber-100/50">
+              <p className="text-xs font-medium text-amber-600 uppercase tracking-wider">Chờ xác nhận</p>
+              <p className="text-sm font-semibold text-amber-700">{stats.pendingTotal.toLocaleString('vi-VN')} kg</p>
+            </div>
             <div className="px-3 py-1.5 rounded-md bg-muted">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sắp về</p>
               <p className="text-sm font-semibold text-foreground">{stats.upcomingTotal.toLocaleString('vi-VN')} kg</p>
@@ -94,8 +110,12 @@ export default function InventoryLotsPage() {
               <Warehouse className="size-4 mr-2" />
               Lô hàng trong kho ({inStock.length})
             </TabsTrigger>
-            <TabsTrigger value="upcoming">
+            <TabsTrigger value="pending">
               <History className="size-4 mr-2" />
+              Chờ xác nhận ({pending.length})
+            </TabsTrigger>
+            <TabsTrigger value="upcoming">
+              <Package className="size-4 mr-2" />
               Lô hàng sắp về ({upcoming.length})
             </TabsTrigger>
           </TabsList>
@@ -111,6 +131,22 @@ export default function InventoryLotsPage() {
                 onRowClick={(row) => handleViewDetail(row)}
                 onReload={() => refetch()}
                 searchPlaceholder="Tìm kiếm lô hàng trong kho..."
+                filterToolbar={filterToolbar}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pending" className="mt-0">
+          <Card>
+            <CardContent className="pt-6">
+              <DataTable
+                columns={columns}
+                data={pending}
+                isLoading={isLoading || isFetching}
+                onRowClick={(row) => handleViewDetail(row)}
+                onReload={() => refetch()}
+                searchPlaceholder="Tìm kiếm lô hàng chờ xác nhận..."
                 filterToolbar={filterToolbar}
               />
             </CardContent>
@@ -140,6 +176,15 @@ export default function InventoryLotsPage() {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
       />
+
+      {/* Confirm Receipt Dialog */}
+      {confirmLot && (
+        <ConfirmReceiptDialog
+          lot={confirmLot}
+          isOpen={!!confirmLot}
+          onClose={() => setConfirmLot(null)}
+        />
+      )}
     </div>
   );
 }

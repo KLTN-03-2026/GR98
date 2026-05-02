@@ -9,6 +9,7 @@ import { vi } from 'date-fns/locale';
 
 export function createLotColumns(handlers: {
   onViewDetail: (lot: InventoryLot) => void;
+  onConfirm: (lot: InventoryLot) => void;
 }) {
   const columns: ColumnDef<InventoryLot>[] = [
     {
@@ -117,10 +118,24 @@ export function createLotColumns(handlers: {
       header: '',
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {row.original.status === 'ARRIVED' && (
+            <Button
+              variant="primary"
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 h-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlers.onConfirm(row.original);
+              }}
+            >
+              Xác nhận
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
+            className="h-8"
             onClick={(e) => {
               e.stopPropagation();
               handlers.onViewDetail(row.original);

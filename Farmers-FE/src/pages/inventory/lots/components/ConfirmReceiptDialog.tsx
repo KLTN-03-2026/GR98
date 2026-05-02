@@ -21,7 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useConfirmReceipt } from '../api/hooks';
 import { toast } from 'sonner';
 import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { InventoryLot } from '../api/types';
+import type { InventoryLot } from '../api/types';
 import { cn } from '@/lib/utils';
 
 interface ConfirmReceiptDialogProps {

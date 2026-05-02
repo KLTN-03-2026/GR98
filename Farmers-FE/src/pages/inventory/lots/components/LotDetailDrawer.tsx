@@ -51,15 +51,15 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
   const isUpcoming = lot?.isUpcoming || (lot?.harvestDate ? new Date(lot.harvestDate) > new Date() : false);
 
   const handleUpdateGrade = async (grade: any) => {
-    if (!lot) return;
+    if (!lot?.id) return;
     try {
       await updateLot.mutateAsync({
         id: lot.id,
         data: { qualityGrade: grade }
       });
-      toast.success('Cập nhật phẩm cấp thành công');
+      toast.success(`Đã đổi phẩm cấp sang loại ${grade === 'REJECT' ? 'REJECT' : grade}`);
     } catch (e) {
-      toast.error('Cập nhật thất bại');
+      toast.error('Không thể cập nhật phẩm cấp. Vui lòng thử lại.');
     }
   };
 
@@ -133,13 +133,18 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
                         <DropdownMenuItem 
                           key={g} 
                           onSelect={() => handleUpdateGrade(g)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleUpdateGrade(g);
+                          }}
                           disabled={lot.qualityGrade === g || updateLot.isPending}
                           className={cn(
-                            "cursor-pointer",
+                            "cursor-pointer flex items-center justify-between",
                             g === 'REJECT' && "text-rose-600 font-bold focus:text-rose-700"
                           )}
                         >
-                          {g === 'REJECT' ? 'HỦY (REJECT)' : `Loại ${g}`}
+                          <span>{g === 'REJECT' ? 'HỦY (REJECT)' : `Loại ${g}`}</span>
+                          {lot.qualityGrade === g && <div className="size-1.5 rounded-full bg-primary" />}
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>

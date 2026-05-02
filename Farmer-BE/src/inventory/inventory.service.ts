@@ -644,6 +644,34 @@ export class InventoryService {
         });
       }
 
+      // 3. Nếu có thay đổi ngày hết hạn, ghi log
+      if (dto.expiryDate) {
+        const newExpiry = new Date(dto.expiryDate);
+        const oldExpiry = lot.expiryDate ? new Date(lot.expiryDate) : null;
+        
+        // Kiểm tra logic: Hết hạn phải sau thu hoạch
+        if (lot.harvestDate && newExpiry < new Date(lot.harvestDate)) {
+          throw new BadRequestException('Ngày hết hạn không thể trước ngày thu hoạch');
+        }
+
+        if (!oldExpiry || newExpiry.getTime() !== oldExpiry.getTime()) {
+          const oldLabel = oldExpiry ? oldExpiry.toLocaleDateString('vi-VN') : 'Chưa thiết lập';
+          const newLabel = newExpiry.toLocaleDateString('vi-VN');
+          
+          await tx.warehouseTransaction.create({
+            data: {
+              warehouseId: lot.warehouseId,
+              productId: lot.productId,
+              inventoryLotId: lot.id,
+              type: 'adjustment',
+              quantityKg: 0,
+              note: `[CẬP NHẬT HẠN DÙNG] Thay đổi từ ${oldLabel} sang ${newLabel}. Lý do: ${dto.reason || ''}`,
+              createdBy: currentUser.id,
+            },
+          });
+        }
+      }
+
       return updatedLot;
     });
   }

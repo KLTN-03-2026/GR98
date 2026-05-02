@@ -27,6 +27,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useUpdateLot, useGetLotById, useGetLotTimeline } from '../api/hooks';
 import { WeightAdjustmentDialog } from './WeightAdjustmentDialog';
 import { QualityGradingDialog } from './QualityGradingDialog';
+import { ExpiryUpdateDialog } from './ExpiryUpdateDialog';
 import { toast } from 'sonner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -46,22 +47,12 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
   
   const [isAdjustingWeight, setIsAdjustingWeight] = React.useState(false);
   const [isUpdatingGrade, setIsUpdatingGrade] = React.useState(false);
+  const [isUpdatingExpiry, setIsUpdatingExpiry] = React.useState(false);
 
   const lot = currentLot || initialLot;
   const isUpcoming = lot?.isUpcoming || (lot?.harvestDate ? new Date(lot.harvestDate) > new Date() : false);
 
-  const handleUpdateExpiry = async (date: Date | undefined) => {
-    if (!lot || !date) return;
-    try {
-      await updateLot.mutateAsync({
-        id: lot.id,
-        data: { expiryDate: date.toISOString() }
-      });
-      toast.success('Cập nhật ngày hết hạn thành công');
-    } catch (e) {
-      toast.error('Cập nhật thất bại');
-    }
-  };
+
 
   if (!lot) return null;
 
@@ -185,30 +176,14 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
                             </p>
                             
                             {!isUpcoming && (
-                              <Popover modal={false}>
-                                <PopoverTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                                    disabled={updateLot.isPending}
-                                  >
-                                    {updateLot.isPending ? (
-                                      <RefreshCw className="size-3 animate-spin text-primary" />
-                                    ) : (
-                                      <Edit2 className="size-3" />
-                                    )}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0 z-[100]" align="end">
-                                  <CalendarComponent
-                                    mode="single"
-                                    selected={lot.expiryDate ? new Date(lot.expiryDate) : undefined}
-                                    onSelect={handleUpdateExpiry}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => setIsUpdatingExpiry(true)}
+                              >
+                                <Edit2 className="size-3" />
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -303,6 +278,12 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
         lot={lot}
         isOpen={isUpdatingGrade}
         onClose={() => setIsUpdatingGrade(false)}
+      />
+
+      <ExpiryUpdateDialog 
+        lot={lot}
+        isOpen={isUpdatingExpiry}
+        onClose={() => setIsUpdatingExpiry(false)}
       />
 
       <WeightAdjustmentDialog 

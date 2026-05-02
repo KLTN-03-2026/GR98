@@ -56,6 +56,17 @@ export const useCreateLot = () => {
   });
 };
 
+export const useGetLotById = (id: string) => {
+  return useQuery({
+    queryKey: lotKeys.detail(id),
+    queryFn: async () => {
+      const response = await lotApi.getLotById(id);
+      return extractData<LotTrace>(response);
+    },
+    enabled: !!id,
+  });
+};
+
 export const useGetPendingHarvests = () => {
   return useQuery({
     queryKey: lotKeys.pendingHarvests(),
@@ -72,6 +83,37 @@ export const useGetWarehouses = () => {
     queryFn: async () => {
       const response = await lotApi.getWarehouses();
       return extractData<any[]>(response);
+    },
+  });
+};
+
+export const useUpdateLot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InventoryLot> & { note?: string } }) => {
+      const response = await lotApi.updateLot(id, data);
+      return extractData<InventoryLot>(response);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: lotKeys.all });
+      queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.id) });
+    },
+  });
+};
+
+export const useCreateTransaction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const response = await lotApi.createTransaction(data);
+      return extractData<any>(response);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: lotKeys.all });
+      if (variables.inventoryLotId) {
+        queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.inventoryLotId) });
+        queryClient.invalidateQueries({ queryKey: [...lotKeys.all, 'timeline', variables.inventoryLotId] });
+      }
     },
   });
 };

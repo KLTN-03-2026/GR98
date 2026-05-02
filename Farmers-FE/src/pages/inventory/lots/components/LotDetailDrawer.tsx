@@ -20,26 +20,64 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { InventoryLot } from '../api/types';
-import { useGetLotTimeline } from '../api/hooks';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useUpdateLot, useGetLotById, useGetLotTimeline } from '../api/hooks';
+import { WeightAdjustmentDialog } from './WeightAdjustmentDialog';
+import { toast } from 'sonner';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Edit2, Save, X, Scale, RefreshCw } from 'lucide-react';
 
 interface LotDetailDrawerProps {
   lot: InventoryLot | null;
   isOpen: boolean;
-  onClose: void | (() => void);
+  onClose: () => void;
 }
 
-export function LotDetailDrawer({ lot, isOpen, onClose }: LotDetailDrawerProps) {
-  const { data: timeline, isLoading: isLoadingTimeline } = useGetLotTimeline(lot?.id || '');
+export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailDrawerProps) {
+  const { data: currentLot, isLoading: isLoadingLot } = useGetLotById(initialLot?.id || '');
+  const { data: timeline, isLoading: isLoadingTimeline } = useGetLotTimeline(initialLot?.id || '');
+  const updateLot = useUpdateLot();
+  
+  const [isAdjustingWeight, setIsAdjustingWeight] = React.useState(false);
 
+  const lot = currentLot || initialLot;
+
+  const handleUpdateGrade = async (grade: any) => {
+    if (!lot) return;
+    try {
+      await updateLot.mutateAsync({
+        id: lot.id,
+        data: { qualityGrade: grade }
+      });
+      toast.success('Cập nhật phẩm cấp thành công');
+    } catch (e) {
+      toast.error('Cập nhật thất bại');
+    }
+  };
+
+  const handleUpdateExpiry = async (date: Date | undefined) => {
+    if (!lot || !date) return;
+    try {
+      await updateLot.mutateAsync({
+        id: lot.id,
+        data: { expiryDate: date.toISOString() }
+      });
+      toast.success('Cập nhật ngày hết hạn thành công');
+    } catch (e) {
+      toast.error('Cập nhật thất bại');
+    }
+  };
   if (!lot) return null;
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose as (open: boolean) => void}>
+    <Sheet open={isOpen} onOpenChange={(val) => !val && onClose()}>
       <SheetContent className="sm:max-w-[550px] flex flex-col gap-0 p-0">
         <SheetHeader className="p-6 border-b bg-slate-50/50">
           <div className="flex items-center gap-2 mb-2">
@@ -49,6 +87,7 @@ export function LotDetailDrawer({ lot, isOpen, onClose }: LotDetailDrawerProps) 
             <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wider">
               Chi tiết lô hàng
             </Badge>
+            {isLoadingLot && <RefreshCw className="size-3 animate-spin text-muted-foreground" />}
           </div>
           <SheetTitle className="text-xl font-bold tracking-tight">
             #{lot.id.slice(-6).toUpperCase()} - {lot.product.name}
@@ -68,16 +107,42 @@ export function LotDetailDrawer({ lot, isOpen, onClose }: LotDetailDrawerProps) 
                 <span className="text-xs text-slate-400 font-medium">kg</span>
               </div>
             </div>
-            <div className="rounded-xl border p-4 bg-white shadow-sm">
+            <div className="rounded-xl border p-4 bg-white shadow-sm relative group">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Phẩm cấp</p>
-              <Badge className={cn(
-                "rounded-lg px-2.5 py-0.5 border-none font-bold text-xs",
-                lot.qualityGrade === 'A' ? "bg-emerald-500 text-white" :
-                lot.qualityGrade === 'B' ? "bg-blue-500 text-white" :
-                "bg-amber-500 text-white"
-              )}>
-                Loại {lot.qualityGrade}
-              </Badge>
+              <div className="flex items-center justify-between">
+                <Badge className={cn(
+                  "rounded-lg px-2.5 py-0.5 border-none font-bold text-xs",
+                  lot.qualityGrade === 'A' ? "bg-emerald-500 text-white" :
+                  lot.qualityGrade === 'B' ? "bg-blue-500 text-white" :
+                  lot.qualityGrade === 'C' ? "bg-amber-500 text-white" :
+                  "bg-rose-500 text-white"
+                )}>
+                  {lot.qualityGrade === 'REJECT' ? 'REJECT' : `Loại ${lot.qualityGrade}`}
+                </Badge>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md hover:bg-slate-100 transition-colors">
+                      <Edit2 className="size-3 text-slate-400" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {['A', 'B', 'C', 'REJECT'].map((g) => (
+                      <DropdownMenuItem 
+                        key={g} 
+                        onSelect={() => handleUpdateGrade(g)}
+                        disabled={lot.qualityGrade === g || updateLot.isPending}
+                        className={cn(
+                          "cursor-pointer",
+                          g === 'REJECT' && "text-rose-600 font-bold focus:text-rose-700"
+                        )}
+                      >
+                        {g === 'REJECT' ? 'HỦY (REJECT)' : `Loại ${g}`}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 
@@ -100,10 +165,10 @@ export function LotDetailDrawer({ lot, isOpen, onClose }: LotDetailDrawerProps) 
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-sm font-semibold">{lot.contract.contractNo}</span>
-                          <Badge variant="secondary" className="text-[10px]">{lot.contract.plot.plotCode}</Badge>
+                          <Badge variant="secondary" className="text-[10px]">{lot.contract?.plot?.plotCode}</Badge>
                         </div>
                         <p className="text-sm text-slate-600">
-                          {lot.contract.farmer.fullName} • {lot.contract.plot.zone.name}
+                          {lot.contract.farmer?.fullName} • {lot.contract.plot?.zone?.name}
                         </p>
                       </div>
                     ) : (
@@ -134,9 +199,29 @@ export function LotDetailDrawer({ lot, isOpen, onClose }: LotDetailDrawerProps) 
                         <p className="text-[10px] text-muted-foreground uppercase">Thu hoạch</p>
                         <p className="text-sm font-medium">{lot.harvestDate ? format(new Date(lot.harvestDate), 'dd/MM/yyyy') : '—'}</p>
                       </div>
-                      <div>
+                      <div className="group relative">
                         <p className="text-[10px] text-muted-foreground uppercase">Hết hạn</p>
-                        <p className="text-sm font-medium text-rose-600">{lot.expiryDate ? format(new Date(lot.expiryDate), 'dd/MM/yyyy') : '—'}</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-rose-600">
+                            {lot.expiryDate ? format(new Date(lot.expiryDate), 'dd/MM/yyyy') : '—'}
+                          </p>
+                          
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Edit2 className="size-3" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end">
+                              <CalendarComponent
+                                mode="single"
+                                selected={lot.expiryDate ? new Date(lot.expiryDate) : undefined}
+                                onSelect={handleUpdateExpiry}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -202,6 +287,22 @@ export function LotDetailDrawer({ lot, isOpen, onClose }: LotDetailDrawerProps) 
             </TabsContent>
           </Tabs>
         </div>
+
+        <div className="p-4 border-t bg-slate-50/50">
+          <Button 
+            className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 transition-all active:scale-95"
+            onClick={() => setIsAdjustingWeight(true)}
+          >
+            <Scale className="size-4 mr-2" />
+            Điều chỉnh khối lượng thực tế
+          </Button>
+        </div>
+
+        <WeightAdjustmentDialog 
+          lot={lot}
+          isOpen={isAdjustingWeight}
+          onClose={() => setIsAdjustingWeight(false)}
+        />
       </SheetContent>
     </Sheet>
   );

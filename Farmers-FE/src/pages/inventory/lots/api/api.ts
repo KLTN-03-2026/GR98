@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '@/client/lib/api-client';
+import { apiGet, apiPost, apiPatch } from '@/client/lib/api-client';
 import type { Product } from '@/client/types';
 import type { InventoryLot, LotTrace, CreateLotInput, PendingHarvest, LotTransaction } from './types';
 
@@ -12,14 +12,17 @@ export const lotApi = {
   getLotById: (id: string) =>
     apiGet<LotTrace>(`/inventory/lots/${id}`),
 
+  updateLot: (id: string, data: Partial<InventoryLot> & { note?: string }) =>
+    apiPatch<InventoryLot>(`/inventory/lots/${id}`, data),
+
+  createTransaction: (data: any) =>
+    apiPost<any>('/inventory/transactions', data),
+
   getProducts: () =>
     apiGet<Product[]>('/inventory/products'),
 
   getContracts: () =>
     apiGet<any[]>('/inventory/contracts'),
-
-  updateLotGrade: (id: string, data: { qualityGrade: string; note: string }) =>
-    apiPost<InventoryLot>(`/inventory/lots/${id}/grade`, data),
 
   getPendingHarvests: () =>
     apiGet<PendingHarvest[]>('/inventory/pending-harvests'),

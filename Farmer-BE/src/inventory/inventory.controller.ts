@@ -26,6 +26,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
 import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
 import { ReceiveHarvestDto } from './dto/receive-harvest.dto';
+import { UpdateInventoryLotDto } from './dto/update-inventory-lot.dto';
 
 @ApiTags('inventory')
 @ApiBearerAuth()
@@ -146,16 +147,16 @@ export class InventoryController {
     return this.inventoryService.getLotById(id, req.user);
   }
 
-  @Post('lots/:id/grade')
+  @Patch('lots/:id')
   @Roles(Role.ADMIN, Role.INVENTORY)
-  @ApiOperation({ summary: 'Cập nhật phẩm cấp lô hàng' })
+  @ApiOperation({ summary: 'Cập nhật thông tin lô hàng (Hết hạn, Phẩm cấp)' })
   @ApiResponse({ status: 200, description: 'Cập nhật thành công' })
-  updateLotGrade(
+  updateLot(
     @Param('id') id: string,
     @Request() req: { user: any },
-    @Body() dto: UpdateLotGradeDto,
+    @Body() dto: UpdateInventoryLotDto,
   ) {
-    return this.inventoryService.updateLotGrade(id, req.user, dto);
+    return this.inventoryService.updateLot(id, req.user, dto);
   }
 
   @Get('products')

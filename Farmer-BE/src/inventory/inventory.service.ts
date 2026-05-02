@@ -12,6 +12,7 @@ import { CreateTransactionDto, TransactionType } from './dto/create-transaction.
 import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
 import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
 import { ReceiveHarvestDto } from './dto/receive-harvest.dto';
+import { UpdateInventoryLotDto } from './dto/update-inventory-lot.dto';
 
 interface InventoryUser {
   id: string;
@@ -567,7 +568,19 @@ export class InventoryService {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const lot = await this.prisma.inventoryLot.findUnique({
       where: { id },
-      include: { warehouse: true, product: true, contract: { include: { farmer: true } }, transactions: true },
+      include: { 
+        warehouse: true, 
+        product: true, 
+        contract: { 
+          include: { 
+            farmer: true,
+            plot: {
+              include: { zone: true }
+            }
+          } 
+        }, 
+        transactions: true 
+      },
     });
     if (!lot || lot.warehouse.adminId !== adminId) throw new NotFoundException('Không tìm thấy lô hàng');
     return lot;
@@ -577,6 +590,27 @@ export class InventoryService {
     return this.prisma.inventoryLot.update({
       where: { id },
       data: { qualityGrade: dto.qualityGrade },
+    });
+  }
+
+  async updateLot(id: string, currentUser: InventoryUser, dto: UpdateInventoryLotDto) {
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+    const lot = await this.prisma.inventoryLot.findUnique({
+      where: { id },
+      include: { warehouse: true },
+    });
+
+    if (!lot || lot.warehouse.adminId !== adminId) {
+      throw new NotFoundException('Không tìm thấy lô hàng hoặc bạn không có quyền chỉnh sửa');
+    }
+
+    return this.prisma.inventoryLot.update({
+      where: { id },
+      data: {
+        qualityGrade: dto.qualityGrade,
+        expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+        harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : undefined,
+      },
     });
   }
 
@@ -635,6 +669,17 @@ export class InventoryService {
       } else if (dto.type === TransactionType.ADJUSTMENT) {
         // Adjustment tính dựa trên chênh lệch với số dư thực tế
         delta = dto.quantityKg - currentLotBalance;
+        
+        // Kiểm tra độ lệch 5%
+        const deviation = Math.abs(delta) / (currentLotBalance || 1);
+        if (deviation > 0.05 && !dto.note) {
+          throw new BadRequestException({
+            code: 'ADJUSTMENT_DEVIATION_LARGE',
+            message: `Khối lượng điều chỉnh lệch quá lớn (${(deviation * 100).toFixed(2)}% > 5%). Vui lòng nhập lý do giải trình.`,
+            deviation: (deviation * 100).toFixed(2)
+          });
+        }
+        
         stockDelta = delta;
       }
 

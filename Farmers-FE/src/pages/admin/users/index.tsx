@@ -5,13 +5,9 @@ import {
   Phone,
   UserRound,
   Plus,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   Pencil,
   Trash2,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { DataGrid } from "@/components/data-grid";
 import { useUsers, useDeleteUser, type UserResponse } from "./api";
 import CreateUserForm from "./forms/create-user.form";
 import UpdateUserForm from "./forms/update-user.form";
@@ -213,6 +210,8 @@ export default function UsersManagementPage({
   const {
     data: queryData,
     isLoading,
+    isFetching,
+    isPlaceholderData,
     error: queryError,
     refetch,
   } = useUsers({
@@ -231,9 +230,6 @@ export default function UsersManagementPage({
     () => users.filter((item) => item.status === "ACTIVE").length,
     [users],
   );
-  const pageFrom = total === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
-  const pageTo = Math.min(currentPage * PAGE_LIMIT, total);
-
   useEffect(() => {
     if (!queryData) return;
     setUsers(Array.isArray(queryData.data) ? queryData.data : []);
@@ -263,19 +259,132 @@ export default function UsersManagementPage({
   }
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-3 px-2 pb-4 pt-0 sm:px-3 sm:pb-4 sm:pt-0">
-      <Card className="border-dashed border-primary/40">
-        <CardContent className="space-y-2.5 p-3 sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative flex-1 lg:max-w-xl">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-10 rounded-full border-muted pl-9"
-                placeholder="Tìm theo tên, email, số điện thoại..."
-              />
+    <div className="h-full min-h-0 flex flex-col gap-3 px-0 pb-4 pt-0 sm:px-0 sm:pb-4 sm:pt-0">
+      <DataGrid<UserResponse>
+        items={users}
+        title="Quản lý người dùng"
+        titleIcon={<Users className="size-4 text-primary" />}
+        description="Danh sách tài khoản trong hệ thống. Mở chi tiết để cập nhật thông tin, vai trò và trạng thái hoạt động."
+        keyExtractor={(user) => user.id}
+        renderCard={(user) => {
+          const tone = getCardTone(user.role);
+          return (
+            <div
+              role="button"
+              tabIndex={readOnlyList ? -1 : 0}
+              onClick={() => {
+                if (readOnlyList) return;
+                handleEdit(user);
+              }}
+              onKeyDown={(event) => {
+                if (readOnlyList) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleEdit(user);
+                }
+              }}
+              className={cn(
+                "flex h-full w-full min-h-0 flex-col rounded-2xl border border-l-4 bg-linear-to-br p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                !readOnlyList && "cursor-pointer",
+                tone.border,
+                tone.hover,
+                tone.bg,
+              )}
+            >
+              <div className="flex shrink-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <Badge variant={getRoleBadgeVariant(user.role)} className="text-xs">
+                    {getRoleLabel(user.role)}
+                  </Badge>
+                  <p className="mt-2 truncate text-base font-semibold text-slate-900">
+                    {user.fullName}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    ID: {user.id.slice(0, 8)}
+                  </p>
+                </div>
+                <Badge variant={getStatusVariant(user.status)}>
+                  {getStatusLabel(user.status)}
+                </Badge>
+              </div>
+
+              <div className="mt-4 flex min-h-0 flex-1 items-start gap-3">
+                <Avatar className={cn("h-12 w-12 shrink-0 rounded-lg", tone.ring)}>
+                  <AvatarImage src={user.avatar ?? undefined} alt={user.fullName} />
+                  <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-semibold">
+                    {getInitials(user.fullName)}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="min-w-0 flex-1 space-y-1.5 text-sm text-muted-foreground">
+                  <p className="inline-flex items-center gap-2">
+                    <Mail className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{user.email}</span>
+                  </p>
+                  <p className="inline-flex items-center gap-2">
+                    <Phone className="h-4 w-4 shrink-0" />
+                    {user.phone || "Chưa cập nhật"}
+                  </p>
+                  {user.role === "CLIENT" && user.clientProfile?.province && (
+                    <p className="inline-flex items-center gap-2">
+                      <UserRound className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{user.clientProfile.province}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {!readOnlyList && (
+                <div className="mt-auto flex shrink-0 items-center justify-end gap-1 pt-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-primary"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleEdit(user);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleDeletePrompt(user);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
+          );
+        }}
+        isLoading={isLoading}
+        isAwaitingResults={isFetching && isPlaceholderData}
+        error={fetchError ?? undefined}
+        onRetry={() => refetch()}
+        manualPagination
+        pagination={{
+          page: currentPage,
+          pageSize: PAGE_LIMIT,
+          totalItems: total,
+          totalPages: Math.max(1, totalPages),
+          onPageChange: setCurrentPage,
+        }}
+        toolbar={{
+          search: {
+            value: searchQuery,
+            onChange: setSearchQuery,
+            debounceMs: 0,
+            placeholder: "Tìm theo tên, email, số điện thoại...",
+          },
+          filters: (
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
               {!hideRoleSelector && !fixedRole && (
                 <Select
@@ -297,9 +406,7 @@ export default function UsersManagementPage({
 
               <Select
                 value={statusFilter}
-                onValueChange={(value) =>
-                  setStatusFilter(value as "ALL" | UserStatus)
-                }
+                onValueChange={(value) => setStatusFilter(value as "ALL" | UserStatus)}
               >
                 <SelectTrigger className="h-9 w-[180px] rounded-full">
                   <SelectValue placeholder="Trạng thái" />
@@ -311,250 +418,49 @@ export default function UsersManagementPage({
                   <SelectItem value="SUSPENDED">Tạm ngưng</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="rounded-full"
-                disabled={readOnlyList || isClientScope}
-                aria-label={
-                  isClientScope
-                    ? "Không tạo mới khách hàng tại màn hình này"
-                    : undefined
-                }
-              >
-                <Plus className="h-4 w-4" />
-                Thêm người dùng
-              </Button>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>
-              Hiển thị {users.length} / {total} {pageTitle}.
-            </span>
-            <span>Đang hoạt động: {activeCount}</span>
-            <span>Giới hạn mỗi trang: {PAGE_LIMIT}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {fetchError ? (
-        <Card>
-          <CardContent className="flex items-center justify-center gap-2 py-10">
-            <p className="text-sm text-destructive">{fetchError}</p>
-            <Button variant="ghost" size="sm" onClick={() => refetch()}>
-              Thử lại
+          ),
+          customActions: (
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              className="rounded-full"
+              disabled={readOnlyList || isClientScope}
+              aria-label={
+                isClientScope
+                  ? "Không tạo mới khách hàng tại màn hình này"
+                  : undefined
+              }
+            >
+              <Plus className="h-4 w-4" />
+              Thêm người dùng
             </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="min-h-0 flex flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-            {isLoading ? (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-                {Array.from({ length: Math.min(PAGE_LIMIT, 12) }).map(
-                  (_, index) => (
-                    <UserCardSkeleton key={`user-skeleton-${index}`} />
-                  ),
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-                {users.map((user) => {
-                  const tone = getCardTone(user.role);
-
-                  return (
-                    <div
-                      key={user.id}
-                      role="button"
-                      tabIndex={readOnlyList ? -1 : 0}
-                      onClick={() => {
-                        if (readOnlyList) return;
-                        handleEdit(user);
-                      }}
-                      onKeyDown={(event) => {
-                        if (readOnlyList) return;
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          handleEdit(user);
-                        }
-                      }}
-                      className={cn(
-                        "rounded-2xl border border-l-4 bg-linear-to-br p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                        !readOnlyList && "cursor-pointer",
-                        tone.border,
-                        tone.hover,
-                        tone.bg,
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <Badge
-                            variant={getRoleBadgeVariant(user.role)}
-                            className="text-xs"
-                          >
-                            {getRoleLabel(user.role)}
-                          </Badge>
-                          <p className="mt-2 truncate text-base font-semibold text-slate-900">
-                            {user.fullName}
-                          </p>
-                          <p className="mt-1 truncate text-xs text-muted-foreground">
-                            ID: {user.id.slice(0, 8)}
-                          </p>
-                        </div>
-                        <Badge variant={getStatusVariant(user.status)}>
-                          {getStatusLabel(user.status)}
-                        </Badge>
-                      </div>
-
-                      <div className="mt-4 flex items-start gap-3">
-                        <Avatar
-                          className={cn("h-12 w-12 rounded-lg", tone.ring)}
-                        >
-                          <AvatarImage
-                            src={user.avatar ?? undefined}
-                            alt={user.fullName}
-                          />
-                          <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-semibold">
-                            {getInitials(user.fullName)}
-                          </AvatarFallback>
-                        </Avatar>
-
-                        <div className="min-w-0 flex-1 space-y-1.5 text-sm text-muted-foreground">
-                          <p className="inline-flex items-center gap-2">
-                            <Mail className="h-4 w-4" />
-                            <span className="truncate">{user.email}</span>
-                          </p>
-                          <p className="inline-flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            {user.phone || "Chưa cập nhật"}
-                          </p>
-                          {user.role === "ADMIN" &&
-                            user.adminProfile?.businessName && (
-                              <p className="inline-flex items-center gap-2">
-                                <UserRound className="h-4 w-4" />
-                                <span className="truncate">
-                                  {user.adminProfile.businessName}
-                                </span>
-                              </p>
-                            )}
-                          {user.role === "CLIENT" &&
-                            user.clientProfile?.province && (
-                              <p className="inline-flex items-center gap-2">
-                                <UserRound className="h-4 w-4" />
-                                <span className="truncate">
-                                  {user.clientProfile.province}
-                                </span>
-                              </p>
-                            )}
-                        </div>
-                      </div>
-
-                      {!readOnlyList && (
-                        <div className="mt-4 flex items-center justify-end gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-primary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleEdit(user);
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleDeletePrompt(user);
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {!isLoading && users.length === 0 && (
-              <Card>
-                <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                  Không có người dùng phù hợp với bộ lọc hiện tại.
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {!isLoading && totalPages > 0 && (
-            <div className="mt-3 border-t bg-background pt-3">
-              <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground">
-                      Hiển thị {pageFrom}-{pageTo} / {total} {pageTitle}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Trang {currentPage} / {totalPages}
-                  </span>
-                  <div className="h-3 w-px bg-border" />
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronsLeft className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.max(1, prev - 1))
-                      }
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                      }
-                      disabled={currentPage === totalPages}
-                    >
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                    >
-                      <ChevronsRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+          ),
+          summary: (
+            <>
+              <span>
+                Hiển thị {users.length} / {total} {pageTitle}.
+              </span>
+              <span>Đang hoạt động: {activeCount}</span>
+              <span>Giới hạn mỗi trang: {PAGE_LIMIT}</span>
+            </>
+          ),
+        }}
+        emptyState={{
+          description: "Không có người dùng phù hợp với bộ lọc hiện tại.",
+        }}
+        skeleton={{
+          count: Math.min(PAGE_LIMIT, 12),
+          renderSkeletonCard: (index) => (
+            <UserCardSkeleton key={`user-skeleton-${index}`} />
+          ),
+        }}
+        layout={{
+          minCardWidth: 280,
+          equalHeightCards: true,
+          itemWrapperClassName: "items-stretch",
+        }}
+        classNames={{ root: "h-full min-h-0", content: "min-h-0 flex-1" }}
+      />
 
       {/* Forms */}
       <CreateUserForm

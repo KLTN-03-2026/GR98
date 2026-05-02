@@ -1,19 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Plus,
-  Search,
-} from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { DataGrid } from '@/components/data-grid';
 import {
   useContracts,
   type ContractResponse,
@@ -70,6 +63,8 @@ export default function ContractsManagementView({
   const {
     data: contractsData,
     isLoading,
+    isFetching,
+    isPlaceholderData,
     error: contractsError,
     refetch,
   } = useContracts({
@@ -119,55 +114,107 @@ export default function ContractsManagementView({
   };
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-4 p-4 sm:p-6">
-      <Card className="border-dashed border-primary/40">
-        <CardContent className="space-y-3 p-4 sm:p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative flex-1 lg:max-w-xl">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value)}
-                className="h-10 rounded-full border-muted pl-9"
-                placeholder="Tìm theo số hợp đồng, nông dân, lô đất..."
-              />
+    <DataGrid<ContractResponse>
+      items={contracts}
+      title="Quản lý hợp đồng"
+      titleIcon={<FileText className="size-4 text-primary" />}
+      description="Danh sách hợp đồng theo bộ lọc hiện tại. Mở chi tiết để xem thông tin nông dân, lô đất và trạng thái phê duyệt."
+      keyExtractor={(contract) => contract.id}
+      renderCard={(contract) => (
+        <button
+          type="button"
+          onClick={() => openContract(contract)}
+          className={cn(
+            'flex h-full w-full min-h-0 flex-col rounded-2xl border border-l-4 border-l-primary bg-linear-to-br from-white to-primary/5 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md',
+          )}
+        >
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold text-slate-900">
+                  {contract.contractNo}
+                </p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">
+                  {contract.farmer.fullName} • {contract.plot.plotCode}
+                </p>
+              </div>
+              <Badge variant={getContractStatusBadgeVariant(contract.status)}>
+                {getContractStatusLabel(contract.status)}
+              </Badge>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value as 'ALL' | ContractStatus)
-                }
-                className="h-9 min-w-[190px] rounded-full border border-input bg-background px-3 text-sm"
-              >
-                <option value="ALL">Tất cả trạng thái</option>
-                {mode === 'supervisor' && <option value="DRAFT">Bản nháp</option>}
-                <option value="SIGNED">Chờ phê duyệt</option>
-                <option value="REJECTED">Bị từ chối</option>
-                <option value="ACTIVE">Đang hiệu lực</option>
-                <option value="EXPIRED">Hết hiệu lực</option>
-              </select>
-
-              {mode === 'supervisor' && (
-                <Button
-                  className="rounded-full"
-                  onClick={() => navigate(`${listBasePath.replace(/\/$/, '')}/new`)}
-                >
-                  <Plus className="h-4 w-4" />
-                  Tạo hợp đồng
-                </Button>
-              )}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant={getCropBadgeVariant(contract.cropType)}>
+                {contract.cropType}
+              </Badge>
+              <Badge variant={getGradeBadgeVariant(contract.grade)}>
+                Grade {contract.grade}
+              </Badge>
+            </div>
+            <div className="mt-auto space-y-1 text-sm text-muted-foreground">
+              <p>Diện tích: {contract.plotDraftAreaHa ?? contract.plot?.areaHa ?? '—'} ha</p>
+              <p>Lô đất: {contract.plot.plotCode}</p>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        </button>
+      )}
+      isLoading={isLoading}
+      isAwaitingResults={isFetching && isPlaceholderData}
+      error={contractsError ? (contractsError as Error).message : undefined}
+      onRetry={() => refetch()}
+      manualPagination
+      pagination={{
+        page: currentPage,
+        pageSize: PAGE_LIMIT,
+        totalItems: total,
+        totalPages,
+        onPageChange: setCurrentPage,
+      }}
+      toolbar={{
+        search: {
+          value: keyword,
+          onChange: setKeyword,
+          debounceMs: 0,
+          placeholder: 'Tìm theo số hợp đồng, nông dân, lô đất...',
+        },
+        filters: (
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as 'ALL' | ContractStatus)
+              }
+              className="h-9 min-w-[190px] rounded-full border border-input bg-background px-3 text-sm"
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              {mode === 'supervisor' && <option value="DRAFT">Bản nháp</option>}
+              <option value="SIGNED">Chờ phê duyệt</option>
+              <option value="REJECTED">Bị từ chối</option>
+              <option value="ACTIVE">Đang hiệu lực</option>
+              <option value="EXPIRED">Hết hiệu lực</option>
+            </select>
+          </div>
+        ),
+        customActions:
+          mode === 'supervisor' ? (
+            <Button
+              className="rounded-full"
+              onClick={() => navigate(`${listBasePath.replace(/\/$/, '')}/new`)}
+            >
+              <Plus className="h-4 w-4" />
+              Tạo hợp đồng
+            </Button>
+          ) : null,
+        summary: (
+          <>
             <span>
               Hiển thị {contracts.length} / {total} hợp đồng.
             </span>
             <span>Chờ phê duyệt: {waitingApprovalCount}</span>
             <span>Giới hạn mỗi trang: {PAGE_LIMIT}</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
+          </>
+        ),
+        quickStats: (
+          <>
             <Badge variant="soft-success">Đang hiệu lực: {activeCount}</Badge>
             <Badge variant="soft-warning">Chờ duyệt: {waitingApprovalCount}</Badge>
             <Badge variant="soft-destructive">Bị từ chối: {rejectedCount}</Badge>
@@ -175,135 +222,24 @@ export default function ContractsManagementView({
             {mode === 'supervisor' && (
               <Badge variant="soft-info">Bản nháp: {draftCount}</Badge>
             )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="min-h-0 flex-1 flex flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {contractsError ? (
-            <Card>
-              <CardContent className="flex items-center justify-center gap-2 py-10">
-                <p className="text-sm text-destructive">
-                  {(contractsError as Error).message}
-                </p>
-                <Button variant="ghost" size="sm" onClick={() => refetch()}>
-                  Thử lại
-                </Button>
-              </CardContent>
-            </Card>
-          ) : isLoading ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-              {Array.from({ length: Math.min(PAGE_LIMIT, 12) }).map((_, index) => (
-                <ContractCardSkeleton key={`contract-skeleton-${index}`} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-              {contracts.map((contract) => (
-                <button
-                  key={contract.id}
-                  type="button"
-                  onClick={() => openContract(contract)}
-                  className={cn(
-                    'rounded-2xl border border-l-4 border-l-primary bg-linear-to-br from-white to-primary/5 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md',
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-semibold text-slate-900">
-                        {contract.contractNo}
-                      </p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {contract.farmer.fullName} • {contract.plot.plotCode}
-                      </p>
-                    </div>
-                    <Badge variant={getContractStatusBadgeVariant(contract.status)}>
-                      {getContractStatusLabel(contract.status)}
-                    </Badge>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    <Badge variant={getCropBadgeVariant(contract.cropType)}>
-                      {contract.cropType}
-                    </Badge>
-                    <Badge variant={getGradeBadgeVariant(contract.grade)}>
-                      Grade {contract.grade}
-                    </Badge>
-                  </div>
-                  <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-                    <p>Diện tích: {contract.plotDraftAreaHa ?? contract.plot?.areaHa ?? '—'} ha</p>
-                    <p>Lô đất: {contract.plot.plotCode}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {!isLoading && !contractsError && contracts.length === 0 && (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Chưa có hợp đồng phù hợp với bộ lọc hiện tại.
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {!isLoading && total > 0 && (
-          <div className="mt-3 border-t bg-background pt-3">
-            <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-xs text-muted-foreground">
-                Hiển thị {pageFrom}-{pageTo} / {total} hợp đồng
-              </span>
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Trang {currentPage} / {totalPages}
-                </span>
-                <div className="h-3 w-px bg-border" />
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronsLeft className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronsRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+          </>
+        ),
+      }}
+      emptyState={{
+        description: 'Chưa có hợp đồng phù hợp với bộ lọc hiện tại.',
+      }}
+      skeleton={{
+        count: Math.min(PAGE_LIMIT, 12),
+        renderSkeletonCard: (index) => (
+          <ContractCardSkeleton key={`contract-skeleton-${index}`} />
+        ),
+      }}
+      layout={{
+        minCardWidth: 280,
+        equalHeightCards: true,
+        itemWrapperClassName: 'items-stretch',
+      }}
+      classNames={{ root: 'h-full min-h-0', content: 'min-h-0 flex-1' }}
+    />
   );
 }

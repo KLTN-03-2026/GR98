@@ -59,6 +59,9 @@ export class ProductsService {
       return profile.adminId;
     }
 
+    throw new ForbiddenException('Không có quyền truy cập sản phẩm');
+  }
+
   private async calculateDynamicStock(productId: string) {
     const now = new Date();
     const [actual, upcoming] = await Promise.all([

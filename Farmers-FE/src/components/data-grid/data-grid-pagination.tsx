@@ -30,10 +30,15 @@ export function DataGridPagination({ config, className }: DataGridPaginationProp
     totalPages,
     onPageChange,
     onPageSizeChange,
-    pageSizeOptions = [10, 15, 20, 30, 50],
+    pageSizeOptions = [10, 20, 30, 50, 100],
   } = config;
 
   if (totalItems <= 0) return null;
+
+  /** Radix Select chỉ hiển thị khi `value` trùng một SelectItem — luôn gộp pageSize hiện tại (vd. 6, 12, 15). */
+  const resolvedPageSizeOptions = Array.from(new Set([...pageSizeOptions, pageSize])).sort(
+    (a, b) => a - b,
+  );
 
   const safeTotalPages = Math.max(1, totalPages);
   const safePage = Math.min(Math.max(1, page), safeTotalPages);
@@ -50,23 +55,26 @@ export function DataGridPagination({ config, className }: DataGridPaginationProp
         className,
       )}
     >
-      <span className="text-xs text-muted-foreground">
+      <span className="text-sm text-muted-foreground">
         Hiển thị {pageFrom}-{pageTo} / {totalItems} bản ghi
       </span>
 
       <div className="flex flex-wrap items-center justify-center gap-2">
         {onPageSizeChange && (
           <>
-            <span className="text-xs text-muted-foreground">Dòng mỗi trang</span>
+            <span className="text-sm font-medium text-muted-foreground">Dòng mỗi trang</span>
             <Select
               value={String(pageSize)}
-              onValueChange={(value) => onPageSizeChange(Number(value))}
+              onValueChange={(value) => {
+                onPageSizeChange(Number(value));
+                onPageChange(1);
+              }}
             >
-              <SelectTrigger className="h-8 w-[76px]">
+              <SelectTrigger className="h-8 w-[70px] bg-background">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent side="top">
-                {pageSizeOptions.map((size) => (
+                {resolvedPageSizeOptions.map((size) => (
                   <SelectItem key={size} value={String(size)}>
                     {size}
                   </SelectItem>
@@ -77,7 +85,7 @@ export function DataGridPagination({ config, className }: DataGridPaginationProp
           </>
         )}
 
-        <span className="text-xs font-medium text-muted-foreground">
+        <span className="text-sm font-semibold text-muted-foreground">
           Trang {safePage} / {safeTotalPages}
         </span>
         <div className="h-3 w-px bg-border" />

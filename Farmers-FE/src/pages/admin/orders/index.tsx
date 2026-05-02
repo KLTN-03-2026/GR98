@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { PaginationState, Updater } from '@tanstack/react-table';
+import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Search, Package, CheckCircle2, Truck, Clock, XCircle, RefreshCw } from 'lucide-react';
 import { useOrders, useOrder, useUpdateOrder } from '@/client/api';
 import { formatPrice } from '@/client/data/mock-data';
@@ -7,7 +9,7 @@ import {
   FULFILL_STATUS_LABELS,
   type Order,
 } from '@/client/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -20,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DataTable } from '@/components/data-table';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +41,7 @@ import {
 } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { createOrdersColumns } from './orders-columns';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -343,39 +347,19 @@ function OrderDetailSheet({ orderId }: { orderId: string }) {
   );
 }
 
-// ─── Table Skeleton ─────────────────────────────────────────────────────
-
-function TableSkeleton() {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 rounded-lg border p-4">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-5 w-24 rounded-full" />
-          <Skeleton className="h-5 w-28 rounded-full" />
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-8 w-8 rounded" />
-          <Skeleton className="h-8 w-8 rounded" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ─── Main Page ───────────────────────────────────────────────────────────
 
 export default function AdminOrdersPage() {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [search, setSearch] = useState('');
   const [fulfillFilter, setFulfillFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
 
-  const { data, isLoading, isFetching } = useOrders({
+  const { data, isLoading } = useOrders({
     page,
-    limit: 20,
+    limit,
     search: search || undefined,
     fulfillStatus: fulfillFilter || undefined,
     paymentStatus: paymentFilter || undefined,
@@ -384,201 +368,135 @@ export default function AdminOrdersPage() {
   const items = data?.data ?? [];
   const totalPages = data?.totalPages ?? 1;
   const total = data?.total ?? 0;
+  const paginationState = useMemo(
+    () => ({ pageIndex: page - 1, pageSize: limit }),
+    [page, limit],
+  );
+  const handlePaginationChange = useCallback((updater: Updater<PaginationState>) => {
+    const prev: PaginationState = { pageIndex: page - 1, pageSize: limit };
+    const next = typeof updater === 'function' ? updater(prev) : updater;
+    setPage(next.pageIndex + 1);
+    setLimit(next.pageSize);
+  }, [page, limit]);
+  const columns = useMemo(
+    () =>
+      createOrdersColumns({
+        formatCurrency: formatPrice,
+        renderPaymentStatus: (status) => <PaymentStatusBadge status={status} />,
+        renderFulfillStatus: (status) => <FulfillStatusBadge status={status} />,
+        renderActions: (order) => (
+          <>
+            <OrderDetailSheet orderId={order.id} />
+            <UpdateOrderDialog orderId={order.id} />
+          </>
+        ),
+      }),
+    [],
+  );
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold">Quản lý đơn hàng</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+            <Package className="size-4 text-primary" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Quản lý đơn hàng</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
           Theo dõi và cập nhật trạng thái đơn hàng của khách hàng
         </p>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-3">
-            <div className="flex-1 min-w-48">
-              <div className="relative">
-                <Search className="text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 size-4" />
-                <Input
-                  placeholder="Tìm mã đơn..."
-                  className="pl-9"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                />
+          <DataTable
+            columns={columns}
+            data={items}
+            isLoading={isLoading}
+            hiddenSearch
+            enableSorting={false}
+            manualPagination
+            pageCount={Math.max(1, totalPages)}
+            totalItems={total}
+            onPaginationChange={handlePaginationChange}
+            state={{ pagination: paginationState }}
+            pageSizeOptions={[10, 20, 30, 50, 100]}
+            onReload={() => queryClient.invalidateQueries({ queryKey: ['orders'] })}
+            noResults={
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="mb-3 rounded-full bg-muted p-3">
+                  <Package className="text-muted-foreground size-6" />
+                </div>
+                <p className="font-medium">Không có đơn hàng nào</p>
+                <p className="text-muted-foreground text-sm mt-1">Thử thay đổi bộ lọc</p>
               </div>
-            </div>
-
-            <Select
-              value={fulfillFilter}
-              onValueChange={(v) => { setFulfillFilter(v === 'all' ? '' : v); setPage(1); }}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Trạng thái giao" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="PENDING">Chờ xử lý</SelectItem>
-                <SelectItem value="PACKING">Đang đóng gói</SelectItem>
-                <SelectItem value="SHIPPED">Đang giao</SelectItem>
-                <SelectItem value="DELIVERED">Đã giao</SelectItem>
-                <SelectItem value="CANCELLED">Đã hủy</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={paymentFilter}
-              onValueChange={(v) => { setPaymentFilter(v === 'all' ? '' : v); setPage(1); }}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Thanh toán" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="PENDING">Chờ thanh toán</SelectItem>
-                <SelectItem value="PAID">Đã thanh toán</SelectItem>
-                <SelectItem value="FAILED">Thất bại</SelectItem>
-                <SelectItem value="REFUNDED">Hoàn tiền</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Danh sách đơn hàng
-            <span className="text-muted-foreground font-normal ml-2 text-sm">({total} đơn)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <TableSkeleton />
-          ) : items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mb-3 rounded-full bg-muted p-3">
-                <Package className="text-muted-foreground size-6" />
-              </div>
-              <p className="font-medium">Không có đơn hàng nào</p>
-              <p className="text-muted-foreground text-sm mt-1">Thử thay đổi bộ lọc</p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 pr-4 font-medium">Mã đơn</th>
-                      <th className="pb-3 pr-4 font-medium">Khách hàng</th>
-                      <th className="pb-3 pr-4 font-medium">Thanh toán</th>
-                      <th className="pb-3 pr-4 font-medium">Giao hàng</th>
-                      <th className="pb-3 pr-4 font-medium text-right">Tổng tiền</th>
-                      <th className="pb-3 pr-4 font-medium text-right">Ngày đặt</th>
-                      <th className="pb-3 font-medium text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {items.map((order) => (
-                      <tr key={order.id} className="align-top">
-                        <td className="py-3 pr-4">
-                          <span className="font-mono font-semibold">{order.orderNo}</span>
-                        </td>
-                        <td className="py-3 pr-4">
-                          {order.client?.user ? (
-                            <div className="text-sm">
-                              <p className="font-medium">{order.client.user.fullName}</p>
-                              <p className="text-muted-foreground">{order.client.user.email}</p>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="py-3 pr-4">
-                          <PaymentStatusBadge status={order.paymentStatus} />
-                        </td>
-                        <td className="py-3 pr-4">
-                          <FulfillStatusBadge status={order.fulfillStatus} />
-                        </td>
-                        <td className="py-3 pr-4 text-right font-mono font-semibold text-primary">
-                          {formatPrice(order.total)}
-                        </td>
-                        <td className="py-3 pr-4 text-right text-muted-foreground">
-                          {new Date(order.orderedAt).toLocaleDateString('vi-VN', {
-                            day: '2-digit', month: '2-digit', year: 'numeric',
-                          })}
-                        </td>
-                        <td className="py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <OrderDetailSheet orderId={order.id} />
-                            <UpdateOrderDialog orderId={order.id} />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="md:hidden space-y-3">
-                {items.map((order) => (
-                  <div key={order.id} className="rounded-lg border p-4 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-mono font-semibold">{order.orderNo}</p>
-                        {order.client?.user && (
-                          <p className="text-sm text-muted-foreground">{order.client.user.fullName}</p>
-                        )}
-                      </div>
-                      <div className="flex gap-1 flex-wrap justify-end">
-                        <PaymentStatusBadge status={order.paymentStatus} />
-                        <FulfillStatusBadge status={order.fulfillStatus} />
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <p className="font-mono font-semibold text-primary">{formatPrice(order.total)}</p>
-                      <div className="flex gap-1">
-                        <OrderDetailSheet orderId={order.id} />
-                        <UpdateOrderDialog orderId={order.id} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">
-                    Trang {page} / {totalPages} — {total} đơn hàng
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1 || isFetching}
-                    >
-                      Trước
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages || isFetching}
-                    >
-                      Sau
-                    </Button>
+            }
+            filterToolbar={
+              <div className="flex flex-wrap items-end gap-3 w-full">
+                <div className="flex-1 min-w-48 space-y-1.5">
+                  <Label className="text-xs">Tìm kiếm</Label>
+                  <div className="relative">
+                    <Search className="text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 size-4" />
+                    <Input
+                      placeholder="Tìm mã đơn..."
+                      className="pl-9 h-9"
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setPage(1);
+                      }}
+                    />
                   </div>
                 </div>
-              )}
-            </>
-          )}
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Trạng thái giao</Label>
+                  <Select
+                    value={fulfillFilter || 'all'}
+                    onValueChange={(v) => {
+                      setFulfillFilter(v === 'all' ? '' : v);
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-48 h-9">
+                      <SelectValue placeholder="Trạng thái giao" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                      <SelectItem value="PENDING">Chờ xử lý</SelectItem>
+                      <SelectItem value="PACKING">Đang đóng gói</SelectItem>
+                      <SelectItem value="SHIPPED">Đang giao</SelectItem>
+                      <SelectItem value="DELIVERED">Đã giao</SelectItem>
+                      <SelectItem value="CANCELLED">Đã hủy</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Thanh toán</Label>
+                  <Select
+                    value={paymentFilter || 'all'}
+                    onValueChange={(v) => {
+                      setPaymentFilter(v === 'all' ? '' : v);
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-48 h-9">
+                      <SelectValue placeholder="Thanh toán" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="PENDING">Chờ thanh toán</SelectItem>
+                      <SelectItem value="PAID">Đã thanh toán</SelectItem>
+                      <SelectItem value="FAILED">Thất bại</SelectItem>
+                      <SelectItem value="REFUNDED">Hoàn tiền</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            }
+          />
         </CardContent>
       </Card>
     </div>

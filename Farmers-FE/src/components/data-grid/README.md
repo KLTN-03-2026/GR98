@@ -29,13 +29,23 @@ Khung `GridView` đa năng dùng chung cho các trang quản lý dạng card-gri
 
 ## Chuẩn logic dữ liệu
 
-- `DataGrid` chỉ là UI shell; toàn bộ query/filter/search/pagination state nằm ở page/hook.
+- `DataGrid` hỗ trợ 2 mode:
+  - **Hybrid/automatic (mặc định)**: component tự xử lý search + filter + phân trang client khi truyền `data` (hoặc `items`).
+  - **Manual (server)**: dùng `manualPagination`, `state`, `onPaginationChange`, `onSearchChange` để page/hook điều khiển hoàn toàn.
 - Với server-side:
-  - truyền `isLoading`, `error`, `onRetry` theo query state
-  - truyền `toolbar.onRefresh` để refetch
+  - truyền `isLoading`, `error`, `onRetry` theo query state.
+  - truyền `manualPagination`, `totalItems`, `pageCount`, `state.pagination`.
+  - xử lý callback `onPaginationChange`/`onSearchChange` để gọi API.
 - Với client-side:
-  - page tự filter/slice dữ liệu rồi truyền `items`
-  - `toolbar.onResetFilters` dùng để reset local filter/search/page về mặc định.
+  - chỉ cần truyền `data` (hoặc `items`) + `toolbar.search`.
+  - grid tự filter/search/slice dữ liệu, tự clamp trang hợp lệ khi dữ liệu thay đổi.
+  - `toolbar.onResetFilters` vẫn dùng để reset bộ lọc domain ở page.
+
+## Chọn số dòng mỗi trang
+
+- Footer pagination đã có selector `Dòng mỗi trang` như `DataTable`.
+- Mặc định options: `[10, 20, 30, 50, 100]`.
+- Có thể override qua `pageSizeOptions` (props của `DataGrid`) hoặc `pagination.pageSizeOptions` (legacy).
 
 ## Dùng cho card nhiều thông tin (avatar + badge + action)
 

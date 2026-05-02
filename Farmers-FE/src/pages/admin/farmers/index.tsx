@@ -1,14 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   MapPin,
   Phone,
   Plus,
   Save,
-  Search,
   Trash2,
   UserRound,
   Wheat,
@@ -39,6 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { DataGrid } from "@/components/data-grid";
 import { useAllSupervisors } from "@/pages/admin/supervisors/api/use-supervisors";
 import {
   useCreateFarmer,
@@ -133,7 +129,7 @@ function FarmerManagementPage() {
 
   const { data: supervisors = [] } = useAllSupervisors();
 
-  const { data: queryData, isLoading } = useFarmers({
+  const { data: queryData, isLoading, isFetching, isPlaceholderData } = useFarmers({
     page: currentPage,
     limit: PAGE_LIMIT,
     search: debouncedKeyword || undefined,
@@ -165,15 +161,6 @@ function FarmerManagementPage() {
     () => farmers.filter((item) => item.status === "ACTIVE").length,
     [farmers],
   );
-  const pageFrom = total === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
-  const pageTo = Math.min(currentPage * PAGE_LIMIT, total);
-
-  const goFirstPage = () => setCurrentPage(1);
-  const goPrevPage = () => setCurrentPage((prev) => Math.max(1, prev - 1));
-  const goNextPage = () =>
-    setCurrentPage((prev) => Math.min(totalPages, prev + 1));
-  const goLastPage = () => setCurrentPage(totalPages);
-
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedKeyword(keyword.trim()), 300);
     return () => clearTimeout(timer);
@@ -307,210 +294,158 @@ function FarmerManagementPage() {
   };
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6">
-      <Card className="border-dashed border-emerald-400/50">
-        <CardContent className="space-y-3 p-4 sm:p-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value)}
-                className="h-10 rounded-full border-muted pl-9"
-                placeholder="Tìm theo tên, SĐT, CCCD, tỉnh, giám sát viên..."
-              />
+    <div className="h-full min-h-0 flex flex-col gap-5 p-0 sm:p-0">
+      <DataGrid<FarmerResponse>
+        items={farmers}
+        title="Quản lý nông dân"
+        titleIcon={<Wheat className="size-4 text-primary" />}
+        description="Danh sách hồ sơ nông dân theo tenant Admin. Mở từng hồ sơ để cập nhật thông tin, giám sát viên và trạng thái."
+        keyExtractor={(row) => row.id}
+        renderCard={(row) => (
+          <button
+            type="button"
+            onClick={() => openEditSheet(row)}
+            className={cn(
+              "flex h-full w-full min-h-0 flex-col rounded-2xl border border-l-4 border-l-emerald-500 bg-linear-to-br from-white to-emerald-50/60 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md",
+              selected?.id === row.id && "ring-2 ring-emerald-200",
+            )}
+          >
+            <div className="flex shrink-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold text-slate-900">
+                  {row.fullName}
+                </p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">
+                  CCCD: {row.cccd}
+                </p>
+              </div>
+              <Badge variant={getStatusVariant(row.status)}>
+                {getStatusLabel(row.status)}
+              </Badge>
             </div>
+
+            <div className="mt-3 min-h-0 flex-1 space-y-1.5 text-sm text-muted-foreground">
+              <p className="inline-flex items-center gap-2">
+                <Phone className="h-4 w-4 shrink-0" />
+                {row.phone}
+              </p>
+              <p className="inline-flex items-center gap-2">
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span className="truncate">
+                  {row.province || "Chưa cập nhật tỉnh"}
+                </span>
+              </p>
+              <p className="inline-flex items-center gap-2">
+                <UserRound className="h-4 w-4 shrink-0" />
+                <span className="truncate">
+                  {row.supervisor?.user.fullName || "Chưa gán giám sát viên"}
+                </span>
+              </p>
+              <p className="truncate text-xs">
+                NH: {row.bankName || "Chưa cập nhật"}{" "}
+                {row.bankBranch ? `- ${row.bankBranch}` : ""}
+              </p>
+            </div>
+
+            <div className="mt-auto flex shrink-0 items-center gap-2 pt-3 text-xs text-muted-foreground">
+              <Badge variant="outline">Lô đất: {row._count.plots}</Badge>
+              <Badge variant="outline">
+                Hợp đồng: {row._count.contracts}
+              </Badge>
+            </div>
+          </button>
+        )}
+        isLoading={isLoading}
+        isAwaitingResults={isFetching && isPlaceholderData}
+        manualPagination
+        manualFiltering
+        pagination={{
+          page: currentPage,
+          pageSize: PAGE_LIMIT,
+          totalItems: total,
+          totalPages: Math.max(1, totalPages),
+          onPageChange: setCurrentPage,
+        }}
+        toolbar={{
+          search: {
+            value: keyword,
+            onChange: setKeyword,
+            debounceMs: 0,
+            placeholder: "Tìm theo tên, SĐT, CCCD, tỉnh, giám sát viên...",
+          },
+          filters: (
+            <>
+              <Button
+                variant={statusFilter === "ALL" ? "primary" : "outline"}
+                className="rounded-full"
+                onClick={() => setStatusFilter("ALL")}
+              >
+                Tất cả trạng thái
+              </Button>
+              <Button
+                variant={statusFilter === "ACTIVE" ? "primary" : "outline"}
+                className="rounded-full"
+                onClick={() => setStatusFilter("ACTIVE")}
+              >
+                Hoạt động
+              </Button>
+              <Button
+                variant={statusFilter === "INACTIVE" ? "primary" : "outline"}
+                className="rounded-full"
+                onClick={() => setStatusFilter("INACTIVE")}
+              >
+                Không hoạt động
+              </Button>
+
+              <select
+                value={supervisorFilter}
+                onChange={(event) => setSupervisorFilter(event.target.value)}
+                className="h-9 min-w-56 rounded-full border border-input bg-background px-3 text-sm"
+              >
+                <option value="ALL">Tất cả giám sát viên</option>
+                {supervisors.map((item) => (
+                  <option
+                    key={item.supervisorProfile?.id ?? item.id}
+                    value={item.supervisorProfile?.id ?? item.id}
+                  >
+                    {item.fullName}
+                  </option>
+                ))}
+              </select>
+            </>
+          ),
+          customActions: (
             <Button onClick={openCreateSheet} className="rounded-full">
               <Plus className="h-4 w-4" />
               Thêm nông dân
             </Button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant={statusFilter === "ALL" ? "primary" : "outline"}
-              className="rounded-full"
-              onClick={() => setStatusFilter("ALL")}
-            >
-              Tất cả trạng thái
-            </Button>
-            <Button
-              variant={statusFilter === "ACTIVE" ? "primary" : "outline"}
-              className="rounded-full"
-              onClick={() => setStatusFilter("ACTIVE")}
-            >
-              Hoạt động
-            </Button>
-            <Button
-              variant={statusFilter === "INACTIVE" ? "primary" : "outline"}
-              className="rounded-full"
-              onClick={() => setStatusFilter("INACTIVE")}
-            >
-              Không hoạt động
-            </Button>
-
-            <select
-              value={supervisorFilter}
-              onChange={(event) => setSupervisorFilter(event.target.value)}
-              className="h-9 min-w-56 rounded-full border border-input bg-background px-3 text-sm"
-            >
-              <option value="ALL">Tất cả giám sát viên</option>
-              {supervisors.map((item) => (
-                <option
-                  key={item.supervisorProfile?.id ?? item.id}
-                  value={item.supervisorProfile?.id ?? item.id}
-                >
-                  {item.fullName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>
-              Hiển thị {farmers.length} / {total} nông dân.
-            </span>
-            <span>Đang hoạt động: {activeCount}</span>
-            <span>Giới hạn mỗi trang: {PAGE_LIMIT}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="min-h-0 flex flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {isLoading ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-              {Array.from({ length: Math.min(PAGE_LIMIT, 12) }).map((_, index) => (
-                <FarmerCardSkeleton key={`admin-farmer-skeleton-${index}`} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-              {farmers.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  onClick={() => openEditSheet(row)}
-                  className={cn(
-                    "rounded-2xl border border-l-4 border-l-emerald-500 bg-linear-to-br from-white to-emerald-50/60 p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md",
-                    selected?.id === row.id && "ring-2 ring-emerald-200",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-semibold text-slate-900">
-                        {row.fullName}
-                      </p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        CCCD: {row.cccd}
-                      </p>
-                    </div>
-                    <Badge variant={getStatusVariant(row.status)}>
-                      {getStatusLabel(row.status)}
-                    </Badge>
-                  </div>
-
-                  <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                    <p className="inline-flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      {row.phone}
-                    </p>
-                    <p className="inline-flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      <span className="truncate">
-                        {row.province || "Chưa cập nhật tỉnh"}
-                      </span>
-                    </p>
-                    <p className="inline-flex items-center gap-2">
-                      <UserRound className="h-4 w-4" />
-                      <span className="truncate">
-                        {row.supervisor?.user.fullName ||
-                          "Chưa gán giám sát viên"}
-                      </span>
-                    </p>
-                    <p className="truncate text-xs">
-                      NH: {row.bankName || "Chưa cập nhật"}{" "}
-                      {row.bankBranch ? `- ${row.bankBranch}` : ""}
-                    </p>
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="outline">Lô đất: {row._count.plots}</Badge>
-                    <Badge variant="outline">
-                      Hợp đồng: {row._count.contracts}
-                    </Badge>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {!isLoading && farmers.length === 0 && (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Không có nông dân phù hợp với bộ lọc hiện tại.
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {!isLoading && totalPages > 0 && (
-          <div className="mt-3 border-t bg-background pt-3">
-            <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">
-                  Hiển thị {pageFrom}-{pageTo} / {total} nông dân
-                </span>
-              </div>
-
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Trang {currentPage} / {totalPages}
-                </span>
-                <div className="h-3 w-px bg-border" />
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={goFirstPage}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronsLeft className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={goPrevPage}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={goNextPage}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={goLastPage}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronsRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+          ),
+          summary: (
+            <>
+              <span>
+                Hiển thị {farmers.length} / {total} nông dân.
+              </span>
+              <span>Đang hoạt động: {activeCount}</span>
+              <span>Giới hạn mỗi trang: {PAGE_LIMIT}</span>
+            </>
+          ),
+        }}
+        emptyState={{
+          description: "Không có nông dân phù hợp với bộ lọc hiện tại.",
+        }}
+        skeleton={{
+          count: Math.min(PAGE_LIMIT, 12),
+          renderSkeletonCard: (index) => (
+            <FarmerCardSkeleton key={`admin-farmer-skeleton-${index}`} />
+          ),
+        }}
+        layout={{
+          minCardWidth: 280,
+          equalHeightCards: true,
+          itemWrapperClassName: "items-stretch",
+        }}
+        classNames={{ root: "h-full min-h-0", content: "min-h-0 flex-1" }}
+      />
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent

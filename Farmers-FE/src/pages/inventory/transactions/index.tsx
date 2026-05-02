@@ -66,16 +66,28 @@ export default function InventoryTransactionsPage() {
 
       {/* Main Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-        <DataTable
-          columns={columns}
-          data={transactions}
-          isLoading={isLoading || isFetching}
-          onReload={() => refetch()}
-          filterToolbar={filterToolbar}
-          customActions={customActions}
-          searchPlaceholder="Tìm kiếm sản phẩm..."
-        />
+        <div className="max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-hide">
+          <DataTable
+            columns={columns}
+            data={transactions}
+            isLoading={isLoading || isFetching}
+            onReload={() => refetch()}
+            filterToolbar={filterToolbar}
+            customActions={customActions}
+            searchPlaceholder="Tìm kiếm sản phẩm..."
+          />
+        </div>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}} />
 
       {/* Dialogs */}
       <CreateTransactionDialog 

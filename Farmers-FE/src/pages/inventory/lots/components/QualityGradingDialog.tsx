@@ -53,7 +53,7 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
     }
   };
 
-  const grades: QualityGrade[] = lot.status === 'RECEIVED' 
+  const grades: QualityGrade[] = (lot.status === 'RECEIVED' || lot.status === 'ARRIVED')
     ? ['A', 'B', 'C'] 
     : ['A', 'B', 'C', 'REJECT'];
 

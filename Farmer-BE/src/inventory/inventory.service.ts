@@ -500,6 +500,19 @@ export class InventoryService {
         },
       });
 
+      // Ghi log khởi tạo lô hàng vào Timeline
+      await tx.warehouseTransaction.create({
+        data: {
+          warehouseId: lot.warehouseId,
+          productId: lot.productId,
+          inventoryLotId: lot.id,
+          type: 'adjustment',
+          quantityKg: 0,
+          note: `[KHỞI TẠO] Lô hàng được tạo thủ công. Trạng thái: ${lotStatus === 'SCHEDULED' ? 'Dự kiến' : 'Chờ xác nhận'}.`,
+          createdBy: currentUser.id,
+        }
+      });
+
       // Nếu có reportId, cập nhật trạng thái báo cáo thu hoạch sang REVIEWED
       if (dto.reportId) {
         await tx.dailyReport.update({
@@ -574,6 +587,19 @@ export class InventoryService {
           harvestDate: new Date(),
           status: 'ARRIVED',
         },
+      });
+
+      // Ghi log thông báo hàng từ thực địa về kho
+      await tx.warehouseTransaction.create({
+        data: {
+          warehouseId,
+          productId: contract.product!.id,
+          inventoryLotId: lot.id,
+          type: 'adjustment',
+          quantityKg: 0,
+          note: `[THÔNG BÁO] Hàng từ thực địa về kho. Trạng thái: Chờ xác nhận. ${justification ? 'Lý do chênh lệch: ' + justification : ''}`,
+          createdBy: currentUser.id,
+        }
       });
 
       // B. Update Daily Report Status
@@ -710,8 +736,8 @@ export class InventoryService {
       select: { status: true }
     });
 
-    if (lot?.status === 'RECEIVED' && dto.qualityGrade === 'REJECT') {
-      throw new BadRequestException('Không thể loại bỏ (REJECT) lô hàng đã được xác nhận nhập kho');
+    if ((lot?.status === 'RECEIVED' || lot?.status === 'ARRIVED') && dto.qualityGrade === 'REJECT') {
+      throw new BadRequestException('Không thể sử dụng phẩm cấp REJECT. Vui lòng sử dụng chức năng "Từ chối lô hàng" để xử lý các lô hàng không đạt yêu cầu.');
     }
 
     return this.prisma.inventoryLot.update({
@@ -732,8 +758,8 @@ export class InventoryService {
       throw new NotFoundException('Không tìm thấy lô hàng hoặc bạn không có quyền chỉnh sửa');
     }
 
-    if (lot.status === 'RECEIVED' && dto.qualityGrade === 'REJECT') {
-      throw new BadRequestException('Không thể loại bỏ (REJECT) lô hàng đã được xác nhận nhập kho');
+    if ((lot.status === 'RECEIVED' || lot.status === 'ARRIVED') && dto.qualityGrade === 'REJECT') {
+      throw new BadRequestException('Không thể sử dụng phẩm cấp REJECT. Vui lòng sử dụng chức năng "Từ chối lô hàng" để xử lý các lô hàng không đạt yêu cầu.');
     }
 
     const now = new Date();

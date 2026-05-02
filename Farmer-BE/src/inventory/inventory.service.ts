@@ -500,19 +500,6 @@ export class InventoryService {
         },
       });
 
-      // Ghi log khởi tạo lô hàng vào Timeline
-      await tx.warehouseTransaction.create({
-        data: {
-          warehouseId: lot.warehouseId,
-          productId: lot.productId,
-          inventoryLotId: lot.id,
-          type: 'adjustment',
-          quantityKg: 0,
-          note: `[KHỞI TẠO] Lô hàng được tạo thủ công. Trạng thái: ${lotStatus === 'SCHEDULED' ? 'Dự kiến' : 'Chờ xác nhận'}.`,
-          createdBy: currentUser.id,
-        }
-      });
-
       // Nếu có reportId, cập nhật trạng thái báo cáo thu hoạch sang REVIEWED
       if (dto.reportId) {
         await tx.dailyReport.update({
@@ -587,19 +574,6 @@ export class InventoryService {
           harvestDate: new Date(),
           status: 'ARRIVED',
         },
-      });
-
-      // Ghi log thông báo hàng từ thực địa về kho
-      await tx.warehouseTransaction.create({
-        data: {
-          warehouseId,
-          productId: contract.product!.id,
-          inventoryLotId: lot.id,
-          type: 'adjustment',
-          quantityKg: 0,
-          note: `[THÔNG BÁO] Hàng từ thực địa về kho. Trạng thái: Chờ xác nhận. ${justification ? 'Lý do chênh lệch: ' + justification : ''}`,
-          createdBy: currentUser.id,
-        }
       });
 
       // B. Update Daily Report Status

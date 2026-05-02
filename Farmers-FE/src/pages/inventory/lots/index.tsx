@@ -11,6 +11,7 @@ import type { InventoryLot, GetLotsFilters } from './api/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmReceiptDialog } from './components/ConfirmReceiptDialog';
 import { RejectLotDialog } from './components/RejectLotDialog';
+import { QualityGradingDialog } from './components/QualityGradingDialog';
 
 export default function InventoryLotsPage() {
   const [selectedLot, setSelectedLot] = useState<InventoryLot | null>(null);
@@ -46,6 +47,7 @@ export default function InventoryLotsPage() {
 
   const [confirmLot, setConfirmLot] = useState<InventoryLot | null>(null);
   const [rejectLot, setRejectLot] = useState<InventoryLot | null>(null);
+  const [gradingLot, setGradingLot] = useState<InventoryLot | null>(null);
 
   const handleViewDetail = (lot: InventoryLot) => {
     setSelectedLot(lot);
@@ -56,6 +58,7 @@ export default function InventoryLotsPage() {
     onViewDetail: handleViewDetail,
     onConfirm: (lot: InventoryLot) => setConfirmLot(lot),
     onReject: (lot: InventoryLot) => setRejectLot(lot),
+    onUpdateGrade: (lot: InventoryLot) => setGradingLot(lot),
   };
 
   const inStockColumns = useMemo(() => createLotColumns({ ...columnsHandlers, mode: 'in-stock' }), []);
@@ -187,6 +190,15 @@ export default function InventoryLotsPage() {
           lot={rejectLot}
           isOpen={!!rejectLot}
           onClose={() => setRejectLot(null)}
+        />
+      )}
+
+      {/* Quality Grading Dialog */}
+      {gradingLot && (
+        <QualityGradingDialog
+          lot={gradingLot}
+          isOpen={!!gradingLot}
+          onClose={() => setGradingLot(null)}
         />
       )}
     </div>

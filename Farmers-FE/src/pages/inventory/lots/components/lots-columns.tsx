@@ -12,6 +12,7 @@ export function createLotColumns(handlers: {
   onViewDetail: (lot: InventoryLot) => void;
   onConfirm: (lot: InventoryLot) => void;
   onReject: (lot: InventoryLot) => void;
+  onUpdateGrade: (lot: InventoryLot) => void;
   mode?: 'in-stock' | 'pending' | 'upcoming';
 }) {
   const { mode = 'in-stock' } = handlers;
@@ -49,17 +50,31 @@ export function createLotColumns(handlers: {
           return <Badge variant="destructive" className="font-bold uppercase tracking-tighter">Reject</Badge>;
         }
         return (
-          <Badge 
-            variant="outline" 
+          <div 
             className={cn(
-              "font-bold px-2.5 py-0.5 rounded-full border-2",
-              grade === 'A' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
-              grade === 'B' ? "bg-blue-50 text-blue-700 border-blue-100" :
-              "bg-slate-50 text-slate-700 border-slate-200"
+              "flex items-center",
+              (row.original.status === 'ARRIVED' || row.original.status === 'RECEIVED') && "cursor-pointer group"
             )}
+            onClick={(e) => {
+              if (row.original.status === 'ARRIVED' || row.original.status === 'RECEIVED') {
+                e.stopPropagation();
+                handlers.onUpdateGrade(row.original);
+              }
+            }}
           >
-            Loại {grade}
-          </Badge>
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "font-bold px-2.5 py-0.5 rounded-full border-2 transition-all",
+                grade === 'A' ? "bg-emerald-50 text-emerald-700 border-emerald-100 group-hover:bg-emerald-100" :
+                grade === 'B' ? "bg-blue-50 text-blue-700 border-blue-100 group-hover:bg-blue-100" :
+                "bg-slate-50 text-slate-700 border-slate-200 group-hover:bg-slate-100",
+                (row.original.status === 'ARRIVED' || row.original.status === 'RECEIVED') && "group-hover:scale-105 active:scale-95"
+              )}
+            >
+              Loại {grade}
+            </Badge>
+          </div>
         );
       },
     },

@@ -145,3 +145,18 @@ export const useConfirmReceipt = () => {
     },
   });
 };
+
+export const useRejectLot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { lotId: string; reason: string }) => {
+      const response = await lotApi.rejectLot(data);
+      return extractData<InventoryLot>(response);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: lotKeys.all });
+      queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.lotId) });
+      queryClient.invalidateQueries({ queryKey: [...lotKeys.all, 'timeline', variables.lotId] });
+    },
+  });
+};

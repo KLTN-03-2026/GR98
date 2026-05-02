@@ -10,6 +10,7 @@ import { createLotColumns } from './components/lots-columns';
 import type { InventoryLot, GetLotsFilters } from './api/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmReceiptDialog } from './components/ConfirmReceiptDialog';
+import { RejectLotDialog } from './components/RejectLotDialog';
 
 export default function InventoryLotsPage() {
   const [selectedLot, setSelectedLot] = useState<InventoryLot | null>(null);
@@ -44,33 +45,22 @@ export default function InventoryLotsPage() {
   }, [lots]);
 
   const [confirmLot, setConfirmLot] = useState<InventoryLot | null>(null);
+  const [rejectLot, setRejectLot] = useState<InventoryLot | null>(null);
 
   const handleViewDetail = (lot: InventoryLot) => {
     setSelectedLot(lot);
     setIsDrawerOpen(true);
   };
 
-  const handleConfirm = (lot: InventoryLot) => {
-    setConfirmLot(lot);
+  const columnsHandlers = {
+    onViewDetail: handleViewDetail,
+    onConfirm: (lot: InventoryLot) => setConfirmLot(lot),
+    onReject: (lot: InventoryLot) => setRejectLot(lot),
   };
 
-  const inStockColumns = useMemo(() => createLotColumns({
-    onViewDetail: handleViewDetail,
-    onConfirm: handleConfirm,
-    mode: 'in-stock'
-  }), []);
-
-  const pendingColumns = useMemo(() => createLotColumns({
-    onViewDetail: handleViewDetail,
-    onConfirm: handleConfirm,
-    mode: 'pending'
-  }), []);
-
-  const upcomingColumns = useMemo(() => createLotColumns({
-    onViewDetail: handleViewDetail,
-    onConfirm: handleConfirm,
-    mode: 'upcoming'
-  }), []);
+  const inStockColumns = useMemo(() => createLotColumns({ ...columnsHandlers, mode: 'in-stock' }), []);
+  const pendingColumns = useMemo(() => createLotColumns({ ...columnsHandlers, mode: 'pending' }), []);
+  const upcomingColumns = useMemo(() => createLotColumns({ ...columnsHandlers, mode: 'upcoming' }), []);
 
   const filterToolbar = (
     <LotsFilterBar
@@ -188,6 +178,15 @@ export default function InventoryLotsPage() {
           lot={confirmLot}
           isOpen={!!confirmLot}
           onClose={() => setConfirmLot(null)}
+        />
+      )}
+
+      {/* Reject Lot Dialog */}
+      {rejectLot && (
+        <RejectLotDialog
+          lot={rejectLot}
+          isOpen={!!rejectLot}
+          onClose={() => setRejectLot(null)}
         />
       )}
     </div>

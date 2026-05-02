@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 export function createLotColumns(handlers: {
   onViewDetail: (lot: InventoryLot) => void;
   onConfirm: (lot: InventoryLot) => void;
+  onReject: (lot: InventoryLot) => void;
   mode?: 'in-stock' | 'pending' | 'upcoming';
 }) {
   const { mode = 'in-stock' } = handlers;
@@ -152,17 +153,30 @@ export function createLotColumns(handlers: {
       cell: ({ row }) => (
         <div className="flex justify-end gap-2">
           {row.original.status === 'ARRIVED' && (
-            <Button
-              variant="primary"
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 h-8 rounded-lg shadow-sm shadow-emerald-200"
-              onClick={(e) => {
-                e.stopPropagation();
-                handlers.onConfirm(row.original);
-              }}
-            >
-              Xác nhận
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlers.onReject(row.original);
+                }}
+              >
+                Từ chối
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 h-8 rounded-lg shadow-sm shadow-emerald-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlers.onConfirm(row.original);
+                }}
+              >
+                Xác nhận
+              </Button>
+            </>
           )}
           <Button
             variant="outline"

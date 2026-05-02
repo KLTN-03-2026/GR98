@@ -431,7 +431,8 @@ model InventoryLot {
   harvestDate  DateTime?
   expiryDate   DateTime?
   qualityGrade QualityGrade
-  status       InventoryLotStatus     @default(SCHEDULED)
+  status         InventoryLotStatus     @default(SCHEDULED)
+  rejectedReason String?
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
   contract     Contract?              @relation(fields: [contractId], references: [id])

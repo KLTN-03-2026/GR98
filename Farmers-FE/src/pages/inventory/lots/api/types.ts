@@ -11,6 +11,7 @@ export interface InventoryLot {
   harvestDate?: string;
   expiryDate?: string;
   status: InventoryLotStatus;
+  rejectedReason?: string;
   createdAt: string;
   updatedAt: string;
   

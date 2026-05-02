@@ -38,4 +38,9 @@ export const lotApi = {
       actualWeight: data.actualWeight, 
       note: data.note 
     }),
+
+  rejectLot: (data: { lotId: string; reason: string }) =>
+    apiPost<InventoryLot>(`/inventory/lots/${data.lotId}/reject`, {
+      reason: data.reason,
+    }),
 };

@@ -632,6 +632,48 @@ export class InventoryService {
     });
   }
 
+  async rejectLot(lotId: string, currentUser: InventoryUser, reason: string) {
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+    
+    return this.prisma.$transaction(async (tx) => {
+      const lot = await tx.inventoryLot.findUnique({
+        where: { id: lotId },
+        include: { warehouse: true }
+      });
+
+      if (!lot || lot.warehouse.adminId !== adminId) {
+        throw new NotFoundException('Không tìm thấy lô hàng');
+      }
+
+      if (lot.status !== 'ARRIVED' && lot.status !== 'SCHEDULED') {
+        throw new BadRequestException('Chỉ có thể từ chối lô hàng đang chờ nhập kho hoặc sắp về');
+      }
+
+      const updatedLot = await tx.inventoryLot.update({
+        where: { id: lotId },
+        data: {
+          status: 'REJECTED',
+          rejectedReason: reason,
+        }
+      });
+
+      // Ghi log vào giao dịch kho (loại adjustment với số lượng 0 để làm timeline)
+      await tx.warehouseTransaction.create({
+        data: {
+          warehouseId: lot.warehouseId,
+          productId: lot.productId,
+          inventoryLotId: lot.id,
+          type: 'adjustment',
+          quantityKg: 0,
+          note: `[TỪ CHỐI LÔ HÀNG] Lý do: ${reason}`,
+          createdBy: currentUser.id,
+        }
+      });
+
+      return updatedLot;
+    });
+  }
+
   async getLotById(id: string, currentUser: InventoryUser) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const lot = await this.prisma.inventoryLot.findUnique({

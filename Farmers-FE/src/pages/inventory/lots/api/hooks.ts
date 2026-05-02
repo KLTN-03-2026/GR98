@@ -128,3 +128,20 @@ export const useGetLotTimeline = (id: string) => {
     enabled: !!id,
   });
 };
+
+export const useConfirmReceipt = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { lotId: string; actualWeight: number; note?: string }) => {
+      const response = await lotApi.confirmReceipt(data);
+      return extractData<InventoryLot>(response);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: lotKeys.all });
+      queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.lotId) });
+      queryClient.invalidateQueries({ queryKey: [...lotKeys.all, 'timeline', variables.lotId] });
+      // Invalidate transactions as well since a transaction was created
+      queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] });
+    },
+  });
+};

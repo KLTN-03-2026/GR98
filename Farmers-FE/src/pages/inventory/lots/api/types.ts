@@ -1,4 +1,5 @@
 export type QualityGrade = 'A' | 'B' | 'C' | 'REJECT';
+export type InventoryLotStatus = 'SCHEDULED' | 'ARRIVED' | 'RECEIVED' | 'REJECTED';
 
 export interface InventoryLot {
   id: string;
@@ -9,6 +10,7 @@ export interface InventoryLot {
   qualityGrade: QualityGrade;
   harvestDate?: string;
   expiryDate?: string;
+  status: InventoryLotStatus;
   createdAt: string;
   updatedAt: string;
   
@@ -111,4 +113,10 @@ export interface GetLotsFilters {
   status?: 'upcoming' | 'in-stock' | 'empty';
   expiryStatus?: 'expiring-soon' | 'expired';
   contractId?: string;
+}
+
+export interface ConfirmReceiptInput {
+  lotId: string;
+  actualWeight: number;
+  note?: string;
 }

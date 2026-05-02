@@ -653,7 +653,6 @@ export class InventoryService {
         where: { id: lotId },
         data: {
           status: 'REJECTED',
-          rejectedReason: reason,
         }
       });
 

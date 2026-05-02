@@ -38,10 +38,10 @@ export default function InventoryTransactionsPage() {
   const customActions = (
     <Button 
       onClick={() => setIsDialogOpen(true)}
-      className="h-9 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold gap-2"
+      className="h-9 px-4 gap-2"
     >
       <Plus className="size-4" />
-      Tạo giao dịch
+      Điều chỉnh tồn kho
     </Button>
   );
 
@@ -59,7 +59,7 @@ export default function InventoryTransactionsPage() {
             </h1>
           </div>
           <p className="text-muted-foreground text-sm max-w-xl">
-            Theo dõi toàn bộ biến động nhập, xuất và điều chỉnh kho hàng theo thời gian thực.
+            Theo dõi biến động tồn kho: nhập hàng từ thu hoạch và thực hiện điều chỉnh số liệu kiểm kê thực tế.
           </p>
         </div>
       </div>

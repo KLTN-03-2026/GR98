@@ -98,6 +98,13 @@ export class ProductsService {
       where.adminId = adminId;
       if (query.status) where.status = query.status;
     }
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { sku: { contains: query.search, mode: 'insensitive' } },
+        { slug: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
     if (query.cropType) where.cropType = query.cropType;
     if (query.grade) where.grade = query.grade;
     if (query.categoryId) {

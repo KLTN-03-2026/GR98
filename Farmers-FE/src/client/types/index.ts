@@ -82,7 +82,7 @@ export interface Category {
   id: string;
   name: string;
   slug: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   sortOrder: number;
   productCount?: number;
 }

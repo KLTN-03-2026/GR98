@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { inventoryProductApi } from './api/product-api';
 import { productColumns } from './components/product-columns';
 import { extractData } from '@/client/lib/api-client';
+import { ProductFilters } from './components/ProductFilters';
 import type { Product, PaginatedResponse } from '@/client/types';
+import type { ProductQueryParams } from './api/product-api';
 import { CreateProductFromLotDialog } from './components/CreateProductFromLotDialog';
 import { ProductDialog } from './components/ProductDialog';
 import { useProductMutations } from './api/use-product-mutations';
@@ -16,17 +18,36 @@ export default function ProductsManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [filters, setFilters] = useState<ProductQueryParams>({
+    page: 1,
+    limit: 50, // Tăng limit để hiển thị nhiều hơn
+  });
 
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['products', 'internal'],
+    queryKey: ['products', 'internal', filters],
     queryFn: async () => {
-      const response = await inventoryProductApi.listInternal();
+      const response = await inventoryProductApi.listInternal(filters);
       return extractData<PaginatedResponse<Product>>(response);
     },
   });
 
   const { data: catData } = useCategories();
   const categories = catData?.data || [];
+
+  const handleFilterChange = (key: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: 1, // Reset về trang 1 khi lọc
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      page: 1,
+      limit: 50,
+    });
+  };
 
   const { createFromLot, updateProduct, deleteProduct } = useProductMutations();
 
@@ -94,6 +115,13 @@ export default function ProductsManagementPage() {
           </Button>
         </div>
       </div>
+
+      <ProductFilters
+        filters={filters}
+        categories={categories}
+        onFilterChange={handleFilterChange}
+        onClear={handleClearFilters}
+      />
 
       {/* Main Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">

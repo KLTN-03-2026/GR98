@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { PackageSearch, Plus, Coins, Tag, RefreshCcw, FilterX, MoreVertical, Edit2, Trash2, Power, Search } from 'lucide-react';
+import { PackageSearch, Coins, Tag, RefreshCcw, FilterX, MoreVertical, Edit2, Trash2, Power, Search } from 'lucide-react';
 import {
   usePriceBoards,
-  useCreatePriceBoard,
   useUpdatePriceBoard,
   useTogglePriceBoardActive,
   useDeletePriceBoard,
@@ -30,7 +29,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PriceBoardGradeBadge, PRICE_BOARD_GRADES } from './components/grade-badge';
 import { PriceBoardFormDialog } from './components/price-board-form-dialog';
 import { DeletePriceBoardDialog } from './components/delete-price-board-dialog';
-import { DataTable, DataTableColumnHeader } from '@/components/data-table';
+import { DataTable } from '@/components/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import { cn } from '@/lib/utils';
 
@@ -44,7 +43,6 @@ export default function PriceBoardsPage() {
   const [isActiveFilter, setIsActiveFilter] = useState<string>('all');
 
   // Dialog states
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editItem, setEditItem] = useState<PriceBoardResponse | null>(null);
   const [deleteItem, setDeleteItem] = useState<PriceBoardResponse | null>(null);
 
@@ -56,7 +54,6 @@ export default function PriceBoardsPage() {
     isActive: (isActiveFilter === 'all' ? undefined : isActiveFilter) || undefined,
   });
 
-  const createMutation = useCreatePriceBoard();
   const updateMutation = useUpdatePriceBoard();
   const toggleMutation = useTogglePriceBoardActive();
   const deleteMutation = useDeletePriceBoard();
@@ -171,7 +168,6 @@ export default function PriceBoardsPage() {
         onIsActiveFilterChange={(v) => { setIsActiveFilter(v); setPage(1); }}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        onOpenCreate={() => setIsCreateOpen(true)}
       />
 
       {/* DataTable Container */}
@@ -207,17 +203,6 @@ export default function PriceBoardsPage() {
       </div>
 
       {/* Dialogs */}
-      <PriceBoardFormDialog 
-        mode="create" 
-        open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        onSubmit={async (payload) => { 
-          await createMutation.mutateAsync(payload);
-          setIsCreateOpen(false);
-        }}
-        isLoading={createMutation.isPending}
-      />
-
       <PriceBoardFormDialog 
         mode="edit" 
         initial={editItem || undefined}

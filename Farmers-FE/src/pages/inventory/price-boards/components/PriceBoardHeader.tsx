@@ -1,6 +1,5 @@
 import { 
   Search, 
-  Plus, 
   FilterX, 
   RefreshCcw, 
   Coins,
@@ -28,7 +27,6 @@ interface PriceBoardHeaderProps {
   onIsActiveFilterChange: (value: string) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
-  onOpenCreate: () => void;
 }
 
 export function PriceBoardHeader({
@@ -40,7 +38,6 @@ export function PriceBoardHeader({
   onIsActiveFilterChange,
   onRefresh,
   isRefreshing,
-  onOpenCreate,
 }: PriceBoardHeaderProps) {
   return (
     <div className="space-y-6">
@@ -70,14 +67,6 @@ export function PriceBoardHeader({
               disabled={isRefreshing}
             >
               <RefreshCcw className={cn("size-4 text-slate-400", isRefreshing && "animate-spin")} />
-            </Button>
-            
-            <Button 
-              onClick={onOpenCreate} 
-              className="h-10 rounded-full px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <Plus className="size-4" />
-              <span className="text-sm">Tạo bảng giá</span>
             </Button>
           </div>
         </CardContent>

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import {
   Dialog,
@@ -79,15 +79,41 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
     return { currentBalance, delta, deviation };
   }, [currentLot, enteredQty]);
 
+  // Auto-generate note based on weight changes
+  useEffect(() => {
+    if (adjustmentInfo && adjustmentInfo.delta !== 0) {
+      const prefix = `[ĐIỀU CHỈNH KHỐI LƯỢNG] Từ ${adjustmentInfo.currentBalance.toLocaleString('vi-VN')} kg -> ${enteredQty.toLocaleString('vi-VN')} kg.`;
+      const currentNote = form.getValues('note') || '';
+      
+      // Clean up old prefix to prevent duplication
+      const cleanedNote = currentNote.replace(/\[ĐIỀU CHỈNH KHỐI LƯỢNG\] Từ [\d.,]+ kg -> [\d.,]+ kg\.\s*/g, '').trim();
+      
+      // If user typed something, keep it after the prefix
+      if (cleanedNote) {
+        form.setValue('note', `${prefix} Lý do: ${cleanedNote.replace(/^Lý do:\s*/, '')}`, { shouldValidate: true });
+      } else {
+        form.setValue('note', prefix, { shouldValidate: true });
+      }
+    }
+  }, [adjustmentInfo?.delta, enteredQty, form]);
+
   const onSubmit = (values: FormValues) => {
     if (!currentLot) {
       toast.error('Vui lòng chọn lô hàng');
       return;
     }
 
-    if (adjustmentInfo && adjustmentInfo.deviation > 0.05 && !values.note.trim()) {
-      toast.error('Khối lượng lệch > 5%. Vui lòng nhập lý do giải trình.');
+    if (adjustmentInfo?.delta === 0) {
+      toast.error('Khối lượng mới phải khác khối lượng hiện tại');
       return;
+    }
+
+    if (adjustmentInfo && adjustmentInfo.deviation > 0.05) {
+      const hasReason = values.note && values.note.includes('Lý do:');
+      if (!hasReason || values.note.split('Lý do:')[1].trim().length < 5) {
+        toast.error('Khối lượng lệch > 5%. Vui lòng nhập chi tiết lý do giải trình sau phần "Lý do:".');
+        return;
+      }
     }
 
     const payload: any = {
@@ -96,7 +122,7 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
       productId: currentLot.productId,
       quantityKg: parseFloat(String(values.quantityKg)),
       note: values.note,
-      type: 'adjustment',
+      type: 'ADJUSTMENT',
     };
 
     createMutation.mutate(payload, {

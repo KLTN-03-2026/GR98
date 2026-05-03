@@ -67,12 +67,16 @@ function toSlug(name: string): string {
 
 // ─── Category Form ────────────────────────────────────────────────────────────
 
+import { Checkbox } from '@/components/ui/checkbox';
+import { ShoppingBag } from 'lucide-react';
+
 interface CategoryFormData {
   name: string;
   slug: string;
   description: string;
   imageUrl: string;
   sortOrder: number;
+  isActive: boolean;
 }
 
 interface CategoryDialogProps {
@@ -96,6 +100,7 @@ function CategoryDialog({
     description: '',
     imageUrl: '',
     sortOrder: 0,
+    isActive: true,
   });
 
   // Sync form when category changes (edit mode)
@@ -108,6 +113,7 @@ function CategoryDialog({
           description: category.description ?? '',
           imageUrl: category.imageUrl ?? '',
           sortOrder: category.sortOrder,
+          isActive: category.isActive ?? true,
         });
       } else {
         setForm({
@@ -116,6 +122,7 @@ function CategoryDialog({
           description: '',
           imageUrl: '',
           sortOrder: 0,
+          isActive: true,
         });
       }
     }
@@ -137,128 +144,185 @@ function CategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md border-none shadow-2xl rounded-3xl overflow-hidden p-0 font-manrope">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader className="p-6 bg-slate-50/50 border-b border-slate-100">
-            <DialogTitle className="text-xl font-bold text-slate-900">
-              {mode === 'create' ? 'Thêm danh mục mới' : 'Chỉnh sửa danh mục'}
-            </DialogTitle>
-            <DialogDescription className="text-xs font-medium text-slate-400">
-              {mode === 'create'
-                ? 'Thiết lập danh mục sản phẩm mới cho hệ thống.'
-                : 'Cập nhật thông tin nhận diện cho danh mục sản phẩm.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="p-6 space-y-5">
-            {/* Name */}
-            <div className="space-y-1.5">
-              <Label htmlFor="cat-name" className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Tên danh mục <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                id="cat-name"
-                value={form.name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="Ví dụ: Trái cây nhiệt đới"
-                className="rounded-xl border-slate-200 h-10 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 font-bold"
-              />
-            </div>
-
-            {/* Slug */}
-            <div className="space-y-1.5">
-              <Label htmlFor="cat-slug" className="text-xs font-bold text-slate-500 uppercase tracking-wider">Định danh (Slug)</Label>
-              <div className="relative">
-                <Input
-                  id="cat-slug"
-                  value={form.slug}
-                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                  placeholder="trai-cay-nhiet-doi"
-                  className="rounded-xl border-slate-200 bg-slate-50/50 font-mono text-xs pl-8 h-10"
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-300 font-mono">/</span>
+      <DialogContent className="sm:max-w-2xl border-none shadow-2xl rounded-[2rem] overflow-hidden p-0 font-manrope">
+        <form onSubmit={handleSubmit} className="flex flex-col max-h-[90vh]">
+          <DialogHeader className="p-8 pb-6 bg-white shrink-0">
+            <div className="flex items-center gap-4 mb-2">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner">
+                <Layers className="size-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-bold text-slate-900 tracking-tight">
+                  {mode === 'create' ? 'Thêm danh mục mới' : 'Chỉnh sửa danh mục'}
+                </DialogTitle>
+                <DialogDescription className="text-sm font-medium text-slate-400 mt-1">
+                  {mode === 'create'
+                    ? 'Thiết lập danh mục sản phẩm mới để phân loại hàng hóa trong hệ thống.'
+                    : 'Cập nhật thông tin và trạng thái hiển thị cho danh mục sản phẩm.'}
+                </DialogDescription>
               </div>
             </div>
+          </DialogHeader>
 
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label htmlFor="cat-desc" className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mô tả</Label>
-              <textarea
-                id="cat-desc"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Nhập mô tả ngắn cho danh mục..."
-                className="w-full min-h-[100px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-medium placeholder:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 transition-all resize-none shadow-xs"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Image URL */}
-              <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label htmlFor="cat-image" className="text-xs font-bold text-slate-500 uppercase tracking-wider">Link ảnh</Label>
-                <div className="relative">
-                  <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
+          <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-6 custom-scrollbar">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Basic Info Section */}
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="cat-name" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">
+                    Tên danh mục <span className="text-rose-500">*</span>
+                  </Label>
                   <Input
-                    id="cat-image"
-                    value={form.imageUrl}
-                    onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                    placeholder="URL hình ảnh"
-                    className="pl-8 rounded-xl border-slate-200 h-10 text-xs"
+                    id="cat-name"
+                    value={form.name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder="Ví dụ: Trái cây nhiệt đới"
+                    className="rounded-2xl border-slate-200 h-12 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 font-bold text-slate-700 bg-slate-50/30 transition-all hover:bg-white"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cat-slug" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">
+                    Định danh (Slug)
+                  </Label>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-slate-300 font-mono group-focus-within:text-emerald-400 transition-colors">/</div>
+                    <Input
+                      id="cat-slug"
+                      value={form.slug}
+                      onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                      placeholder="trai-cay-nhiet-doi"
+                      className="rounded-2xl border-slate-200 bg-slate-50/50 font-mono text-xs pl-8 h-12 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cat-order" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">
+                      Thứ tự
+                    </Label>
+                    <Input
+                      id="cat-order"
+                      type="number"
+                      min={0}
+                      value={form.sortOrder}
+                      onChange={(e) =>
+                        setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })
+                      }
+                      className="rounded-2xl border-slate-200 h-12 font-mono font-bold text-center bg-slate-50/30"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Trạng thái</Label>
+                    <div 
+                      className={cn(
+                        "flex items-center gap-3 h-12 px-4 rounded-2xl border transition-all cursor-pointer select-none",
+                        form.isActive 
+                          ? "bg-emerald-50/50 border-emerald-100 text-emerald-700" 
+                          : "bg-slate-50 border-slate-200 text-slate-400"
+                      )}
+                      onClick={() => setForm({ ...form, isActive: !form.isActive })}
+                    >
+                      <Checkbox 
+                        checked={form.isActive} 
+                        onCheckedChange={(checked) => setForm({ ...form, isActive: !!checked })}
+                        className={cn("border-emerald-200 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600")}
+                      />
+                      <span className="text-xs font-bold uppercase tracking-widest">
+                        {form.isActive ? 'Hoạt động' : 'Tạm dừng'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Sort Order */}
-              <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label htmlFor="cat-order" className="text-xs font-bold text-slate-500 uppercase tracking-wider">Thứ tự</Label>
-                <Input
-                  id="cat-order"
-                  type="number"
-                  min={0}
-                  value={form.sortOrder}
-                  onChange={(e) =>
-                    setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })
-                  }
-                  className="rounded-xl border-slate-200 h-10 font-mono font-bold"
-                />
+              {/* Media & Description Section */}
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="cat-image" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Ảnh đại diện (URL)</Label>
+                  <div className="relative group">
+                    <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
+                    <Input
+                      id="cat-image"
+                      value={form.imageUrl}
+                      onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                      placeholder="https://..."
+                      className="pl-10 rounded-2xl border-slate-200 h-12 text-xs bg-slate-50/30 transition-all hover:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cat-desc" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Mô tả danh mục</Label>
+                  <textarea
+                    id="cat-desc"
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="Nhập mô tả ngắn gọn về nhóm sản phẩm này..."
+                    className="w-full min-h-[100px] rounded-2xl border border-slate-200 bg-slate-50/30 px-4 py-3 text-sm font-medium placeholder:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 transition-all resize-none"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Preview Section */}
-            {form.imageUrl && form.name && (
-              <div className="p-3 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/30">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-600 mb-2">Xem trước hiển thị</p>
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-16 rounded-xl overflow-hidden border border-white shadow-sm bg-slate-100 shrink-0">
-                    <img
-                      src={form.imageUrl}
-                      alt="preview"
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
+            {/* Premium Preview Section */}
+            {(form.name || form.imageUrl) && (
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-3xl blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
+                <div className="relative p-6 rounded-3xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-5">
+                    <div className="h-16 w-24 rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 shrink-0 shadow-inner">
+                      {form.imageUrl ? (
+                        <img
+                          src={form.imageUrl}
+                          alt="preview"
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-slate-200" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-lg font-bold text-slate-900 truncate">{form.name || 'Tên danh mục'}</p>
+                        {form.isActive && (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-none text-[8px] px-1.5 h-4">ACTIVE</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 font-medium line-clamp-2 italic leading-relaxed">
+                        {form.description || 'Chưa có mô tả chi tiết cho danh mục này...'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">{form.name}</p>
-                    <p className="text-[10px] text-slate-400 font-medium line-clamp-1">{form.description || 'Chưa có mô tả'}</p>
-                  </div>
+                  <div className="absolute right-0 top-0 h-full w-1.5 bg-emerald-500/10"></div>
                 </div>
               </div>
             )}
           </div>
 
-          <DialogFooter className="p-6 pt-0 gap-3 sm:gap-0">
+          <DialogFooter className="px-8 py-6 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between shrink-0">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="rounded-full h-10 px-6 font-bold text-slate-500"
+              className="rounded-full h-11 px-8 font-bold text-slate-400 hover:bg-white hover:text-slate-600 transition-all uppercase tracking-widest text-[10px]"
             >
               Hủy bỏ
             </Button>
-            <Button type="submit" className="rounded-full h-10 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/20">
-              {mode === 'create' ? 'Tạo danh mục' : 'Lưu cập nhật'}
+            <Button 
+              type="submit" 
+              className="rounded-full h-11 px-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xl shadow-emerald-500/20 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <ShoppingBag className="size-4" />
+              <span className="text-[10px] uppercase tracking-[0.15em]">
+                {mode === 'create' ? 'Tạo danh mục mới' : 'Lưu thay đổi'}
+              </span>
             </Button>
           </DialogFooter>
         </form>
@@ -499,6 +563,7 @@ export default function CategoriesAdminPage() {
                 <TableHead className="w-24 text-[10px] font-bold uppercase tracking-wider text-slate-500">Hình ảnh</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tên danh mục</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Slug</TableHead>
+                <TableHead className="w-24 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Trạng thái</TableHead>
                 <TableHead className="w-32 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Sản phẩm</TableHead>
                 <TableHead className="w-24 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Thứ tự</TableHead>
                 <TableHead className="w-32 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500 pr-6">Thao tác</TableHead>
@@ -603,6 +668,15 @@ export default function CategoriesAdminPage() {
                         <code className="text-[10px] font-mono font-bold bg-slate-50 px-2 py-0.5 rounded-md text-slate-400 border border-slate-100 group-hover:text-emerald-500 group-hover:bg-emerald-50 transition-all">
                           {cat.slug}
                         </code>
+                      </TableCell>
+                      
+                      {/* Status */}
+                      <TableCell className="text-center">
+                        {cat.isActive ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[8px] font-bold px-2 py-0.5">ACTIVE</Badge>
+                        ) : (
+                          <Badge className="bg-slate-100 text-slate-400 border-none text-[8px] font-bold px-2 py-0.5">DISABLED</Badge>
+                        )}
                       </TableCell>
 
                       {/* Product Count */}

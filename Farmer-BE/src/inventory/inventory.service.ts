@@ -1078,4 +1078,38 @@ export class InventoryService {
       ],
     };
   }
+
+  async getClients(currentUser: InventoryUser) {
+    const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
+    
+    return this.prisma.clientProfile.findMany({
+      where: {
+        OR: [
+          { adminId },
+          { adminId: null } // Bao gồm cả khách hàng vãng lai chưa gán admin cụ thể
+        ]
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            avatar: true,
+            status: true,
+            createdAt: true,
+          }
+        },
+        _count: {
+          select: {
+            orders: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+  }
 }

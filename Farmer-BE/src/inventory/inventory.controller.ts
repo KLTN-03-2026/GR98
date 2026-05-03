@@ -273,4 +273,12 @@ export class InventoryController {
   getPendingHarvests(@Request() req: { user: any }) {
     return this.inventoryService.getPendingHarvests(req.user);
   }
+
+  @Get('clients')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách khách hàng E-commerce' })
+  @ApiResponse({ status: 200, description: 'Danh sách khách hàng' })
+  getClients(@Request() req: { user: any }) {
+    return this.inventoryService.getClients(req.user);
+  }
 }

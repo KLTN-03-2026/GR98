@@ -35,6 +35,7 @@ import WarehouseDetailPage from '@/pages/inventory/warehouses/details';
 import InventoryLotsPage from '@/pages/inventory/lots';
 import InventoryTransactionsPage from '@/pages/inventory/transactions';
 import InventorySupplyDemandPage from '@/pages/inventory/supply-demand';
+import InventoryClientsPage from '@/pages/inventory/clients';
 
 import LoginPage from '@/pages/auth/login.page';
 import RegisterPage from '@/pages/auth/register.page';
@@ -372,6 +373,10 @@ const inventoryDashboard: RouteObject = {
     {
       path: 'price-boards',
       element: <InventoryPriceBoardsPage />,
+    },
+    {
+      path: 'clients',
+      element: <InventoryClientsPage />,
     },
   ],
 };

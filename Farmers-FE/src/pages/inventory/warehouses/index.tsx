@@ -152,7 +152,7 @@ export default function InventoryWarehousesPage() {
                     key={s.id}
                     onClick={() => setScaleFilter(s.id as ScaleFilter)}
                     className={cn(
-                      "px-3 py-1.5 text-[11px] font-bold rounded-full transition-all whitespace-nowrap",
+                      "px-4 py-1.5 text-xs font-bold rounded-full transition-all whitespace-nowrap",
                       scaleFilter === s.id 
                         ? "bg-primary text-primary-foreground shadow-sm" 
                         : "text-muted-foreground hover:text-foreground"
@@ -164,11 +164,11 @@ export default function InventoryWarehousesPage() {
               </div>
 
               <div className="relative flex items-center">
-                <Map className="absolute left-2.5 size-3.5 text-emerald-600 z-10" />
+                <Map className="absolute left-3 size-4 text-emerald-600 z-10" />
                 <select
                   value={regionFilter}
                   onChange={(event) => setRegionFilter(event.target.value)}
-                  className="h-9 min-w-[7rem] max-w-[10rem] rounded-full border border-slate-200 bg-white pl-8 pr-3 text-[11px] font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+                  className="h-9 min-w-[8rem] max-w-[12rem] rounded-full border border-slate-200 bg-white pl-9 pr-3 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
                 >
                   <option value="all">Khu vực</option>
                   {regions.map((region) => (
@@ -192,11 +192,11 @@ export default function InventoryWarehousesPage() {
           ),
           quickStats: (
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] text-sky-800">
+              <div className="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-sky-800">
                 <LayoutGrid className="size-3.5" />
                 <span className="font-bold">{warehouses.length} kho</span>
               </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-800">
+              <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
                 <Box className="size-3.5" />
                 <span className="font-bold">{totalLots} lô</span>
               </div>

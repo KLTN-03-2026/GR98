@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { CategoryFilters } from './CategoryFilters';
 import {
   Search,
   Plus,
@@ -215,17 +216,17 @@ function CategoryDialog({
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Trạng thái</Label>
-                    <div 
+                    <div
                       className={cn(
                         "flex items-center gap-3 h-12 px-4 rounded-2xl border transition-all cursor-pointer select-none",
-                        form.isActive 
-                          ? "bg-emerald-50/50 border-emerald-100 text-emerald-700" 
+                        form.isActive
+                          ? "bg-emerald-50/50 border-emerald-100 text-emerald-700"
                           : "bg-slate-50 border-slate-200 text-slate-400"
                       )}
                       onClick={() => setForm({ ...form, isActive: !form.isActive })}
                     >
-                      <Checkbox 
-                        checked={form.isActive} 
+                      <Checkbox
+                        checked={form.isActive}
                         onCheckedChange={(checked) => setForm({ ...form, isActive: !!checked })}
                         className={cn("border-emerald-200 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600")}
                       />
@@ -315,8 +316,8 @@ function CategoryDialog({
             >
               Hủy bỏ
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="rounded-full h-11 px-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xl shadow-emerald-500/20 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
               <ShoppingBag className="size-4" />
@@ -365,7 +366,7 @@ function DeleteConfirmDialog({
                   <div className="space-y-1">
                     <p className="text-xs font-bold text-rose-800 uppercase tracking-wider">Cảnh báo dữ liệu</p>
                     <p className="text-xs font-medium text-rose-600 leading-relaxed">
-                      Danh mục này đang chứa <strong>{category.productCount} sản phẩm</strong>. 
+                      Danh mục này đang chứa <strong>{category.productCount} sản phẩm</strong>.
                       Việc xóa danh mục sẽ khiến các sản phẩm này không còn thuộc nhóm nào.
                     </p>
                   </div>
@@ -396,6 +397,7 @@ function DeleteConfirmDialog({
 
 export default function CategoriesAdminPage() {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
@@ -403,6 +405,11 @@ export default function CategoriesAdminPage() {
   const [dragId, setDragId] = useState<string | null>(null);
 
   const { data, isLoading } = useCategories({ search: search || undefined, limit: 100 });
+  const categoriesRaw = data?.data ?? [];
+  const filteredCategories = categoriesRaw.filter(cat => {
+    const statusOk = statusFilter === 'all' || (statusFilter === 'active' ? cat.isActive : !cat.isActive);
+    return statusOk;
+  });
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
@@ -416,6 +423,11 @@ export default function CategoriesAdminPage() {
     setMode('create');
     setSelected(null);
     setDialogOpen(true);
+  };
+
+  // Wrapper to match CategoryFilters signature
+  const handleStatusChange = (value: 'all' | 'active' | 'inactive') => {
+    setStatusFilter(value);
   };
 
   const handleOpenEdit = (cat: CategoryResponse) => {
@@ -511,24 +523,19 @@ export default function CategoriesAdminPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative group min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
-              <Input
-                placeholder="Tìm danh mục..."
-                className="h-9 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <Button 
-              onClick={handleOpenCreate} 
-              className="h-9 rounded-full px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-            >
-              <Plus className="size-4" />
-              Thêm mới
-            </Button>
-          </div>
+          <CategoryFilters
+            search={search}
+            onSearchChange={setSearch}
+            status={statusFilter}
+            onStatusChange={handleStatusChange}
+          />
+          <Button
+            onClick={handleOpenCreate}
+            className="h-9 rounded-full px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+          >
+            <Plus className="size-4" />
+            Thêm mới
+          </Button>
         </CardContent>
       </Card>
 
@@ -587,7 +594,7 @@ export default function CategoriesAdminPage() {
                     <TableCell><Skeleton className="h-9 w-20 ml-auto rounded-full" /></TableCell>
                   </TableRow>
                 ))
-              ) : categories.length === 0 ? (
+              ) : filteredCategories.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-80 text-center">
                     <div className="flex flex-col items-center justify-center py-20">
@@ -609,7 +616,7 @@ export default function CategoriesAdminPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                categories
+                filteredCategories
                   .sort((a, b) => a.sortOrder - b.sortOrder)
                   .map((cat) => (
                     <TableRow
@@ -630,7 +637,7 @@ export default function CategoriesAdminPage() {
                           <GripVertical className="h-4 w-4 text-slate-200 group-hover:text-emerald-400 transition-colors cursor-grab active:cursor-grabbing" />
                         </div>
                       </TableCell>
-                      
+
                       {/* Image */}
                       <TableCell>
                         <div className="relative h-10 w-14 rounded-xl overflow-hidden border border-slate-100 bg-slate-50 shadow-xs">
@@ -669,7 +676,7 @@ export default function CategoriesAdminPage() {
                           {cat.slug}
                         </code>
                       </TableCell>
-                      
+
                       {/* Status */}
                       <TableCell className="text-center">
                         {cat.isActive ? (
@@ -681,8 +688,8 @@ export default function CategoriesAdminPage() {
 
                       {/* Product Count */}
                       <TableCell className="text-center">
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={cn(
                             'rounded-lg px-2 h-6 font-bold shadow-none border-none tabular-nums',
                             cat.productCount ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 text-slate-400'

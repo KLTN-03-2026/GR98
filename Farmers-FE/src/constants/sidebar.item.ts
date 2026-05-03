@@ -49,7 +49,7 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
 
             // Contract & Monitoring
             { icon: Warehouse, label: 'Giám sát Kho hàng', category: 'system', path: `${basePath}/warehouses` },
-            { icon: ReceiptText, label: 'Giám sát Đơn hàng', category: 'system', path: `${basePath}/orders` },
+            { icon: ReceiptText, label: 'Đơn hàng & Thanh toán', category: 'system', path: `${basePath}/orders` },
         ];
     }
 
@@ -81,7 +81,7 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
 
         { icon: Package, label: 'Sản phẩm (ECM)', category: 'system', path: `${basePath}/products` },
         { icon: Boxes, label: 'Danh mục', category: 'system', path: `${basePath}/categories` },
-        { icon: ReceiptText, label: 'Đơn hàng (ECM)', category: 'system', path: `${basePath}/orders` },
+        { icon: ReceiptText, label: 'Đơn hàng & Thanh toán', category: 'system', path: `${basePath}/orders` },
         { icon: BookOpenCheck, label: 'Bảng giá', category: 'system', path: `${basePath}/price-boards` },
         { icon: BookOpenCheck, label: 'Reviews', category: 'system', path: `${basePath}/reviews` },
         { icon: Users, label: 'Khách hàng (ECM)', category: 'system', path: `${basePath}/clients` },

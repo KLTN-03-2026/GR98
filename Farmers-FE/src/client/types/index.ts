@@ -179,7 +179,14 @@ export interface OrderItem {
   quantityKg: number;
   subtotal: number;
   productImage?: string;
-  product?: { id: string; imageUrls: string[]; thumbnailUrl: string | null };
+  product?: {
+    id: string;
+    sku: string | null;
+    category: string | null;
+    qualityGrade: string | null;
+    imageUrls: string[];
+    thumbnailUrl: string | null;
+  };
 }
 
 export interface Order {

@@ -26,6 +26,7 @@ import SupervisorAIAnalysisPage from '@/pages/supervisor/ai-analysis';
 import SupervisorDailyReportsPage from '@/pages/supervisor/daily-reports';
 
 import InventoryOrdersPage from '@/pages/inventory/orders';
+import InventoryOrderDetailPage from '@/pages/inventory/orders/detail.page';
 import InventoryProductsPage from '@/pages/inventory/products';
 import InventoryCategoriesPage from '@/pages/inventory/categories';
 import InventoryPriceBoardsPage from '@/pages/inventory/price-boards';
@@ -370,6 +371,10 @@ const inventoryDashboard: RouteObject = {
     {
       path: 'orders',
       element: <InventoryOrdersPage />,
+    },
+    {
+      path: 'orders/:id',
+      element: <InventoryOrderDetailPage />,
     },
     {
       path: 'price-boards',

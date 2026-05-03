@@ -1,5 +1,18 @@
-import { useState } from 'react';
-import { PackageSearch, Coins, Tag, RefreshCcw, FilterX, MoreVertical, Edit2, Trash2, Power, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { 
+    PackageSearch, 
+    Coins, 
+    Tag, 
+    RefreshCw, 
+    FilterX, 
+    MoreVertical, 
+    Edit2, 
+    Trash2, 
+    Power, 
+    Search,
+    Plus,
+    X
+} from 'lucide-react';
 import {
   usePriceBoards,
   useUpdatePriceBoard,
@@ -24,16 +37,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 
 // Sub-components
 import { PriceBoardGradeBadge, PRICE_BOARD_GRADES } from './components/grade-badge';
-import { PriceBoardFormDialog } from './components/price-board-form-dialog';
+import { PriceBoardFormDrawer } from './components/price-board-form-dialog';
 import { DeletePriceBoardDialog } from './components/delete-price-board-dialog';
 import { DataTable } from '@/components/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import { cn } from '@/lib/utils';
-
-import { PriceBoardHeader } from './components/PriceBoardHeader';
 
 export default function PriceBoardsPage() {
   const [page, setPage] = useState(1);
@@ -42,7 +54,7 @@ export default function PriceBoardsPage() {
   const [gradeFilter, setGradeFilter] = useState<string>('all');
   const [isActiveFilter, setIsActiveFilter] = useState<string>('all');
 
-  // Dialog states
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<PriceBoardResponse | null>(null);
   const [deleteItem, setDeleteItem] = useState<PriceBoardResponse | null>(null);
 
@@ -62,27 +74,27 @@ export default function PriceBoardsPage() {
   const totalPages = data?.totalPages ?? 1;
   const total = data?.total ?? 0;
 
-  const columns: ColumnDef<PriceBoardResponse>[] = [
+  const columns = useMemo<ColumnDef<PriceBoardResponse>[]>(() => [
     {
       accessorKey: 'cropType',
-      header: () => <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400">Loại nông sản</span>,
+      header: 'Loại nông sản',
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-            <Tag className="size-3.5" />
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/8 text-primary">
+            <Tag className="size-4" />
           </div>
-          <span className="font-bold text-sm text-slate-900 line-clamp-1">{row.original.cropType}</span>
+          <span className="font-semibold text-sm text-slate-900">{row.original.cropType}</span>
         </div>
       ),
     },
     {
       accessorKey: 'grade',
-      header: () => <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400">Phẩm cấp</span>,
+      header: 'Phẩm cấp',
       cell: ({ row }) => <PriceBoardGradeBadge grade={row.original.grade} />,
     },
     {
       accessorKey: 'buyPrice',
-      header: () => <div className="text-right text-[10px] font-bold uppercase tracking-tight text-slate-400">Giá mua</div>,
+      header: () => <div className="text-right w-full">Giá mua đề xuất</div>,
       cell: ({ row }) => (
         <div className="text-right font-bold tabular-nums text-emerald-600">
           {row.original.buyPrice.toLocaleString('vi-VN')} đ
@@ -91,24 +103,24 @@ export default function PriceBoardsPage() {
     },
     {
       accessorKey: 'sellPrice',
-      header: () => <div className="text-right text-[10px] font-bold uppercase tracking-tight text-slate-400">Giá bán</div>,
+      header: () => <div className="text-right w-full">Giá bán niêm yết</div>,
       cell: ({ row }) => (
-        <div className="text-right font-bold tabular-nums text-blue-600">
+        <div className="text-right font-bold tabular-nums text-primary">
           {row.original.sellPrice.toLocaleString('vi-VN')} đ
         </div>
       ),
     },
     {
       accessorKey: 'isActive',
-      header: () => <div className="text-center text-[10px] font-bold uppercase tracking-tight text-slate-400">Trạng thái</div>,
+      header: () => <div className="text-center w-full">Trạng thái</div>,
       cell: ({ row }) => (
         <div className="flex justify-center">
           <Badge
             variant="outline"
             className={cn(
-              "rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-none border-none",
+              "rounded-lg border-transparent font-bold uppercase text-[9px] tracking-widest px-2 py-0.5",
               row.original.isActive 
-                ? "bg-emerald-500/10 text-emerald-700" 
+                ? "bg-emerald-50 text-emerald-700" 
                 : "bg-slate-100 text-slate-400"
             )}
           >
@@ -120,24 +132,24 @@ export default function PriceBoardsPage() {
     {
       id: 'actions',
       cell: ({ row }) => (
-        <div className="text-right">
+        <div className="flex justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="size-8 p-0 rounded-full transition-all hover:bg-slate-100 hover:shadow-sm">
+              <Button variant="ghost" className="size-8 p-0 rounded-lg hover:bg-slate-100">
                 <MoreVertical className="size-4 text-slate-400" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200 shadow-xl p-1">
               <DropdownMenuItem 
                 onClick={() => setEditItem(row.original)}
-                className="gap-2.5 cursor-pointer rounded-lg py-2 font-bold text-xs"
+                className="gap-2.5 cursor-pointer rounded-lg py-2 font-semibold text-xs"
               >
-                <Edit2 className="size-3.5 text-emerald-600" />
+                <Edit2 className="size-3.5 text-blue-600" />
                 <span>Chỉnh sửa bảng giá</span>
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => toggleMutation.mutateAsync(row.original.id)}
-                className="gap-2.5 cursor-pointer rounded-lg py-2 font-bold text-xs"
+                className="gap-2.5 cursor-pointer rounded-lg py-2 font-semibold text-xs"
                 disabled={toggleMutation.isPending}
               >
                 <Power className={cn("size-3.5", row.original.isActive ? "text-amber-500" : "text-emerald-500")} />
@@ -145,65 +157,159 @@ export default function PriceBoardsPage() {
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => setDeleteItem(row.original)}
-                className="gap-2.5 cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50 rounded-lg py-2 font-bold text-xs"
+                className="gap-2.5 cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50 rounded-lg py-2 font-semibold text-xs"
               >
                 <Trash2 className="size-3.5" />
-                <span>Xóa bảng giá này</span>
+                <span>Xóa bảng giá</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       ),
     },
-  ];
+  ], [toggleMutation]);
 
-  return (
-    <div className="h-full min-h-0 flex flex-col gap-6 p-6 font-manrope bg-slate-50/20">
-      <PriceBoardHeader 
-        search={search}
-        onSearchChange={(v) => { setSearch(v); setPage(1); }}
-        gradeFilter={gradeFilter}
-        onGradeFilterChange={(v) => { setGradeFilter(v); setPage(1); }}
-        isActiveFilter={isActiveFilter}
-        onIsActiveFilterChange={(v) => { setIsActiveFilter(v); setPage(1); }}
-        onRefresh={() => refetch()}
-        isRefreshing={isFetching}
-      />
-
-      {/* DataTable Container */}
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <DataTable
-          columns={columns}
-          data={items}
-          isLoading={isLoading}
-          manualPagination
-          pageCount={totalPages}
-          totalItems={total}
-          onPaginationChange={(updater) => {
-            const next = typeof updater === 'function' ? updater({ pageIndex: page - 1, pageSize: limit }) : updater;
-            setPage(next.pageIndex + 1);
-            setLimit(next.pageSize);
-          }}
-          state={{ pagination: { pageIndex: page - 1, pageSize: limit } }}
-          pageSizeOptions={[10, 15, 20, 30, 50]}
-          className="h-full flex flex-col"
-          tableClassName="rounded-[2rem] border border-slate-200/60 shadow-sm overflow-hidden bg-white"
-          noResults={
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="mb-4 rounded-full bg-slate-50 p-6 border border-dashed border-slate-200">
-                <PackageSearch className="size-10 text-slate-300" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 tracking-tight">Không tìm thấy bảng giá</h3>
-              <p className="text-xs text-slate-400 mt-1 max-w-[280px] mx-auto leading-relaxed">
-                Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để tìm bảng giá phù hợp.
-              </p>
-            </div>
-          }
-        />
+  const filterToolbar = (
+    <div className="flex flex-wrap items-end gap-3 w-full">
+      <div className="space-y-1.5 min-w-[240px] flex-1 max-w-sm">
+        <Label className="text-xs font-medium">Loại nông sản</Label>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm theo tên..."
+            className="pl-8 h-9 rounded-md text-sm"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          />
+        </div>
       </div>
 
+      <div className="space-y-1.5 min-w-[150px]">
+        <Label className="text-xs font-medium">Phẩm cấp</Label>
+        <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setPage(1); }}>
+          <SelectTrigger className="h-9 rounded-md text-xs">
+            <SelectValue placeholder="Tất cả phẩm cấp" />
+          </SelectTrigger>
+          <SelectContent className="rounded-md">
+            <SelectItem value="all">Tất cả phẩm cấp</SelectItem>
+            {PRICE_BOARD_GRADES.map((g) => (
+              <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1.5 min-w-[150px]">
+        <Label className="text-xs font-medium">Trạng thái</Label>
+        <Select value={isActiveFilter} onValueChange={(v) => { setIsActiveFilter(v); setPage(1); }}>
+          <SelectTrigger className="h-9 rounded-md text-xs">
+            <SelectValue placeholder="Tất cả" />
+          </SelectTrigger>
+          <SelectContent className="rounded-md">
+            <SelectItem value="all">Tất cả trạng thái</SelectItem>
+            <SelectItem value="true">Hoạt động</SelectItem>
+            <SelectItem value="false">Tạm dừng</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {(search || gradeFilter !== 'all' || isActiveFilter !== 'all') && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9 px-3 text-xs text-muted-foreground hover:text-rose-600"
+          onClick={() => {
+            setSearch('');
+            setGradeFilter('all');
+            setIsActiveFilter('all');
+            setPage(1);
+          }}
+        >
+          <X className="mr-2 h-4 w-4" />
+          Xóa lọc
+        </Button>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto font-manrope animate-in fade-in duration-500">
+      {/* Header Section - Admin Style */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-1">
+            <div className="flex items-center gap-2">
+                <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8 text-primary">
+                    <Coins className="size-4" />
+                </div>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                    Bảng giá Nông sản
+                </h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+                Quản lý và điều phối giá mua/bán nông sản niêm yết trên hệ thống.
+            </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-xl border-slate-200"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            <RefreshCw className={cn("size-4 text-slate-400", isFetching && "animate-spin")} />
+          </Button>
+          <Button
+            size="sm"
+            className="h-9 rounded-xl px-4 font-bold"
+            onClick={() => setIsAddOpen(true)}
+          >
+            <Plus className="size-4 mr-2" />
+            Tạo bảng giá
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <DataTable
+            columns={columns}
+            data={items}
+            isLoading={isLoading || isFetching}
+            onReload={() => refetch()}
+            hiddenSearch
+            enableSorting={false}
+            manualPagination
+            pageCount={totalPages}
+            totalItems={total}
+            onPaginationChange={(updater) => {
+                const next = typeof updater === 'function' ? updater({ pageIndex: page - 1, pageSize: limit }) : updater;
+                setPage(next.pageIndex + 1);
+                setLimit(next.pageSize);
+            }}
+            state={{ pagination: { pageIndex: page - 1, pageSize: limit } }}
+            pageSizeOptions={[10, 15, 20, 30, 50]}
+            filterToolbar={filterToolbar}
+            noResults={<span className="text-muted-foreground">Không tìm thấy dữ liệu bảng giá phù hợp.</span>}
+          />
+        </CardContent>
+      </Card>
+
       {/* Dialogs */}
-      <PriceBoardFormDialog 
+      <PriceBoardFormDrawer 
+        mode="create"
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        onSubmit={async (payload) => {
+            // Logic for creation
+            console.log('Create price board', payload);
+            setIsAddOpen(false);
+        }}
+        isLoading={false}
+      />
+
+      <PriceBoardFormDrawer 
         mode="edit" 
         initial={editItem || undefined}
         open={!!editItem}

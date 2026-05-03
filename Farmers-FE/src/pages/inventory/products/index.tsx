@@ -9,7 +9,7 @@ import { extractData } from '@/client/lib/api-client';
 import { ProductFilters } from './components/ProductFilters';
 import type { Product, PaginatedResponse } from '@/client/types';
 import type { ProductQueryParams } from './api/product-api';
-import { CreateProductFromLotDialog } from './components/CreateProductFromLotDialog';
+import { CreateProductFromLotDrawer } from './components/CreateProductFromLotDialog';
 import { ProductDialog } from './components/ProductDialog';
 import { useProductMutations } from './api/use-product-mutations';
 import { useCategories } from '@/client/api/categories/use-categories';
@@ -140,7 +140,7 @@ export default function ProductsManagementPage() {
         </div>
       </div>
 
-      <CreateProductFromLotDialog
+      <CreateProductFromLotDrawer
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         onSubmit={handleCreateFromLot}

@@ -97,6 +97,7 @@ export const useUpdateLot = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: lotKeys.all });
       queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: [...lotKeys.all, 'timeline', variables.id] });
     },
   });
 };

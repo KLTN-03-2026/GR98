@@ -738,8 +738,10 @@ export class InventoryService {
     }
 
     const now = new Date();
-    if (lot.harvestDate && lot.harvestDate > now) {
-      throw new BadRequestException('Không thể cập nhật thông tin cho lô hàng chưa về kho (dự kiến)');
+    // Chỉ chặn cập nhật nếu lô hàng là dự kiến (SCHEDULED) VÀ đang cố gắng thay đổi các thông tin không phải phẩm cấp/hạn dùng
+    // Nếu là cập nhật phẩm cấp hoặc hạn dùng, chúng ta coi đó là hiệu chỉnh thông tin (Correction) nên cho phép.
+    if (lot.status === 'SCHEDULED' && (dto.harvestDate)) {
+      throw new BadRequestException('Không thể cập nhật ngày thu hoạch cho lô hàng dự kiến. Vui lòng thực hiện tại mục quản lý hợp đồng/thu hoạch.');
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -763,7 +765,7 @@ export class InventoryService {
             type: TransactionType.ADJUSTMENT,
             action: TransactionAction.GRADE_UPDATE,
             quantityKg: 0,
-            note: `[CẬP NHẬT PHẨM CẤP] Thay đổi từ Loại ${lot.qualityGrade} sang Loại ${dto.qualityGrade}. ${dto.reason || ''}`,
+            note: `[CẬP NHẬT PHẨM CẤP] Thay đổi từ Loại ${lot.qualityGrade} sang Loại ${dto.qualityGrade}. Lý do: ${dto.reason || 'Không có lý do chi tiết'}`,
             createdBy: currentUser.id,
           },
         });

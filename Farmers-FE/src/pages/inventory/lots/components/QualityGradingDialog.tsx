@@ -28,6 +28,21 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
   const [reason, setReason] = React.useState('');
   const updateLot = useUpdateLot();
 
+  // Tự động ghi giá trị cập nhật vào note
+  React.useEffect(() => {
+    if (selectedGrade !== lot.qualityGrade) {
+      const prefix = `[CẬP NHẬT PHẨM CẤP] Từ Loại ${lot.qualityGrade} -> Loại ${selectedGrade}. Lý do: `;
+      setReason(prev => {
+        // Lấy ra phần người dùng đã tự gõ (nếu có) bằng cách xóa prefix cũ
+        const userText = prev.replace(/^\[CẬP NHẬT PHẨM CẤP\] Từ Loại .*? -> Loại .*?\. Lý do: /, '');
+        return prefix + userText;
+      });
+    } else {
+      // Xóa prefix nếu chọn lại phẩm cấp cũ
+      setReason(prev => prev.replace(/^\[CẬP NHẬT PHẨM CẤP\] Từ Loại .*? -> Loại .*?\. Lý do: /, ''));
+    }
+  }, [selectedGrade, lot.qualityGrade]);
+
   const handleSave = async () => {
     if (selectedGrade === lot.qualityGrade) {
       toast.error('Vui lòng chọn phẩm cấp khác với phẩm cấp hiện tại');
@@ -140,10 +155,18 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-100">
               <AlertCircle className="size-4 text-amber-600 mt-0.5 shrink-0" />
               <p className="text-[10px] text-amber-700 leading-normal italic">
-                Lưu ý: Thay đổi phẩm cấp sẽ được ghi lại trong nhật ký biến động của lô hàng để phục vụ truy xuất nguồn gốc.
+                Lưu ý: Thay đổi phẩm cấp sẽ được ghi lại trong nhật ký biến động của lô hàng để phục vụ truy xuất nguồn gốc. Hệ thống đã tự động điền giá trị thay đổi vào phần ghi chú.
               </p>
             </div>
           </div>
+          
+          {selectedGrade === lot.qualityGrade && (
+            <div className="text-center p-2 rounded-lg bg-rose-50 border border-rose-100">
+              <p className="text-xs font-semibold text-rose-600">
+                ⚠️ Vui lòng chọn một phẩm cấp khác với phẩm cấp hiện tại để cập nhật.
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 sm:gap-0">

@@ -1,6 +1,6 @@
 import { apiGet, apiPost, apiPatch } from '@/client/lib/api-client';
 import type { Product } from '@/client/types';
-import type { InventoryLot, LotTrace, CreateLotInput, PendingHarvest, LotTransaction, GetLotsFilters } from './types';
+import type { InventoryLot, LotTrace, CreateLotInput, UpdateLotInput, PendingHarvest, LotTransaction, GetLotsFilters } from './types';
 
 export const lotApi = {
   getLots: (params: GetLotsFilters) =>
@@ -12,7 +12,7 @@ export const lotApi = {
   getLotById: (id: string) =>
     apiGet<LotTrace>(`/inventory/lots/${id}`),
 
-  updateLot: (id: string, data: Partial<InventoryLot> & { note?: string }) =>
+  updateLot: (id: string, data: UpdateLotInput) =>
     apiPatch<InventoryLot>(`/inventory/lots/${id}`, data),
 
   createTransaction: (data: any) =>

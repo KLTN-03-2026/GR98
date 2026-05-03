@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/client/lib/api-client';
-import { ReviewStatus } from '@/client/types';
+import type { ReviewStatus } from '@/client/types';
 
 // ============================================================
 // REVIEW API ENDPOINTS

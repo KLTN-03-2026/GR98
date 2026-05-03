@@ -45,7 +45,7 @@ export class ReviewsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.INVENTORY)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Xóa đánh giá' })
   remove(@Param('id') id: string) {

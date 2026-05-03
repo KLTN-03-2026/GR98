@@ -15,6 +15,7 @@ export interface InventoryLot {
   updatedAt: string;
   
   // Virtual fields from BE
+  initialWeight?: number;
   isUpcoming?: boolean;
   isExpired?: boolean;
   isExpiringSoon?: boolean;

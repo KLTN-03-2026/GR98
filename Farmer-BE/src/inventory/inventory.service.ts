@@ -408,42 +408,23 @@ export class InventoryService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Tính toán số dư thực tế cho từng lô
-    const enrichedLots = await Promise.all(
-      lots.map(async (lot) => {
-        const targetWarehouseId = filters.warehouseId || lot.warehouseId;
-        const aggregate = await this.prisma.warehouseTransaction.aggregate({
-          where: {
-            inventoryLotId: lot.id,
-            warehouseId: targetWarehouseId,
-          },
-          _sum: { quantityKg: true },
-        });
+    // Cấu trúc lại kết quả trả về với hiệu năng cao (O(1) time)
+    const enrichedLots = lots.map((lot) => {
+      const isUpcoming = lot.status === 'SCHEDULED' || (lot.harvestDate && lot.harvestDate > now);
+      
+      // Tính trạng thái hết hạn
+      const isExpired = lot.expiryDate && new Date(lot.expiryDate) < now;
+      const isExpiringSoon = lot.expiryDate && !isExpired
+        && new Date(lot.expiryDate) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-        const isUpcoming = lot.status === 'SCHEDULED' || (lot.harvestDate && lot.harvestDate > now);
-        
-        // Logic tính toán số lượng:
-        // - Nếu là hàng Sắp về/Chờ nhập: Lấy số lượng dự tính từ field quantityKg trong DB
-        // - Nếu là hàng Đã vào kho: Tính toán dựa trên các giao dịch thực tế (Transactions)
-        const quantityKg = (lot.status === 'SCHEDULED' || lot.status === 'ARRIVED')
-          ? lot.quantityKg
-          : (aggregate._sum.quantityKg || 0);
-
-        // Tính trạng thái hết hạn
-        const isExpired = lot.expiryDate && new Date(lot.expiryDate) < now;
-        const isExpiringSoon = lot.expiryDate && !isExpired
-          && new Date(lot.expiryDate) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-        return {
-          ...lot,
-          quantityKg,
-          isUpcoming,
-          isExpired,
-          isExpiringSoon,
-          statusLabel: isUpcoming ? 'Dự kiến' : quantityKg <= 0 ? 'Đã hết' : 'Trong kho',
-        };
-      }),
-    );
+      return {
+        ...lot,
+        isUpcoming,
+        isExpired,
+        isExpiringSoon,
+        statusLabel: isUpcoming ? 'Dự kiến' : lot.quantityKg <= 0 ? 'Đã hết' : 'Trong kho',
+      };
+    });
 
     // Lọc hậu xử lý cho trạng thái 'empty' (cần quantityKg đã tính)
     if (filters.status === 'empty') {
@@ -698,8 +679,22 @@ export class InventoryService {
     const now = new Date();
     const isUpcoming = lot.harvestDate && lot.harvestDate > now;
 
+    // Lấy khối lượng ban đầu từ giao dịch đầu tiên (cũ nhất)
+    let initialWeight = lot.quantityKg; // fallback
+    if (lot.transactions && lot.transactions.length > 0) {
+      // Tìm giao dịch đầu tiên theo thời gian
+      const firstTransaction = [...lot.transactions].sort((a, b) => 
+        a.createdAt.getTime() - b.createdAt.getTime()
+      )[0];
+      
+      if (firstTransaction && firstTransaction.quantityKg > 0) {
+        initialWeight = firstTransaction.quantityKg;
+      }
+    }
+
     return {
       ...lot,
+      initialWeight,
       isUpcoming,
       statusLabel: isUpcoming ? 'Dự kiến' : 'Trong kho',
     };
@@ -974,9 +969,13 @@ export class InventoryService {
         });
       }
 
-      // Lưu ý: Chúng ta KHÔNG cập nhật quantityKg trong bảng InventoryLot theo yêu cầu.
-      // Tuy nhiên, nếu là giao dịch INBOUND ĐẦU TIÊN của lô hàng mới, ta có thể cần cập nhật để hiển thị.
-      // Nhưng theo thiết kế của bạn, ta sẽ dựa hoàn toàn vào bảng WarehouseTransaction để tính toán.
+      // 5. Cập nhật khối lượng hiện tại của lô hàng (InventoryLot)
+      if (delta !== 0) {
+        await tx.inventoryLot.update({
+          where: { id: dto.inventoryLotId },
+          data: { quantityKg: { increment: delta } },
+        });
+      }
 
       return transaction;
     });

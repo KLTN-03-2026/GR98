@@ -399,6 +399,7 @@ export class InventoryService {
             plot: {
               select: {
                 plotCode: true,
+                cropType: true,
                 zone: { select: { name: true } },
               },
             },

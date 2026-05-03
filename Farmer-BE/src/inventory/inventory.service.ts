@@ -679,16 +679,17 @@ export class InventoryService {
     const now = new Date();
     const isUpcoming = lot.harvestDate && lot.harvestDate > now;
 
-    // Lấy khối lượng ban đầu từ giao dịch đầu tiên (cũ nhất)
+    // Lấy khối lượng ban đầu từ giao dịch INBOUND đầu tiên
     let initialWeight = lot.quantityKg; // fallback
     if (lot.transactions && lot.transactions.length > 0) {
-      // Tìm giao dịch đầu tiên theo thời gian
-      const firstTransaction = [...lot.transactions].sort((a, b) =>
-        a.createdAt.getTime() - b.createdAt.getTime()
-      )[0];
-
-      if (firstTransaction && firstTransaction.quantityKg > 0) {
-        initialWeight = firstTransaction.quantityKg;
+      // Lọc các giao dịch INBOUND và sắp xếp theo thời gian cũ nhất
+      const inboundTransactions = lot.transactions
+        .filter(t => t.type === TransactionType.INBOUND)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      
+      const firstInbound = inboundTransactions[0];
+      if (firstInbound && firstInbound.quantityKg > 0) {
+        initialWeight = firstInbound.quantityKg;
       }
     }
 

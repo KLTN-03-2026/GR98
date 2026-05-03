@@ -98,15 +98,15 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl border p-4 bg-slate-900 text-white shadow-sm flex flex-col justify-between">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Khối lượng hiện tại</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Trọng lượng ban đầu</p>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold tabular-nums">{lot.quantityKg.toLocaleString('vi-VN')}</span>
+                    <span className="text-2xl font-bold tabular-nums">{(lot.initialWeight ?? lot.quantityKg).toLocaleString('vi-VN')}</span>
                     <span className="text-xs text-slate-400 font-medium">kg</span>
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center">
-                  <span className="text-[10px] font-medium text-slate-500">Ban đầu:</span>
-                  <span className="text-xs font-bold text-slate-300">{(lot.initialWeight ?? lot.quantityKg).toLocaleString('vi-VN')} kg</span>
+                  <span className="text-[10px] font-medium text-slate-500">Thực tế (hiện tại):</span>
+                  <span className="text-xs font-bold text-emerald-400">{lot.quantityKg.toLocaleString('vi-VN')} kg</span>
                 </div>
               </div>
               <div className="rounded-xl border p-4 bg-white shadow-sm relative group">

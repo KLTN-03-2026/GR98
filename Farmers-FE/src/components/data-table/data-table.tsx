@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import type { 
-  ColumnDef, 
-  ColumnFiltersState, 
-  SortingState, 
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
   VisibilityState,
   OnChangeFn,
   PaginationState
@@ -52,7 +52,7 @@ interface DataTableProps<TData, TValue> {
   filterToolbar?: React.ReactNode;
   enableCheckbox?: boolean;
   onDeleteMultiple?: (selectedRows: any[]) => void;
-  
+
   // SSR (Manual) Props
   totalItems?: number;
   manualPagination?: boolean;
@@ -64,7 +64,6 @@ interface DataTableProps<TData, TValue> {
   state?: any; // To override internal state for SSR
   /** Truyền xuống DataTablePagination (vd: [10, 15, 20, 30]) */
   pageSizeOptions?: number[];
-  onFilteredRowsChange?: (rows: TData[]) => void;
 }
 
 function TableSkeleton({ columns }: { columns: number }) {
@@ -98,7 +97,7 @@ export function DataTable<TData, TValue>({
   filterToolbar,
   enableCheckbox = false,
   onDeleteMultiple,
-  
+
   // SSR
   totalItems,
   manualPagination = false,
@@ -109,7 +108,6 @@ export function DataTable<TData, TValue>({
   onSortingChange,
   state: externalState,
   pageSizeOptions,
-  onFilteredRowsChange,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -121,15 +119,10 @@ export function DataTable<TData, TValue>({
   });
 
   const onSelectedItemsRef = useRef(onSelectedItems);
-  const onFilteredRowsChangeRef = useRef(onFilteredRowsChange);
 
   useEffect(() => {
     onSelectedItemsRef.current = onSelectedItems;
   }, [onSelectedItems]);
-
-  useEffect(() => {
-    onFilteredRowsChangeRef.current = onFilteredRowsChange;
-  }, [onFilteredRowsChange]);
 
   const columnsWithCheckbox = React.useMemo(() => {
     if (!enableCheckbox) return columns;
@@ -190,7 +183,7 @@ export function DataTable<TData, TValue>({
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: onPaginationChange || setPagination,
-    
+
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: manualFiltering ? undefined : getFilteredRowModel(),
     getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),
@@ -222,12 +215,6 @@ export function DataTable<TData, TValue>({
       onSelectedItemsRef.current(selectedRows);
     }
   }, [table.getFilteredSelectedRowModel().rows.length]);
-
-  useEffect(() => {
-    if (onFilteredRowsChangeRef.current) {
-      onFilteredRowsChangeRef.current(table.getFilteredRowModel().rows.map(r => r.original));
-    }
-  }, [table.getFilteredRowModel().rows]);
 
   const handlePrint = () => {
     const printWindow = window.open("", "_blank");

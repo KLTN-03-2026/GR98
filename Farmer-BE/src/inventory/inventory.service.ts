@@ -1105,7 +1105,8 @@ export class InventoryService {
           select: {
             orders: true
           }
-        }
+        },
+        shippingAddresses: true
       },
       orderBy: {
         createdAt: 'desc'

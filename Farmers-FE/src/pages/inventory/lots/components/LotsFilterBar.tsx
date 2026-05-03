@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { X } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import type { GetLotsFilters } from '../api/types';
 
@@ -42,95 +43,95 @@ export function LotsFilterBar({ filters, onFiltersChange, warehouses, products }
   };
 
   return (
-    <>
-      {/* Warehouse */}
-      <Select
-        value={filters.warehouseId || ''}
-        onValueChange={(val) => updateFilter('warehouseId', val === 'all' ? undefined : val)}
-      >
-        <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[140px] text-sm rounded-lg bg-background",
-          filters.warehouseId && "border-primary text-primary bg-primary/5"
-        )}>
-          <SelectValue placeholder="Kho chứa" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả kho</SelectItem>
-          {warehouses.map((w) => (
-            <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
+    <div className="flex flex-wrap items-end gap-3 w-full">
       {/* Product */}
-      <Select
-        value={filters.productId || ''}
-        onValueChange={(val) => updateFilter('productId', val === 'all' ? undefined : val)}
-      >
-        <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[140px] text-sm rounded-lg bg-background",
-          filters.productId && "border-primary text-primary bg-primary/5"
-        )}>
-          <SelectValue placeholder="Sản phẩm" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả sản phẩm</SelectItem>
-          {products.map((p) => (
-            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="space-y-1.5 min-w-[180px] flex-1 max-w-xs">
+        <Label className="text-xs font-medium">Sản phẩm</Label>
+        <Select
+          value={filters.productId || ''}
+          onValueChange={(val) => updateFilter('productId', val === 'all' ? undefined : val)}
+        >
+          <SelectTrigger className={cn("h-9 rounded-md", filters.productId && "border-primary")}>
+            <SelectValue placeholder="Tất cả sản phẩm" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả sản phẩm</SelectItem>
+            {products.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Warehouse */}
+      <div className="space-y-1.5 min-w-[180px] flex-1 max-w-xs">
+        <Label className="text-xs font-medium">Kho chứa</Label>
+        <Select
+          value={filters.warehouseId || ''}
+          onValueChange={(val) => updateFilter('warehouseId', val === 'all' ? undefined : val)}
+        >
+          <SelectTrigger className={cn("h-9 rounded-md", filters.warehouseId && "border-primary")}>
+            <SelectValue placeholder="Tất cả kho" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả kho</SelectItem>
+            {warehouses.map((w) => (
+              <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Quality Grade */}
-      <Select
-        value={filters.qualityGrade || ''}
-        onValueChange={(val) => updateFilter('qualityGrade', val === 'all' ? undefined : val)}
-      >
-        <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[120px] text-sm rounded-lg bg-background",
-          filters.qualityGrade && "border-primary text-primary bg-primary/5"
-        )}>
-          <SelectValue placeholder="Phẩm cấp" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả phẩm cấp</SelectItem>
-          {QUALITY_GRADES.map((g) => (
-            <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="space-y-1.5 min-w-[120px]">
+        <Label className="text-xs font-medium">Phẩm cấp</Label>
+        <Select
+          value={filters.qualityGrade || ''}
+          onValueChange={(val) => updateFilter('qualityGrade', val === 'all' ? undefined : val)}
+        >
+          <SelectTrigger className={cn("h-9 rounded-md", filters.qualityGrade && "border-primary")}>
+            <SelectValue placeholder="Tất cả" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            {QUALITY_GRADES.map((g) => (
+              <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Expiry Status */}
-      <Select
-        value={filters.expiryStatus || ''}
-        onValueChange={(val) => updateFilter('expiryStatus', val === 'all' ? undefined : val)}
-      >
-        <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[160px] text-sm rounded-lg bg-background",
-          filters.expiryStatus && "border-destructive text-destructive bg-destructive/5"
-        )}>
-          <SelectValue placeholder="Hạn sử dụng" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả</SelectItem>
-          {EXPIRY_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="space-y-1.5 min-w-[150px]">
+        <Label className="text-xs font-medium">Hạn sử dụng</Label>
+        <Select
+          value={filters.expiryStatus || ''}
+          onValueChange={(val) => updateFilter('expiryStatus', val === 'all' ? undefined : val)}
+        >
+          <SelectTrigger className={cn("h-9 rounded-md", filters.expiryStatus && "border-primary")}>
+            <SelectValue placeholder="Mặc định" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Mặc định</SelectItem>
+            {EXPIRY_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Clear All */}
       {activeFilterCount > 0 && (
         <Button
           variant="ghost"
           size="sm"
-          className="h-9 px-3 text-sm font-medium rounded-lg"
+          className="h-9 px-2 text-xs text-muted-foreground hover:text-primary"
           onClick={clearAllFilters}
         >
+          <X className="mr-1.5 h-3.5 w-3.5" />
           Xóa lọc
-          <X className="ml-2 h-4 w-4" />
         </Button>
       )}
-    </>
+    </div>
   );
 }

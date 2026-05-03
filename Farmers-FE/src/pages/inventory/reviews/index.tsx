@@ -1,38 +1,44 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Search, BookOpenCheck, Star, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Search, BookOpenCheck, Star, Trash2, CheckCircle, XCircle, MoreVertical, RefreshCw, X } from 'lucide-react';
 import { useInternalReviews, useUpdateReviewStatus, useDeleteReview } from '@/client/api/reviews';
-import type { Review } from '@/client/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { DataTable } from '@/components/data-table';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import type { ColumnDef } from '@tanstack/react-table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function ReviewsAdminPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
   
-  const { data, isLoading } = useInternalReviews({
+  const { data, isLoading, isFetching, refetch } = useInternalReviews({
     search: search || undefined,
     status: statusFilter !== 'all' ? statusFilter : undefined,
-    limit: 100
+    page,
+    limit
   });
   
-  const reviews = data?.items ?? [];
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / limit) || 1;
+
   const updateStatus = useUpdateReviewStatus();
   const deleteReview = useDeleteReview();
 
@@ -56,181 +62,244 @@ export default function ReviewsAdminPage() {
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            className={`size-3 ${
-              star <= rating ? 'fill-amber-400 text-amber-400' : 'fill-slate-200 text-slate-200'
-            }`}
+            className={cn(
+                "size-3",
+                star <= rating ? "fill-amber-400 text-amber-400" : "fill-slate-200 text-slate-200"
+            )}
           />
         ))}
       </div>
     );
   };
 
-  const renderStatus = (status: string) => {
-    switch (status) {
-      case 'APPROVED':
-        return <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[10px] px-2 py-0.5 uppercase tracking-wider">Đã duyệt</Badge>;
-      case 'REJECTED':
-        return <Badge className="bg-rose-500/10 text-rose-600 border-none text-[10px] px-2 py-0.5 uppercase tracking-wider">Từ chối</Badge>;
-      default:
-        return <Badge className="bg-amber-500/10 text-amber-600 border-none text-[10px] px-2 py-0.5 uppercase tracking-wider">Chờ duyệt</Badge>;
-    }
-  };
-
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 h-[calc(100vh-4rem)] flex flex-col overflow-hidden bg-slate-50/50">
-      <Card className="rounded-[2rem] border-slate-100 shadow-sm bg-white/50 backdrop-blur-xl flex flex-col min-h-0 overflow-hidden">
-        <CardContent className="p-4 sm:p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-100 shrink-0">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600">
-                <BookOpenCheck className="size-4" />
-              </div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">
-                Quản lý đánh giá
-              </h1>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Duyệt và phản hồi đánh giá của khách hàng về sản phẩm
+  const columns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'product',
+      header: 'Sản phẩm',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="size-9 rounded-lg border border-slate-100 bg-slate-50 overflow-hidden shrink-0">
+            {row.original.product?.thumbnailUrl ? (
+                <img src={row.original.product.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-300">SP</div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900 truncate max-w-[180px]">
+                {row.original.product?.name || 'Sản phẩm không khả dụng'}
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">
+                {row.original.product?.category || 'Chưa phân loại'}
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative group min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-indigo-600 transition-colors" />
-              <Input
-                placeholder="Tìm kiếm đánh giá..."
-                className="h-9 rounded-full border-slate-200 pl-9 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px] h-9 rounded-full border-slate-200">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="PENDING">Chờ duyệt</SelectItem>
-                <SelectItem value="APPROVED">Đã duyệt</SelectItem>
-                <SelectItem value="REJECTED">Từ chối</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-
-        {/* Table Section */}
-        <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="h-full overflow-auto rounded-2xl border border-slate-100 bg-white shadow-xs custom-scrollbar">
-            <Table>
-              <TableHeader className="bg-slate-50/80 sticky top-0 z-10 backdrop-blur-md">
-                <TableRow className="border-b-slate-100 hover:bg-transparent">
-                  <TableHead className="w-[200px] text-[10px] font-bold uppercase tracking-wider text-slate-500">Sản phẩm</TableHead>
-                  <TableHead className="w-[200px] text-[10px] font-bold uppercase tracking-wider text-slate-500">Khách hàng</TableHead>
-                  <TableHead className="w-[120px] text-[10px] font-bold uppercase tracking-wider text-slate-500">Đánh giá</TableHead>
-                  <TableHead className="min-w-[250px] text-[10px] font-bold uppercase tracking-wider text-slate-500">Nội dung</TableHead>
-                  <TableHead className="w-[120px] text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Trạng thái</TableHead>
-                  <TableHead className="w-[120px] text-[10px] font-bold uppercase tracking-wider text-slate-500">Ngày tạo</TableHead>
-                  <TableHead className="w-[120px] text-right text-[10px] font-bold uppercase tracking-wider text-slate-500 pr-6">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i} className="border-b-slate-50">
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-16 mx-auto rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-20 ml-auto rounded-full" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : reviews.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-64 text-center">
-                      <div className="flex flex-col items-center justify-center text-slate-400">
-                        <BookOpenCheck className="size-10 mb-4 opacity-20" />
-                        <p className="text-sm font-medium">Không tìm thấy đánh giá nào</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  reviews.map((review: any) => (
-                    <TableRow key={review.id} className="border-b-slate-50 hover:bg-slate-50/50 transition-colors">
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {review.product?.thumbnailUrl ? (
-                            <img src={review.product.thumbnailUrl} alt="" className="size-8 rounded-md object-cover bg-slate-100" />
-                          ) : (
-                            <div className="size-8 rounded-md bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-bold">SP</div>
-                          )}
-                          <span className="text-sm font-semibold text-slate-700 line-clamp-1">{review.product?.name || 'Sản phẩm đã xóa'}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm font-medium text-slate-600 line-clamp-1">
-                          {review.client?.user?.fullName || 'Khách vãng lai'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {renderStars(review.rating)}
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm text-slate-600 line-clamp-2 max-w-md">
-                          {review.comment || <span className="italic text-slate-400">Không có bình luận</span>}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {renderStatus(review.status)}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-[11px] text-slate-500 font-medium">
-                          {format(new Date(review.createdAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right pr-4">
-                        <div className="flex justify-end gap-1">
-                          {review.status !== 'APPROVED' && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleApprove(review.id)}
-                              className="size-8 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                              title="Duyệt"
-                            >
-                              <CheckCircle className="size-4" />
-                            </Button>
-                          )}
-                          {review.status !== 'REJECTED' && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleReject(review.id)}
-                              className="size-8 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                              title="Từ chối"
-                            >
-                              <XCircle className="size-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(review.id)}
-                            className="size-8 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                            title="Xóa"
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
         </div>
+      ),
+    },
+    {
+      accessorKey: 'client',
+      header: 'Khách hàng',
+      cell: ({ row }) => (
+        <div className="space-y-0.5">
+            <p className="text-sm font-semibold text-slate-700">
+                {row.original.client?.user?.fullName || 'Khách vãng lai'}
+            </p>
+            <p className="text-[10px] text-slate-400 font-medium">
+                {row.original.client?.user?.phone || 'N/A'}
+            </p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'rating',
+      header: 'Đánh giá',
+      cell: ({ row }) => (
+        <div className="space-y-1">
+            <span className="text-xs font-bold text-slate-900">{row.original.rating}/5</span>
+            {renderStars(row.original.rating)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'comment',
+      header: 'Nội dung',
+      cell: ({ row }) => (
+        <div className="max-w-[300px]">
+            <p className="text-sm text-slate-600 line-clamp-2 italic leading-relaxed">
+                {row.original.comment ? `"${row.original.comment}"` : <span className="text-slate-300">Không có bình luận</span>}
+            </p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: () => <div className="text-center w-full">Trạng thái</div>,
+      cell: ({ row }) => {
+        const status = row.original.status;
+        const variants: Record<string, string> = {
+            APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+            REJECTED: 'bg-rose-50 text-rose-700 border-rose-100',
+            PENDING: 'bg-amber-50 text-amber-700 border-amber-100',
+        };
+        const labels: Record<string, string> = {
+            APPROVED: 'Đã duyệt',
+            REJECTED: 'Từ chối',
+            PENDING: 'Chờ duyệt',
+        };
+        return (
+            <div className="flex justify-center">
+                <Badge variant="outline" className={cn("rounded-lg font-bold uppercase text-[9px] tracking-widest px-2 py-0.5 shadow-none border-transparent", variants[status] || 'bg-slate-50 text-slate-500')}>
+                    {labels[status] || status}
+                </Badge>
+            </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Ngày tạo',
+      cell: ({ row }) => (
+        <span className="text-xs font-medium text-slate-500 tabular-nums">
+            {format(new Date(row.original.createdAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="size-8 p-0 rounded-lg hover:bg-slate-100">
+                        <MoreVertical className="size-4 text-slate-400" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200 shadow-xl p-1">
+                    {row.original.status !== 'APPROVED' && (
+                        <DropdownMenuItem onClick={() => handleApprove(row.original.id)} className="gap-2.5 cursor-pointer rounded-lg py-2 font-semibold text-xs">
+                            <CheckCircle className="size-4 text-emerald-600" />
+                            <span>Phê duyệt đánh giá</span>
+                        </DropdownMenuItem>
+                    )}
+                    {row.original.status !== 'REJECTED' && (
+                        <DropdownMenuItem onClick={() => handleReject(row.original.id)} className="gap-2.5 cursor-pointer rounded-lg py-2 font-semibold text-xs">
+                            <XCircle className="size-4 text-amber-600" />
+                            <span>Từ chối đánh giá</span>
+                        </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => handleDelete(row.original.id)} className="gap-2.5 cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50 rounded-lg py-2 font-semibold text-xs">
+                        <Trash2 className="size-4" />
+                        <span>Xóa vĩnh viễn</span>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+      ),
+    },
+  ], []);
+
+  const filterToolbar = (
+    <div className="flex flex-wrap items-end gap-4 w-full">
+      <div className="space-y-1.5 min-w-[240px] flex-1 max-w-sm">
+        <Label className="text-xs font-medium">Tìm kiếm đánh giá</Label>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm theo nội dung, sản phẩm..."
+            className="pl-8 h-9 rounded-md text-sm border-slate-200 focus:border-primary/30"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5 min-w-[160px]">
+        <Label className="text-xs font-medium">Trạng thái phê duyệt</Label>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+          <SelectTrigger className="h-9 rounded-md text-xs border-slate-200">
+            <SelectValue placeholder="Tất cả trạng thái" />
+          </SelectTrigger>
+          <SelectContent className="rounded-md">
+            <SelectItem value="all">Tất cả trạng thái</SelectItem>
+            <SelectItem value="PENDING">Chờ duyệt</SelectItem>
+            <SelectItem value="APPROVED">Đã duyệt</SelectItem>
+            <SelectItem value="REJECTED">Từ chối</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {(search || statusFilter !== 'all') && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9 px-3 text-xs text-muted-foreground hover:text-rose-600"
+          onClick={() => {
+            setSearch('');
+            setStatusFilter('all');
+            setPage(1);
+          }}
+        >
+          <X className="mr-2 h-4 w-4" />
+          Xóa lọc
+        </Button>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto font-manrope animate-in fade-in duration-500">
+      {/* Header Section - Admin Style */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-1">
+            <div className="flex items-center gap-2">
+                <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8 text-primary shadow-sm">
+                    <BookOpenCheck className="size-5" />
+                </div>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                    Quản lý Đánh giá
+                </h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+                Kiểm duyệt và phản hồi các đánh giá của khách hàng về chất lượng sản phẩm.
+            </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-xl border-slate-200"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            <RefreshCw className={cn("size-4 text-slate-400", isFetching && "animate-spin")} />
+          </Button>
+        </div>
+      </div>
+
+      <Card className="border-border/60 shadow-sm overflow-hidden">
+        <CardContent className="p-6">
+          <DataTable
+            columns={columns}
+            data={items}
+            isLoading={isLoading || isFetching}
+            onReload={() => refetch()}
+            hiddenSearch
+            enableSorting={false}
+            manualPagination
+            pageCount={totalPages}
+            totalItems={total}
+            onPaginationChange={(updater) => {
+                const next = typeof updater === 'function' ? updater({ pageIndex: page - 1, pageSize: limit }) : updater;
+                setPage(next.pageIndex + 1);
+                setLimit(next.pageSize);
+            }}
+            state={{ pagination: { pageIndex: page - 1, pageSize: limit } }}
+            pageSizeOptions={[10, 15, 20, 30, 50]}
+            filterToolbar={filterToolbar}
+            noResults={<span className="text-muted-foreground">Không tìm thấy đánh giá nào phù hợp.</span>}
+          />
+        </CardContent>
       </Card>
     </div>
   );

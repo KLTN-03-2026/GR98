@@ -106,7 +106,7 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
               <DialogTitle className="text-xl font-bold">Điều chỉnh khối lượng</DialogTitle>
             </div>
             <DialogDescription className="text-slate-400 text-sm">
-              Cập nhật số liệu thực tế cho lô hàng <span className="text-emerald-400 font-mono">#{lot.id.slice(-6).toUpperCase()}</span>
+              Cập nhật số liệu thực tế cho lô hàng <span className="text-emerald-400 font-mono">#{lot.id.slice(-6).toUpperCase()}</span> — {lot.product?.name}
             </DialogDescription>
           </DialogHeader>
         </div>

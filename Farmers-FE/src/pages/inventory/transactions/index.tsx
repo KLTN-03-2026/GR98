@@ -20,6 +20,10 @@ export default function InventoryTransactionsPage() {
     warehouseId: filters.warehouseId === 'all' ? undefined : filters.warehouseId,
     type: filters.type === 'all' ? undefined : filters.type,
     productId: filters.productId || undefined,
+    fromDate: filters.fromDate,
+    toDate: filters.toDate,
+    inventoryLotId: filters.inventoryLotId,
+    noteSearch: filters.noteSearch,
   };
 
   const { data: transactions = [], isLoading, isFetching, refetch } = useGetTransactions(apiFilters);

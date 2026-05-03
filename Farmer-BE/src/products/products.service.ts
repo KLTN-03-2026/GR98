@@ -290,18 +290,34 @@ export class ProductsService {
     });
     if (existing) throw new ConflictException('Mã SKU hoặc Slug đã tồn tại');
 
-    const { categoryIds, inventoryLotId, ...rest } = dto;
+    const { categoryIds, inventoryLotId, pricePerKg: dtoPrice, ...rest } = dto;
 
-    // 4. Tạo Product kế thừa thông tin từ Lot
+    // 5. Tra cứu giá bán lẻ từ PriceBoard dựa trên CropType và Grade của Lot
+    const priceConfig = await this.prisma.priceBoard.findFirst({
+      where: {
+        adminId,
+        cropType: lot.product.cropType,
+        grade: lot.qualityGrade,
+        isActive: true,
+      },
+      orderBy: { effectiveDate: 'desc' },
+    });
+
+    // Ưu tiên lấy giá từ bảng giá, nếu không có mới dùng giá từ DTO
+    const finalPrice = priceConfig ? priceConfig.sellPrice : dtoPrice;
+
+    // 6. Tạo Product kế thừa thông tin từ Lot
     return this.prisma.product.create({
       data: {
         ...rest,
+        pricePerKg: finalPrice,
         adminId,
         slug,
         sku,
         cropType: lot.product.cropType,
         grade: lot.qualityGrade,
         contractId: lot.contractId,
+        plotId: lot.product.plotId, // Link to the same plot as the original product if applicable
         qrCode: uuidv4(),
         status: 'DRAFT', // Mặc định là bản nháp
         categories: categoryIds

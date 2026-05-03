@@ -9,6 +9,7 @@ import {
   CreateProductDto,
   UpdateProductDto,
   ProductQueryDto,
+  CreateProductFromLotDto,
 } from './dto/create-product.dto';
 import { Role } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
@@ -267,5 +268,48 @@ export class ProductsService {
 
     await this.prisma.product.delete({ where: { id } });
     return { success: true };
+  }
+
+  async createFromLot(dto: CreateProductFromLotDto, userId: string) {
+    const adminId = await this.resolveAdminId(userId);
+
+    // 1. Lấy thông tin Lô hàng gốc (kèm thông tin loại cây từ Product gốc)
+    const lot = await this.prisma.inventoryLot.findFirst({
+      where: { id: dto.inventoryLotId, warehouse: { adminId } },
+      include: { product: true },
+    });
+    if (!lot) throw new NotFoundException('Không tìm thấy lô hàng hoặc bạn không có quyền');
+
+    // 2. Tự động sinh Slug và SKU
+    const slug = this.toSlug(dto.name);
+    const sku = await this.generateSku(lot.product.cropType);
+
+    // 3. Kiểm tra trùng lặp
+    const existing = await this.prisma.product.findFirst({
+      where: { OR: [{ slug }, { sku }] },
+    });
+    if (existing) throw new ConflictException('Mã SKU hoặc Slug đã tồn tại');
+
+    const { categoryIds, inventoryLotId, ...rest } = dto;
+
+    // 4. Tạo Product kế thừa thông tin từ Lot
+    return this.prisma.product.create({
+      data: {
+        ...rest,
+        adminId,
+        slug,
+        sku,
+        cropType: lot.product.cropType,
+        grade: lot.qualityGrade,
+        contractId: lot.contractId,
+        qrCode: uuidv4(),
+        status: 'DRAFT', // Mặc định là bản nháp
+        categories: categoryIds
+          ? {
+              create: categoryIds.map((cid) => ({ categoryId: cid })),
+            }
+          : undefined,
+      },
+    });
   }
 }

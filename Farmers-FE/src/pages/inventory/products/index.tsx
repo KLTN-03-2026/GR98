@@ -1,131 +1,105 @@
-import { useState } from 'react';
-import { FilterX } from 'lucide-react';
+import React, { useState } from 'react';
+import { Package, Plus, RefreshCw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Badge } from '@/components/ui/badge';
+import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
-
 import { inventoryProductApi } from './api/product-api';
+import { productColumns } from './components/product-columns';
+import { extractData } from '@/client/lib/api-client';
+import type { Product, PaginatedResponse } from '@/client/types';
+import { CreateProductFromLotDialog } from './components/CreateProductFromLotDialog';
 import { useProductMutations } from './api/use-product-mutations';
-import { useCategories } from '@/client/api/categories/use-categories';
-import {
-  type Product,
-  type ProductStatus,
-} from '@/client/types';
-
-import { ProductHeader } from './components/ProductHeader';
-import { ProductTable } from './components/ProductTable';
-import { ProductDialog } from './components/ProductDialog';
 
 export default function ProductsManagementPage() {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<ProductStatus | 'ALL'>('ALL');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [mode, setMode] = useState<'create' | 'edit'>('create');
-  const [selected, setSelected] = useState<Product | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['products', 'management', search, status],
-    queryFn: () => inventoryProductApi.listInternal({
-      search: search || undefined,
-      status: status === 'ALL' ? undefined : status,
-    }),
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['products', 'internal'],
+    queryFn: async () => {
+      const response = await inventoryProductApi.listInternal();
+      return extractData<PaginatedResponse<Product>>(response);
+    },
   });
 
-  const { data: catData } = useCategories();
-  const categories = catData?.data || [];
-  const products = data?.data?.items || [];
+  const { createFromLot } = useProductMutations();
 
-  const { createProduct, updateProduct, deleteProduct } = useProductMutations();
+  const products = data?.items || [];
 
-  const handleOpenCreate = () => {
-    setMode('create');
-    setSelected(null);
-    setDialogOpen(true);
-  };
-
-  const handleOpenEdit = (product: Product) => {
-    setMode('edit');
-    setSelected(product);
-    setDialogOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('Bạn có chắc chắn muốn gỡ sản phẩm này khỏi sàn?')) {
-      deleteProduct.mutate(id);
-    }
-  };
-
-  const handleSubmit = (formData: any) => {
-    if (mode === 'create') {
-      createProduct.mutate(formData, {
-        onSuccess: () => setDialogOpen(false),
-      });
-    } else if (selected) {
-      updateProduct.mutate(
-        { id: selected.id, data: formData },
-        { onSuccess: () => setDialogOpen(false) }
-      );
-    }
+  const handleCreateFromLot = async (payload: any) => {
+    await createFromLot.mutateAsync(payload);
+    setIsDialogOpen(false);
   };
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-6 p-6 font-manrope bg-slate-50/20">
-      {/* Header & Filters */}
-      <ProductHeader 
-        search={search}
-        onSearchChange={setSearch}
-        status={status}
-        onStatusChange={setStatus}
-        onOpenCreate={handleOpenCreate}
-        onRefresh={() => refetch()}
-        isRefreshing={isRefetching}
-      />
-
-      {/* Info Bar & Active Filters */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-50 rounded-full border border-emerald-100 shadow-sm">
-            <Badge variant="outline" className="border-emerald-200 bg-white text-emerald-600 font-black px-1.5 h-5 rounded-md min-w-[24px] justify-center text-[10px]">
-              {data?.data?.total || 0}
-            </Badge>
-            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Sản phẩm niêm yết</span>
+    <div className="space-y-6 p-4 md:p-6 animate-in fade-in duration-500">
+      {/* Header Section */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8 text-primary">
+              <Package className="size-4" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Quản lý Sản phẩm
+            </h1>
           </div>
-          
-          {(search || status !== 'ALL') && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearch('');
-                setStatus('ALL');
-              }}
-              className="h-8 rounded-full px-4 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all text-[10px] font-bold uppercase tracking-tight"
-            >
-              <FilterX className="size-3.5 mr-1.5" />
-              Xóa bộ lọc
-            </Button>
-          )}
+          <p className="text-muted-foreground text-sm max-w-xl">
+            Quản lý danh sách nông sản niêm yết trên hệ thống thương mại điện tử.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => refetch()}
+            disabled={isLoading || isFetching}
+          >
+            <RefreshCw className={`size-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+            Làm mới
+          </Button>
+          <Button
+            size="sm"
+            className="h-9 shadow-md shadow-primary/20"
+            onClick={() => setIsDialogOpen(true)}
+          >
+            <Plus className="size-4 mr-2" />
+            Niêm yết mới từ kho
+          </Button>
         </div>
       </div>
 
-      {/* Main Table Content */}
-      <ProductTable 
-        products={products}
-        isLoading={isLoading}
-        onEdit={handleOpenEdit}
-        onDelete={handleDelete}
-        onOpenCreate={handleOpenCreate}
+      {/* Main Table Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+        <div className="max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-hide">
+          <DataTable
+            columns={productColumns}
+            data={products}
+            isLoading={isLoading || isFetching}
+            onReload={() => refetch()}
+            searchPlaceholder="Tìm kiếm tên sản phẩm, SKU..."
+          />
+        </div>
+      </div>
+
+      <CreateProductFromLotDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSubmit={handleCreateFromLot}
+        isLoading={createFromLot.isPending}
       />
 
-      {/* Create/Edit Dialog */}
-      <ProductDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        mode={mode}
-        product={selected ?? undefined}
-        onSubmit={handleSubmit}
-        categories={categories}
-      />
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}} />
     </div>
   );
 }

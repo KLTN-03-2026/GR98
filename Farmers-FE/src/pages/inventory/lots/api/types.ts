@@ -42,6 +42,7 @@ export interface InventoryLot {
     };
     plot: {
       plotCode: string;
+      cropType: string;
       zone: {
         name: string;
       };

@@ -20,7 +20,22 @@ export const useProductMutations = () => {
     }
   });
 
+  const updateProductMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await inventoryProductApi.update(id, data);
+      return extractData<any>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success("Cập nhật sản phẩm thành công!");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi cập nhật");
+    }
+  });
+
   return {
-    createFromLot: createFromLotMutation
+    createFromLot: createFromLotMutation,
+    updateProduct: updateProductMutation
   };
 };

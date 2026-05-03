@@ -155,8 +155,28 @@ export class CreateProductFromLotDto {
   imageUrls?: string[];
 
   @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'Slug tùy chỉnh' })
+  slug?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'SKU tùy chỉnh' })
+  sku?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @ApiPropertyOptional({ type: [String] })
   categoryIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'URL ảnh đại diện' })
+  thumbnailUrl?: string;
+
+  @IsOptional()
+  @IsEnum(ProductStatus)
+  @ApiPropertyOptional({ enum: ProductStatus, default: ProductStatus.DRAFT })
+  status?: ProductStatus;
 }

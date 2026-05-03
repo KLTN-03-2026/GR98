@@ -107,6 +107,8 @@ export interface Product {
   harvestDate?: string;
   aiConfidenceScore?: number;
   createdAt: string;
+  plotId?: string;
+  contractId?: string;
   categories?: Category[];
   reviews?: Review[];
   averageRating?: number;

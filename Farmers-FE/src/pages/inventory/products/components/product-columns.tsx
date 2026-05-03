@@ -1,8 +1,9 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { DataTableColumnHeader } from '@/components/data-table';
-import { ImageIcon, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { ImageIcon, CheckCircle2, AlertCircle, Clock, Pencil, Trash2, ExternalLink } from 'lucide-react';
 import type { Product } from '@/client/types';
+import { Button } from '@/components/ui/button';
 
 export const productColumns: ColumnDef<Product>[] = [
   {
@@ -109,6 +110,44 @@ export const productColumns: ColumnDef<Product>[] = [
             </Badge>
           );
       }
+    },
+  },
+  {
+    id: 'actions',
+    cell: ({ row, table }) => {
+      const product = row.original;
+      const meta = table.options.meta as any;
+
+      return (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full hover:bg-emerald-50 hover:text-emerald-600"
+            onClick={() => meta?.onEdit?.(product)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full hover:bg-rose-50 hover:text-rose-600"
+            onClick={() => meta?.onDelete?.(product.id)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full hover:bg-blue-50 hover:text-blue-600"
+            asChild
+          >
+            <a href={`/products/${product.slug}`} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+        </div>
+      );
     },
   },
 ];

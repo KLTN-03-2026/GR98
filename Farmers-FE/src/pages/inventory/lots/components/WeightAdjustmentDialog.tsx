@@ -79,7 +79,7 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
         warehouseId: lot.warehouseId,
         productId: lot.productId,
         inventoryLotId: lot.id,
-        type: 'adjustment',
+        type: 'ADJUSTMENT',
         quantityKg: parseFloat(newWeight),
         note: justification,
       });

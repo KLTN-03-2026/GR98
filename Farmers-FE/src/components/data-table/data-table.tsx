@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import type { 
-  ColumnDef, 
-  ColumnFiltersState, 
-  SortingState, 
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
   VisibilityState,
   OnChangeFn,
   PaginationState
@@ -52,7 +52,7 @@ interface DataTableProps<TData, TValue> {
   filterToolbar?: React.ReactNode;
   enableCheckbox?: boolean;
   onDeleteMultiple?: (selectedRows: any[]) => void;
-  
+
   // SSR (Manual) Props
   totalItems?: number;
   manualPagination?: boolean;
@@ -97,7 +97,7 @@ export function DataTable<TData, TValue>({
   filterToolbar,
   enableCheckbox = false,
   onDeleteMultiple,
-  
+
   // SSR
   totalItems,
   manualPagination = false,
@@ -183,7 +183,7 @@ export function DataTable<TData, TValue>({
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: onPaginationChange || setPagination,
-    
+
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: manualFiltering ? undefined : getFilteredRowModel(),
     getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),

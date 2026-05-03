@@ -20,22 +20,31 @@ interface TransactionsFilterBarProps {
 
 function getDatePreset(key: string): { fromDate: string; toDate: string } {
   const now = new Date();
-  const toDate = now.toISOString().split('T')[0];
+  
+  // Fix timezone issue by formatting to YYYY-MM-DD using local time
+  const formatLocal = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const toDate = formatLocal(now);
 
   switch (key) {
     case 'today':
       return { fromDate: toDate, toDate };
     case '7days': {
       const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      return { fromDate: from.toISOString().split('T')[0], toDate };
+      return { fromDate: formatLocal(from), toDate };
     }
     case '30days': {
       const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return { fromDate: from.toISOString().split('T')[0], toDate };
+      return { fromDate: formatLocal(from), toDate };
     }
     case 'month': {
       const from = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { fromDate: from.toISOString().split('T')[0], toDate };
+      return { fromDate: formatLocal(from), toDate };
     }
     default:
       return { fromDate: '', toDate: '' };
@@ -61,105 +70,126 @@ export function TransactionsFilterBar({ filters, onFiltersChange, warehouses }: 
   };
 
   const clearAllFilters = () => {
-    onFiltersChange({});
+    onFiltersChange({ warehouseId: 'all', type: 'all' });
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* Warehouse Filter */}
-      <Select
-        value={filters.warehouseId || 'all'}
-        onValueChange={(val) => updateFilter('warehouseId', val === 'all' ? undefined : val)}
-      >
-        <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[140px] text-sm",
-          filters.warehouseId && filters.warehouseId !== 'all' && "border-primary text-primary"
-        )}>
-          <SelectValue placeholder="Tất cả kho" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả kho</SelectItem>
-          {warehouses.map(w => (
-            <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Type Filter */}
-      <Select
-        value={filters.type || 'all'}
-        onValueChange={(val) => updateFilter('type', val === 'all' ? undefined : val)}
-      >
-        <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[140px] text-sm",
-          filters.type && filters.type !== 'all' && "border-primary text-primary"
-        )}>
-          <SelectValue placeholder="Loại giao dịch" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả loại</SelectItem>
-          <SelectItem value="inbound">Nhập kho</SelectItem>
-          <SelectItem value="outbound">Xuất kho</SelectItem>
-          <SelectItem value="adjustment">Điều chỉnh</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* Date Range Preset */}
-      <Select
-        value={
-          !filters.fromDate && !filters.toDate
-            ? 'all'
-            : 'custom'
-        }
-        onValueChange={(val) => applyDatePreset(val)}
-      >
-        <SelectTrigger className={cn(
-          "h-9 w-auto min-w-[150px] text-sm",
-          (filters.fromDate || filters.toDate) && "border-primary text-primary"
-        )}>
-          <Calendar className="size-3 mr-1.5 shrink-0" />
-          <SelectValue placeholder="Thời gian" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả thời gian</SelectItem>
-          <SelectItem value="today">Hôm nay</SelectItem>
-          <SelectItem value="7days">7 ngày qua</SelectItem>
-          <SelectItem value="30days">30 ngày qua</SelectItem>
-          <SelectItem value="month">Tháng này</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* Custom Date Range Inputs */}
-      {(filters.fromDate || filters.toDate) && (
-        <>
-          <Input
-            type="date"
-            value={filters.fromDate || ''}
-            onChange={(e) => updateFilter('fromDate', e.target.value || undefined)}
-            className="h-9 w-auto min-w-[140px] text-sm"
-          />
-          <span className="text-xs text-muted-foreground">—</span>
-          <Input
-            type="date"
-            value={filters.toDate || ''}
-            onChange={(e) => updateFilter('toDate', e.target.value || undefined)}
-            className="h-9 w-auto min-w-[140px] text-sm"
-          />
-        </>
-      )}
-
-      {/* Clear All */}
-      {activeFilterCount > 0 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-9 px-3 text-sm font-medium"
-          onClick={clearAllFilters}
+    <div className="flex flex-col gap-3 w-full">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Warehouse Filter */}
+        <Select
+          value={filters.warehouseId || 'all'}
+          onValueChange={(val) => updateFilter('warehouseId', val === 'all' ? undefined : val)}
         >
-          Xóa lọc
-          <X className="ml-2 h-4 w-4" />
-        </Button>
-      )}
+          <SelectTrigger className={cn(
+            "h-9 w-auto min-w-[140px] text-sm",
+            filters.warehouseId && filters.warehouseId !== 'all' && "border-primary text-primary"
+          )}>
+            <SelectValue placeholder="Tất cả kho" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả kho</SelectItem>
+            {warehouses.map(w => (
+              <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Type Filter */}
+        <Select
+          value={filters.type || 'all'}
+          onValueChange={(val) => updateFilter('type', val === 'all' ? undefined : val)}
+        >
+          <SelectTrigger className={cn(
+            "h-9 w-auto min-w-[140px] text-sm",
+            filters.type && filters.type !== 'all' && "border-primary text-primary"
+          )}>
+            <SelectValue placeholder="Loại giao dịch" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả loại</SelectItem>
+            {/* Fix uppercase enum values */}
+            <SelectItem value="INBOUND">Nhập kho</SelectItem>
+            <SelectItem value="OUTBOUND">Xuất kho</SelectItem>
+            <SelectItem value="ADJUSTMENT">Điều chỉnh</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Date Range Preset */}
+        <Select
+          value={
+            !filters.fromDate && !filters.toDate
+              ? 'all'
+              : 'custom'
+          }
+          onValueChange={(val) => applyDatePreset(val)}
+        >
+          <SelectTrigger className={cn(
+            "h-9 w-auto min-w-[150px] text-sm",
+            (filters.fromDate || filters.toDate) && "border-primary text-primary"
+          )}>
+            <Calendar className="size-3 mr-1.5 shrink-0" />
+            <SelectValue placeholder="Thời gian" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả thời gian</SelectItem>
+            <SelectItem value="today">Hôm nay</SelectItem>
+            <SelectItem value="7days">7 ngày qua</SelectItem>
+            <SelectItem value="30days">30 ngày qua</SelectItem>
+            <SelectItem value="month">Tháng này</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Custom Date Range Inputs */}
+        {(filters.fromDate || filters.toDate) && (
+          <>
+            <Input
+              type="date"
+              value={filters.fromDate || ''}
+              onChange={(e) => updateFilter('fromDate', e.target.value || undefined)}
+              className="h-9 w-auto min-w-[130px] text-sm"
+            />
+            <span className="text-xs text-muted-foreground">—</span>
+            <Input
+              type="date"
+              value={filters.toDate || ''}
+              onChange={(e) => updateFilter('toDate', e.target.value || undefined)}
+              className="h-9 w-auto min-w-[130px] text-sm"
+            />
+          </>
+        )}
+
+        {/* Search by Lot ID */}
+        <Input
+          type="text"
+          placeholder="Mã lô (vd: WX7ZHF)"
+          value={filters.inventoryLotId || ''}
+          onChange={(e) => updateFilter('inventoryLotId', e.target.value || undefined)}
+          className="h-9 w-[160px] text-sm"
+        />
+
+        {/* Search by Note */}
+        <Input
+          type="text"
+          placeholder="Tìm trong ghi chú..."
+          value={filters.noteSearch || ''}
+          onChange={(e) => updateFilter('noteSearch', e.target.value || undefined)}
+          className="h-9 w-[200px] text-sm"
+        />
+
+        {/* Clear All */}
+        {activeFilterCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 px-3 text-sm font-medium"
+            onClick={clearAllFilters}
+          >
+            Xóa lọc
+            <X className="ml-2 h-4 w-4" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

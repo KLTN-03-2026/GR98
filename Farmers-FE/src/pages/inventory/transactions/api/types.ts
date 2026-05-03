@@ -1,4 +1,4 @@
-export type TransactionType = 'inbound' | 'outbound' | 'adjustment';
+export type TransactionType = 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'TRANSFER';
 
 export interface WarehouseTransaction {
   id: string;

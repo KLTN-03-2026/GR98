@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Package, Warehouse, History } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useGetLots, useGetWarehouses, useGetProducts } from './api/hooks';
 import { LotDetailDrawer } from './components/LotDetailDrawer';
 import { LotsFilterBar } from './components/LotsFilterBar';
@@ -9,6 +10,8 @@ import { createLotColumns } from './components/lots-columns';
 import type { InventoryLot, GetLotsFilters } from './api/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmReceiptDialog } from './components/ConfirmReceiptDialog';
+import { RejectLotDialog } from './components/RejectLotDialog';
+import { QualityGradingDialog } from './components/QualityGradingDialog';
 
 export default function InventoryLotsPage() {
   const [selectedLot, setSelectedLot] = useState<InventoryLot | null>(null);
@@ -43,20 +46,24 @@ export default function InventoryLotsPage() {
   }, [lots]);
 
   const [confirmLot, setConfirmLot] = useState<InventoryLot | null>(null);
+  const [rejectLot, setRejectLot] = useState<InventoryLot | null>(null);
+  const [gradingLot, setGradingLot] = useState<InventoryLot | null>(null);
 
   const handleViewDetail = (lot: InventoryLot) => {
     setSelectedLot(lot);
     setIsDrawerOpen(true);
   };
 
-  const handleConfirm = (lot: InventoryLot) => {
-    setConfirmLot(lot);
+  const columnsHandlers = {
+    onViewDetail: handleViewDetail,
+    onConfirm: (lot: InventoryLot) => setConfirmLot(lot),
+    onReject: (lot: InventoryLot) => setRejectLot(lot),
+    onUpdateGrade: (lot: InventoryLot) => setGradingLot(lot),
   };
 
-  const columns = useMemo(() => createLotColumns({
-    onViewDetail: handleViewDetail,
-    onConfirm: handleConfirm
-  }), []);
+  const inStockColumns = useMemo(() => createLotColumns({ ...columnsHandlers, mode: 'in-stock' }), []);
+  const pendingColumns = useMemo(() => createLotColumns({ ...columnsHandlers, mode: 'pending' }), []);
+  const upcomingColumns = useMemo(() => createLotColumns({ ...columnsHandlers, mode: 'upcoming' }), []);
 
   const filterToolbar = (
     <LotsFilterBar
@@ -68,64 +75,55 @@ export default function InventoryLotsPage() {
   );
 
   return (
-    <div className="space-y-6 p-4 md:p-6 animate-in fade-in duration-500">
-      {/* Header section */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
-              <Package className="size-4 text-primary" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Quản lý Lô hàng
-            </h1>
+    <div className="h-full min-h-0 flex flex-col gap-6 p-4 sm:p-6">
+      {/* Header Section - Admin Style */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+            <Package className="size-4 text-primary" />
           </div>
-          <p className="text-muted-foreground text-sm max-w-xl">
-            Giám sát định danh, chất lượng và tồn kho nông sản theo từng lô hàng nhập kho.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Quản lý Lô hàng</h1>
         </div>
-
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <div className="flex items-center gap-2 rounded-lg border bg-background p-1">
-            <div className="px-3 py-1.5 rounded-md bg-emerald-50 border border-emerald-100/50">
-              <p className="text-xs font-medium text-emerald-600 uppercase tracking-wider">Thực tồn</p>
-              <p className="text-sm font-semibold text-emerald-700">{stats.actualTotal.toLocaleString('vi-VN')} kg</p>
-            </div>
-            <div className="px-3 py-1.5 rounded-md bg-amber-50 border border-amber-100/50">
-              <p className="text-xs font-medium text-amber-600 uppercase tracking-wider">Chờ xác nhận</p>
-              <p className="text-sm font-semibold text-amber-700">{stats.pendingTotal.toLocaleString('vi-VN')} kg</p>
-            </div>
-            <div className="px-3 py-1.5 rounded-md bg-muted">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sắp về</p>
-              <p className="text-sm font-semibold text-foreground">{stats.upcomingTotal.toLocaleString('vi-VN')} kg</p>
-            </div>
-          </div>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Giám sát định danh, chất lượng và tồn kho nông sản theo từng lô hàng thực địa.
+        </p>
       </div>
 
-      <Tabs defaultValue="in-stock" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex items-center justify-between mb-4">
-          <TabsList>
-            <TabsTrigger value="in-stock">
-              <Warehouse className="size-4 mr-2" />
-              Lô hàng trong kho ({inStock.length})
-            </TabsTrigger>
-            <TabsTrigger value="pending">
-              <History className="size-4 mr-2" />
-              Chờ xác nhận ({pending.length})
-            </TabsTrigger>
-            <TabsTrigger value="upcoming">
-              <Package className="size-4 mr-2" />
-              Lô hàng sắp về ({upcoming.length})
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="in-stock" value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
+        <div className="flex flex-col gap-4">
+          {/* Quick Stats & Tabs Toolbar */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <TabsList className="h-10 p-1 bg-muted/50 rounded-lg">
+              <TabsTrigger value="in-stock" className="px-4 rounded-md">
+                Lô trong kho
+                <Badge variant="secondary" className="ml-2 bg-emerald-100 text-emerald-700">{inStock.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="pending" className="px-4 rounded-md">
+                Chờ xác nhận
+                <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700">{pending.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="upcoming" className="px-4 rounded-md">
+                Sắp về
+                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700">{upcoming.length}</Badge>
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 px-3 py-1">
+                Thực tồn: <span className="ml-1 font-bold">{stats.actualTotal.toLocaleString('vi-VN')} kg</span>
+              </Badge>
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-100 px-3 py-1">
+                Chờ nhập: <span className="ml-1 font-bold">{stats.pendingTotal.toLocaleString('vi-VN')} kg</span>
+              </Badge>
+            </div>
+          </div>
         </div>
 
-        <TabsContent value="in-stock" className="mt-0">
+        <TabsContent value="in-stock" className="mt-0 outline-none">
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="p-0">
               <DataTable
-                columns={columns}
+                columns={inStockColumns}
                 data={inStock}
                 isLoading={isLoading || isFetching}
                 onRowClick={(row) => handleViewDetail(row)}
@@ -137,11 +135,11 @@ export default function InventoryLotsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="pending" className="mt-0">
+        <TabsContent value="pending" className="mt-0 outline-none">
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="p-0">
               <DataTable
-                columns={columns}
+                columns={pendingColumns}
                 data={pending}
                 isLoading={isLoading || isFetching}
                 onRowClick={(row) => handleViewDetail(row)}
@@ -153,11 +151,11 @@ export default function InventoryLotsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="upcoming" className="mt-0">
+        <TabsContent value="upcoming" className="mt-0 outline-none">
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="p-0">
               <DataTable
-                columns={columns}
+                columns={upcomingColumns}
                 data={upcoming}
                 isLoading={isLoading || isFetching}
                 onRowClick={(row) => handleViewDetail(row)}
@@ -183,6 +181,24 @@ export default function InventoryLotsPage() {
           lot={confirmLot}
           isOpen={!!confirmLot}
           onClose={() => setConfirmLot(null)}
+        />
+      )}
+
+      {/* Reject Lot Dialog */}
+      {rejectLot && (
+        <RejectLotDialog
+          lot={rejectLot}
+          isOpen={!!rejectLot}
+          onClose={() => setRejectLot(null)}
+        />
+      )}
+
+      {/* Quality Grading Dialog */}
+      {gradingLot && (
+        <QualityGradingDialog
+          lot={gradingLot}
+          isOpen={!!gradingLot}
+          onClose={() => setGradingLot(null)}
         />
       )}
     </div>

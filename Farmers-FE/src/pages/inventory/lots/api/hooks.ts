@@ -97,6 +97,7 @@ export const useUpdateLot = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: lotKeys.all });
       queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: [...lotKeys.all, 'timeline', variables.id] });
     },
   });
 };
@@ -142,6 +143,21 @@ export const useConfirmReceipt = () => {
       queryClient.invalidateQueries({ queryKey: [...lotKeys.all, 'timeline', variables.lotId] });
       // Invalidate transactions as well since a transaction was created
       queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] });
+    },
+  });
+};
+
+export const useRejectLot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { lotId: string; reason: string }) => {
+      const response = await lotApi.rejectLot(data);
+      return extractData<InventoryLot>(response);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: lotKeys.all });
+      queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.lotId) });
+      queryClient.invalidateQueries({ queryKey: [...lotKeys.all, 'timeline', variables.lotId] });
     },
   });
 };

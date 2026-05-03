@@ -15,6 +15,7 @@ export interface InventoryLot {
   updatedAt: string;
   
   // Virtual fields from BE
+  initialWeight?: number;
   isUpcoming?: boolean;
   isExpired?: boolean;
   isExpiringSoon?: boolean;
@@ -48,9 +49,22 @@ export interface InventoryLot {
   };
 }
 
+export type TransactionType = 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'TRANSFER';
+
+export type TransactionAction = 
+  | 'RECEIPT' 
+  | 'REJECTION' 
+  | 'GRADE_UPDATE' 
+  | 'WEIGHT_ADJUST' 
+  | 'EXPIRY_UPDATE' 
+  | 'INTERNAL_TRANSFER' 
+  | 'SALE' 
+  | 'OTHER';
+
 export interface LotTransaction {
   id: string;
-  type: 'receive' | 'inbound' | 'outbound' | 'adjustment' | 'transfer';
+  type: TransactionType;
+  action: TransactionAction;
   quantityKg: number;
   note?: string;
   createdAt: string;

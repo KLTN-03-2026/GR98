@@ -28,6 +28,7 @@ import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
 import { ReceiveHarvestDto } from './dto/receive-harvest.dto';
 import { ConfirmReceiptDto } from './dto/confirm-receipt.dto';
 import { UpdateInventoryLotDto } from './dto/update-inventory-lot.dto';
+import { RejectLotDto } from './dto/reject-lot.dto';
 
 @ApiTags('inventory')
 @ApiBearerAuth()
@@ -158,6 +159,18 @@ export class InventoryController {
     return this.inventoryService.confirmReceipt(req.user, id, dto.actualWeight, dto.note);
   }
 
+  @Post('lots/:id/reject')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Từ chối nhận lô hàng (Giai đoạn 3)' })
+  @ApiResponse({ status: 200, description: 'Lô hàng đã bị từ chối' })
+  rejectLot(
+    @Param('id') id: string,
+    @Request() req: { user: any },
+    @Body() dto: RejectLotDto
+  ) {
+    return this.inventoryService.rejectLot(id, req.user, dto.reason);
+  }
+
   @Get('lots/:id')
   @Roles(Role.ADMIN, Role.INVENTORY)
   @ApiOperation({ summary: 'Chi tiết lô hàng — Traceability' })
@@ -259,5 +272,13 @@ export class InventoryController {
   @ApiResponse({ status: 200, description: 'Danh sách báo cáo' })
   getPendingHarvests(@Request() req: { user: any }) {
     return this.inventoryService.getPendingHarvests(req.user);
+  }
+
+  @Get('clients')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách khách hàng E-commerce' })
+  @ApiResponse({ status: 200, description: 'Danh sách khách hàng' })
+  getClients(@Request() req: { user: any }) {
+    return this.inventoryService.getClients(req.user);
   }
 }

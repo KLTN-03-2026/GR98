@@ -33,9 +33,31 @@ export function ExpiryUpdateDialog({ lot, isOpen, onClose }: ExpiryUpdateDialogP
   const [reason, setReason] = React.useState('');
   const updateLot = useUpdateLot();
 
+  const oldDateStr = lot.expiryDate ? format(new Date(lot.expiryDate), 'dd/MM/yyyy') : 'Chưa có';
+  const newDateStr = date ? format(date, 'dd/MM/yyyy') : 'Chưa chọn';
+  const isSameDate = oldDateStr === newDateStr;
+
+  // Tự động ghi giá trị cập nhật vào note
+  React.useEffect(() => {
+    if (date && !isSameDate) {
+      const prefix = `[CẬP NHẬT HẠN DÙNG] Từ ${oldDateStr} -> ${newDateStr}. Lý do: `;
+      setReason(prev => {
+        const userText = prev.replace(/^\[CẬP NHẬT HẠN DÙNG\] Từ .*? -> .*?\. Lý do: /, '');
+        return prefix + userText;
+      });
+    } else {
+      setReason(prev => prev.replace(/^\[CẬP NHẬT HẠN DÙNG\] Từ .*? -> .*?\. Lý do: /, ''));
+    }
+  }, [date, lot.expiryDate, oldDateStr, newDateStr, isSameDate]);
+
   const handleSave = async () => {
     if (!date) {
       toast.error('Vui lòng chọn ngày hết hạn');
+      return;
+    }
+
+    if (isSameDate) {
+      toast.error('Vui lòng chọn ngày hết hạn khác với hiện tại');
       return;
     }
     
@@ -142,10 +164,18 @@ export function ExpiryUpdateDialog({ lot, isOpen, onClose }: ExpiryUpdateDialogP
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-100">
               <AlertCircle className="size-4 text-amber-600 mt-0.5 shrink-0" />
               <p className="text-[10px] text-amber-700 leading-normal italic">
-                Lưu ý: Ngày hết hạn ảnh hưởng đến tính an toàn và khả năng xuất kho. Mọi thay đổi sẽ được lưu nhật ký.
+                Lưu ý: Ngày hết hạn ảnh hưởng đến tính an toàn và khả năng xuất kho. Hệ thống đã tự động điền giá trị thay đổi vào phần ghi chú.
               </p>
             </div>
           </div>
+
+          {isSameDate && lot.expiryDate && (
+            <div className="text-center p-2 rounded-lg bg-rose-50 border border-rose-100">
+              <p className="text-xs font-semibold text-rose-600">
+                ⚠️ Ngày hết hạn đang chọn giống với ngày hiện tại. Vui lòng chọn ngày khác.
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 sm:gap-0">
@@ -158,7 +188,7 @@ export function ExpiryUpdateDialog({ lot, isOpen, onClose }: ExpiryUpdateDialogP
           </Button>
           <Button
             onClick={handleSave}
-            disabled={updateLot.isPending}
+            disabled={updateLot.isPending || isSameDate}
             className="flex-[2] h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 transition-all active:scale-95"
           >
             {updateLot.isPending ? 'Đang lưu...' : 'Xác nhận cập nhật'}

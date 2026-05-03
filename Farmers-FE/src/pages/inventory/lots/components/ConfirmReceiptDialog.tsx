@@ -69,7 +69,8 @@ export function ConfirmReceiptDialog({ lot, isOpen, onClose }: ConfirmReceiptDia
         onClose();
       },
       onError: (error: any) => {
-        toast.error(error?.message || 'Có lỗi xảy ra khi xác nhận');
+        const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi xác nhận';
+        toast.error(`Thất bại: ${errorMessage}`);
       }
     });
   };

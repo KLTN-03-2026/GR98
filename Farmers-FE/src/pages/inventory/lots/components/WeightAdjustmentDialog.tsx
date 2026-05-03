@@ -45,10 +45,31 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
     };
   }, [newWeight, currentWeight]);
 
+  // Extract user's actual justification without the auto prefix
+  const userJustification = justification.replace(/^\[ĐIỀU CHỈNH KHỐI LƯỢNG\] Từ .*? kg -> .*? kg\. Lý do: /, '').trim();
+
+  // Tự động ghi giá trị cập nhật vào note
+  React.useEffect(() => {
+    if (newWeight && !isNaN(parseFloat(newWeight)) && delta !== 0) {
+      const prefix = `[ĐIỀU CHỈNH KHỐI LƯỢNG] Từ ${currentWeight.toLocaleString('vi-VN')} kg -> ${parseFloat(newWeight).toLocaleString('vi-VN')} kg. Lý do: `;
+      setJustification(prev => {
+        const userText = prev.replace(/^\[ĐIỀU CHỈNH KHỐI LƯỢNG\] Từ .*? kg -> .*? kg\. Lý do: /, '');
+        return prefix + userText;
+      });
+    } else {
+      setJustification(prev => prev.replace(/^\[ĐIỀU CHỈNH KHỐI LƯỢNG\] Từ .*? kg -> .*? kg\. Lý do: /, ''));
+    }
+  }, [newWeight, currentWeight, delta]);
+
   const handleSubmit = async () => {
     if (!lot || !newWeight) return;
     
-    if (isLargeDeviation && !justification) {
+    if (delta === 0) {
+      toast.error('Khối lượng mới phải khác khối lượng hiện tại');
+      return;
+    }
+    
+    if (isLargeDeviation && !userJustification) {
       toast.error('Vui lòng nhập lý do giải trình cho độ lệch lớn (>5%)');
       return;
     }
@@ -58,7 +79,7 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
         warehouseId: lot.warehouseId,
         productId: lot.productId,
         inventoryLotId: lot.id,
-        type: 'adjustment',
+        type: 'ADJUSTMENT',
         quantityKg: parseFloat(newWeight),
         note: justification,
       });
@@ -85,7 +106,7 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
               <DialogTitle className="text-xl font-bold">Điều chỉnh khối lượng</DialogTitle>
             </div>
             <DialogDescription className="text-slate-400 text-sm">
-              Cập nhật số liệu thực tế cho lô hàng <span className="text-emerald-400 font-mono">#{lot.id.slice(-6).toUpperCase()}</span>
+              Cập nhật số liệu thực tế cho lô hàng <span className="text-emerald-400 font-mono">#{lot.id.slice(-6).toUpperCase()}</span> — {lot.product?.name}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -150,6 +171,14 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
               </div>
             )}
 
+            {newWeight && !isNaN(parseFloat(newWeight)) && delta === 0 && (
+              <div className="text-center p-2 rounded-lg bg-rose-50 border border-rose-100">
+                <p className="text-xs font-semibold text-rose-600">
+                  ⚠️ Khối lượng mới đang bằng với khối lượng hiện tại. Vui lòng nhập số khác.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="justification" className="text-sm font-bold text-slate-700">
                 Lý do giải trình {isLargeDeviation && <span className="text-rose-500">*</span>}
@@ -172,7 +201,7 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
             </Button>
             <Button 
               onClick={handleSubmit} 
-              disabled={!newWeight || createTransaction.isPending || (isLargeDeviation && !justification)}
+              disabled={!newWeight || delta === 0 || createTransaction.isPending || (isLargeDeviation && !userJustification)}
               className="flex-[2] h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xl shadow-slate-200 transition-all active:scale-95"
             >
               {createTransaction.isPending ? 'Đang lưu...' : 'Xác nhận cập nhật'}

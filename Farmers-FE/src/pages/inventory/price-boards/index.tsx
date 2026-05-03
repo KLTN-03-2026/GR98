@@ -41,7 +41,7 @@ import { Label } from '@/components/ui/label';
 
 // Sub-components
 import { PriceBoardGradeBadge, PRICE_BOARD_GRADES } from './components/grade-badge';
-import { PriceBoardFormDialog } from './components/price-board-form-dialog';
+import { PriceBoardFormDrawer } from './components/price-board-form-dialog';
 import { DeletePriceBoardDialog } from './components/delete-price-board-dialog';
 import { DataTable } from '@/components/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -297,7 +297,7 @@ export default function PriceBoardsPage() {
       </Card>
 
       {/* Dialogs */}
-      <PriceBoardFormDialog 
+      <PriceBoardFormDrawer 
         mode="create"
         open={isAddOpen}
         onOpenChange={setIsAddOpen}
@@ -306,9 +306,10 @@ export default function PriceBoardsPage() {
             console.log('Create price board', payload);
             setIsAddOpen(false);
         }}
+        isLoading={false}
       />
 
-      <PriceBoardFormDialog 
+      <PriceBoardFormDrawer 
         mode="edit" 
         initial={editItem || undefined}
         open={!!editItem}

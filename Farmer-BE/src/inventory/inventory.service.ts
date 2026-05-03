@@ -411,7 +411,7 @@ export class InventoryService {
     // Cấu trúc lại kết quả trả về với hiệu năng cao (O(1) time)
     const enrichedLots = lots.map((lot) => {
       const isUpcoming = lot.status === 'SCHEDULED' || (lot.harvestDate && lot.harvestDate > now);
-      
+
       // Tính trạng thái hết hạn
       const isExpired = lot.expiryDate && new Date(lot.expiryDate) < now;
       const isExpiringSoon = lot.expiryDate && !isExpired
@@ -465,7 +465,7 @@ export class InventoryService {
       const harvestDate = dto.harvestDate ? new Date(dto.harvestDate) : null;
       const now = new Date();
       now.setHours(0, 0, 0, 0);
-      
+
       const lotStatus = harvestDate && harvestDate > now ? 'SCHEDULED' : 'ARRIVED';
 
       const lot = await tx.inventoryLot.create({
@@ -569,7 +569,7 @@ export class InventoryService {
 
   async confirmReceipt(currentUser: InventoryUser, lotId: string, actualWeight: number, note?: string) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
-    
+
     return this.prisma.$transaction(async (tx) => {
       const lot = await tx.inventoryLot.findUnique({
         where: { id: lotId },
@@ -616,7 +616,7 @@ export class InventoryService {
 
   async rejectLot(lotId: string, currentUser: InventoryUser, reason: string) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
-    
+
     return this.prisma.$transaction(async (tx) => {
       const lot = await tx.inventoryLot.findUnique({
         where: { id: lotId },
@@ -683,10 +683,10 @@ export class InventoryService {
     let initialWeight = lot.quantityKg; // fallback
     if (lot.transactions && lot.transactions.length > 0) {
       // Tìm giao dịch đầu tiên theo thời gian
-      const firstTransaction = [...lot.transactions].sort((a, b) => 
+      const firstTransaction = [...lot.transactions].sort((a, b) =>
         a.createdAt.getTime() - b.createdAt.getTime()
       )[0];
-      
+
       if (firstTransaction && firstTransaction.quantityKg > 0) {
         initialWeight = firstTransaction.quantityKg;
       }
@@ -857,9 +857,9 @@ export class InventoryService {
     const creatorIds = [...new Set(transactions.map(t => t.createdBy).filter(Boolean))];
     const creators = creatorIds.length > 0
       ? await this.prisma.user.findMany({
-          where: { id: { in: creatorIds } },
-          select: { id: true, fullName: true },
-        })
+        where: { id: { in: creatorIds } },
+        select: { id: true, fullName: true },
+      })
       : [];
     const creatorMap = new Map(creators.map(c => [c.id, c.fullName]));
 

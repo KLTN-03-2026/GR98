@@ -48,6 +48,12 @@ export default function InventoryLotsPage() {
   const [confirmLot, setConfirmLot] = useState<InventoryLot | null>(null);
   const [rejectLot, setRejectLot] = useState<InventoryLot | null>(null);
   const [gradingLot, setGradingLot] = useState<InventoryLot | null>(null);
+  const [filteredActualTotal, setFilteredActualTotal] = useState<number>(0);
+
+  // Sync default total when 'stats.actualTotal' changes
+  useEffect(() => {
+    setFilteredActualTotal(stats.actualTotal);
+  }, [stats.actualTotal]);
 
   const handleViewDetail = (lot: InventoryLot) => {
     setSelectedLot(lot);
@@ -109,8 +115,8 @@ export default function InventoryLotsPage() {
             </TabsList>
 
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 px-3 py-1">
-                Thực tồn: <span className="ml-1 font-bold">{stats.actualTotal.toLocaleString('vi-VN')} kg</span>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 px-3 py-1 transition-all duration-300">
+                Thực tồn: <span className="ml-1 font-bold">{filteredActualTotal.toLocaleString('vi-VN')} kg</span>
               </Badge>
               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-100 px-3 py-1">
                 Chờ nhập: <span className="ml-1 font-bold">{stats.pendingTotal.toLocaleString('vi-VN')} kg</span>
@@ -130,6 +136,10 @@ export default function InventoryLotsPage() {
                 onReload={() => refetch()}
                 searchPlaceholder="Tìm kiếm lô hàng trong kho..."
                 filterToolbar={filterToolbar}
+                onFilteredRowsChange={(rows) => {
+                  const currentTableTotal = rows.reduce((acc, lot) => acc + lot.quantityKg, 0);
+                  setFilteredActualTotal(currentTableTotal);
+                }}
               />
             </CardContent>
           </Card>

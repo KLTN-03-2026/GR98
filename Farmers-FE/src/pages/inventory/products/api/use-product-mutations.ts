@@ -1,47 +1,26 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { inventoryProductApi, type CreateProductPayload } from './product-api';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { inventoryProductApi } from "./product-api";
+import { extractData } from "@/client/lib/api-client";
+import { toast } from "sonner";
 
-export function useProductMutations() {
+export const useProductMutations = () => {
   const queryClient = useQueryClient();
 
-  const createProduct = useMutation({
-    mutationFn: (data: CreateProductPayload) => inventoryProductApi.create(data),
+  const createFromLotMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await inventoryProductApi.createFromLot(data);
+      return extractData<any>(response);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast.success('Đã tạo sản phẩm thành công');
+      toast.success("Niêm yết sản phẩm thành công!");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Không thể tạo sản phẩm');
-    },
-  });
-
-  const updateProduct = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<CreateProductPayload> }) =>
-      inventoryProductApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast.success('Đã cập nhật sản phẩm thành công');
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Không thể cập nhật sản phẩm');
-    },
-  });
-
-  const deleteProduct = useMutation({
-    mutationFn: (id: string) => inventoryProductApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast.success('Đã xóa sản phẩm thành công');
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Không thể xóa sản phẩm');
-    },
+      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi niêm yết");
+    }
   });
 
   return {
-    createProduct,
-    updateProduct,
-    deleteProduct,
+    createFromLot: createFromLotMutation
   };
-}
+};

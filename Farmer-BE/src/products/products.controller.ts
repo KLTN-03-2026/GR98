@@ -23,6 +23,7 @@ import {
   CreateProductDto,
   UpdateProductDto,
   ProductQueryDto,
+  CreateProductFromLotDto,
 } from './dto/create-product.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -108,5 +109,19 @@ export class ProductsController {
   @ApiResponse({ status: 200, description: 'Sản phẩm đã được xóa' })
   remove(@Param('id') id: string, @Request() req: any) {
     return this.productsService.remove(id, req.user.id);
+  }
+
+  @Post('from-lot')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Niêm yết sản phẩm từ một lô hàng' })
+  @ApiResponse({ status: 201, description: 'Sản phẩm đã được tạo từ lô hàng' })
+  createFromLot(
+    @Body() dto: CreateProductFromLotDto,
+    @Request() req: any,
+  ) {
+    return this.productsService.createFromLot(dto, req.user.id);
   }
 }

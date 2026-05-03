@@ -46,4 +46,7 @@ export const inventoryProductApi = {
 
   delete: (id: string) =>
     apiDelete<{ success: boolean }>(`/products/${id}`),
+
+  createFromLot: (data: any) =>
+    apiPost<Product>('/products/from-lot', data),
 };

@@ -275,11 +275,10 @@ export class ProductsService {
 
     if (!item) throw new NotFoundException('Sản phẩm không tồn tại');
 
-    if (item._count.orderItems > 0) {
-      throw new ConflictException('Không thể xóa sản phẩm đã có đơn hàng');
-    }
-
-    await this.prisma.product.delete({ where: { id } });
+    await this.prisma.product.update({
+      where: { id },
+      data: { status: 'ARCHIVED' }
+    });
     return { success: true };
   }
 

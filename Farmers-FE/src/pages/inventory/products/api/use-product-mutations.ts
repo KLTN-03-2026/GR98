@@ -34,8 +34,23 @@ export const useProductMutations = () => {
     }
   });
 
+  const deleteProductMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await inventoryProductApi.delete(id);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success("Đã xóa sản phẩm (chuyển vào lưu trữ)");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi xóa");
+    }
+  });
+
   return {
     createFromLot: createFromLotMutation,
-    updateProduct: updateProductMutation
+    updateProduct: updateProductMutation,
+    deleteProduct: deleteProductMutation
   };
 };

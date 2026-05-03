@@ -28,7 +28,7 @@ export default function ProductsManagementPage() {
   const { data: catData } = useCategories();
   const categories = catData?.data || [];
 
-  const { createFromLot, updateProduct } = useProductMutations();
+  const { createFromLot, updateProduct, deleteProduct } = useProductMutations();
 
   const products = data?.items || [];
 
@@ -47,6 +47,12 @@ export default function ProductsManagementPage() {
     await updateProduct.mutateAsync({ id: editingProduct.id, data: payload });
     setIsUpdateOpen(false);
     setEditingProduct(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này? Sản phẩm sẽ được chuyển vào mục lưu trữ.')) {
+      await deleteProduct.mutateAsync(id);
+    }
   };
 
   return (
@@ -100,7 +106,7 @@ export default function ProductsManagementPage() {
             searchPlaceholder="Tìm kiếm tên sản phẩm, SKU..."
             meta={{
               onEdit: handleEdit,
-              onDelete: (id: string) => console.log('Delete', id) // Cần thêm mutation delete sau
+              onDelete: handleDelete
             }}
           />
         </div>

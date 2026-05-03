@@ -83,6 +83,7 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
         { icon: Boxes, label: 'Danh mục', category: 'system', path: `${basePath}/categories` },
         { icon: ReceiptText, label: 'Đơn hàng (ECM)', category: 'system', path: `${basePath}/orders` },
         { icon: BookOpenCheck, label: 'Bảng giá', category: 'system', path: `${basePath}/price-boards` },
+        { icon: BookOpenCheck, label: 'Reviews', category: 'system', path: `${basePath}/reviews` },
         { icon: Users, label: 'Khách hàng (ECM)', category: 'system', path: `${basePath}/clients` },
     ];
 };

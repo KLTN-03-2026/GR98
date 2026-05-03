@@ -20,6 +20,7 @@ import { ContractModule } from './contract/contract.module';
 import { DailyReportModule } from './daily-report/daily-report.module';
 import { PlantScanModule } from './plant-scan/plant-scan.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ReviewsModule } from './reviews/reviews.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
@@ -42,7 +43,9 @@ import { DashboardModule } from './dashboard/dashboard.module';
     DailyReportModule,
     PlantScanModule,
     DashboardModule,
+    ReviewsModule,
   ],
+
   controllers: [AppController],
   providers: [AppService],
 })

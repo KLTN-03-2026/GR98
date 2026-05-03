@@ -103,6 +103,12 @@ export const productColumns: ColumnDef<Product>[] = [
               <AlertCircle className="size-3" /> HẾT HÀNG
             </Badge>
           );
+        case 'ARCHIVED':
+          return (
+            <Badge variant="outline" className="gap-1 px-2 py-0.5 font-medium text-[10px] bg-slate-100 text-slate-500 border-slate-200">
+              <Trash2 className="size-3" /> ĐÃ XÓA
+            </Badge>
+          );
         default:
           return (
             <Badge variant="secondary" className="gap-1 px-2 py-0.5 font-medium text-[10px]">
@@ -131,8 +137,9 @@ export const productColumns: ColumnDef<Product>[] = [
           <Button
             size="icon"
             variant="ghost"
-            className="h-8 w-8 rounded-full hover:bg-rose-50 hover:text-rose-600"
+            className="h-8 w-8 rounded-full hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30"
             onClick={() => meta?.onDelete?.(product.id)}
+            disabled={product.status === 'ARCHIVED'}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>

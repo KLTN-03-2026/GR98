@@ -64,6 +64,7 @@ interface DataTableProps<TData, TValue> {
   state?: any; // To override internal state for SSR
   /** Truyền xuống DataTablePagination (vd: [10, 15, 20, 30]) */
   pageSizeOptions?: number[];
+  meta?: any;
 }
 
 function TableSkeleton({ columns }: { columns: number }) {
@@ -108,6 +109,7 @@ export function DataTable<TData, TValue>({
   onSortingChange,
   state: externalState,
   pageSizeOptions,
+  meta,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -163,6 +165,7 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns: columnsWithCheckbox,
+    meta,
     // Chỉ truyền pageCount khi phân trang server; client dùng getPaginationRowModel tự tính.
     // Truyền -1 khi không manual làm getCanNextPage() sai → nút "Trang sau" vẫn bấm được dù chỉ 1 trang.
     ...(manualPagination ? { pageCount: pageCount ?? -1 } : {}),

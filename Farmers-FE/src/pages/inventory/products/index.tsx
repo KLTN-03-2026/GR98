@@ -8,10 +8,14 @@ import { productColumns } from './components/product-columns';
 import { extractData } from '@/client/lib/api-client';
 import type { Product, PaginatedResponse } from '@/client/types';
 import { CreateProductFromLotDialog } from './components/CreateProductFromLotDialog';
+import { ProductDialog } from './components/ProductDialog';
 import { useProductMutations } from './api/use-product-mutations';
+import { useCategories } from '@/client/api/categories/use-categories';
 
 export default function ProductsManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isUpdateOpen, setIsUpdateOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['products', 'internal'],
@@ -21,13 +25,28 @@ export default function ProductsManagementPage() {
     },
   });
 
-  const { createFromLot } = useProductMutations();
+  const { data: catData } = useCategories();
+  const categories = catData?.data || [];
+
+  const { createFromLot, updateProduct } = useProductMutations();
 
   const products = data?.items || [];
 
   const handleCreateFromLot = async (payload: any) => {
     await createFromLot.mutateAsync(payload);
     setIsDialogOpen(false);
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setIsUpdateOpen(true);
+  };
+
+  const handleUpdate = async (payload: any) => {
+    if (!editingProduct) return;
+    await updateProduct.mutateAsync({ id: editingProduct.id, data: payload });
+    setIsUpdateOpen(false);
+    setEditingProduct(null);
   };
 
   return (
@@ -79,6 +98,10 @@ export default function ProductsManagementPage() {
             isLoading={isLoading || isFetching}
             onReload={() => refetch()}
             searchPlaceholder="Tìm kiếm tên sản phẩm, SKU..."
+            meta={{
+              onEdit: handleEdit,
+              onDelete: (id: string) => console.log('Delete', id) // Cần thêm mutation delete sau
+            }}
           />
         </div>
       </div>
@@ -89,6 +112,17 @@ export default function ProductsManagementPage() {
         onSubmit={handleCreateFromLot}
         isLoading={createFromLot.isPending}
       />
+
+      {editingProduct && (
+        <ProductDialog
+          open={isUpdateOpen}
+          onOpenChange={setIsUpdateOpen}
+          mode="edit"
+          product={editingProduct}
+          onSubmit={handleUpdate}
+          categories={categories}
+        />
+      )}
 
       <style dangerouslySetInnerHTML={{
         __html: `

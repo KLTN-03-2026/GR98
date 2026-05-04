@@ -80,6 +80,7 @@ export default function SupervisorPlotsPage() {
   const [filter, setFilter] = useState<"all" | CropType>("all");
   const [supervisorFilterId, setSupervisorFilterId] = useState("all");
   const [mapFilter, setMapFilter] = useState<"all" | "mapped" | "unmapped">("all");
+  const [isNearHarvest, setIsNearHarvest] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -107,13 +108,31 @@ export default function SupervisorPlotsPage() {
   const displayedPlots = useMemo(
     () =>
       plots.filter((plot) => {
+        // Filter by Map
         const hasGis =
           plot.hasGis ??
           (Number.isFinite(plot.lat) && Number.isFinite(plot.lng));
-        if (mapFilter === "all") return true;
-        return mapFilter === "mapped" ? hasGis : !hasGis;
+        if (mapFilter !== "all") {
+          const mapMatch = mapFilter === "mapped" ? hasGis : !hasGis;
+          if (!mapMatch) return false;
+        }
+
+        // Filter by Near Harvest (within 14 days)
+        if (isNearHarvest) {
+          if (!plot.expectedHarvest) return false;
+          const harvestDate = new Date(plot.expectedHarvest);
+          const now = new Date();
+          const fourteenDaysLater = new Date();
+          fourteenDaysLater.setDate(now.getDate() + 14);
+          
+          if (harvestDate < now || harvestDate > fourteenDaysLater) {
+            return false;
+          }
+        }
+
+        return true;
       }),
-    [plots, mapFilter],
+    [plots, mapFilter, isNearHarvest],
   );
 
   const supervisors = useMemo<SupervisorOption[]>(() => {
@@ -312,6 +331,13 @@ export default function SupervisorPlotsPage() {
                   onClick={() => setFilter("sau-rieng")}
                 >
                   Sầu riêng
+                </Button>
+                <Button
+                  variant={isNearHarvest ? "primary" : "outline"}
+                  className="rounded-full border-orange-200 text-orange-700 hover:bg-orange-50"
+                  onClick={() => setIsNearHarvest(!isNearHarvest)}
+                >
+                  🌾 Gần thu hoạch
                 </Button>
               </div>
               <div

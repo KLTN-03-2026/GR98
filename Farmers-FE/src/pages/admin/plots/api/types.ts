@@ -28,6 +28,7 @@ export interface PlotResponse {
   plotDraftCoordinatesText?: string | null;
   id_suppervisor?: string | null;
   name_suppervisor?: string | null;
+  expectedHarvest?: string | null;
 }
 
 export interface PaginatedPlotsResponse {

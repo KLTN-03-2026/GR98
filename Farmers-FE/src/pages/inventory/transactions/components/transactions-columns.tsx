@@ -36,21 +36,21 @@ export const createTransactionColumns = () => {
       cell: ({ row }) => {
         const type = row.original.type;
         switch (type) {
-          case 'inbound':
+          case 'INBOUND':
             return (
               <Badge variant="success" className="gap-1 px-2 py-0.5 font-medium">
                 <ArrowDownLeft className="size-3" />
                 Nhập kho
               </Badge>
             );
-          case 'outbound':
+          case 'OUTBOUND':
             return (
               <Badge variant="destructive" className="gap-1 px-2 py-0.5 font-medium">
                 <ArrowUpRight className="size-3" />
                 Xuất kho
               </Badge>
             );
-          case 'adjustment':
+          case 'ADJUSTMENT':
             return (
               <Badge variant="warning" className="gap-1 px-2 py-0.5 font-medium">
                 <Settings2 className="size-3" />
@@ -80,7 +80,7 @@ export const createTransactionColumns = () => {
       ),
       cell: ({ row }) => {
         const type = row.original.type;
-        const isNegative = type === 'outbound';
+        const isNegative = type === 'OUTBOUND';
         return (
           <div className={`text-right font-semibold tabular-nums ${isNegative ? 'text-destructive' : 'text-emerald-600'}`}>
             {isNegative ? '-' : '+'}{row.original.quantityKg.toLocaleString('vi-VN')} {row.original.product.unit}

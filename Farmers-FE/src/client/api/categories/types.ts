@@ -24,5 +24,6 @@ export interface CreateCategoryPayload {
   slug?: string;
   description?: string;
   imageUrl?: string;
+  isActive?: boolean;
   sortOrder?: number;
 }

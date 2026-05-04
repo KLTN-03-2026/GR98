@@ -58,6 +58,10 @@ export class CreateCategoryDto {
     value !== undefined ? parseInt(String(value), 10) : 0,
   )
   sortOrder?: number;
+
+  @ApiPropertyOptional({ default: true, description: 'Trạng thái hoạt động' })
+  @IsOptional()
+  isActive?: boolean;
 }
 
 export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {}

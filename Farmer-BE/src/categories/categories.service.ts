@@ -142,6 +142,7 @@ export class CategoriesService {
       imageUrl: dto.imageUrl,
       description: dto.description,
       sortOrder,
+      isActive: dto.isActive ?? true,
     };
 
     return this.prisma.category.create({ data });
@@ -173,6 +174,7 @@ export class CategoriesService {
       ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
       ...(dto.description !== undefined && { description: dto.description }),
       ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+      ...(dto.isActive !== undefined && { isActive: dto.isActive }),
     };
 
     return this.prisma.category.update({ where: { id }, data: updateData });

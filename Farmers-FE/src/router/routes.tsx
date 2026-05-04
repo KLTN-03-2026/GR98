@@ -26,6 +26,7 @@ import SupervisorAIAnalysisPage from '@/pages/supervisor/ai-analysis';
 import SupervisorDailyReportsPage from '@/pages/supervisor/daily-reports';
 
 import InventoryOrdersPage from '@/pages/inventory/orders';
+import InventoryOrderDetailPage from '@/pages/inventory/orders/detail.page';
 import InventoryProductsPage from '@/pages/inventory/products';
 import InventoryCategoriesPage from '@/pages/inventory/categories';
 import InventoryPriceBoardsPage from '@/pages/inventory/price-boards';
@@ -35,6 +36,8 @@ import WarehouseDetailPage from '@/pages/inventory/warehouses/details';
 import InventoryLotsPage from '@/pages/inventory/lots';
 import InventoryTransactionsPage from '@/pages/inventory/transactions';
 import InventorySupplyDemandPage from '@/pages/inventory/supply-demand';
+import InventoryClientsPage from '@/pages/inventory/clients';
+import InventoryReviewsPage from '@/pages/inventory/reviews';
 
 import LoginPage from '@/pages/auth/login.page';
 import RegisterPage from '@/pages/auth/register.page';
@@ -370,8 +373,20 @@ const inventoryDashboard: RouteObject = {
       element: <InventoryOrdersPage />,
     },
     {
+      path: 'orders/:id',
+      element: <InventoryOrderDetailPage />,
+    },
+    {
       path: 'price-boards',
       element: <InventoryPriceBoardsPage />,
+    },
+    {
+      path: 'reviews',
+      element: <InventoryReviewsPage />,
+    },
+    {
+      path: 'clients',
+      element: <InventoryClientsPage />,
     },
   ],
 };

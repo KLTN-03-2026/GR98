@@ -1,41 +1,68 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { ComponentType } from 'react';
+import { TrendingDown, TrendingUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { type LucideIcon } from 'lucide-react';
+
+function formatMetricValue(value: number, format?: 'number' | 'currency' | 'kg') {
+  if (format === 'currency') {
+    return `${Math.round(value).toLocaleString('vi-VN')} đ`;
+  }
+  if (format === 'kg') {
+    return `${value.toLocaleString('vi-VN')} kg`;
+  }
+  return value.toLocaleString('vi-VN');
+}
 
 interface SummaryCardProps {
   title: string;
   value: number;
-  unit: string;
-  icon: LucideIcon;
+  unit?: string;
+  icon: ComponentType<{ className?: string }>;
   description: string;
-  accent: 'primary' | 'emerald' | 'rose';
+  accentColor?: 'primary' | 'secondary' | 'tertiary' | 'rose' | 'emerald' | 'amber';
   isLoading: boolean;
+  format?: 'number' | 'currency' | 'kg';
 }
 
 export function SummaryCard({
   title,
   value,
-  unit,
   icon: Icon,
   description,
+  accentColor = 'primary',
   isLoading,
+  format = 'kg',
 }: SummaryCardProps) {
+  
+  const colorMap = {
+    primary: 'text-primary bg-primary/10 border-primary/15',
+    secondary: 'text-secondary bg-secondary/10 border-secondary/15',
+    tertiary: 'text-tertiary bg-tertiary/10 border-tertiary/15',
+    rose: 'text-rose-600 bg-rose-500/10 border-rose-500/15',
+    emerald: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/15',
+    amber: 'text-amber-600 bg-amber-500/10 border-amber-500/15',
+  };
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="mt-1 h-8 w-24" />
-        ) : (
-          <div className="text-2xl font-bold tabular-nums">
-            {value.toLocaleString('vi-VN')} {unit}
+    <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-card to-primary/[0.04] pl-1 shadow-sm transition-all hover:shadow-md dark:to-primary/[0.08]">
+      <div className="flex h-full flex-col rounded-r-[0.9rem] border border-l-0 border-border/40 bg-card/85 px-4 py-3.5 backdrop-blur-sm">
+        <div className="flex items-start justify-between gap-2">
+          <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl", colorMap[accentColor])}>
+            <Icon className="size-[18px]" />
           </div>
+        </div>
+
+        {isLoading ? (
+          <Skeleton className="mt-3 h-8 w-32" />
+        ) : (
+          <p className="mt-3 text-2xl font-semibold tabular-nums tracking-tight text-foreground leading-none">
+            {formatMetricValue(value, format)}
+          </p>
         )}
-        <p className="text-xs text-muted-foreground mt-1">{description}</p>
-      </CardContent>
-    </Card>
+        
+        <p className="mt-1 line-clamp-2 text-sm font-medium text-slate-800">{title}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      </div>
+    </div>
   );
 }

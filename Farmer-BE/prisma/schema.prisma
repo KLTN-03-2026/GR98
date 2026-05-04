@@ -431,6 +431,7 @@ model InventoryLot {
   harvestDate  DateTime?
   expiryDate   DateTime?
   qualityGrade QualityGrade
+  status       InventoryLotStatus     @default(SCHEDULED)
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
   contract     Contract?              @relation(fields: [contractId], references: [id])
@@ -442,18 +443,19 @@ model InventoryLot {
 }
 
 model WarehouseTransaction {
-  id             String       @id @default(cuid())
+  id             String            @id @default(cuid())
   warehouseId    String
   productId      String
   inventoryLotId String
-  type           String
   quantityKg     Float
   note           String?
   createdBy      String
-  createdAt      DateTime     @default(now())
-  inventoryLot   InventoryLot @relation(fields: [inventoryLotId], references: [id])
-  product        Product      @relation(fields: [productId], references: [id])
-  warehouse      Warehouse    @relation(fields: [warehouseId], references: [id])
+  createdAt      DateTime          @default(now())
+  action         TransactionAction
+  type           TransactionType
+  inventoryLot   InventoryLot      @relation(fields: [inventoryLotId], references: [id])
+  product        Product           @relation(fields: [productId], references: [id])
+  warehouse      Warehouse         @relation(fields: [warehouseId], references: [id])
 
   @@map("warehouse_transactions")
 }
@@ -580,4 +582,29 @@ enum ReportStatus {
   DRAFT
   SUBMITTED
   REVIEWED
+}
+
+enum TransactionType {
+  INBOUND
+  OUTBOUND
+  ADJUSTMENT
+  TRANSFER
+}
+
+enum TransactionAction {
+  RECEIPT
+  REJECTION
+  GRADE_UPDATE
+  WEIGHT_ADJUST
+  EXPIRY_UPDATE
+  INTERNAL_TRANSFER
+  SALE
+  OTHER
+}
+
+enum InventoryLotStatus {
+  SCHEDULED
+  ARRIVED
+  RECEIVED
+  REJECTED
 }

@@ -26,6 +26,9 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
 import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
 import { ReceiveHarvestDto } from './dto/receive-harvest.dto';
+import { ConfirmReceiptDto } from './dto/confirm-receipt.dto';
+import { UpdateInventoryLotDto } from './dto/update-inventory-lot.dto';
+import { RejectLotDto } from './dto/reject-lot.dto';
 
 @ApiTags('inventory')
 @ApiBearerAuth()
@@ -103,11 +106,17 @@ export class InventoryController {
     @Query('warehouseId') warehouseId?: string,
     @Query('productId') productId?: string,
     @Query('qualityGrade') qualityGrade?: string,
+    @Query('status') status?: string,
+    @Query('expiryStatus') expiryStatus?: string,
+    @Query('contractId') contractId?: string,
   ) {
     return this.inventoryService.getLots(req.user, {
       warehouseId,
       productId,
       qualityGrade,
+      status,
+      expiryStatus,
+      contractId,
     });
   }
 
@@ -138,6 +147,30 @@ export class InventoryController {
     return this.inventoryService.receiveHarvest(req.user, dto);
   }
 
+  @Post('lots/:id/confirm')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Xác nhận nhập kho thực tế (Giai đoạn 3)' })
+  @ApiResponse({ status: 200, description: 'Lô hàng đã được xác nhận nhập kho' })
+  confirmReceipt(
+    @Param('id') id: string,
+    @Request() req: { user: any },
+    @Body() dto: ConfirmReceiptDto
+  ) {
+    return this.inventoryService.confirmReceipt(req.user, id, dto.actualWeight, dto.note);
+  }
+
+  @Post('lots/:id/reject')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Từ chối nhận lô hàng (Giai đoạn 3)' })
+  @ApiResponse({ status: 200, description: 'Lô hàng đã bị từ chối' })
+  rejectLot(
+    @Param('id') id: string,
+    @Request() req: { user: any },
+    @Body() dto: RejectLotDto
+  ) {
+    return this.inventoryService.rejectLot(id, req.user, dto.reason);
+  }
+
   @Get('lots/:id')
   @Roles(Role.ADMIN, Role.INVENTORY)
   @ApiOperation({ summary: 'Chi tiết lô hàng — Traceability' })
@@ -146,16 +179,16 @@ export class InventoryController {
     return this.inventoryService.getLotById(id, req.user);
   }
 
-  @Post('lots/:id/grade')
+  @Patch('lots/:id')
   @Roles(Role.ADMIN, Role.INVENTORY)
-  @ApiOperation({ summary: 'Cập nhật phẩm cấp lô hàng' })
+  @ApiOperation({ summary: 'Cập nhật thông tin lô hàng (Hết hạn, Phẩm cấp)' })
   @ApiResponse({ status: 200, description: 'Cập nhật thành công' })
-  updateLotGrade(
+  updateLot(
     @Param('id') id: string,
     @Request() req: { user: any },
-    @Body() dto: UpdateLotGradeDto,
+    @Body() dto: UpdateInventoryLotDto,
   ) {
-    return this.inventoryService.updateLotGrade(id, req.user, dto);
+    return this.inventoryService.updateLot(id, req.user, dto);
   }
 
   @Get('products')
@@ -185,6 +218,11 @@ export class InventoryController {
     @Query('productId') productId?: string,
     @Query('fromDate') fromDate?: string,
     @Query('toDate') toDate?: string,
+    @Query('inventoryLotId') inventoryLotId?: string,
+    @Query('createdBy') createdBy?: string,
+    @Query('minQuantity') minQuantity?: string,
+    @Query('maxQuantity') maxQuantity?: string,
+    @Query('noteSearch') noteSearch?: string,
   ) {
     return this.inventoryService.getTransactions(req.user, {
       warehouseId,
@@ -192,6 +230,11 @@ export class InventoryController {
       productId,
       fromDate,
       toDate,
+      inventoryLotId,
+      createdBy,
+      minQuantity,
+      maxQuantity,
+      noteSearch,
     });
   }
 
@@ -229,5 +272,13 @@ export class InventoryController {
   @ApiResponse({ status: 200, description: 'Danh sách báo cáo' })
   getPendingHarvests(@Request() req: { user: any }) {
     return this.inventoryService.getPendingHarvests(req.user);
+  }
+
+  @Get('clients')
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @ApiOperation({ summary: 'Danh sách khách hàng E-commerce' })
+  @ApiResponse({ status: 200, description: 'Danh sách khách hàng' })
+  getClients(@Request() req: { user: any }) {
+    return this.inventoryService.getClients(req.user);
   }
 }

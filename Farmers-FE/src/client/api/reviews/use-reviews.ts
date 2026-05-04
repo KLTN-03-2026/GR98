@@ -40,3 +40,55 @@ export function useCreateReview(productId: string) {
     },
   });
 }
+
+// ─── Internal Management ───────────────────────────────────────────────────
+
+export function useInternalReviews(params?: { page?: number; limit?: number; status?: string; search?: string }) {
+  return useQuery({
+    queryKey: ['reviews', 'internal', params],
+    queryFn: async () => {
+      const response = await reviewApi.listInternal(params as any);
+      return extractData<{
+        items: Review[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      }>(response);
+    },
+  });
+}
+
+export function useUpdateReviewStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const response = await reviewApi.updateStatus(id, status as any);
+      return extractData<Review>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', 'internal'] });
+      toast.success('Cập nhật trạng thái đánh giá thành công');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Cập nhật trạng thái đánh giá thất bại');
+    },
+  });
+}
+
+export function useDeleteReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await reviewApi.delete(id);
+      return extractData<any>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', 'internal'] });
+      toast.success('Xóa đánh giá thành công');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Xóa đánh giá thất bại');
+    },
+  });
+}

@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -13,7 +14,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '@/components/ui/form';
 import {
   Select,
@@ -25,23 +25,17 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  useCreateTransaction, 
-  useGetTransactionWarehouses, 
-  useGetTransactionLots 
+import {
+  useCreateTransaction,
+  useGetTransactionWarehouses,
+  useGetTransactionLots,
 } from '../api/hooks';
 import { toast } from 'sonner';
-import { 
-  Loader2, 
-  TrendingUp, 
-  ArrowRightLeft, 
-  Settings2,
-  Plus,
-  Minus
+import {
+  Scale,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-import type { TransactionType } from '../api/types';
 
 interface CreateTransactionDialogProps {
   isOpen: boolean;
@@ -49,12 +43,18 @@ interface CreateTransactionDialogProps {
 }
 
 interface FormValues {
-  type: TransactionType;
   warehouseId: string;
   inventoryLotId: string;
-  quantityKg: number;
+  quantityKg: string;
   note: string;
-  targetWarehouseId: string;
+}
+
+function Badge({ children, className, variant }: { children: React.ReactNode, className?: string, variant?: string }) {
+  return (
+    <span className={cn("px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider", className)}>
+      {children}
+    </span>
+  );
 }
 
 export default function CreateTransactionDialog({ isOpen, onClose }: CreateTransactionDialogProps) {
@@ -63,110 +63,133 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
 
   const form = useForm<FormValues>({
     defaultValues: {
-      type: 'inbound',
       warehouseId: '',
       inventoryLotId: '',
-      quantityKg: 0,
+      quantityKg: '',
       note: '',
-      targetWarehouseId: '',
     },
   });
 
-  const selectedType = useWatch({ control: form.control, name: 'type' });
   const selectedWarehouseId = useWatch({ control: form.control, name: 'warehouseId' });
   const selectedLotId = useWatch({ control: form.control, name: 'inventoryLotId' });
+  const newWeightStr = useWatch({ control: form.control, name: 'quantityKg' });
+  const justification = useWatch({ control: form.control, name: 'note' });
 
   const { data: lots, isLoading: isLoadingLots } = useGetTransactionLots(selectedWarehouseId);
-  const currentLot = useMemo(() => lots?.find(l => l.id === selectedLotId), [lots, selectedLotId]);
+  const currentLot = useMemo(() => lots?.find((l: any) => l.id === selectedLotId), [lots, selectedLotId]);
 
-  const onSubmit = (values: any) => {
+  const currentWeight = currentLot?.quantityKg || 0;
+  
+  const { deviation, isLargeDeviation, delta } = useMemo(() => {
+    if (!newWeightStr || isNaN(parseFloat(newWeightStr))) {
+      return { deviation: 0, isLargeDeviation: false, delta: 0 };
+    }
+    const val = parseFloat(newWeightStr);
+    const diff = val - currentWeight;
+    const dev = currentWeight > 0 ? Math.abs(diff) / currentWeight : 0;
+    return {
+      deviation: dev * 100,
+      isLargeDeviation: dev > 0.05,
+      delta: diff
+    };
+  }, [newWeightStr, currentWeight]);
+
+  const userJustification = justification.replace(/^\[ĐIỀU CHỈNH KHỐI LƯỢNG\] Từ .*? kg -> .*? kg\. Lý do: /, '').trim();
+
+  // Tự động ghi giá trị cập nhật vào note
+  useEffect(() => {
+    if (newWeightStr && !isNaN(parseFloat(newWeightStr)) && delta !== 0 && currentLot) {
+      const prefix = `[ĐIỀU CHỈNH KHỐI LƯỢNG] Từ ${currentWeight.toLocaleString('vi-VN')} kg -> ${parseFloat(newWeightStr).toLocaleString('vi-VN')} kg. Lý do: `;
+      const currentNote = form.getValues('note');
+      const userText = currentNote.replace(/^\[ĐIỀU CHỈNH KHỐI LƯỢNG\] Từ .*? kg -> .*? kg\. Lý do: /, '');
+      form.setValue('note', prefix + userText, { shouldValidate: true });
+    } else {
+      const currentNote = form.getValues('note');
+      form.setValue('note', currentNote.replace(/^\[ĐIỀU CHỈNH KHỐI LƯỢNG\] Từ .*? kg -> .*? kg\. Lý do: /, ''), { shouldValidate: true });
+    }
+  }, [newWeightStr, currentWeight, delta, currentLot, form]);
+
+  const onSubmit = (values: FormValues) => {
     if (!currentLot) {
-      toast.error('Vui lòng chọn lô hàng để thực hiện giao dịch');
+      toast.error('Vui lòng chọn lô hàng');
       return;
     }
 
-    if (selectedType === 'outbound' && !values.targetWarehouseId) {
-      toast.error('Vui lòng chọn kho nhận để thực hiện điều chuyển');
+    if (delta === 0) {
+      toast.error('Khối lượng mới phải khác khối lượng hiện tại');
       return;
     }
 
-    const payload = {
-      ...values,
+    if (isLargeDeviation && !userJustification) {
+      toast.error('Khối lượng lệch > 5%. Vui lòng nhập lý do giải trình.');
+      return;
+    }
+
+    const payload: any = {
+      warehouseId: values.warehouseId,
+      inventoryLotId: values.inventoryLotId,
       productId: currentLot.productId,
       quantityKg: parseFloat(values.quantityKg),
-      // Mọi giao dịch xuất kho từ trang này đều được coi là Điều chuyển
-      isTransfer: selectedType === 'outbound',
+      note: values.note,
+      type: 'ADJUSTMENT',
     };
 
     createMutation.mutate(payload, {
       onSuccess: () => {
-        toast.success('Ghi nhận giao dịch thành công. Kho hàng đã được cập nhật.');
+        toast.success('Điều chỉnh khối lượng thành công');
         form.reset();
         onClose();
       },
       onError: (error: any) => {
-        const errorMessage = error?.response?.data?.error?.message || error?.message || 'Có lỗi xảy ra khi ghi nhận giao dịch';
-        toast.error('Lỗi hệ thống: ' + errorMessage);
-      }
+        const errorMessage = error?.response?.data?.error?.message || error?.message || 'Có lỗi xảy ra';
+        toast.error(errorMessage);
+      },
     });
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px] rounded-[32px] border-none shadow-2xl font-manrope">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">
-            {selectedType === 'outbound' ? 'Điều chuyển hàng hóa' : 'Giao dịch kho hàng'}
-          </DialogTitle>
-        </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="size-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md">
+                <Scale className="size-5 text-emerald-400" />
+              </div>
+              <DialogTitle className="text-xl font-bold">Điều chỉnh khối lượng</DialogTitle>
+            </div>
+            <DialogDescription className="text-slate-400 text-sm">
+              {currentLot ? (
+                <>Cập nhật số liệu thực tế cho lô <span className="text-emerald-400 font-mono">#{currentLot.id.slice(-6).toUpperCase()}</span> — {currentLot.product?.name}</>
+              ) : (
+                "Cập nhật số liệu thực tế cho các lô hàng trong kho"
+              )}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-6 bg-white">
             
-            {/* 1. Chọn loại giao dịch */}
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-100 rounded-2xl">
-                  {[
-                    { id: 'inbound', label: 'Nhập kho', icon: TrendingUp, color: 'text-emerald-600' },
-                    { id: 'outbound', label: 'Điều chuyển', icon: ArrowRightLeft, color: 'text-blue-600' },
-                    { id: 'adjustment', label: 'Điều chỉnh', icon: Settings2, color: 'text-amber-600' },
-                  ].map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => field.onChange(t.id)}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300",
-                        field.value === t.id ? "bg-white shadow-md " + t.color : "text-slate-400 hover:bg-white/40"
-                      )}
-                    >
-                      <t.icon className="size-4" />
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            />
-
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="warehouseId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kho xuất hàng</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <FormLabel className="text-sm font-bold text-slate-700">Kho thực hiện</FormLabel>
+                    <Select onValueChange={(val) => {
+                      field.onChange(val);
+                      form.setValue('inventoryLotId', '');
+                    }} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="rounded-xl h-12 border-slate-200 font-bold text-xs">
-                          <SelectValue placeholder="Chọn kho" />
+                        <SelectTrigger className="h-12 rounded-xl border-slate-200">
+                          <SelectValue placeholder="Chọn kho..." />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="rounded-xl">
-                        {warehouses?.map(w => (
-                          <SelectItem key={w.id} value={w.id} className="text-xs font-bold">{w.name}</SelectItem>
+                      <SelectContent>
+                        {warehouses?.map((w: any) => (
+                          <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -174,53 +197,26 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
                 )}
               />
 
-              {selectedType === 'outbound' && (
-                <FormField
-                  control={form.control}
-                  name="targetWarehouseId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-[10px] font-black uppercase text-blue-500 tracking-widest ml-1">Kho nhận hàng</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="rounded-xl h-12 border-blue-100 bg-blue-50/30 font-bold text-xs">
-                            <SelectValue placeholder="Chọn kho nhận" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="rounded-xl">
-                          {warehouses?.filter(w => w.id !== selectedWarehouseId).map(w => (
-                            <SelectItem key={w.id} value={w.id} className="text-xs font-bold text-blue-600">{w.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
-              )}
-
               <FormField
                 control={form.control}
                 name="inventoryLotId"
                 render={({ field }) => (
-                  <FormItem className={cn(selectedType !== 'outbound' && "col-span-2")}>
-                    <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Lô hàng định danh</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                  <FormItem>
+                    <FormLabel className="text-sm font-bold text-slate-700">Lô hàng</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
                       value={field.value}
                       disabled={!selectedWarehouseId || isLoadingLots}
                     >
                       <FormControl>
-                        <SelectTrigger className="rounded-xl h-12 border-slate-200 font-bold text-xs">
-                          <SelectValue placeholder="Chọn lô hàng..." />
+                        <SelectTrigger className="h-12 rounded-xl border-slate-200">
+                          <SelectValue placeholder={isLoadingLots ? "Đang tải..." : "Chọn lô hàng..."} />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="rounded-xl">
-                        {lots?.map(l => (
-                          <SelectItem key={l.id} value={l.id} className="text-xs">
-                            <div className="flex flex-col gap-0.5">
-                              <span className="font-bold">Lô {l.id.slice(-6).toUpperCase()}</span>
-                              <span className="text-[10px] text-muted-foreground">{l.product.name} (Sẵn có: {l.quantityKg}kg)</span>
-                            </div>
+                      <SelectContent>
+                        {lots?.map((l: any) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            Lô {l.id.slice(-6).toUpperCase()}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -230,78 +226,118 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
               />
             </div>
 
+            {currentLot && (
+              <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <FormLabel className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Hiện tại</FormLabel>
+                  <p className="text-xl font-black text-slate-900 mt-1">{currentWeight.toLocaleString('vi-VN')} <span className="text-xs font-medium text-slate-400">kg</span></p>
+                </div>
+                <div className={cn(
+                  "p-4 rounded-2xl border transition-all duration-300",
+                  isLargeDeviation ? "bg-rose-50 border-rose-100" : "bg-emerald-50 border-emerald-100"
+                )}>
+                  <FormLabel className={cn(
+                    "text-[10px] uppercase tracking-widest font-bold",
+                    isLargeDeviation ? "text-rose-400" : "text-emerald-400"
+                  )}>Biến động</FormLabel>
+                  <p className={cn(
+                    "text-xl font-black mt-1",
+                    isLargeDeviation ? "text-rose-600" : "text-emerald-600"
+                  )}>
+                    {delta > 0 ? '+' : ''}{delta.toLocaleString('vi-VN')} <span className="text-xs font-medium opacity-70">kg</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="quantityKg"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex justify-between px-1">
-                    Số lượng thực hiện
-                    {currentLot && (
-                      <span className="text-emerald-600 font-black">SỐ DƯ LÔ TẠI KHO: {currentLot.quantityKg}kg</span>
-                    )}
-                  </FormLabel>
-                  <FormControl>
-                    <div className="relative flex items-center bg-white rounded-3xl p-2 border-2 border-slate-100 shadow-sm focus-within:border-slate-900 transition-all">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-2xl size-10 bg-slate-50 hover:bg-slate-100"
-                        onClick={() => field.onChange(Math.max(0, field.value - 1))}
-                      >
-                        <Minus className="size-4" />
-                      </Button>
+                  <FormLabel className="text-sm font-bold text-slate-700">Khối lượng thực tế mới (kg)</FormLabel>
+                  <div className="relative">
+                    <FormControl>
                       <Input
                         type="number"
                         {...field}
-                        className="border-none shadow-none bg-transparent text-center text-4xl font-black focus-visible:ring-0 tabular-nums h-14"
+                        disabled={!currentLot}
+                        placeholder={currentLot ? "Nhập số cân thực tế..." : "Vui lòng chọn lô hàng trước"}
+                        className="h-12 rounded-xl border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 pl-4 text-lg font-bold"
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-2xl size-10 bg-slate-50 hover:bg-slate-100"
-                        onClick={() => field.onChange(field.value + 1)}
-                      >
-                        <Plus className="size-4" />
-                      </Button>
-                    </div>
-                  </FormControl>
-                  <FormMessage className="text-[10px] font-bold" />
+                    </FormControl>
+                    {newWeightStr && !isNaN(parseFloat(newWeightStr)) && (
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                        <Badge variant="outline" className={cn(
+                          "font-bold",
+                          isLargeDeviation ? "bg-rose-100 text-rose-700 border-rose-200" : "bg-emerald-100 text-emerald-700 border-emerald-200"
+                        )}>
+                          {deviation.toFixed(1)}%
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
                 </FormItem>
               )}
             />
+
+            {isLargeDeviation && (
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 animate-in zoom-in-95 duration-300">
+                <div className="flex gap-3">
+                  <AlertTriangle className="size-5 text-rose-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-rose-700">Cảnh báo độ lệch lớn</p>
+                    <p className="text-xs text-rose-600 leading-relaxed">
+                      Khối lượng thay đổi vượt quá 5%. Hệ thống yêu cầu giải trình lý do cho biến động này.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {newWeightStr && !isNaN(parseFloat(newWeightStr)) && delta === 0 && currentLot && (
+              <div className="text-center p-2 rounded-lg bg-rose-50 border border-rose-100">
+                <p className="text-xs font-semibold text-rose-600">
+                  ⚠️ Khối lượng mới đang bằng với khối lượng hiện tại.
+                </p>
+              </div>
+            )}
 
             <FormField
               control={form.control}
               name="note"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Ghi chú & Lý do</FormLabel>
+                  <FormLabel className="text-sm font-bold text-slate-700">
+                    Lý do giải trình {isLargeDeviation && <span className="text-rose-500">*</span>}
+                  </FormLabel>
                   <FormControl>
-                    <Textarea 
-                      {...field} 
-                      placeholder="Nhập lý do thực hiện giao dịch..."
-                      className="rounded-2xl min-h-[100px] border-slate-200 bg-slate-50/30 focus:bg-white transition-all text-xs font-medium"
+                    <Textarea
+                      {...field}
+                      disabled={!currentLot}
+                      placeholder="Nhập lý do (ví dụ: hao hụt tự nhiên, sai lệch cân, hàng hỏng...)"
+                      className="rounded-xl border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 min-h-[100px] resize-none"
                     />
                   </FormControl>
                 </FormItem>
               )}
             />
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="ghost" onClick={onClose} className="rounded-2xl font-bold text-slate-500 hover:bg-slate-100">
-                Hủy bỏ
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={createMutation.isPending}
-                className="rounded-2xl bg-slate-900 px-10 h-12 font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 active:scale-95 transition-all"
-              >
-                {createMutation.isPending ? <Loader2 className="animate-spin size-4" /> : 'Xác nhận giao dịch'}
-              </Button>
+            <DialogFooter className="pt-2">
+              <div className="flex w-full gap-3">
+                <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-12 rounded-xl font-bold text-slate-600">
+                  Hủy bỏ
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={!currentLot || !newWeightStr || delta === 0 || createMutation.isPending || (isLargeDeviation && !userJustification)}
+                  className="flex-[2] h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xl shadow-slate-200 transition-all active:scale-95"
+                >
+                  {createMutation.isPending ? 'Đang lưu...' : 'Xác nhận cập nhật'}
+                </Button>
+              </div>
             </DialogFooter>
+
           </form>
         </Form>
       </DialogContent>

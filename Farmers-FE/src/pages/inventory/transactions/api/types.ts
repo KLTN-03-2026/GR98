@@ -1,4 +1,4 @@
-export type TransactionType = 'inbound' | 'outbound' | 'adjustment';
+export type TransactionType = 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'TRANSFER';
 
 export interface WarehouseTransaction {
   id: string;
@@ -42,4 +42,9 @@ export interface TransactionFilters {
   productId?: string;
   fromDate?: string;
   toDate?: string;
+  inventoryLotId?: string;
+  createdBy?: string;
+  minQuantity?: number;
+  maxQuantity?: number;
+  noteSearch?: string;
 }

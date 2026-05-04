@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import type { 
-  ColumnDef, 
-  ColumnFiltersState, 
-  SortingState, 
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
   VisibilityState,
   OnChangeFn,
   PaginationState
@@ -52,7 +52,7 @@ interface DataTableProps<TData, TValue> {
   filterToolbar?: React.ReactNode;
   enableCheckbox?: boolean;
   onDeleteMultiple?: (selectedRows: any[]) => void;
-  
+
   // SSR (Manual) Props
   totalItems?: number;
   manualPagination?: boolean;
@@ -64,6 +64,7 @@ interface DataTableProps<TData, TValue> {
   state?: any; // To override internal state for SSR
   /** Truyền xuống DataTablePagination (vd: [10, 15, 20, 30]) */
   pageSizeOptions?: number[];
+  meta?: any;
 }
 
 function TableSkeleton({ columns }: { columns: number }) {
@@ -97,7 +98,7 @@ export function DataTable<TData, TValue>({
   filterToolbar,
   enableCheckbox = false,
   onDeleteMultiple,
-  
+
   // SSR
   totalItems,
   manualPagination = false,
@@ -108,6 +109,7 @@ export function DataTable<TData, TValue>({
   onSortingChange,
   state: externalState,
   pageSizeOptions,
+  meta,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -163,6 +165,7 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns: columnsWithCheckbox,
+    meta,
     // Chỉ truyền pageCount khi phân trang server; client dùng getPaginationRowModel tự tính.
     // Truyền -1 khi không manual làm getCanNextPage() sai → nút "Trang sau" vẫn bấm được dù chỉ 1 trang.
     ...(manualPagination ? { pageCount: pageCount ?? -1 } : {}),
@@ -183,7 +186,7 @@ export function DataTable<TData, TValue>({
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: onPaginationChange || setPagination,
-    
+
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: manualFiltering ? undefined : getFilteredRowModel(),
     getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),

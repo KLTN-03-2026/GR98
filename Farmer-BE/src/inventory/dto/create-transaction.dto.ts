@@ -1,11 +1,6 @@
 import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
-export enum TransactionType {
-  INBOUND = 'inbound',
-  OUTBOUND = 'outbound',
-  ADJUSTMENT = 'adjustment',
-}
+import { TransactionType, TransactionAction } from '@prisma/client';
 
 export class CreateTransactionDto {
   @ApiProperty({ description: 'ID của kho hàng' })
@@ -20,12 +15,16 @@ export class CreateTransactionDto {
   @IsString({ message: 'ID lô hàng không hợp lệ' })
   inventoryLotId: string;
 
-  @ApiProperty({
-    description: 'Loại giao dịch',
-    enum: TransactionType,
-  })
-  @IsEnum(TransactionType, { message: 'Loại giao dịch phải là: inbound, outbound hoặc adjustment' })
+  @IsEnum(TransactionType, { message: 'Loại giao dịch không hợp lệ' })
   type: TransactionType;
+
+  @ApiProperty({
+    description: 'Hành động chi tiết',
+    enum: TransactionAction,
+  })
+  @IsEnum(TransactionAction, { message: 'Hành động không hợp lệ' })
+  @IsOptional()
+  action?: TransactionAction;
 
   @ApiProperty({ description: 'Số lượng (kg)' })
   @IsNumber({}, { message: 'Số lượng phải là một số' })

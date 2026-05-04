@@ -6,26 +6,11 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button-variants";
 
-interface ButtonProps extends VariantProps<typeof buttonVariants> {
+interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   isLoading?: boolean;
-  className?: string;
-  children?: React.ReactNode;
-  disabled?: boolean;
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
-  onMouseDown?: React.MouseEventHandler<HTMLButtonElement>;
-  onMouseUp?: React.MouseEventHandler<HTMLButtonElement>;
-  onMouseEnter?: React.MouseEventHandler<HTMLButtonElement>;
-  onMouseLeave?: React.MouseEventHandler<HTMLButtonElement>;
-  onKeyDown?: React.KeyboardEventHandler<HTMLButtonElement>;
-  type?: "button" | "submit" | "reset";
-  form?: string;
-  name?: string;
-  value?: string | readonly string[] | number;
-  tabIndex?: number;
-  "aria-label"?: string;
-  "aria-describedby"?: string;
-  "data-testid"?: string;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

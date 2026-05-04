@@ -126,3 +126,57 @@ export class ProductQueryDto {
   @IsString()
   categoryId?: string;
 }
+
+export class CreateProductFromLotDto {
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty({ description: 'ID của lô hàng gốc' })
+  inventoryLotId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty({ description: 'Tên thương mại của sản phẩm' })
+  name: string;
+
+  @IsNumber()
+  @Min(0)
+  @ApiProperty({ description: 'Giá bán niêm yết' })
+  pricePerKg: number;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'Mô tả chi tiết' })
+  description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ApiPropertyOptional({ type: [String] })
+  imageUrls?: string[];
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'Slug tùy chỉnh' })
+  slug?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'SKU tùy chỉnh' })
+  sku?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ApiPropertyOptional({ type: [String] })
+  categoryIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'URL ảnh đại diện' })
+  thumbnailUrl?: string;
+
+  @IsOptional()
+  @IsEnum(ProductStatus)
+  @ApiPropertyOptional({ enum: ProductStatus, default: ProductStatus.DRAFT })
+  status?: ProductStatus;
+}

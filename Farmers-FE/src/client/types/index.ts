@@ -82,7 +82,7 @@ export interface Category {
   id: string;
   name: string;
   slug: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   sortOrder: number;
   productCount?: number;
 }
@@ -107,6 +107,8 @@ export interface Product {
   harvestDate?: string;
   aiConfidenceScore?: number;
   createdAt: string;
+  plotId?: string;
+  contractId?: string;
   categories?: Category[];
   reviews?: Review[];
   averageRating?: number;
@@ -177,7 +179,14 @@ export interface OrderItem {
   quantityKg: number;
   subtotal: number;
   productImage?: string;
-  product?: { id: string; imageUrls: string[]; thumbnailUrl: string | null };
+  product?: {
+    id: string;
+    sku: string | null;
+    category: string | null;
+    qualityGrade: string | null;
+    imageUrls: string[];
+    thumbnailUrl: string | null;
+  };
 }
 
 export interface Order {

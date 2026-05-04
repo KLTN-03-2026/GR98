@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, MapPin } from 'lucide-react';
+import { Eye, MapPin, CheckCircle2, XCircle, Warehouse as WarehouseIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { InventoryLot } from '../api/types';
@@ -9,25 +9,30 @@ import { cn } from '@/lib/utils';
 
 export function createLotColumns(handlers: {
   onViewDetail: (lot: InventoryLot) => void;
+  onConfirm: (lot: InventoryLot) => void;
+  onReject: (lot: InventoryLot) => void;
+  onUpdateGrade: (lot: InventoryLot) => void;
+  mode?: 'in-stock' | 'pending' | 'upcoming';
 }) {
+  const { mode = 'in-stock' } = handlers;
+  
   const columns: ColumnDef<InventoryLot>[] = [
     {
       accessorKey: 'id',
-      header: 'Mã Lô',
+      header: 'Mã lô',
       cell: ({ row }) => (
-        <span className="font-mono font-medium text-slate-900 text-xs">
-          {row.original.id.slice(-6).toUpperCase()}
+        <span className="text-sm font-medium uppercase text-muted-foreground">
+          #{row.original.id.slice(-8)}
         </span>
       ),
     },
     {
       id: 'product',
-      header: 'Sản phẩm & SKU',
-      accessorFn: (row) => `${row.product.name} ${row.product.sku}`,
+      header: 'Sản phẩm',
       cell: ({ row }) => (
-        <div className="flex flex-col gap-0.5">
-          <span className="font-medium text-slate-900">{row.original.product.name}</span>
-          <span className="text-xs text-muted-foreground">{row.original.product.sku}</span>
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-slate-900">{row.original.product.name}</span>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase">{row.original.product.sku}</span>
         </div>
       ),
     },
@@ -36,90 +41,109 @@ export function createLotColumns(handlers: {
       header: 'Phẩm cấp',
       cell: ({ row }) => {
         const grade = row.original.qualityGrade;
+        if (grade === 'REJECT') {
+          return <Badge variant="destructive">Reject</Badge>;
+        }
+        
+        const canUpdate = row.original.status === 'ARRIVED' || row.original.status === 'RECEIVED';
+
         return (
-          <Badge
-            variant="outline"
-            className={
-              grade === 'A' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                grade === 'B' ? "bg-blue-50 text-blue-600 border-blue-100" :
-                  "bg-amber-50 text-amber-600 border-amber-100"
-            }
+          <div 
+            className={cn(canUpdate && "cursor-pointer")}
+            onClick={(e) => {
+              if (canUpdate) {
+                e.stopPropagation();
+                handlers.onUpdateGrade(row.original);
+              }
+            }}
           >
-            Loại {grade}
-          </Badge>
+            <Badge 
+              variant={grade === 'A' ? 'default' : grade === 'B' ? 'secondary' : 'outline'}
+              className="font-bold uppercase text-[10px] px-2"
+            >
+              Loại {grade}
+            </Badge>
+          </div>
         );
       },
     },
     {
-      id: 'status',
-      header: 'Trạng thái',
+      id: 'warehouse',
+      header: 'Kho chứa',
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.warehouse.name}</span>
+      ),
+    },
+    {
+      id: 'date',
+      header: mode === 'upcoming' ? 'Dự kiến' : 'Ngày nhập',
       cell: ({ row }) => {
-        const isUpcoming = row.original.isUpcoming;
+        const dateValue = mode === 'upcoming' ? row.original.harvestDate : row.original.createdAt;
+        if (!dateValue) return <span className="text-muted-foreground text-sm">—</span>;
+        
         return (
-          <Badge 
-            variant="secondary" 
-            className={cn(
-              "font-medium text-[10px] uppercase tracking-wider",
-              isUpcoming 
-                ? "bg-slate-100 text-slate-500" 
-                : "bg-emerald-100 text-emerald-700"
-            )}
-          >
-            {isUpcoming ? 'Dự kiến' : 'Trong kho'}
-          </Badge>
+          <span className="text-sm whitespace-nowrap">
+             {format(new Date(dateValue), 'dd/MM/yyyy', { locale: vi })}
+          </span>
         );
       },
     },
     {
       accessorKey: 'quantityKg',
-      header: 'Số lượng (kg)',
+      header: 'Số lượng',
       cell: ({ row }) => (
-        <span className="font-medium tabular-nums">
-          {row.original.quantityKg.toLocaleString('vi-VN')}
-        </span>
-      ),
-    },
-    {
-      id: 'warehouse',
-      header: 'Kho chứa',
-      accessorFn: (row) => row.warehouse.name,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <MapPin className="size-3.5" />
-          <span className="text-sm">{row.original.warehouse.name}</span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'createdAt',
-      header: 'Ngày nhập',
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {format(new Date(row.original.createdAt), 'dd/MM/yyyy', { locale: vi })}
+        <span className="text-sm font-medium">
+          {row.original.quantityKg.toLocaleString('vi-VN')} kg
         </span>
       ),
     },
     {
       id: 'actions',
       header: '',
-      enableSorting: false,
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
+          {row.original.status === 'ARRIVED' && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlers.onReject(row.original);
+                }}
+              >
+                <XCircle className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlers.onConfirm(row.original);
+                }}
+              >
+                <CheckCircle2 className="size-4" />
+              </Button>
+            </>
+          )}
           <Button
             variant="ghost"
             size="sm"
+            className="h-8 text-xs font-medium"
             onClick={(e) => {
               e.stopPropagation();
               handlers.onViewDetail(row.original);
             }}
           >
-            <Eye className="size-4 mr-2" />
+            <Eye className="h-4 w-4 mr-1" />
             Chi tiết
           </Button>
         </div>
       ),
     },
   ];
+  
   return columns;
 }
-

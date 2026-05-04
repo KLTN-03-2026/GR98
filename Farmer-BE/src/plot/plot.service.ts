@@ -375,6 +375,7 @@ export class PlotService {
             plotDraftDistrict: true,
             plotDraftAreaHa: true,
             plotDraftCoordinatesText: true,
+            signedAt: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -580,6 +581,7 @@ export class PlotService {
       plotDraftDistrict: string | null;
       plotDraftAreaHa: number | null;
       plotDraftCoordinatesText: string | null;
+      signedAt: Date | null;
     }>;
     assignments: Array<{
       supervisorId: string;
@@ -629,6 +631,7 @@ export class PlotService {
       id_suppervisor: activeAssignment?.supervisorId ?? null,
       name_suppervisor: activeAssignment?.supervisor.user.fullName ?? null,
       expectedHarvest: plot.expectedHarvest?.toISOString() ?? null,
+      contractSignedAt: latestContract?.signedAt?.toISOString() ?? null,
     };
   }
 
@@ -735,6 +738,7 @@ export class PlotService {
             plotDraftDistrict: true,
             plotDraftAreaHa: true,
             plotDraftCoordinatesText: true,
+            signedAt: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -881,6 +885,7 @@ export class PlotService {
               plotDraftDistrict: true,
               plotDraftAreaHa: true,
               plotDraftCoordinatesText: true,
+              signedAt: true,
             },
             orderBy: { createdAt: 'desc' },
             take: 1,

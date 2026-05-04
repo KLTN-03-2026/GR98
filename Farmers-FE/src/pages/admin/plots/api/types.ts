@@ -29,6 +29,7 @@ export interface PlotResponse {
   id_suppervisor?: string | null;
   name_suppervisor?: string | null;
   expectedHarvest?: string | null;
+  contractSignedAt?: string | null;
 }
 
 export interface PaginatedPlotsResponse {

@@ -8,6 +8,7 @@ import type {
   CreateDailyReportPayload,
   DailyReportResponse,
   DailyReportStatus,
+  DailyReportType,
   PaginatedDailyReportsResponse,
   UpdateDailyReportPayload,
 } from './types';
@@ -19,6 +20,7 @@ export const dailyReportApi = {
     page?: number;
     limit?: number;
     status?: DailyReportStatus;
+    type?: DailyReportType;
     supervisorId?: string;
     plotId?: string;
     from?: string;

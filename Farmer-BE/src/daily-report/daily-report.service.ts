@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   AssignStatus,
+  ContractStatus,
   Prisma,
   ReportStatus,
   Role,
@@ -145,6 +146,50 @@ export class DailyReportService {
     }
   }
 
+  private async assertHarvestUniqueness(plotId: string, adminId: string, skipReportId?: string) {
+    // 1. Find latest relevant contract to get the milestone (signedAt)
+    const latestContract = await this.prisma.contract.findFirst({
+      where: {
+        plotId,
+        adminId,
+        status: {
+          in: [
+            ContractStatus.SIGNED,
+            ContractStatus.ACTIVE,
+            ContractStatus.COMPLETED,
+            ContractStatus.SETTLED,
+          ],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { signedAt: true, id: true },
+    });
+
+    if (!latestContract || !latestContract.signedAt) {
+      throw new BadRequestException(
+        'Thửa đất chưa có hợp đồng được ký kết. Vui lòng ký hợp đồng trước khi báo cáo thu hoạch.',
+      );
+    }
+
+    // 2. Check if any non-rejected HARVEST report exists since the signing date
+    const existingHarvest = await this.prisma.dailyReport.findFirst({
+      where: {
+        plotId,
+        adminId,
+        type: 'HARVEST',
+        reportedAt: { gte: latestContract.signedAt },
+        status: { not: ReportStatus.REJECTED },
+        ...(skipReportId ? { id: { not: skipReportId } } : {}),
+      },
+    });
+
+    if (existingHarvest) {
+      throw new BadRequestException(
+        'Mùa vụ (Hợp đồng) này đã được ghi nhận báo cáo thu hoạch.',
+      );
+    }
+  }
+
   async create(dto: CreateDailyReportDto, userId: string) {
     const actor = await this.resolveActorContext(userId);
     if (actor?.role !== Role.SUPERVISOR || !actor.supervisorProfileId || !actor.adminId) {
@@ -156,6 +201,10 @@ export class DailyReportService {
       actor.supervisorProfileId,
       actor.adminId,
     );
+
+    if (dto.type === 'HARVEST') {
+      await this.assertHarvestUniqueness(dto.plotId, actor.adminId);
+    }
 
     const imageUrls = this.normalizeImageUrls(dto.imageUrls);
     const content = dto.content?.trim() ?? '';
@@ -234,6 +283,10 @@ export class DailyReportService {
 
     this.assertSubmitPayload(existing.content, existing.imageUrls, existing.yieldEstimateKg);
 
+    if (existing.type === 'HARVEST') {
+      await this.assertHarvestUniqueness(existing.plotId, actor.adminId, existing.id);
+    }
+
     return this.prisma.dailyReport.update({
       where: { id },
       data: { status: ReportStatus.SUBMITTED },
@@ -285,6 +338,10 @@ export class DailyReportService {
       if (query.to) {
         where.reportedAt.lte = new Date(query.to);
       }
+    }
+
+    if (query.type?.trim()) {
+      where.type = query.type.trim() as any;
     }
 
     if (query.search?.trim()) {
@@ -352,5 +409,34 @@ export class DailyReportService {
       throw new NotFoundException('Không tìm thấy báo cáo');
     }
     return row;
+  }
+
+  async review(id: string, status: ReportStatus, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (actor?.role !== Role.ADMIN || !actor.adminId) {
+      throw new ForbiddenException('Chỉ quản trị viên mới được duyệt báo cáo');
+    }
+
+    if (status !== ReportStatus.APPROVED && status !== ReportStatus.REJECTED) {
+      throw new BadRequestException('Trạng thái duyệt không hợp lệ (APPROVED hoặc REJECTED)');
+    }
+
+    const existing = await this.prisma.dailyReport.findFirst({
+      where: { id, adminId: actor.adminId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Không tìm thấy báo cáo');
+    }
+
+    if (existing.status !== ReportStatus.SUBMITTED) {
+      throw new BadRequestException('Chỉ có thể duyệt báo cáo đang ở trạng thái đã gửi (SUBMITTED)');
+    }
+
+    return this.prisma.dailyReport.update({
+      where: { id },
+      data: { status },
+      include: reportListInclude,
+    });
   }
 }

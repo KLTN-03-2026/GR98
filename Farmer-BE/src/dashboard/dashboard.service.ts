@@ -107,7 +107,9 @@ function reportStatusLabel(s: ReportStatus): string {
   const map: Record<ReportStatus, string> = {
     DRAFT: 'Nháp',
     SUBMITTED: 'Đã gửi',
-    REVIEWED: 'Đã duyệt',
+    REVIEWED: 'Đã xem/Duyệt',
+    APPROVED: 'Đã duyệt',
+    REJECTED: 'Bị từ chối',
   };
   return map[s] ?? s;
 }

@@ -564,6 +564,7 @@ export class PlotService {
     lat: number | null;
     lng: number | null;
     createdAt: Date;
+    expectedHarvest: Date | null;
     status: PlotStatus;
     hasGis?: boolean;
     farmer: {
@@ -627,6 +628,7 @@ export class PlotService {
       hasGis,
       id_suppervisor: activeAssignment?.supervisorId ?? null,
       name_suppervisor: activeAssignment?.supervisor.user.fullName ?? null,
+      expectedHarvest: plot.expectedHarvest?.toISOString() ?? null,
     };
   }
 

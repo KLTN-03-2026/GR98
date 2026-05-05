@@ -19,7 +19,9 @@ import {
   type PaginatedDailyReportsResponse,
   type DailyReportResponse,
   type DailyReportStatus,
+  type DailyReportType,
 } from './api';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminDailyReportDetailDialog } from './admin-daily-report-detail-dialog';
 import { getLocalDayEndIso, getLocalDayStartIso, getTodayLocalIsoDate } from '@/lib/local-day-range';
 import { createAdminDailyReportColumns } from './daily-reports-columns';
@@ -40,6 +42,7 @@ export default function AdminDailyReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit, setLimit] = useState(PAGE_LIMIT);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [reportType, setReportType] = useState<DailyReportType | 'ALL'>('ALL');
   const todayIso = getTodayLocalIsoDate(now);
   const isInvalidDateRange = Boolean(from && to && from > to);
   const apiDateRange = useMemo(() => {
@@ -80,6 +83,7 @@ export default function AdminDailyReportsPage() {
     supervisorId: supervisorId || undefined,
     from: apiDateRange.from,
     to: apiDateRange.to,
+    type: reportType === 'ALL' ? undefined : reportType,
   });
 
   const { data: detailRow, isFetching: detailLoading } = useDailyReport(detailId ?? '');
@@ -158,7 +162,7 @@ export default function AdminDailyReportsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedKeyword, supervisorId, from, to, apiDateRange.from, apiDateRange.to]);
+  }, [debouncedKeyword, supervisorId, from, to, apiDateRange.from, apiDateRange.to, reportType]);
 
   useEffect(() => {
     if (!isLoading && currentPage > totalPages) {
@@ -222,6 +226,39 @@ export default function AdminDailyReportsPage() {
           </Badge>
         </div>
       </div>
+
+      <Tabs
+        value={reportType}
+        onValueChange={(v) => setReportType(v as DailyReportType | 'ALL')}
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-2 md:w-auto md:flex gap-1 bg-transparent p-0 h-auto">
+          <TabsTrigger
+            value="ALL"
+            className="rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            Tất cả
+          </TabsTrigger>
+          <TabsTrigger
+            value="ROUTINE"
+            className="rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            Định kỳ
+          </TabsTrigger>
+          <TabsTrigger
+            value="INCIDENT"
+            className="rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            Sự cố
+          </TabsTrigger>
+          <TabsTrigger
+            value="HARVEST"
+            className="rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            Thu hoạch
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <Card>
         <CardContent className="pt-6">

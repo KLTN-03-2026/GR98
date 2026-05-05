@@ -47,6 +47,7 @@ import {
   type SupervisorDailyDashboard,
 } from './api';
 import { createSupervisorDailyReportColumns } from './components';
+import { CreateLotFromReportDialog } from './components/CreateLotFromReportDialog';
 
 const PAGE_LIMIT = 15;
 const MAX_IMAGES = 10;
@@ -114,6 +115,9 @@ export default function SupervisorDailyReportsPage() {
 
   const [categoryTab, setCategoryTab] = useState<CategoryTab>('ALL');
 
+  const [lotDialogOpen, setLotDialogOpen] = useState(false);
+  const [selectedReportForLot, setSelectedReportForLot] = useState<DailyReportResponse | null>(null);
+
   const statusParam =
     statusTab === 'ALL' ? undefined : (statusTab as Exclude<StatusTab, 'ALL'>);
 
@@ -141,10 +145,11 @@ export default function SupervisorDailyReportsPage() {
   const plotOptions = useMemo(() => {
     const base = (dailyDash?.plots ?? []).map((p) => {
       const sentLabel = submittedTodayPlotIds.has(p.id) ? 'Đã gửi' : 'Chưa gửi';
+      const harvestLabel = p.hasHarvestReport ? ' (Đã báo sản lượng)' : '';
       const translatedCrop = translateCropType(p.cropType);
       return {
         value: p.id,
-        label: `${p.plotName || p.lotCode} — ${p.farmerName} (${translatedCrop}) (${sentLabel})`,
+        label: `${p.plotName || p.lotCode} — ${p.farmerName} (${translatedCrop})${harvestLabel} (${sentLabel})`,
         cropType: p.cropType,
         areaHa: p.areaHa,
       };
@@ -272,12 +277,17 @@ export default function SupervisorDailyReportsPage() {
     [openEdit, openView],
   );
 
+  const handleCreateLot = useCallback((row: DailyReportResponse) => {
+    setSelectedReportForLot(row);
+    setLotDialogOpen(true);
+  }, []);
+
   const columns = useMemo(
     () =>
-      createSupervisorDailyReportColumns(openEdit, openView, {
+      createSupervisorDailyReportColumns(openEdit, openView, handleCreateLot, {
         showYield: categoryTab === 'HARVEST',
       }),
-    [openEdit, openView, categoryTab],
+    [openEdit, openView, handleCreateLot, categoryTab],
   );
 
   const handlePaginationChange = useCallback(
@@ -369,12 +379,17 @@ export default function SupervisorDailyReportsPage() {
       toast.error('Vui lòng chọn lô đất');
       return;
     }
+    const selectedPlot = plotOptions.find((o) => o.value === plotId);
+    if (isHarvest && !editingId && (selectedPlot as any)?.hasHarvestReport) {
+      toast.error('Lô đất này đã có báo cáo sản lượng đang xử lý hoặc đã hoàn tất.');
+      return;
+    }
     setSaving(true);
     try {
       if (!editingId) {
         const res = await dailyReportApi.create({
           plotId,
-          type: reportType,
+          type: isHarvest ? 'HARVEST' : reportType,
           content: content.trim(),
           imageUrls,
           yieldEstimateKg: isHarvest ? (Number(yieldEstimateKg) || 0) : undefined,
@@ -383,7 +398,7 @@ export default function SupervisorDailyReportsPage() {
         toast.success('Đã tạo báo cáo nháp');
       } else {
         const res = await dailyReportApi.update(editingId, {
-          type: reportType,
+          type: isHarvest ? 'HARVEST' : reportType,
           content: content.trim(),
           imageUrls,
           yieldEstimateKg: isHarvest ? (Number(yieldEstimateKg) || 0) : undefined,
@@ -410,6 +425,11 @@ export default function SupervisorDailyReportsPage() {
       toast.error('Vui lòng chọn lô đất');
       return;
     }
+    const selectedPlot = plotOptions.find((o) => o.value === plotId);
+    if (isHarvest && !editingId && (selectedPlot as any)?.hasHarvestReport) {
+      toast.error('Lô đất này đã có báo cáo sản lượng đang xử lý hoặc đã hoàn tất.');
+      return;
+    }
     if (!content.trim()) {
       toast.error('Cần nội dung chữ trước khi gửi');
       return;
@@ -424,7 +444,7 @@ export default function SupervisorDailyReportsPage() {
       if (!id) {
         const createdRes = await dailyReportApi.create({
           plotId,
-          type: reportType,
+          type: isHarvest ? 'HARVEST' : reportType,
           content: content.trim(),
           imageUrls,
           yieldEstimateKg: isHarvest ? (Number(yieldEstimateKg) || 0) : undefined,
@@ -433,7 +453,7 @@ export default function SupervisorDailyReportsPage() {
       } else {
         extractData(
           await dailyReportApi.update(id, {
-            type: reportType,
+            type: isHarvest ? 'HARVEST' : reportType,
             content: content.trim(),
             imageUrls,
             yieldEstimateKg: isHarvest ? (Number(yieldEstimateKg) || 0) : undefined,
@@ -458,6 +478,8 @@ export default function SupervisorDailyReportsPage() {
   };
 
   const isDraftSheet = sheetMode === 'create' || sheetMode === 'edit';
+  const selectedPlotObj = plotOptions.find((o) => o.value === plotId);
+  const isHarvestBlocked = isHarvest && !editingId && (selectedPlotObj as any)?.hasHarvestReport;
 
   if (!supervisorProfileId) {
     return (
@@ -614,29 +636,34 @@ export default function SupervisorDailyReportsPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Loại báo cáo</Label>
-                <Select
-                  value={reportType}
-                  onValueChange={(v) => setReportType(v as DailyReportType)}
-                  disabled={!isDraftSheet}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ROUTINE">Thường kỳ</SelectItem>
-                    <SelectItem value="INCIDENT">Sự cố</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {!isHarvest && (
+                <div className="space-y-2">
+                  <Label>Loại báo cáo</Label>
+                  <Select
+                    value={reportType}
+                    onValueChange={(v) => setReportType(v as DailyReportType)}
+                    disabled={!isDraftSheet}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ROUTINE">Thường kỳ</SelectItem>
+                      <SelectItem value="INCIDENT">Sự cố</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-              <div className="space-y-2 flex flex-col justify-end">
+              <div className={`space-y-2 flex flex-col justify-end ${isHarvest ? 'col-span-2' : ''}`}>
                 <div className="flex items-center space-x-2 pb-2">
                   <Checkbox
                     id="isHarvest"
                     checked={isHarvest}
-                    onCheckedChange={(checked) => setIsHarvest(!!checked)}
+                    onCheckedChange={(checked) => {
+                      setIsHarvest(!!checked);
+                      if (checked) setReportType('ROUTINE'); // Reset but will be overridden by HARVEST type on save
+                    }}
                     disabled={!isDraftSheet}
                   />
                   <label
@@ -660,6 +687,11 @@ export default function SupervisorDailyReportsPage() {
                   disabled={!isDraftSheet}
                   autoFocus={sheetMode === 'create' && isHarvest}
                 />
+                {plotId && plotOptions.find(o => o.value === plotId && (o as any).hasHarvestReport) && (
+                   <p className="text-xs text-orange-600 font-medium">
+                     Lô đất này đã có báo cáo sản lượng đang xử lý hoặc đã hoàn tất.
+                   </p>
+                )}
               </div>
             )}
 
@@ -726,10 +758,17 @@ export default function SupervisorDailyReportsPage() {
               <Button variant="secondary" disabled={saving || sending} onClick={() => closeSheet(false)}>
                 Hủy
               </Button>
-              <Button variant="outline" disabled={saving || sending} onClick={handleSaveDraft}>
+              <Button 
+                variant="outline" 
+                disabled={saving || sending || isHarvestBlocked} 
+                onClick={handleSaveDraft}
+              >
                 {saving ? 'Đang lưu...' : 'Lưu nháp'}
               </Button>
-              <Button disabled={saving || sending} onClick={handleSend}>
+              <Button 
+                disabled={saving || sending || isHarvestBlocked} 
+                onClick={handleSend}
+              >
                 <Send className="h-4 w-4 mr-2" />
                 {sending ? 'Đang gửi...' : 'Gửi báo cáo'}
               </Button>
@@ -737,6 +776,13 @@ export default function SupervisorDailyReportsPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <CreateLotFromReportDialog
+        report={selectedReportForLot}
+        open={lotDialogOpen}
+        onOpenChange={setLotDialogOpen}
+        onSuccess={() => void invalidateList()}
+      />
     </div>
   );
 }

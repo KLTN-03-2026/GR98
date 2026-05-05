@@ -38,6 +38,17 @@ export class InventoryService {
       return admin.id;
     }
 
+    if (role === Role.SUPERVISOR) {
+      const supervisor = await this.prisma.supervisorProfile.findUnique({
+        where: { userId: currentUserId },
+        select: { adminId: true },
+      });
+      if (!supervisor) {
+        throw new ForbiddenException('Không xác định được hồ sơ giám sát viên');
+      }
+      return supervisor.adminId;
+    }
+
     const profile = await this.prisma.inventoryProfile.findUnique({
       where: { userId: currentUserId },
       select: { adminId: true },
@@ -529,21 +540,25 @@ export class InventoryService {
       throw new BadRequestException('Hợp đồng này chưa được liên kết với sản phẩm thương mại');
     }
 
-    // 2. Tolerance Logic (5%)
-    if (report.yieldEstimateKg) {
-      const estimate = report.yieldEstimateKg;
-      const deviation = Math.abs(actualWeight - estimate) / estimate;
+    // 3. Yield Balance Logic (Cumulative check)
+    const totalIssued = await this.prisma.inventoryLot.aggregate({
+      where: {
+        contractId,
+        status: { not: InventoryLotStatus.REJECTED },
+      },
+      _sum: { quantityKg: true },
+    });
 
-      if (deviation > 0.05 && !justification) {
-        throw new BadRequestException({
-          code: 'DISCREPANCY_EXCEEDED',
-          message: `Sản lượng thực tế (${actualWeight}kg) lệch >5% so với dự báo (${estimate}kg). Vui lòng nhập lý do giải trình.`,
-          deviation: (deviation * 100).toFixed(2),
-        });
-      }
+    const alreadyIssued = totalIssued._sum.quantityKg || 0;
+    const remaining = (report.yieldEstimateKg || 0) - alreadyIssued;
+
+    if (actualWeight > remaining + (report.yieldEstimateKg || 0) * 0.01) { // 1% buffer for rounding
+      throw new BadRequestException(
+        `Số lượng xuất (${actualWeight}kg) vượt quá sản lượng còn lại khả dụng (${remaining.toFixed(2)}kg).`,
+      );
     }
 
-    // 3. Atomic Transaction
+    // 4. Atomic Transaction
     return this.prisma.$transaction(async (tx) => {
       // A. Create the Inventory Lot - Giai đoạn ARRIVED (Chờ kho xác nhận)
       const lot = await tx.inventoryLot.create({
@@ -558,11 +573,15 @@ export class InventoryService {
         },
       });
 
-      // B. Update Daily Report Status
-      await tx.dailyReport.update({
-        where: { id: dailyReportId },
-        data: { status: 'REVIEWED' }
-      });
+      // B. Update Daily Report Status if almost exhausted (optional, let's keep it consistent)
+      // Note: We only update to REVIEWED if the user is finishing up or if we want to track progress.
+      // For simplicity, we'll keep it as is, or you might want to only set it to REVIEWED when 100% done.
+      if (actualWeight >= remaining - 1) { // Within 1kg of finishing
+        await tx.dailyReport.update({
+          where: { id: dailyReportId },
+          data: { status: 'REVIEWED' },
+        });
+      }
 
       return lot;
     });

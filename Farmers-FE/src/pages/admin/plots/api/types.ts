@@ -30,6 +30,7 @@ export interface PlotResponse {
   name_suppervisor?: string | null;
   expectedHarvest?: string | null;
   contractSignedAt?: string | null;
+  hasHarvestReport?: boolean;
 }
 
 export interface PaginatedPlotsResponse {

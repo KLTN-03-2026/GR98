@@ -59,7 +59,7 @@ export class InventoryController {
   }
 
   @Get('warehouses')
-  @Roles(Role.ADMIN, Role.INVENTORY)
+  @Roles(Role.ADMIN, Role.INVENTORY, Role.SUPERVISOR)
   @ApiOperation({ summary: 'Danh sách kho được phân công' })
   @ApiResponse({ status: 200, description: 'Danh sách kho' })
   getWarehouses(@Request() req: { user: any }) {
@@ -98,7 +98,7 @@ export class InventoryController {
   }
 
   @Get('lots')
-  @Roles(Role.ADMIN, Role.INVENTORY)
+  @Roles(Role.ADMIN, Role.INVENTORY, Role.SUPERVISOR)
   @ApiOperation({ summary: 'Danh sách lô hàng nhập kho' })
   @ApiResponse({ status: 200, description: 'Danh sách lô hàng' })
   getLots(
@@ -140,7 +140,7 @@ export class InventoryController {
   }
 
   @Post('receive-harvest')
-  @Roles(Role.ADMIN, Role.INVENTORY)
+  @Roles(Role.ADMIN, Role.INVENTORY, Role.SUPERVISOR)
   @ApiOperation({ summary: 'Nhận hàng từ thực địa (Giai đoạn 2)' })
   @ApiResponse({ status: 201, description: 'Lô hàng đã được tạo và báo cáo đã được duyệt' })
   receiveHarvest(@Request() req: { user: any }, @Body() dto: ReceiveHarvestDto) {

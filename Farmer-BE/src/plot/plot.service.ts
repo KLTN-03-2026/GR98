@@ -390,6 +390,7 @@ export class PlotService {
           take: 1,
           select: {
             supervisorId: true,
+            assignedAt: true,
             supervisor: {
               select: {
                 user: {
@@ -399,6 +400,13 @@ export class PlotService {
                 },
               },
             },
+          },
+        },
+        dailyReports: {
+          select: {
+            type: true,
+            status: true,
+            reportedAt: true,
           },
         },
       },
@@ -585,11 +593,17 @@ export class PlotService {
     }>;
     assignments: Array<{
       supervisorId: string;
+      assignedAt: Date;
       supervisor: {
         user: {
           fullName: string;
         };
       };
+    }>;
+    dailyReports?: Array<{
+      type: string;
+      status: string;
+      reportedAt: Date;
     }>;
   }) {
     const activeAssignment = plot.assignments[0] ?? null;
@@ -632,6 +646,13 @@ export class PlotService {
       name_suppervisor: activeAssignment?.supervisor.user.fullName ?? null,
       expectedHarvest: plot.expectedHarvest?.toISOString() ?? null,
       contractSignedAt: latestContract?.signedAt?.toISOString() ?? null,
+      hasHarvestReport: !!plot.dailyReports?.some(
+        (r) =>
+          r.type === 'HARVEST' &&
+          r.status !== 'REJECTED' &&
+          activeAssignment &&
+          r.reportedAt >= activeAssignment.assignedAt,
+      ),
     };
   }
 
@@ -753,6 +774,7 @@ export class PlotService {
           take: 1,
           select: {
             supervisorId: true,
+            assignedAt: true,
             supervisor: {
               select: {
                 user: {
@@ -762,6 +784,13 @@ export class PlotService {
                 },
               },
             },
+          },
+        },
+        dailyReports: {
+          select: {
+            type: true,
+            status: true,
+            reportedAt: true,
           },
         },
       },
@@ -785,8 +814,11 @@ export class PlotService {
     const where: Prisma.PlotWhereInput = { adminId };
 
     if (actor.role === Role.SUPERVISOR && actor.supervisorProfileId) {
-      where.farmer = {
-        supervisorId: actor.supervisorProfileId,
+      where.assignments = {
+        some: {
+          supervisorId: actor.supervisorProfileId,
+          status: AssignStatus.ACTIVE,
+        },
       };
     }
 
@@ -900,6 +932,7 @@ export class PlotService {
             take: 1,
             select: {
               supervisorId: true,
+              assignedAt: true,
               supervisor: {
                 select: {
                   user: {
@@ -909,6 +942,13 @@ export class PlotService {
                   },
                 },
               },
+            },
+          },
+          dailyReports: {
+            select: {
+              type: true,
+              status: true,
+              reportedAt: true,
             },
           },
         },
@@ -1174,7 +1214,18 @@ export class PlotService {
         contracts: { select: { contractNo: true }, orderBy: { createdAt: 'desc' }, take: 1 },
         assignments: {
           where: { status: { in: [AssignStatus.PENDING, AssignStatus.ACTIVE] } },
-          include: { supervisor: { select: { user: { select: { fullName: true } } } } },
+          select: {
+            assignedAt: true,
+            supervisorId: true,
+            supervisor: { select: { user: { select: { fullName: true } } } },
+          },
+        },
+        dailyReports: {
+          select: {
+            type: true,
+            status: true,
+            reportedAt: true,
+          },
         },
       },
     });

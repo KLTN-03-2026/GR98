@@ -33,6 +33,16 @@ const reportListInclude = {
       plotCode: true,
       cropType: true,
       areaHa: true,
+      contracts: {
+        where: { status: ContractStatus.ACTIVE },
+        take: 1,
+        select: {
+          id: true,
+          contractNo: true,
+          grade: true,
+          product: { select: { id: true, name: true } },
+        },
+      },
       farmer: {
         select: {
           id: true,
@@ -146,47 +156,48 @@ export class DailyReportService {
     }
   }
 
-  private async assertHarvestUniqueness(plotId: string, adminId: string, skipReportId?: string) {
-    // 1. Find latest relevant contract to get the milestone (signedAt)
-    const latestContract = await this.prisma.contract.findFirst({
+  private async assertHarvestUniqueness(
+    plotId: string,
+    adminId: string,
+    supervisorId: string,
+    skipReportId?: string,
+  ) {
+    // 1. Find the active assignment for this supervisor and plot
+    const activeAssignment = await this.prisma.assignment.findFirst({
       where: {
         plotId,
+        supervisorId,
         adminId,
-        status: {
-          in: [
-            ContractStatus.SIGNED,
-            ContractStatus.ACTIVE,
-            ContractStatus.COMPLETED,
-            ContractStatus.SETTLED,
-          ],
-        },
+        status: AssignStatus.ACTIVE,
       },
-      orderBy: { createdAt: 'desc' },
-      select: { signedAt: true, id: true },
+      orderBy: { dueDate: 'asc' }, // Get the one with closest dueDate
+      select: { assignedAt: true, id: true },
     });
 
-    if (!latestContract || !latestContract.signedAt) {
+    if (!activeAssignment) {
       throw new BadRequestException(
-        'Thửa đất chưa có hợp đồng được ký kết. Vui lòng ký hợp đồng trước khi báo cáo thu hoạch.',
+        'Bạn không có phân công hoạt động nào trên lô đất này để báo cáo thu hoạch.',
       );
     }
 
-    // 2. Check if any non-rejected HARVEST report exists since the signing date
-    const existingHarvest = await this.prisma.dailyReport.findFirst({
+    // 2. Check if any non-rejected HARVEST report exists since the assignment started
+    const existingActiveHarvest = await this.prisma.dailyReport.findFirst({
       where: {
         plotId,
         adminId,
         type: 'HARVEST',
-        reportedAt: { gte: latestContract.signedAt },
         status: { not: ReportStatus.REJECTED },
+        reportedAt: { gte: activeAssignment.assignedAt },
         ...(skipReportId ? { id: { not: skipReportId } } : {}),
       },
     });
 
-    if (existingHarvest) {
-      throw new BadRequestException(
-        'Mùa vụ (Hợp đồng) này đã được ghi nhận báo cáo thu hoạch.',
-      );
+    if (existingActiveHarvest) {
+      const status = existingActiveHarvest.status;
+      const msg = status === ReportStatus.APPROVED 
+        ? 'Sản lượng thu hoạch cho đợt phân công này đã được phê duyệt.'
+        : 'Đã tồn tại một báo cáo thu hoạch đang chờ duyệt hoặc ở trạng thái nháp.';
+      throw new BadRequestException(`${msg} Không thể tạo thêm báo cáo mới.`);
     }
   }
 
@@ -203,7 +214,7 @@ export class DailyReportService {
     );
 
     if (dto.type === 'HARVEST') {
-      await this.assertHarvestUniqueness(dto.plotId, actor.adminId);
+      await this.assertHarvestUniqueness(dto.plotId, actor.adminId, actor.supervisorProfileId);
     }
 
     const imageUrls = this.normalizeImageUrls(dto.imageUrls);
@@ -284,7 +295,7 @@ export class DailyReportService {
     this.assertSubmitPayload(existing.content, existing.imageUrls, existing.yieldEstimateKg);
 
     if (existing.type === 'HARVEST') {
-      await this.assertHarvestUniqueness(existing.plotId, actor.adminId, existing.id);
+      await this.assertHarvestUniqueness(existing.plotId, actor.adminId, actor.supervisorProfileId, existing.id);
     }
 
     return this.prisma.dailyReport.update({

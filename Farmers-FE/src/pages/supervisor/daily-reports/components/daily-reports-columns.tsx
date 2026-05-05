@@ -42,6 +42,7 @@ function translateCropType(type?: string) {
 export function createSupervisorDailyReportColumns(
   onEdit: (row: DailyReportResponse) => void,
   onView: (row: DailyReportResponse) => void,
+  onCreateLot: (row: DailyReportResponse) => void,
   options?: { showYield?: boolean },
 ) {
   const columns: ColumnDef<DailyReportResponse>[] = [
@@ -107,26 +108,45 @@ export function createSupervisorDailyReportColumns(
     enableSorting: false,
     cell: ({ row }) => {
       const isDraft = row.original.status === 'DRAFT';
+      const isApprovedHarvest = row.original.status === 'APPROVED' && row.original.type === 'HARVEST';
+      
       return (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isDraft) onEdit(row.original);
-            else onView(row.original);
-          }}
-        >
-          {isDraft ? (
-            <>
-              <Pencil className="h-4 w-4 mr-1" />
-              Sửa
-            </>
-          ) : (
-            'Xem'
+        <div className="flex items-center gap-1">
+          {isApprovedHarvest && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700 h-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateLot(row.original);
+              }}
+            >
+              Xuất lô hàng
+            </Button>
           )}
-        </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isDraft) onEdit(row.original);
+              else onView(row.original);
+            }}
+          >
+            {isDraft ? (
+              <>
+                <Pencil className="h-4 w-4 mr-1" />
+                Sửa
+              </>
+            ) : (
+              'Xem'
+            )}
+          </Button>
+        </div>
       );
     },
   });

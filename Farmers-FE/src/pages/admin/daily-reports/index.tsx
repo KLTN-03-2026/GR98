@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Search } from 'lucide-react';
+import { CalendarDays, Search, Scale } from 'lucide-react';
 import type { PaginationState, Updater } from '@tanstack/react-table';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +19,9 @@ import {
   type PaginatedDailyReportsResponse,
   type DailyReportResponse,
   type DailyReportStatus,
+  type DailyReportType,
 } from './api';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminDailyReportDetailDialog } from './admin-daily-report-detail-dialog';
 import { getLocalDayEndIso, getLocalDayStartIso, getTodayLocalIsoDate } from '@/lib/local-day-range';
 import { createAdminDailyReportColumns } from './daily-reports-columns';
@@ -40,6 +42,7 @@ export default function AdminDailyReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit, setLimit] = useState(PAGE_LIMIT);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [reportType, setReportType] = useState<DailyReportType | 'ALL'>('ALL');
   const todayIso = getTodayLocalIsoDate(now);
   const isInvalidDateRange = Boolean(from && to && from > to);
   const apiDateRange = useMemo(() => {
@@ -80,6 +83,7 @@ export default function AdminDailyReportsPage() {
     supervisorId: supervisorId || undefined,
     from: apiDateRange.from,
     to: apiDateRange.to,
+    type: reportType === 'ALL' ? undefined : reportType,
   });
 
   const { data: detailRow, isFetching: detailLoading } = useDailyReport(detailId ?? '');
@@ -146,6 +150,36 @@ export default function AdminDailyReportsPage() {
       };
     },
   });
+  const { data: countsData } = useQuery({
+    queryKey: ['daily-reports', 'submitted-counts', { supervisorId }],
+    queryFn: async () => {
+      const [r, i, h] = await Promise.all([
+        dailyReportApi.list({
+          status: 'SUBMITTED',
+          type: 'ROUTINE',
+          limit: 1,
+          supervisorId: supervisorId || undefined,
+        }),
+        dailyReportApi.list({
+          status: 'SUBMITTED',
+          type: 'INCIDENT',
+          limit: 1,
+          supervisorId: supervisorId || undefined,
+        }),
+        dailyReportApi.list({
+          status: 'SUBMITTED',
+          type: 'HARVEST',
+          limit: 1,
+          supervisorId: supervisorId || undefined,
+        }),
+      ]);
+      return {
+        ROUTINE: extractData<PaginatedDailyReportsResponse>(r).total,
+        INCIDENT: extractData<PaginatedDailyReportsResponse>(i).total,
+        HARVEST: extractData<PaginatedDailyReportsResponse>(h).total,
+      };
+    },
+  });
 
   const rows = listData?.data ?? [];
   const total = listData?.total ?? 0;
@@ -158,7 +192,7 @@ export default function AdminDailyReportsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedKeyword, supervisorId, from, to, apiDateRange.from, apiDateRange.to]);
+  }, [debouncedKeyword, supervisorId, from, to, apiDateRange.from, apiDateRange.to, reportType]);
 
   useEffect(() => {
     if (!isLoading && currentPage > totalPages) {
@@ -222,6 +256,79 @@ export default function AdminDailyReportsPage() {
           </Badge>
         </div>
       </div>
+
+      <Tabs
+        value={reportType}
+        onValueChange={(v) => setReportType(v as DailyReportType | 'ALL')}
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-2 md:w-auto md:flex gap-1 bg-transparent p-0 h-auto">
+          <TabsTrigger
+            value="ALL"
+            className="rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            Tất cả
+          </TabsTrigger>
+          <TabsTrigger
+            value="ROUTINE"
+            className="relative rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            Định kỳ
+            {!!countsData?.ROUTINE && countsData.ROUTINE > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-2 -right-2 px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] shadow-sm border-2 border-background"
+              >
+                {countsData.ROUTINE}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="INCIDENT"
+            className="relative rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            Sự cố
+            {!!countsData?.INCIDENT && countsData.INCIDENT > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-2 -right-2 px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] shadow-sm border-2 border-background"
+              >
+                {countsData.INCIDENT}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="HARVEST"
+            className="relative rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            Thu hoạch
+            {!!countsData?.HARVEST && countsData.HARVEST > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-2 -right-2 px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] shadow-sm border-2 border-background"
+              >
+                {countsData.HARVEST}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {reportType === 'HARVEST' && (
+        <Card className="border-emerald-100 bg-emerald-50/50">
+          <CardContent className="flex items-center gap-4 py-4">
+            <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <Scale className="size-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-emerald-900/70">Tổng sản lượng thu hoạch dự kiến</p>
+              <p className="text-2xl font-bold text-emerald-700">
+                {(listData?.meta?.totalYield ?? 0).toLocaleString('vi-VN')} <span className="text-sm font-normal text-emerald-600/80">kg</span>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="pt-6">

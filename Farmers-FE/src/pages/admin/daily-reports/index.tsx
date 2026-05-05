@@ -150,6 +150,36 @@ export default function AdminDailyReportsPage() {
       };
     },
   });
+  const { data: countsData } = useQuery({
+    queryKey: ['daily-reports', 'submitted-counts', { supervisorId }],
+    queryFn: async () => {
+      const [r, i, h] = await Promise.all([
+        dailyReportApi.list({
+          status: 'SUBMITTED',
+          type: 'ROUTINE',
+          limit: 1,
+          supervisorId: supervisorId || undefined,
+        }),
+        dailyReportApi.list({
+          status: 'SUBMITTED',
+          type: 'INCIDENT',
+          limit: 1,
+          supervisorId: supervisorId || undefined,
+        }),
+        dailyReportApi.list({
+          status: 'SUBMITTED',
+          type: 'HARVEST',
+          limit: 1,
+          supervisorId: supervisorId || undefined,
+        }),
+      ]);
+      return {
+        ROUTINE: extractData<PaginatedDailyReportsResponse>(r).total,
+        INCIDENT: extractData<PaginatedDailyReportsResponse>(i).total,
+        HARVEST: extractData<PaginatedDailyReportsResponse>(h).total,
+      };
+    },
+  });
 
   const rows = listData?.data ?? [];
   const total = listData?.total ?? 0;
@@ -241,21 +271,45 @@ export default function AdminDailyReportsPage() {
           </TabsTrigger>
           <TabsTrigger
             value="ROUTINE"
-            className="rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="relative rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
             Định kỳ
+            {!!countsData?.ROUTINE && countsData.ROUTINE > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-2 -right-2 px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] shadow-sm border-2 border-background"
+              >
+                {countsData.ROUTINE}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger
             value="INCIDENT"
-            className="rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="relative rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
             Sự cố
+            {!!countsData?.INCIDENT && countsData.INCIDENT > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-2 -right-2 px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] shadow-sm border-2 border-background"
+              >
+                {countsData.INCIDENT}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger
             value="HARVEST"
-            className="rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="relative rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
             Thu hoạch
+            {!!countsData?.HARVEST && countsData.HARVEST > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-2 -right-2 px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] shadow-sm border-2 border-background"
+              >
+                {countsData.HARVEST}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
       </Tabs>

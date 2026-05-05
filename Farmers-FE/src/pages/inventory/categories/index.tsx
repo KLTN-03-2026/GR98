@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CategoryFilters } from './CategoryFilters';
 import {
-  Search,
   Plus,
   Pencil,
   Trash2,

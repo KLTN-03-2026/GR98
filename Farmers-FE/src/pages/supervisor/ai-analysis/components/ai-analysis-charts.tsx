@@ -203,7 +203,7 @@ export function AiAnalysisCharts({ records, isLoading }: Props) {
                 />
                 <Tooltip
                   cursor={{ fill: '#f8fafc' }}
-                  formatter={(value: number) => [`${value} lượt`, 'Số lượt']}
+                  formatter={(value: any) => [`${value} lượt`, 'Số lượt']}
                   contentStyle={{ borderRadius: '12px', border: '1px solid #E8E8E8', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]} animationDuration={800}>
@@ -216,7 +216,7 @@ export function AiAnalysisCharts({ records, isLoading }: Props) {
                     fill="#64748b" 
                     fontSize={12} 
                     fontWeight={600} 
-                    formatter={(val: number) => val > 0 ? val : ''}
+                    formatter={(val: any) => val > 0 ? val : ''}
                   />
                 </Bar>
               </BarChart>

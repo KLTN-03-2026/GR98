@@ -120,7 +120,7 @@ export function DataGridToolbar({
         <div className="ml-auto flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
           {quickStatsInline && (
             <div className="flex shrink-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              {config.quickStats}
+              {config?.quickStats}
             </div>
           )}
           {config?.onResetFilters && (
@@ -178,10 +178,10 @@ export function DataGridToolbar({
           )}
         >
           {hasSummary && (
-            <div className="flex flex-wrap items-center gap-2">{config.summary}</div>
+            <div className="flex flex-wrap items-center gap-2">{config?.summary}</div>
           )}
           {hasQuickStats && !quickStatsInline && (
-            <div className="flex flex-wrap items-center gap-2">{config.quickStats}</div>
+            <div className="flex flex-wrap items-center gap-2">{config?.quickStats}</div>
           )}
         </div>
       ) : null}

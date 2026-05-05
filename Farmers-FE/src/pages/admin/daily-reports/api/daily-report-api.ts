@@ -41,4 +41,11 @@ export const dailyReportApi = {
 
   submit: (id: string) =>
     apiPost<ApiSuccessResponse<DailyReportResponse>>(`/daily-reports/${id}/submit`, {}, longTimeout),
+
+  review: (id: string, status: 'APPROVED' | 'REJECTED') =>
+    apiPatch<ApiSuccessResponse<DailyReportResponse>>(
+      `/daily-reports/${id}/review`,
+      { status },
+      longTimeout,
+    ),
 };

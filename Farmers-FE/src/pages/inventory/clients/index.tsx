@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Users } from 'lucide-react';
 import { DataTable } from '@/components/data-table';
 import { useGetInventoryClients, type Client } from './api/hooks';

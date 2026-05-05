@@ -1,12 +1,10 @@
 import { useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Warehouse as WarehouseIcon,
   MapPin,
-  Box,
   History,
-  Calendar,
   AlertCircle,
   RefreshCcw,
   Search,
@@ -14,7 +12,6 @@ import {
   Activity,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,7 +22,7 @@ import { useGetWarehouseDetail } from '../api/hooks';
 import { cn } from '@/lib/utils';
 import { DataTable } from '@/components/data-table/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { InventoryLot, WarehouseTransaction } from '../api/types';
+import type { InventoryLot } from '../api/types';
 
 export default function WarehouseDetailPage() {
   const { id } = useParams<{ id: string }>();

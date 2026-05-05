@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { Calendar as CalendarIcon, AlertCircle, Save, ArrowRight } from 'lucide-react';
+import { Calendar as CalendarIcon, AlertCircle, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { InventoryLot } from '../api/types';

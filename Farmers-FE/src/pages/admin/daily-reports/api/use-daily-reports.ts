@@ -97,3 +97,22 @@ export function useSubmitDailyReport() {
     },
   });
 }
+
+export function useReviewDailyReport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'APPROVED' | 'REJECTED' }) => {
+      const response = await dailyReportApi.review(id, status);
+      return extractData<DailyReportResponse>(response);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['daily-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-report', data.id] });
+      queryClient.refetchQueries({ queryKey: ['daily-reports', 'submitted-counts'] });
+      toast.success(data.status === 'APPROVED' ? 'Đã duyệt báo cáo' : 'Đã từ chối báo cáo');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không thể thực hiện thao tác');
+    },
+  });
+}

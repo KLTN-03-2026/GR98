@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Package, Search, MapPin, RefreshCw, Link2, Fingerprint, X } from "lucide-react";
+import { Package, MapPin, RefreshCw, Link2 } from "lucide-react";
 import { useCategories } from "@/client/api/categories/use-categories";
 import { priceBoardApi } from "../../price-boards/api/price-board-api";
 import { ScrollArea } from "@/components/ui/scroll-area";

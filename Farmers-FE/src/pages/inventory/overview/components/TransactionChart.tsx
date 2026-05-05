@@ -10,7 +10,6 @@ import {
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { WarehouseIcon, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 interface ChartDataResponse {
   labels: string[];

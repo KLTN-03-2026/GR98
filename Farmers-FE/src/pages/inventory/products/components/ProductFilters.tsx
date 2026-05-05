@@ -13,8 +13,6 @@ import {
   PRODUCT_STATUS_LABELS,
   GRADE_LABELS,
   CROP_TYPES,
-  type ProductStatus,
-  type QualityGrade,
   type Category
 } from '@/client/types';
 
@@ -106,7 +104,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">Tất cả phẩm cấp</SelectItem>
-            {Object.entries(GRADE_LABELS).map(([value, label]) => (
+            {Object.entries(GRADE_LABELS).map(([value]) => (
               <SelectItem key={value} value={value}>
                 Loại {value}
               </SelectItem>

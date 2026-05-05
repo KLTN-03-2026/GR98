@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Package, Plus, RefreshCw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/data-table';

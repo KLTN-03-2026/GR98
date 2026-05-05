@@ -1,5 +1,4 @@
 import type { ComponentType } from 'react';
-import { TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 

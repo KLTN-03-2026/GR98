@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { LayoutDashboard, RefreshCcw, Warehouse, Package, ArrowRightLeft, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, RefreshCcw, Warehouse, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useInventoryDashboard, useInventoryChartData } from './api';

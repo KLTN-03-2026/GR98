@@ -28,7 +28,7 @@ export function AdminTimeRange({
             key={p.value}
             type="button"
             size="sm"
-            variant={filters.rangePreset === p.value ? 'default' : 'ghost'}
+            variant={filters.rangePreset === p.value ? 'primary' : 'ghost'}
             className={cn(
               'h-8 rounded-full px-3 text-xs text-foreground',
               filters.rangePreset === p.value &&

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { History, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data-table';

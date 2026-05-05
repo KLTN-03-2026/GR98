@@ -24,14 +24,11 @@ import { vi } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useUpdateLot, useGetLotById, useGetLotTimeline, useConfirmReceipt } from '../api/hooks';
+import { useGetLotById, useGetLotTimeline } from '../api/hooks';
 import { WeightAdjustmentDialog } from './WeightAdjustmentDialog';
 import { QualityGradingDialog } from './QualityGradingDialog';
 import { ExpiryUpdateDialog } from './ExpiryUpdateDialog';
 import { ConfirmReceiptDialog } from './ConfirmReceiptDialog';
-import { toast } from 'sonner';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Edit2, Scale, RefreshCw, CheckCircle2 } from 'lucide-react';
 
@@ -44,7 +41,6 @@ interface LotDetailDrawerProps {
 export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailDrawerProps) {
   const { data: currentLot, isLoading: isLoadingLot } = useGetLotById(initialLot?.id || '');
   const { data: timeline, isLoading: isLoadingTimeline } = useGetLotTimeline(initialLot?.id || '');
-  const updateLot = useUpdateLot();
   
   const [isAdjustingWeight, setIsAdjustingWeight] = React.useState(false);
   const [isUpdatingGrade, setIsUpdatingGrade] = React.useState(false);
@@ -53,7 +49,6 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
 
   const lot = currentLot || initialLot;
   const isUpcoming = lot?.status === 'SCHEDULED';
-  const isArrived = lot?.status === 'ARRIVED';
   const isReceived = lot?.status === 'RECEIVED';
 
 

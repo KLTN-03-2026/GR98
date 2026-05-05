@@ -9,7 +9,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import type { DailyReportResponse, DailyReportStatus } from './api';
+import {
+  type DailyReportResponse,
+  type DailyReportStatus,
+  useReviewDailyReport,
+} from './api';
+import { Loader2 } from 'lucide-react';
 
 function formatDateTime(value?: string | null) {
   if (!value) return '—';
@@ -50,6 +55,15 @@ export function AdminDailyReportDetailDialog({
   report,
   loading,
 }: AdminDailyReportDetailDialogProps) {
+  const { mutate: review, isPending: reviewing } = useReviewDailyReport();
+
+  const canReview = report?.type === 'HARVEST' && report?.status === 'SUBMITTED';
+
+  const handleReview = (status: 'APPROVED' | 'REJECTED') => {
+    if (!report) return;
+    review({ id: report.id, status });
+  };
+
   return (
     <Dialog
       open={open}
@@ -122,8 +136,30 @@ export function AdminDailyReportDetailDialog({
           )}
         </div>
 
-        <DialogFooter className="shrink-0 border-t px-6 py-3 sm:justify-end sm:px-8">
-          <Button type="button" variant="secondary" onClick={onClose}>
+        <DialogFooter className="shrink-0 border-t px-6 py-3 sm:justify-end sm:px-8 gap-2">
+          {canReview && (
+            <>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={reviewing}
+                onClick={() => handleReview('REJECTED')}
+              >
+                {reviewing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Từ chối
+              </Button>
+              <Button
+                type="button"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={reviewing}
+                onClick={() => handleReview('APPROVED')}
+              >
+                {reviewing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Xác nhận
+              </Button>
+            </>
+          )}
+          <Button type="button" variant="secondary" onClick={onClose} disabled={reviewing}>
             Đóng
           </Button>
         </DialogFooter>

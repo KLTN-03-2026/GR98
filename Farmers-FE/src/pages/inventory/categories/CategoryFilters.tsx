@@ -1,9 +1,7 @@
 // src/pages/inventory/categories/CategoryFilters.tsx
-import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface CategoryFiltersProps {
   search: string;

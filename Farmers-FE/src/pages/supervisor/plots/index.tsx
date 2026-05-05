@@ -301,14 +301,14 @@ export default function SupervisorPlotsPage() {
   });
 
   const latestHarvestReport = useMemo(() => {
-    if (!harvestReportsData?.data?.length || !editingPlot?.contractSignedAt)
-      return null;
-    const signedAt = new Date(editingPlot.contractSignedAt);
-    return harvestReportsData.data.find(
+    const reportFromList = harvestReportsData?.data?.find(
       (r) =>
-        new Date(r.reportedAt) >= signedAt &&
+        new Date(r.reportedAt) >= new Date(editingPlot?.contractSignedAt || 0) &&
         r.status !== "REJECTED",
     );
+    if (reportFromList) return reportFromList;
+    if (editingPlot?.hasHarvestReport) return { status: 'UNKNOWN' } as any;
+    return null;
   }, [harvestReportsData, editingPlot]);
 
   return (
@@ -801,10 +801,11 @@ export default function SupervisorPlotsPage() {
                     >
                       {latestHarvestReport.status === 'SUBMITTED' ? 'Đang chờ duyệt' : 
                        latestHarvestReport.status === 'APPROVED' ? 'Đã duyệt' : 
-                       latestHarvestReport.status === 'REJECTED' ? 'Bị từ chối' : latestHarvestReport.status}
+                       latestHarvestReport.status === 'REJECTED' ? 'Bị từ chối' : 
+                       latestHarvestReport.status === 'UNKNOWN' ? 'Đã có báo cáo' : latestHarvestReport.status}
                     </Badge>
                   </div>
-                  {latestHarvestReport.yieldEstimateKg !== null && (
+                  {latestHarvestReport?.yieldEstimateKg != null && (
                     <div className="flex items-center justify-between text-xs p-2 bg-white rounded-lg border border-orange-100">
                       <span className="text-muted-foreground font-medium">Sản lượng:</span>
                       <span className="font-semibold text-orange-700">{latestHarvestReport.yieldEstimateKg} kg</span>

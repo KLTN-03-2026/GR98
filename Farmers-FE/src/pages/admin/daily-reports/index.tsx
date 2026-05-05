@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Search } from 'lucide-react';
+import { CalendarDays, Search, Scale } from 'lucide-react';
 import type { PaginationState, Updater } from '@tanstack/react-table';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -259,6 +259,22 @@ export default function AdminDailyReportsPage() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {reportType === 'HARVEST' && (
+        <Card className="border-emerald-100 bg-emerald-50/50">
+          <CardContent className="flex items-center gap-4 py-4">
+            <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <Scale className="size-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-emerald-900/70">Tổng sản lượng thu hoạch dự kiến</p>
+              <p className="text-2xl font-bold text-emerald-700">
+                {(listData?.meta?.totalYield ?? 0).toLocaleString('vi-VN')} <span className="text-sm font-normal text-emerald-600/80">kg</span>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="pt-6">

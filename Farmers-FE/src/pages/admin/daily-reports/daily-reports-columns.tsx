@@ -65,6 +65,16 @@ export function createAdminDailyReportColumns(onOpenDetail: (row: DailyReportRes
       ),
     },
     {
+      accessorKey: 'yieldEstimateKg',
+      header: 'Sản lượng (kg)',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const val = row.original.yieldEstimateKg;
+        if (val === null || val === undefined || val <= 0) return <span className="text-muted-foreground">—</span>;
+        return <span className="font-medium text-emerald-600">{val.toLocaleString('vi-VN')}</span>;
+      },
+    },
+    {
       accessorKey: 'status',
       header: 'Trạng thái',
       enableSorting: false,

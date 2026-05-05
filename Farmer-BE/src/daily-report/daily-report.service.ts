@@ -317,7 +317,18 @@ export class DailyReportService {
       if (query.supervisorId?.trim()) {
         where.supervisorId = query.supervisorId.trim();
       }
-      where.status = { in: [ReportStatus.SUBMITTED, ReportStatus.REVIEWED] };
+      if (query.status) {
+        where.status = query.status;
+      } else {
+        where.status = {
+          in: [
+            ReportStatus.SUBMITTED,
+            ReportStatus.REVIEWED,
+            ReportStatus.APPROVED,
+            ReportStatus.REJECTED,
+          ],
+        };
+      }
     } else {
       throw new ForbiddenException('Không có quyền xem danh sách báo cáo');
     }
@@ -396,7 +407,14 @@ export class DailyReportService {
       }
       where.supervisorId = actor.supervisorProfileId;
     } else if (actor.role === Role.ADMIN) {
-      where.status = { in: [ReportStatus.SUBMITTED, ReportStatus.REVIEWED] };
+      where.status = {
+        in: [
+          ReportStatus.SUBMITTED,
+          ReportStatus.REVIEWED,
+          ReportStatus.APPROVED,
+          ReportStatus.REJECTED,
+        ],
+      };
     } else {
       throw new ForbiddenException('Không có quyền xem báo cáo');
     }

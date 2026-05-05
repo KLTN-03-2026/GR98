@@ -111,6 +111,7 @@ export default function SupervisorPlotsPage() {
   const [reportImages, setReportImages] = useState<
     { payload: string; previewUrl: string }[]
   >([]);
+  const [reportYieldKg, setReportYieldKg] = useState<string>("");
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const itemsPerPage = 6;
 
@@ -234,11 +235,14 @@ export default function SupervisorPlotsPage() {
     setIsSubmittingReport(true);
     try {
       const imageUrls = reportImages.map((img) => img.payload);
+      const yieldKg = Number(reportYieldKg);
+      
       const res = await dailyReportApi.create({
         plotId: editingPlot.id,
         type: "HARVEST",
         content: reportContent.trim(),
         imageUrls,
+        yieldEstimateKg: isNaN(yieldKg) ? undefined : yieldKg,
       });
       
       console.log("Create Harvest Report Res:", res);
@@ -256,6 +260,7 @@ export default function SupervisorPlotsPage() {
       setReportDialogOpen(false);
       setReportContent("");
       setReportImages([]);
+      setReportYieldKg("");
 
       queryClient.invalidateQueries({ queryKey: ["daily-reports"] });
       queryClient.invalidateQueries({
@@ -799,6 +804,12 @@ export default function SupervisorPlotsPage() {
                        latestHarvestReport.status === 'REJECTED' ? 'Bị từ chối' : latestHarvestReport.status}
                     </Badge>
                   </div>
+                  {latestHarvestReport.yieldEstimateKg !== null && (
+                    <div className="flex items-center justify-between text-xs p-2 bg-white rounded-lg border border-orange-100">
+                      <span className="text-muted-foreground font-medium">Sản lượng:</span>
+                      <span className="font-semibold text-orange-700">{latestHarvestReport.yieldEstimateKg} kg</span>
+                    </div>
+                  )}
                   <p className="text-[10px] text-orange-700/70 italic px-1">
                     * Mỗi mùa vụ chỉ có thể gửi một báo cáo thu hoạch duy nhất.
                   </p>
@@ -862,9 +873,20 @@ export default function SupervisorPlotsPage() {
             <Textarea
               id="content"
               placeholder="Mô tả tình trạng thu hoạch, chất lượng nông sản..."
-              rows={6}
+              rows={4}
               value={reportContent}
               onChange={(e) => setReportContent(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="yield">Sản lượng thu hoạch (kg)</Label>
+            <Input
+              id="yield"
+              type="number"
+              placeholder="Nhập sản lượng thực tế..."
+              value={reportYieldKg}
+              onChange={(e) => setReportYieldKg(e.target.value)}
+              className="border-orange-200 focus-visible:ring-orange-500"
             />
           </div>
           <div className="grid gap-2">

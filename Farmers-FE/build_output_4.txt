@@ -1,0 +1,17 @@
+
+> fe-dashboard@0.0.0 build
+> tsc -b && vite build
+
+src/components/custom/gis-workspace.tsx(284,9): error TS6133: 'drawContractPolygon' is declared but its value is never read.
+src/components/data-grid/data-grid-toolbar.tsx(123,16): error TS18048: 'config' is possibly 'undefined'.
+src/components/data-grid/data-grid-toolbar.tsx(181,65): error TS18048: 'config' is possibly 'undefined'.
+src/components/data-grid/data-grid-toolbar.tsx(184,65): error TS18048: 'config' is possibly 'undefined'.
+src/pages/admin/overview/components/admin-time-range.tsx(31,13): error TS2322: Type '"ghost" | "default"' is not assignable to type '"link" | "primary" | "cta" | "glass-primary" | "glass-secondary" | "glass-dark" | "ghost" | "outline" | "success" | "warning" | "info" | "destructive" | "secondary" | "purple" | ... 18 more ... | undefined'.
+  Type '"default"' is not assignable to type '"link" | "primary" | "cta" | "glass-primary" | "glass-secondary" | "glass-dark" | "ghost" | "outline" | "success" | "warning" | "info" | "destructive" | "secondary" | "purple" | ... 18 more ... | undefined'.
+src/pages/admin/plots/index.tsx(18,1): error TS6192: All imports in import declaration are unused.
+src/pages/admin/users/index.tsx(13,1): error TS6133: 'Input' is declared but its value is never read.
+src/pages/contracts/components/contracts-management-view.tsx(89,9): error TS6133: 'pageFrom' is declared but its value is never read.
+src/pages/contracts/components/contracts-management-view.tsx(90,9): error TS6133: 'pageTo' is declared but its value is never read.
+src/pages/inventory/categories/CategoryFilters.tsx(2,1): error TS6192: All imports in import declaration are unused.
+src/pages/inventory/categories/CategoryFilters.tsx(6,1): error TS6133: 'cn' is declared but its value is never read.
+src/pages/inventory/categories/index.tsx(4,3): error TS6133: 'Search' is declared but its value is never read.

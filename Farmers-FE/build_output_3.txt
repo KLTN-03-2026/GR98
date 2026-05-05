@@ -1,0 +1,47 @@
+
+> fe-dashboard@0.0.0 build
+> tsc -b && vite build
+
+src/components/custom/gis-workspace.tsx(284,9): error TS6133: 'drawContractPolygon' is declared but its value is never read.
+src/components/data-grid/data-grid-toolbar.tsx(123,16): error TS18048: 'config' is possibly 'undefined'.
+src/components/data-grid/data-grid-toolbar.tsx(181,65): error TS18048: 'config' is possibly 'undefined'.
+src/components/data-grid/data-grid-toolbar.tsx(184,65): error TS18048: 'config' is possibly 'undefined'.
+src/pages/admin/overview/components/admin-time-range.tsx(31,13): error TS2322: Type '"ghost" | "default"' is not assignable to type '"link" | "primary" | "cta" | "glass-primary" | "glass-secondary" | "glass-dark" | "ghost" | "outline" | "success" | "warning" | "info" | "destructive" | "secondary" | "purple" | ... 18 more ... | undefined'.
+  Type '"default"' is not assignable to type '"link" | "primary" | "cta" | "glass-primary" | "glass-secondary" | "glass-dark" | "ghost" | "outline" | "success" | "warning" | "info" | "destructive" | "secondary" | "purple" | ... 18 more ... | undefined'.
+src/pages/admin/plots/index.tsx(18,1): error TS6192: All imports in import declaration are unused.
+src/pages/admin/users/index.tsx(13,1): error TS6133: 'Input' is declared but its value is never read.
+src/pages/contracts/components/contracts-management-view.tsx(89,9): error TS6133: 'pageFrom' is declared but its value is never read.
+src/pages/contracts/components/contracts-management-view.tsx(90,9): error TS6133: 'pageTo' is declared but its value is never read.
+src/pages/inventory/categories/CategoryFilters.tsx(2,1): error TS6192: All imports in import declaration are unused.
+src/pages/inventory/categories/CategoryFilters.tsx(6,1): error TS6133: 'cn' is declared but its value is never read.
+src/pages/inventory/categories/index.tsx(4,3): error TS6133: 'Search' is declared but its value is never read.
+src/pages/inventory/clients/components/ClientDetailDrawer.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/pages/inventory/clients/components/ClientDetailDrawer.tsx(6,1): error TS6133: 'vi' is declared but its value is never read.
+src/pages/inventory/clients/index.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/inventory/lots/components/ConfirmReceiptDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/inventory/lots/components/ExpiryUpdateDialog.tsx(16,49): error TS6133: 'Save' is declared but its value is never read.
+src/pages/inventory/lots/components/LotDetailDrawer.tsx(27,58): error TS6133: 'useConfirmReceipt' is declared but its value is never read.
+src/pages/inventory/lots/components/LotDetailDrawer.tsx(32,1): error TS6133: 'toast' is declared but its value is never read.
+src/pages/inventory/lots/components/LotDetailDrawer.tsx(33,1): error TS6192: All imports in import declaration are unused.
+src/pages/inventory/lots/components/LotDetailDrawer.tsx(34,1): error TS6133: 'CalendarComponent' is declared but its value is never read.
+src/pages/inventory/lots/components/LotDetailDrawer.tsx(47,9): error TS6133: 'updateLot' is declared but its value is never read.
+src/pages/inventory/lots/components/LotDetailDrawer.tsx(56,9): error TS6133: 'isArrived' is declared but its value is never read.
+src/pages/inventory/lots/components/lots-columns.tsx(2,15): error TS6133: 'MapPin' is declared but its value is never read.
+src/pages/inventory/lots/components/lots-columns.tsx(2,59): error TS6133: 'WarehouseIcon' is declared but its value is never read.
+src/pages/inventory/lots/components/LotsFilterBar.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/pages/inventory/lots/components/QualityGradingDialog.tsx(15,42): error TS6133: 'X' is declared but its value is never read.
+src/pages/inventory/lots/components/RejectLotDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/inventory/lots/components/RejectLotDialog.tsx(2,23): error TS6133: 'X' is declared but its value is never read.
+src/pages/inventory/lots/components/WeightAdjustmentDialog.tsx(14,32): error TS6133: 'CheckCircle2' is declared but its value is never read.
+src/pages/inventory/lots/components/WeightAdjustmentDialog.tsx(216,39): error TS6133: 'variant' is declared but its value is never read.
+src/pages/inventory/orders/index.tsx(7,3): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/inventory/orders/index.tsx(8,3): error TS6133: 'Truck' is declared but its value is never read.
+src/pages/inventory/orders/index.tsx(9,3): error TS6133: 'CheckCircle2' is declared but its value is never read.
+src/pages/inventory/orders/index.tsx(10,3): error TS6133: 'Package' is declared but its value is never read.
+src/pages/inventory/overview/components/CompactDataTable.tsx(25,1): error TS6133: 'Badge' is declared but its value is never read.
+src/pages/inventory/overview/components/OrderTable.tsx(8,1): error TS6133: 'cn' is declared but its value is never read.
+src/pages/inventory/overview/components/StatBar.tsx(2,1): error TS6133: 'cn' is declared but its value is never read.
+src/pages/inventory/overview/components/TransactionChart.tsx(13,1): error TS6133: 'cn' is declared but its value is never read.
+src/pages/inventory/overview/index.tsx(1,1): error TS6133: 'useState' is declared but its value is never read.
+src/pages/inventory/transactions/components/CreateTransactionDialog.tsx(271,32): error TS2322: Type '{ children: string[]; variant: string; className: string; }' is not assignable to type 'IntrinsicAttributes & { children: ReactNode; className?: string | undefined; }'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & { children: ReactNode; className?: string | undefined; }'.

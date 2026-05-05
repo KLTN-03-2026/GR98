@@ -785,8 +785,11 @@ export class PlotService {
     const where: Prisma.PlotWhereInput = { adminId };
 
     if (actor.role === Role.SUPERVISOR && actor.supervisorProfileId) {
-      where.farmer = {
-        supervisorId: actor.supervisorProfileId,
+      where.assignments = {
+        some: {
+          supervisorId: actor.supervisorProfileId,
+          status: AssignStatus.ACTIVE,
+        },
       };
     }
 

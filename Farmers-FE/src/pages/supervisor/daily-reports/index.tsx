@@ -47,6 +47,7 @@ import {
   type SupervisorDailyDashboard,
 } from './api';
 import { createSupervisorDailyReportColumns } from './components';
+import { CreateLotFromReportDialog } from './components/CreateLotFromReportDialog';
 
 const PAGE_LIMIT = 15;
 const MAX_IMAGES = 10;
@@ -113,6 +114,9 @@ export default function SupervisorDailyReportsPage() {
   const [yieldEstimateKg, setYieldEstimateKg] = useState<number | string>('');
 
   const [categoryTab, setCategoryTab] = useState<CategoryTab>('ALL');
+
+  const [lotDialogOpen, setLotDialogOpen] = useState(false);
+  const [selectedReportForLot, setSelectedReportForLot] = useState<DailyReportResponse | null>(null);
 
   const statusParam =
     statusTab === 'ALL' ? undefined : (statusTab as Exclude<StatusTab, 'ALL'>);
@@ -273,12 +277,17 @@ export default function SupervisorDailyReportsPage() {
     [openEdit, openView],
   );
 
+  const handleCreateLot = useCallback((row: DailyReportResponse) => {
+    setSelectedReportForLot(row);
+    setLotDialogOpen(true);
+  }, []);
+
   const columns = useMemo(
     () =>
-      createSupervisorDailyReportColumns(openEdit, openView, {
+      createSupervisorDailyReportColumns(openEdit, openView, handleCreateLot, {
         showYield: categoryTab === 'HARVEST',
       }),
-    [openEdit, openView, categoryTab],
+    [openEdit, openView, handleCreateLot, categoryTab],
   );
 
   const handlePaginationChange = useCallback(
@@ -767,6 +776,13 @@ export default function SupervisorDailyReportsPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <CreateLotFromReportDialog
+        report={selectedReportForLot}
+        open={lotDialogOpen}
+        onOpenChange={setLotDialogOpen}
+        onSuccess={() => void invalidateList()}
+      />
     </div>
   );
 }

@@ -33,6 +33,16 @@ const reportListInclude = {
       plotCode: true,
       cropType: true,
       areaHa: true,
+      contracts: {
+        where: { status: ContractStatus.ACTIVE },
+        take: 1,
+        select: {
+          id: true,
+          contractNo: true,
+          grade: true,
+          product: { select: { id: true, name: true } },
+        },
+      },
       farmer: {
         select: {
           id: true,

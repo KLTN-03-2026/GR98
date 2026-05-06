@@ -85,6 +85,22 @@ export class ContractService {
       };
     }
 
+    if (user.role === Role.INVENTORY) {
+      const inventoryProfile = await this.prisma.inventoryProfile.findUnique({
+        where: { userId: currentUserId },
+        select: { id: true, adminId: true },
+      });
+      if (!inventoryProfile?.adminId) {
+        throw new ForbiddenException('Không xác định được hồ sơ nhân viên kho');
+      }
+
+      return {
+        userId: currentUserId,
+        role: user.role,
+        adminId: inventoryProfile.adminId,
+      };
+    }
+
     throw new ForbiddenException('Bạn không có quyền quản lý hợp đồng');
   }
 
@@ -524,7 +540,7 @@ export class ContractService {
 
     if (query.status) {
       andConditions.push({ status: query.status });
-    } else if (actor.role === Role.ADMIN) {
+    } else if (actor.role === Role.ADMIN || actor.role === Role.INVENTORY) {
       andConditions.push({
         status: {
           in: [
@@ -532,6 +548,8 @@ export class ContractService {
             ContractStatus.ACTIVE,
             ContractStatus.REJECTED,
             ContractStatus.EXPIRED,
+            ContractStatus.SETTLED,
+            ContractStatus.COMPLETED,
           ],
         },
       });

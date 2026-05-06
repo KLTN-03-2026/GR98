@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, RefreshCw } from 'lucide-react';
+import { Package, Plus, RefreshCw, FileText } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
@@ -9,15 +9,16 @@ import { extractData } from '@/client/lib/api-client';
 import { ProductFilters } from './components/ProductFilters';
 import type { Product, PaginatedResponse } from '@/client/types';
 import type { ProductQueryParams } from './api/product-api';
-import { CreateProductFromLotDrawer } from './components/CreateProductFromLotDialog';
-import { ProductDialog } from './components/ProductDialog';
+
+import { CreateProductFromContractDialog } from './components/CreateProductFromContractDialog';
+import { ProductDetailsDialog } from './components/ProductDetailsDialog';
 import { useProductMutations } from './api/use-product-mutations';
 import { useCategories } from '@/client/api/categories/use-categories';
 
 export default function ProductsManagementPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isUpdateOpen, setIsUpdateOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [filters, setFilters] = useState<ProductQueryParams>({
     page: 1,
     limit: 50, // Tăng limit để hiển thị nhiều hơn
@@ -34,6 +35,16 @@ export default function ProductsManagementPage() {
   const { data: catData } = useCategories();
   const categories = catData?.data || [];
 
+  const { data: fullProduct } = useQuery({
+    queryKey: ['product', viewingProduct?.id],
+    queryFn: async () => {
+      if (!viewingProduct?.id) return null;
+      const response = await inventoryProductApi.getOne(viewingProduct.id);
+      return extractData<any>(response);
+    },
+    enabled: !!viewingProduct?.id && isDetailsOpen,
+  });
+
   const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({
       ...prev,
@@ -49,25 +60,29 @@ export default function ProductsManagementPage() {
     });
   };
 
-  const { createFromLot, updateProduct, deleteProduct } = useProductMutations();
-
+  const { createFromContract, updateProduct, deleteProduct } = useProductMutations();
+  
   const products = data?.items || [];
 
-  const handleCreateFromLot = async (payload: any) => {
-    await createFromLot.mutateAsync(payload);
-    setIsDialogOpen(false);
+  const handleCreateFromContract = async (payload: any) => {
+    await createFromContract.mutateAsync(payload);
+    setIsContractDialogOpen(false);
   };
 
   const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    setIsUpdateOpen(true);
+    setViewingProduct(product);
+    setIsDetailsOpen(true);
+    // Lưu ý: Bây giờ handleEdit sẽ mở Details và Details sẽ có nút chuyển sang Edit
+  };
+
+  const handleView = (product: Product) => {
+    setViewingProduct(product);
+    setIsDetailsOpen(true);
   };
 
   const handleUpdate = async (payload: any) => {
-    if (!editingProduct) return;
-    await updateProduct.mutateAsync({ id: editingProduct.id, data: payload });
-    setIsUpdateOpen(false);
-    setEditingProduct(null);
+    if (!viewingProduct) return;
+    await updateProduct.mutateAsync({ id: viewingProduct.id, data: payload });
   };
 
   const handleDelete = async (id: string) => {
@@ -107,11 +122,11 @@ export default function ProductsManagementPage() {
           </Button>
           <Button
             size="sm"
-            className="h-9 shadow-md shadow-primary/20"
-            onClick={() => setIsDialogOpen(true)}
+            className="h-9 bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20 font-bold border-none"
+            onClick={() => setIsContractDialogOpen(true)}
           >
-            <Plus className="size-4 mr-2" />
-            Niêm yết mới từ kho
+            <FileText className="size-4 mr-2" />
+            Niêm yết từ Hợp đồng
           </Button>
         </div>
       </div>
@@ -131,8 +146,10 @@ export default function ProductsManagementPage() {
             data={products}
             isLoading={isLoading || isFetching}
             onReload={() => refetch()}
+            onRowClick={handleView}
             searchPlaceholder="Tìm kiếm tên sản phẩm, SKU..."
             meta={{
+              onView: handleView,
               onEdit: handleEdit,
               onDelete: handleDelete
             }}
@@ -140,23 +157,23 @@ export default function ProductsManagementPage() {
         </div>
       </div>
 
-      <CreateProductFromLotDrawer
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onSubmit={handleCreateFromLot}
-        isLoading={createFromLot.isPending}
+
+
+      <CreateProductFromContractDialog
+        open={isContractDialogOpen}
+        onOpenChange={setIsContractDialogOpen}
+        onSubmit={handleCreateFromContract}
+        isLoading={createFromContract.isPending}
       />
 
-      {editingProduct && (
-        <ProductDialog
-          open={isUpdateOpen}
-          onOpenChange={setIsUpdateOpen}
-          mode="edit"
-          product={editingProduct}
-          onSubmit={handleUpdate}
-          categories={categories}
-        />
-      )}
+      <ProductDetailsDialog 
+        open={isDetailsOpen}
+        onOpenChange={setIsDetailsOpen}
+        product={fullProduct || viewingProduct}
+        categories={categories}
+        onUpdate={handleUpdate}
+        isUpdating={updateProduct.isPending}
+      />
 
       <style dangerouslySetInnerHTML={{
         __html: `

@@ -18,9 +18,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
+import {
   PRODUCT_STATUS_LABELS,
-  type Product 
+  type Product
 } from '@/client/types';
 
 interface ProductTableProps {
@@ -145,7 +145,7 @@ export function ProductTable({
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center gap-1">
                       <Badge variant="outline" className="bg-emerald-50 border-emerald-100 h-6 rounded-lg tabular-nums font-bold text-emerald-700 px-2 shadow-xs">
-                        {(p.actualStockKg ?? p.stockKg).toLocaleString('vi-VN')} kg
+                        {p.stockKg.toLocaleString('vi-VN')} kg
                       </Badge>
                       {p.upcomingStockKg !== undefined && p.upcomingStockKg > 0 && (
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
@@ -206,7 +206,7 @@ export function ProductTable({
                   </TableCell>
                 </TableRow>
               )
-            ))}
+              ))}
           </TableBody>
         </Table>
       </div>

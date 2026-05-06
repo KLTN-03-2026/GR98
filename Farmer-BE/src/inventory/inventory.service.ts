@@ -160,7 +160,7 @@ export class InventoryService {
         ? this.prisma.inventoryLot.aggregate({
           where: {
             warehouseId: { in: warehouseIds },
-            harvestDate: { lte: now } // Chỉ tính lô đã đến ngày thu hoạch
+            status: InventoryLotStatus.RECEIVED
           },
           _sum: { quantityKg: true },
         })
@@ -629,6 +629,8 @@ export class InventoryService {
           stockKg: { increment: actualWeight }
         }
       });
+
+      console.log(`[STOCK_UPDATE] Product ID: ${lot.productId}, Added: ${actualWeight}kg`);
 
       return updatedLot;
     });

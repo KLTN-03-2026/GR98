@@ -13,7 +13,7 @@ import {
   CreateProductFromLotDto,
   CreateProductFromContractDto,
 } from './dto/create-product.dto';
-import { Role } from '@prisma/client';
+import { Role, InventoryLotStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -69,12 +69,20 @@ export class ProductsService {
   private async calculateDynamicStock(productId: string) {
     const now = new Date();
     const [actual, upcoming] = await Promise.all([
+      // Chỉ tính các lô đã thực nhập (RECEIVED)
       this.prisma.inventoryLot.aggregate({
-        where: { productId, harvestDate: { lte: now } },
+        where: { 
+          productId, 
+          status: InventoryLotStatus.RECEIVED 
+        },
         _sum: { quantityKg: true }
       }),
+      // Tính các lô đang chờ xác nhận hoặc dự kiến về
       this.prisma.inventoryLot.aggregate({
-        where: { productId, harvestDate: { gt: now } },
+        where: { 
+          productId, 
+          status: { in: [InventoryLotStatus.ARRIVED, InventoryLotStatus.SCHEDULED] }
+        },
         _sum: { quantityKg: true }
       })
     ]);

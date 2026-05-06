@@ -141,8 +141,10 @@ export const useConfirmReceipt = () => {
       queryClient.invalidateQueries({ queryKey: lotKeys.all });
       queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.lotId) });
       queryClient.invalidateQueries({ queryKey: [...lotKeys.all, 'timeline', variables.lotId] });
-      // Invalidate transactions as well since a transaction was created
+      // Invalidate products and transactions to show updated stock
       queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 };

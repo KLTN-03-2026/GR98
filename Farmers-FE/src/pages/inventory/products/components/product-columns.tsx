@@ -73,12 +73,17 @@ export const productColumns: ColumnDef<Product>[] = [
       <DataTableColumnHeader column={column} title="Tồn kho" className="justify-center" />
     ),
     cell: ({ row }) => {
-      const actual = row.original.actualStockKg ?? row.original.stockKg ?? 0;
+      const stock = row.original.stockKg ?? 0;
       return (
         <div className="flex flex-col items-center">
           <Badge variant="outline" className="bg-emerald-50 border-emerald-100 text-emerald-700 font-bold">
-            {actual.toLocaleString('vi-VN')} kg
+            {stock.toLocaleString('vi-VN')} kg
           </Badge>
+          {row.original.upcomingStockKg !== undefined && row.original.upcomingStockKg > 0 && (
+            <span className="text-[10px] text-slate-400 mt-1 font-bold">
+              + {row.original.upcomingStockKg.toLocaleString('vi-VN')} sắp về
+            </span>
+          )}
         </div>
       );
     }

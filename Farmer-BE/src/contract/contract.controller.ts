@@ -47,7 +47,7 @@ export class ContractController {
   }
 
   @Get()
-  @Roles(Role.ADMIN, Role.SUPERVISOR)
+  @Roles(Role.ADMIN, Role.SUPERVISOR, Role.INVENTORY)
   @ApiOperation({ summary: 'Danh sách hợp đồng (phân trang)' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 12 })

@@ -1,6 +1,7 @@
 import {
   Injectable,
   NotFoundException,
+  BadRequestException,
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -10,6 +11,7 @@ import {
   UpdateProductDto,
   ProductQueryDto,
   CreateProductFromLotDto,
+  CreateProductFromContractDto,
 } from './dto/create-product.dto';
 import { Role } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
@@ -33,7 +35,8 @@ export class ProductsService {
   }
 
   private async generateSku(cropType: string): Promise<string> {
-    const prefix = cropType.slice(0, 3).toUpperCase();
+    const normalized = this.toSlug(cropType).toUpperCase().replace(/-/g, '');
+    const prefix = normalized.slice(0, 3);
     const date = new Date().getFullYear();
     const count = await this.prisma.product.count();
     return `PROD-${prefix}-${date}-${(count + 1).toString().padStart(4, '0')}`;
@@ -353,6 +356,79 @@ export class ProductsService {
         contractId: inheritedContractId,
         qrCode: uuidv4(),
         status: 'PUBLISHED', // Niêm yết ngay
+        categories: categoryIds
+          ? {
+            create: categoryIds.map((cid) => ({ categoryId: cid })),
+          }
+          : undefined,
+      },
+    });
+  }
+
+  async createFromContract(dto: CreateProductFromContractDto, userId: string) {
+    const adminId = await this.resolveAdminId(userId);
+
+    // 1. Truy xuất Hợp đồng và kiểm tra trạng thái SETTLED
+    const contract = await this.prisma.contract.findFirst({
+      where: { id: dto.contractId, adminId },
+      include: { plot: true }
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Không tìm thấy hợp đồng hoặc hợp đồng không thuộc quyền quản lý');
+    }
+
+    if (contract.status !== 'SETTLED') {
+      throw new BadRequestException('Chỉ có thể tạo sản phẩm từ hợp đồng đã tất toán (SETTLED)');
+    }
+
+    // Kiểm tra xem hợp đồng đã có sản phẩm chưa
+    const existingProduct = await this.prisma.product.findUnique({
+      where: { contractId: dto.contractId }
+    });
+    if (existingProduct) {
+      throw new ConflictException('Hợp đồng này đã được tạo sản phẩm niêm yết');
+    }
+
+    // 2. Tra cứu giá bán lẻ từ PriceBoard
+    const priceConfig = await this.prisma.priceBoard.findFirst({
+      where: {
+        adminId,
+        cropType: contract.cropType,
+        grade: contract.grade,
+        isActive: true,
+      },
+      orderBy: { effectiveDate: 'desc' },
+    });
+
+    if (!priceConfig) {
+      throw new BadRequestException(
+        `Không tìm thấy giá bán niêm yết cho ${contract.cropType} - Loại ${contract.grade}. Vui lòng cập nhật Bảng giá trước.`
+      );
+    }
+
+    // 3. Tự động sinh mã định danh
+    const slug = dto.slug || this.toSlug(dto.name);
+    const sku = dto.sku || (await this.generateSku(contract.cropType));
+
+    // 4. Tạo sản phẩm với tồn kho mặc định = 0
+    const { categoryIds, ...rest } = dto;
+
+    return this.prisma.product.create({
+      data: {
+        ...rest,
+        adminId,
+        slug,
+        sku,
+        pricePerKg: priceConfig.sellPrice,
+        cropType: contract.cropType,
+        grade: contract.grade,
+        plotId: contract.plotId,
+        contractId: contract.id,
+        harvestDate: contract.harvestDue,
+        stockKg: 0, // Mặc định bằng 0 như yêu cầu
+        qrCode: uuidv4(),
+        status: 'PUBLISHED',
         categories: categoryIds
           ? {
             create: categoryIds.map((cid) => ({ categoryId: cid })),

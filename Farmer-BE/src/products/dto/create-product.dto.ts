@@ -180,3 +180,47 @@ export class CreateProductFromLotDto {
   @ApiPropertyOptional({ enum: ProductStatus, default: ProductStatus.DRAFT })
   status?: ProductStatus;
 }
+
+export class CreateProductFromContractDto {
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty({ description: 'ID của hợp đồng (phải ở trạng thái SETTLED)' })
+  contractId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty({ description: 'Tên thương mại của sản phẩm' })
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'Mô tả chi tiết' })
+  description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ApiPropertyOptional({ type: [String] })
+  imageUrls?: string[];
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'Slug tùy chỉnh' })
+  slug?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'SKU tùy chỉnh' })
+  sku?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ApiPropertyOptional({ type: [String] })
+  categoryIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ description: 'URL ảnh đại diện' })
+  thumbnailUrl?: string;
+}

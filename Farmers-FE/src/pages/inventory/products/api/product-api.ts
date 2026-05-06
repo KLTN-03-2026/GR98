@@ -49,4 +49,7 @@ export const inventoryProductApi = {
 
   createFromLot: (data: any) =>
     apiPost<Product>('/products/from-lot', data),
+
+  createFromContract: (data: any) =>
+    apiPost<Product>('/products/from-contract', data),
 };

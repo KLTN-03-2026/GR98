@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, RefreshCw } from 'lucide-react';
+import { Package, Plus, RefreshCw, FileText } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
@@ -9,13 +9,14 @@ import { extractData } from '@/client/lib/api-client';
 import { ProductFilters } from './components/ProductFilters';
 import type { Product, PaginatedResponse } from '@/client/types';
 import type { ProductQueryParams } from './api/product-api';
-import { CreateProductFromLotDrawer } from './components/CreateProductFromLotDialog';
+
+import { CreateProductFromContractDialog } from './components/CreateProductFromContractDialog';
 import { ProductDialog } from './components/ProductDialog';
 import { useProductMutations } from './api/use-product-mutations';
 import { useCategories } from '@/client/api/categories/use-categories';
 
 export default function ProductsManagementPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [filters, setFilters] = useState<ProductQueryParams>({
@@ -49,13 +50,13 @@ export default function ProductsManagementPage() {
     });
   };
 
-  const { createFromLot, updateProduct, deleteProduct } = useProductMutations();
-
+  const { createFromContract, updateProduct, deleteProduct } = useProductMutations();
+  
   const products = data?.items || [];
 
-  const handleCreateFromLot = async (payload: any) => {
-    await createFromLot.mutateAsync(payload);
-    setIsDialogOpen(false);
+  const handleCreateFromContract = async (payload: any) => {
+    await createFromContract.mutateAsync(payload);
+    setIsContractDialogOpen(false);
   };
 
   const handleEdit = (product: Product) => {
@@ -107,11 +108,11 @@ export default function ProductsManagementPage() {
           </Button>
           <Button
             size="sm"
-            className="h-9 shadow-md shadow-primary/20"
-            onClick={() => setIsDialogOpen(true)}
+            className="h-9 bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20 font-bold border-none"
+            onClick={() => setIsContractDialogOpen(true)}
           >
-            <Plus className="size-4 mr-2" />
-            Niêm yết mới từ kho
+            <FileText className="size-4 mr-2" />
+            Niêm yết từ Hợp đồng
           </Button>
         </div>
       </div>
@@ -140,11 +141,13 @@ export default function ProductsManagementPage() {
         </div>
       </div>
 
-      <CreateProductFromLotDrawer
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onSubmit={handleCreateFromLot}
-        isLoading={createFromLot.isPending}
+
+
+      <CreateProductFromContractDialog
+        open={isContractDialogOpen}
+        onOpenChange={setIsContractDialogOpen}
+        onSubmit={handleCreateFromContract}
+        isLoading={createFromContract.isPending}
       />
 
       {editingProduct && (

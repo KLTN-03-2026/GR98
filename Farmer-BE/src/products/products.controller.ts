@@ -24,6 +24,7 @@ import {
   UpdateProductDto,
   ProductQueryDto,
   CreateProductFromLotDto,
+  CreateProductFromContractDto,
 } from './dto/create-product.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -123,5 +124,19 @@ export class ProductsController {
     @Request() req: any,
   ) {
     return this.productsService.createFromLot(dto, req.user.id);
+  }
+
+  @Post('from-contract')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Niêm yết sản phẩm từ hợp đồng đã tất toán' })
+  @ApiResponse({ status: 201, description: 'Sản phẩm đã được tạo từ hợp đồng' })
+  createFromContract(
+    @Body() dto: CreateProductFromContractDto,
+    @Request() req: any,
+  ) {
+    return this.productsService.createFromContract(dto, req.user.id);
   }
 }

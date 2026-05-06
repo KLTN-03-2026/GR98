@@ -103,12 +103,16 @@ export interface Product {
   sku: string;
   unit?: string;
   imageUrls: string[];
+  thumbnailUrl?: string;
   status: ProductStatus;
   harvestDate?: string;
   aiConfidenceScore?: number;
   createdAt: string;
   plotId?: string;
   contractId?: string;
+  plot?: any;
+  contract?: any;
+  inventoryLot?: any;
   categories?: Category[];
   reviews?: Review[];
   averageRating?: number;

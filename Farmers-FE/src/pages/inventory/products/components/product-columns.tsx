@@ -1,7 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { DataTableColumnHeader } from '@/components/data-table';
-import { ImageIcon, CheckCircle2, AlertCircle, Clock, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { ImageIcon, CheckCircle2, AlertCircle, Clock, Pencil, Trash2, ExternalLink, Info } from 'lucide-react';
 import type { Product } from '@/client/types';
 import { Button } from '@/components/ui/button';
 
@@ -11,9 +11,9 @@ export const productColumns: ColumnDef<Product>[] = [
     header: 'Ảnh',
     cell: ({ row }) => (
       <div className="relative h-10 w-14 rounded-lg overflow-hidden border border-slate-100 bg-slate-50">
-        {row.original.imageUrls?.[0] ? (
+        {(row.original.thumbnailUrl || row.original.imageUrls?.[0]) ? (
           <img 
-            src={row.original.imageUrls[0]} 
+            src={row.original.thumbnailUrl || row.original.imageUrls[0]} 
             alt={row.original.name} 
             className="h-full w-full object-cover" 
           />
@@ -129,10 +129,10 @@ export const productColumns: ColumnDef<Product>[] = [
           <Button
             size="icon"
             variant="ghost"
-            className="h-8 w-8 rounded-full hover:bg-emerald-50 hover:text-emerald-600"
-            onClick={() => meta?.onEdit?.(product)}
+            className="h-8 w-8 rounded-full hover:bg-slate-100 text-slate-500"
+            onClick={() => meta?.onView?.(product)}
           >
-            <Pencil className="h-3.5 w-3.5" />
+            <Info className="h-3.5 w-3.5" />
           </Button>
           <Button
             size="icon"

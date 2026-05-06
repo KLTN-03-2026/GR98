@@ -35,7 +35,7 @@ export const inventoryProductApi = {
   listInternal: (params?: ProductQueryParams) =>
     apiGet<PaginatedResponse<Product>>('/products/internal', { params }),
 
-  getById: (id: string) =>
+  getOne: (id: string) =>
     apiGet<Product>(`/products/${id}`),
 
   create: (data: CreateProductPayload) =>

@@ -12,12 +12,15 @@ import type { ProductQueryParams } from './api/product-api';
 
 import { CreateProductFromContractDialog } from './components/CreateProductFromContractDialog';
 import { ProductDialog } from './components/ProductDialog';
+import { ProductDetailsDialog } from './components/ProductDetailsDialog';
 import { useProductMutations } from './api/use-product-mutations';
 import { useCategories } from '@/client/api/categories/use-categories';
 
 export default function ProductsManagementPage() {
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [filters, setFilters] = useState<ProductQueryParams>({
     page: 1,
@@ -34,6 +37,16 @@ export default function ProductsManagementPage() {
 
   const { data: catData } = useCategories();
   const categories = catData?.data || [];
+
+  const { data: fullProduct } = useQuery({
+    queryKey: ['product', viewingProduct?.id],
+    queryFn: async () => {
+      if (!viewingProduct?.id) return null;
+      const response = await inventoryProductApi.getOne(viewingProduct.id);
+      return extractData<any>(response);
+    },
+    enabled: !!viewingProduct?.id && isDetailsOpen,
+  });
 
   const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({
@@ -62,6 +75,11 @@ export default function ProductsManagementPage() {
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setIsUpdateOpen(true);
+  };
+
+  const handleView = (product: Product) => {
+    setViewingProduct(product);
+    setIsDetailsOpen(true);
   };
 
   const handleUpdate = async (payload: any) => {
@@ -134,6 +152,7 @@ export default function ProductsManagementPage() {
             onReload={() => refetch()}
             searchPlaceholder="Tìm kiếm tên sản phẩm, SKU..."
             meta={{
+              onView: handleView,
               onEdit: handleEdit,
               onDelete: handleDelete
             }}
@@ -160,6 +179,12 @@ export default function ProductsManagementPage() {
           categories={categories}
         />
       )}
+
+      <ProductDetailsDialog 
+        open={isDetailsOpen}
+        onOpenChange={setIsDetailsOpen}
+        product={fullProduct || viewingProduct}
+      />
 
       <style dangerouslySetInnerHTML={{
         __html: `

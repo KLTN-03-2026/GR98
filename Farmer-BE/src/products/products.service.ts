@@ -160,8 +160,11 @@ export class ProductsService {
         categories: {
           include: { category: true },
         },
-        contract: true,
+        contract: {
+          include: { farmer: true },
+        },
         plot: true,
+        inventoryLots: true,
       },
     });
 

@@ -32,9 +32,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { PRODUCT_STATUS_LABELS, type ProductStatus } from '@/client/types';
 import { toast } from 'sonner';
+import FileUpload from '@/components/custom/file-upload';
+
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 interface ProductDetailsDialogProps {
   open: boolean;
@@ -55,6 +70,7 @@ export function ProductDetailsDialog({
 }: ProductDetailsDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('marketing');
+  const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -109,6 +125,44 @@ export function ProductDetailsDialog({
         thumbnailUrl: form.thumbnailUrl || imageUrlInput // Auto-set if empty
       });
       setImageUrlInput('');
+    }
+  };
+
+  const handleMultiFileUpload = async (files: File[]) => {
+    try {
+      const base64s = await Promise.all(files.map(file => fileToBase64(file)));
+      const newImages = [...form.imageUrls];
+      let addedCount = 0;
+      
+      for (const base64 of base64s) {
+        if (!newImages.includes(base64)) {
+          newImages.push(base64);
+          addedCount++;
+        }
+      }
+
+      if (addedCount > 0) {
+        setForm({ 
+          ...form, 
+          imageUrls: newImages,
+          thumbnailUrl: form.thumbnailUrl || newImages[0]
+        });
+        toast.success(`Đã tải lên ${addedCount} ảnh vào Album`);
+      }
+    } catch (error) {
+      toast.error('Lỗi khi tải ảnh lên Album');
+      console.error(error);
+    }
+  };
+
+  const handleThumbnailUpload = async (file: File) => {
+    try {
+      const base64 = await fileToBase64(file);
+      setForm({ ...form, thumbnailUrl: base64 });
+      toast.success('Đã cập nhật ảnh đại diện');
+    } catch (error) {
+      toast.error('Lỗi khi tải ảnh đại diện');
+      console.error(error);
     }
   };
 
@@ -306,69 +360,120 @@ export function ProductDetailsDialog({
                         />
                       </div>
 
-                      <div className="space-y-4">
-                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ảnh đại diện (Thumbnail URL)</Label>
-                        <div className="relative group">
-                          <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
-                          <Input
-                            value={form.thumbnailUrl}
-                            onChange={(e) => setForm({ ...form, thumbnailUrl: e.target.value })}
-                            placeholder="Dán URL ảnh đại diện hoặc chọn từ danh sách bên dưới..."
-                            className="h-11 rounded-xl border-slate-200 bg-white pl-12 focus-visible:ring-primary text-sm shadow-sm"
+                      <div className="space-y-6">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between ml-1">
+                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tải ảnh vào Album (Chọn nhiều ảnh)</Label>
+                            <Badge variant="outline" className="text-[8px] h-4 px-1.5 border-slate-200 text-slate-400 uppercase font-black tracking-tighter">Multi-Upload</Badge>
+                          </div>
+                          <FileUpload 
+                            multiple={true}
+                            onFilesSelect={handleMultiFileUpload}
+                            onFileError={(err) => toast.error(err)}
+                            maxFileSize={5 * 1024 * 1024}
+                            acceptedFileTypes={["image/*"]}
                           />
+                          
+                          {/* Album Gallery Grid - Moved up for better visibility */}
+                          <div className="grid grid-cols-4 gap-4 p-6 rounded-2xl bg-slate-50 border border-slate-100 min-h-[140px] mt-2">
+                            {form.imageUrls.map((url, i) => (
+                              <div 
+                                key={i} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedZoomImage(url);
+                                }}
+                                className={cn(
+                                  "group relative aspect-square rounded-xl overflow-hidden border transition-all cursor-zoom-in",
+                                  form.thumbnailUrl === url ? "border-primary ring-2 ring-primary/20 shadow-md" : "border-slate-200 bg-white"
+                                )}
+                              >
+                                <img src={url} alt="product" className="h-full w-full object-cover" />
+                                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                  <button
+                                    type="button"
+                                    className="h-7 w-7 rounded-full bg-slate-900/60 text-white flex items-center justify-center shadow-lg hover:bg-primary transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setForm({ ...form, thumbnailUrl: url });
+                                    }}
+                                    title="Chọn làm ảnh đại diện"
+                                  >
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="h-7 w-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveImage(url);
+                                    }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                                {form.thumbnailUrl === url && (
+                                  <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-primary text-white text-[6px] font-black uppercase tracking-tighter rounded shadow-sm">
+                                    COVER
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                            {form.imageUrls.length === 0 && (
+                              <div className="col-span-4 flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+                                <ImageIcon className="size-8 opacity-20" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Album đang trống</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mt-6">Album hình ảnh (Click ảnh để chọn làm đại diện)</Label>
-                        <div className="flex gap-3">
-                          <Input
-                            value={imageUrlInput}
-                            onChange={(e) => setImageUrlInput(e.target.value)}
-                            placeholder="Dán URL hình ảnh..."
-                            className="h-11 rounded-xl border-slate-200 bg-white focus-visible:ring-primary text-sm shadow-sm"
-                          />
-                          <Button 
-                            type="button" 
-                            onClick={handleAddImage} 
-                            className="h-11 px-6 rounded-xl font-black bg-slate-900 text-white transition-all text-[10px] uppercase tracking-widest"
-                          >
-                            THÊM
-                          </Button>
-                        </div>
-                        
-                        <div className="grid grid-cols-4 gap-4 p-6 rounded-2xl bg-slate-50 border border-slate-100 min-h-[140px]">
-                          {form.imageUrls.map((url, i) => (
-                            <div 
-                              key={i} 
-                              onClick={() => setForm({ ...form, thumbnailUrl: url })}
-                              className={cn(
-                                "group relative aspect-square rounded-xl overflow-hidden border transition-all cursor-pointer",
-                                form.thumbnailUrl === url ? "border-primary ring-2 ring-primary/20 shadow-md" : "border-slate-200 bg-white"
-                              )}
-                            >
-                              <img src={url} alt="product" className="h-full w-full object-cover" />
-                              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                                <button
-                                  type="button"
-                                  className="h-7 w-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveImage(url);
-                                  }}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                              {form.thumbnailUrl === url && (
-                                <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-primary text-white text-[6px] font-black uppercase tracking-tighter rounded shadow-sm">
-                                  COVER
+                        <div className="space-y-4 pt-6 border-t border-slate-100">
+                          <div className="flex items-center justify-between ml-1">
+                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ảnh đại diện (Thumbnail)</Label>
+                            <Badge className="bg-primary/10 text-primary hover:bg-primary/10 border-none text-[8px] h-4 px-1.5 uppercase font-black tracking-tighter">Single-Upload</Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-12 gap-4">
+                            <div className="col-span-4">
+                              {form.thumbnailUrl ? (
+                                <div className="aspect-square rounded-2xl overflow-hidden border border-slate-200 relative group cursor-zoom-in" onClick={() => setSelectedZoomImage(form.thumbnailUrl)}>
+                                  <img src={form.thumbnailUrl} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                    <p className="text-[8px] font-black text-white uppercase">Xem ảnh</p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="aspect-square rounded-2xl border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-2 text-slate-400">
+                                  <ImageIcon className="size-6 opacity-20" />
+                                  <span className="text-[8px] font-bold uppercase">No Thumbnail</span>
                                 </div>
                               )}
                             </div>
-                          ))}
+                            <div className="col-span-8 space-y-4">
+                              <FileUpload 
+                                multiple={false}
+                                onFileSelect={handleThumbnailUpload}
+                                onFileError={(err) => toast.error(err)}
+                                maxFileSize={5 * 1024 * 1024}
+                                acceptedFileTypes={["image/*"]}
+                              />
+                              <div className="relative group">
+                                <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
+                                <Input
+                                  value={form.thumbnailUrl}
+                                  onChange={(e) => setForm({ ...form, thumbnailUrl: e.target.value })}
+                                  placeholder="Dán URL ảnh đại diện..."
+                                  className="h-10 rounded-xl border-slate-200 bg-white pl-12 focus-visible:ring-primary text-xs shadow-sm"
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+
                     </div>
-                  </TabsContent>
+                  </div>
+                </TabsContent>
                 </Tabs>
               </form>
             </div>
@@ -459,12 +564,15 @@ export function ProductDetailsDialog({
                 
                 <div className="grid grid-cols-4 gap-3">
                   {(product.thumbnailUrl || product.imageUrls?.[0]) ? (
-                    <div className="aspect-square rounded-xl overflow-hidden border border-slate-200 relative group">
-                      <img src={product.thumbnailUrl || product.imageUrls[0]} alt="Thumbnail" className="w-full h-full object-cover" />
-                      <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 text-center">
-                        <span className="text-[8px] font-bold text-white uppercase tracking-tighter">Thumbnail</span>
-                      </div>
+                  <div 
+                    className="aspect-square rounded-xl overflow-hidden border border-slate-200 relative group cursor-zoom-in"
+                    onClick={() => setSelectedZoomImage(product.thumbnailUrl || product.imageUrls[0])}
+                  >
+                    <img src={product.thumbnailUrl || product.imageUrls[0]} alt="Thumbnail" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 text-center">
+                      <span className="text-[8px] font-bold text-white uppercase tracking-tighter">Thumbnail</span>
                     </div>
+                  </div>
                   ) : (
                     <div className="aspect-square rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center bg-slate-50 gap-1 text-slate-400">
                       <ImageIcon className="size-5 opacity-20" />
@@ -473,8 +581,12 @@ export function ProductDetailsDialog({
                   )}
 
                   {product.imageUrls?.map((url: string, index: number) => (
-                    <div key={index} className="aspect-square rounded-xl overflow-hidden border border-slate-200">
-                      <img src={url} alt={`Detail ${index + 1}`} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" />
+                    <div 
+                      key={index} 
+                      className="aspect-square rounded-xl overflow-hidden border border-slate-200 cursor-zoom-in group"
+                      onClick={() => setSelectedZoomImage(url)}
+                    >
+                      <img src={url} alt={`Detail ${index + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     </div>
                   ))}
                 </div>
@@ -557,6 +669,30 @@ export function ProductDetailsDialog({
           )}
         </div>
       </SheetContent>
+
+      {/* Lightbox Dialog */}
+      <Dialog open={!!selectedZoomImage} onOpenChange={(open) => !open && setSelectedZoomImage(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex items-center justify-center focus-visible:outline-none">
+          <DialogTitle className="sr-only">Phóng to hình ảnh</DialogTitle>
+          {selectedZoomImage && (
+            <div className="relative animate-in zoom-in-95 duration-200">
+              <img 
+                src={selectedZoomImage} 
+                alt="Full size" 
+                className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute -top-12 right-0 text-white hover:bg-white/10 rounded-full h-10 w-10"
+                onClick={() => setSelectedZoomImage(null)}
+              >
+                <X className="size-6" />
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

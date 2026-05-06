@@ -11,17 +11,14 @@ import type { Product, PaginatedResponse } from '@/client/types';
 import type { ProductQueryParams } from './api/product-api';
 
 import { CreateProductFromContractDialog } from './components/CreateProductFromContractDialog';
-import { ProductDialog } from './components/ProductDialog';
 import { ProductDetailsDialog } from './components/ProductDetailsDialog';
 import { useProductMutations } from './api/use-product-mutations';
 import { useCategories } from '@/client/api/categories/use-categories';
 
 export default function ProductsManagementPage() {
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
-  const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [filters, setFilters] = useState<ProductQueryParams>({
     page: 1,
     limit: 50, // Tăng limit để hiển thị nhiều hơn
@@ -73,8 +70,9 @@ export default function ProductsManagementPage() {
   };
 
   const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    setIsUpdateOpen(true);
+    setViewingProduct(product);
+    setIsDetailsOpen(true);
+    // Lưu ý: Bây giờ handleEdit sẽ mở Details và Details sẽ có nút chuyển sang Edit
   };
 
   const handleView = (product: Product) => {
@@ -83,10 +81,8 @@ export default function ProductsManagementPage() {
   };
 
   const handleUpdate = async (payload: any) => {
-    if (!editingProduct) return;
-    await updateProduct.mutateAsync({ id: editingProduct.id, data: payload });
-    setIsUpdateOpen(false);
-    setEditingProduct(null);
+    if (!viewingProduct) return;
+    await updateProduct.mutateAsync({ id: viewingProduct.id, data: payload });
   };
 
   const handleDelete = async (id: string) => {
@@ -150,6 +146,7 @@ export default function ProductsManagementPage() {
             data={products}
             isLoading={isLoading || isFetching}
             onReload={() => refetch()}
+            onRowClick={handleView}
             searchPlaceholder="Tìm kiếm tên sản phẩm, SKU..."
             meta={{
               onView: handleView,
@@ -169,21 +166,13 @@ export default function ProductsManagementPage() {
         isLoading={createFromContract.isPending}
       />
 
-      {editingProduct && (
-        <ProductDialog
-          open={isUpdateOpen}
-          onOpenChange={setIsUpdateOpen}
-          mode="edit"
-          product={editingProduct}
-          onSubmit={handleUpdate}
-          categories={categories}
-        />
-      )}
-
       <ProductDetailsDialog 
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
         product={fullProduct || viewingProduct}
+        categories={categories}
+        onUpdate={handleUpdate}
+        isUpdating={updateProduct.isPending}
       />
 
       <style dangerouslySetInnerHTML={{

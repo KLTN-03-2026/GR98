@@ -178,7 +178,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="bg-background min-h-screen flex items-center justify-center">
+      <div className="bg-background min-h-screen pt-[110px] flex items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
@@ -186,7 +186,7 @@ export default function ProfilePage() {
 
   if (isError || !me) {
     return (
-      <div className="bg-background min-h-screen container mx-auto px-4 py-16 text-center">
+      <div className="bg-background min-h-screen pt-[110px] container mx-auto px-4 py-16 text-center">
         <p className="text-destructive mb-4">
           {(error as { message?: string })?.message || 'Không tải được hồ sơ. Vui lòng đăng nhập lại.'}
         </p>
@@ -210,7 +210,7 @@ export default function ProfilePage() {
         });
 
   return (
-    <div className="bg-background min-h-screen">
+    <div className="bg-background min-h-screen pt-[110px]">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-1">Tài Khoản Của Tôi</h1>

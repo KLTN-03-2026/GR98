@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -33,6 +33,200 @@ import {
 } from '@/client/data/mock-data';
 
 const ITEMS_PER_PAGE = 12;
+
+interface FilterContentProps {
+  filters: any;
+  categoriesData: any;
+  updateFilter: (key: string, value: string) => void;
+  clearFilters: () => void;
+  activeFiltersCount: number;
+}
+
+const SearchInput = ({ value, onChange }: { value: string; onChange: (val: string) => void }) => {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localValue !== value) {
+        onChange(localValue);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [localValue, onChange, value]);
+
+  return (
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Input
+        placeholder="Tên sản phẩm..."
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        className="pl-10"
+      />
+    </div>
+  );
+};
+
+const FilterContent = ({
+  filters,
+  categoriesData,
+  updateFilter,
+  clearFilters,
+  activeFiltersCount,
+}: FilterContentProps) => (
+  <div className="space-y-6">
+    {/* Search */}
+    <div className="space-y-2">
+      <label className="text-sm font-medium">Tìm kiếm</label>
+      <SearchInput 
+        value={filters.search} 
+        onChange={(val) => updateFilter('search', val)} 
+      />
+    </div>
+
+    <Separator />
+
+    {/* Category */}
+    <div className="space-y-3">
+      <label className="text-sm font-medium">Danh mục</label>
+      <div className="space-y-2">
+        {categoriesData?.data.map((cat: any) => (
+          <label
+            key={cat.id}
+            className="flex items-center gap-2 cursor-pointer group"
+          >
+            <input
+              type="radio"
+              name="categoryId"
+              value={cat.id}
+              checked={filters.categoryId === cat.id}
+              onChange={() => updateFilter('categoryId', cat.id)}
+              className="accent-primary"
+            />
+            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors flex-1">
+              {cat.name}
+            </span>
+            {cat.productCount !== undefined && (
+              <span className="text-xs text-muted-foreground">({cat.productCount})</span>
+            )}
+          </label>
+        ))}
+        {filters.categoryId && (
+          <button
+            onClick={() => updateFilter('categoryId', '')}
+            className="text-xs text-primary hover:underline"
+          >
+            Bỏ chọn
+          </button>
+        )}
+      </div>
+    </div>
+
+    <Separator />
+
+    {/* Crop Type */}
+    <div className="space-y-3">
+      <label className="text-sm font-medium">Loại sản phẩm</label>
+      <div className="space-y-2">
+        {CROP_TYPE_OPTIONS.map((opt) => (
+          <label
+            key={opt.value}
+            className="flex items-center gap-2 cursor-pointer group"
+          >
+            <input
+              type="radio"
+              name="cropType"
+              value={opt.value}
+              checked={filters.cropType === opt.value}
+              onChange={() => updateFilter('cropType', opt.value)}
+              className="accent-primary"
+            />
+            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+              {opt.label}
+            </span>
+          </label>
+        ))}
+        {filters.cropType && (
+          <button
+            onClick={() => updateFilter('cropType', '')}
+            className="text-xs text-primary hover:underline"
+          >
+            Bỏ chọn
+          </button>
+        )}
+      </div>
+    </div>
+
+    <Separator />
+
+    {/* Grade */}
+    <div className="space-y-3">
+      <label className="text-sm font-medium">Hạng chất lượng</label>
+      <div className="flex flex-wrap gap-2">
+        {GRADE_OPTIONS.map((opt) => (
+          <Badge
+            key={opt.value}
+            variant={filters.grade === opt.value ? 'default' : 'outline'}
+            className="cursor-pointer hover:bg-primary/10 transition-colors"
+            onClick={() =>
+              updateFilter(
+                'grade',
+                filters.grade === opt.value ? '' : opt.value,
+              )
+            }
+          >
+            {opt.label}
+          </Badge>
+        ))}
+      </div>
+    </div>
+
+    <Separator />
+
+    {/* Price Range */}
+    <div className="space-y-3">
+      <label className="text-sm font-medium">Khoảng giá</label>
+      <div className="space-y-2">
+        {PRICE_RANGES.map((range) => (
+          <label
+            key={range.value}
+            className="flex items-center gap-2 cursor-pointer group"
+          >
+            <input
+              type="radio"
+              name="priceRange"
+              value={range.value}
+              checked={filters.priceRange === range.value}
+              onChange={() => updateFilter('priceRange', range.value)}
+              className="accent-primary"
+            />
+            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+              {range.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+
+    {activeFiltersCount > 0 && (
+      <>
+        <Separator />
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full rounded-lg"
+          onClick={clearFilters}
+        >
+          Xóa tất cả bộ lọc
+        </Button>
+      </>
+    )}
+  </div>
+);
 
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -104,162 +298,6 @@ export default function ProductsPage() {
     setSearchParams({ sortBy: filters.sortBy });
   };
 
-  const FilterContent = () => (
-    <div className="space-y-6">
-      {/* Search */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Tìm kiếm</label>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Tên sản phẩm..."
-            value={filters.search}
-            onChange={(e) => updateFilter('search', e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Category */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium">Danh mục</label>
-        <div className="space-y-2">
-          {categoriesData?.data.map((cat) => (
-            <label
-              key={cat.id}
-              className="flex items-center gap-2 cursor-pointer group"
-            >
-              <input
-                type="radio"
-                name="categoryId"
-                value={cat.id}
-                checked={filters.categoryId === cat.id}
-                onChange={() => updateFilter('categoryId', cat.id)}
-                className="accent-primary"
-              />
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors flex-1">
-                {cat.name}
-              </span>
-              {cat.productCount !== undefined && (
-                <span className="text-xs text-muted-foreground">({cat.productCount})</span>
-              )}
-            </label>
-          ))}
-          {filters.categoryId && (
-            <button
-              onClick={() => updateFilter('categoryId', '')}
-              className="text-xs text-primary hover:underline"
-            >
-              Bỏ chọn
-            </button>
-          )}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Crop Type */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium">Loại sản phẩm</label>
-        <div className="space-y-2">
-          {CROP_TYPE_OPTIONS.map((opt) => (
-            <label
-              key={opt.value}
-              className="flex items-center gap-2 cursor-pointer group"
-            >
-              <input
-                type="radio"
-                name="cropType"
-                value={opt.value}
-                checked={filters.cropType === opt.value}
-                onChange={() => updateFilter('cropType', opt.value)}
-                className="accent-primary"
-              />
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                {opt.label}
-              </span>
-            </label>
-          ))}
-          {filters.cropType && (
-            <button
-              onClick={() => updateFilter('cropType', '')}
-              className="text-xs text-primary hover:underline"
-            >
-              Bỏ chọn
-            </button>
-          )}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Grade */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium">Hạng chất lượng</label>
-        <div className="flex flex-wrap gap-2">
-          {GRADE_OPTIONS.map((opt) => (
-            <Badge
-              key={opt.value}
-              variant={filters.grade === opt.value ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-primary/10 transition-colors"
-              onClick={() =>
-                updateFilter(
-                  'grade',
-                  filters.grade === opt.value ? '' : opt.value,
-                )
-              }
-            >
-              {opt.label}
-            </Badge>
-          ))}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Price Range */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium">Khoảng giá</label>
-        <div className="space-y-2">
-          {PRICE_RANGES.map((range) => (
-            <label
-              key={range.value}
-              className="flex items-center gap-2 cursor-pointer group"
-            >
-              <input
-                type="radio"
-                name="priceRange"
-                value={range.value}
-                checked={filters.priceRange === range.value}
-                onChange={() => updateFilter('priceRange', range.value)}
-                className="accent-primary"
-              />
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                {range.label}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {activeFiltersCount > 0 && (
-        <>
-          <Separator />
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full rounded-lg"
-            onClick={clearFilters}
-          >
-            Xóa tất cả bộ lọc
-          </Button>
-        </>
-      )}
-    </div>
-  );
-
   return (
     <div className="bg-background min-h-screen pt-[78px]">
 
@@ -285,7 +323,13 @@ export default function ProductsPage() {
                 <SheetDescription>Chọn bộ lọc để tìm sản phẩm phù hợp</SheetDescription>
               </SheetHeader>
               <div className="mt-6">
-                <FilterContent />
+                <FilterContent
+                  filters={filters}
+                  categoriesData={categoriesData}
+                  updateFilter={updateFilter}
+                  clearFilters={clearFilters}
+                  activeFiltersCount={activeFiltersCount}
+                />
               </div>
             </SheetContent>
           </Sheet>
@@ -294,7 +338,7 @@ export default function ProductsPage() {
           <div className="hidden lg:flex items-center gap-2 flex-1">
             {filters.categoryId && (
               <Badge variant="secondary" className="gap-1 rounded-lg">
-                {categoriesData?.data.find((c) => c.id === filters.categoryId)?.name}
+                {categoriesData?.data.find((c: any) => c.id === filters.categoryId)?.name}
                 <X
                   className="h-3 w-3 cursor-pointer"
                   onClick={() => updateFilter('categoryId', '')}
@@ -396,7 +440,13 @@ export default function ProductsPage() {
                 <SlidersHorizontal className="h-4 w-4" />
                 Bộ lọc
               </h3>
-              <FilterContent />
+              <FilterContent
+                filters={filters}
+                categoriesData={categoriesData}
+                updateFilter={updateFilter}
+                clearFilters={clearFilters}
+                activeFiltersCount={activeFiltersCount}
+              />
             </div>
           </aside>
 

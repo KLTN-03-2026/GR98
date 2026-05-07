@@ -49,8 +49,28 @@ export class ProductsController {
   @ApiOperation({ summary: 'Chi tiết sản phẩm theo slug' })
   @ApiResponse({ status: 200, description: 'Thông tin sản phẩm' })
   findBySlug(@Param('slug') slug: string) {
-    // Note: We need a findBySlug in service, I'll add it or use findOne if I adapt it
     return this.productsService.findBySlug(slug);
+  }
+
+  @Get('featured')
+  @ApiOperation({ summary: 'Danh sách sản phẩm nổi bật' })
+  findFeatured(@Query('limit') limit?: string) {
+    return this.productsService.findFeatured(parseInt(limit || '8', 10));
+  }
+
+  @Get('category/:slug')
+  @ApiOperation({ summary: 'Danh sách sản phẩm theo danh mục' })
+  findByCategory(
+    @Param('slug') slug: string,
+    @Query() query: { page?: string; limit?: string },
+  ) {
+    return this.productsService.findByCategory(slug, query);
+  }
+
+  @Get(':id/related')
+  @ApiOperation({ summary: 'Danh sách sản phẩm liên quan' })
+  findRelated(@Param('id') id: string, @Query('limit') limit?: string) {
+    return this.productsService.findRelated(id, parseInt(limit || '4', 10));
   }
 
   // ─── INTERNAL MANAGEMENT ───────────────────────────────────────────────────

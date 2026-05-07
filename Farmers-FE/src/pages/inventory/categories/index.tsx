@@ -541,7 +541,7 @@ export default function CategoriesAdminPage() {
             />
             <Button
               onClick={handleOpenCreate}
-              className="h-10 rounded-full px-6 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 flex items-center gap-2 transition-all active:scale-95"
+              className="h-10 rounded-full px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95"
             >
               <Plus className="size-4" />
               <span className="text-sm">Thêm mới</span>

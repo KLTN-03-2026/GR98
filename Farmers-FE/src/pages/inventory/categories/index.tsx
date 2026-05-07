@@ -681,7 +681,7 @@ export default function CategoriesAdminPage() {
 
                         {/* Sort Order */}
                         <TableCell className="text-center">
-                          <span className="text-xs font-medium text-slate-500">
+                          <span className="text-sm font-medium text-slate-600">
                             {cat.sortOrder}
                           </span>
                         </TableCell>

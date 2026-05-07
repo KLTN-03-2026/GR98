@@ -7,6 +7,7 @@ import {
   IsArray,
   IsEnum,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { QualityGrade, ProductStatus } from '@prisma/client';
 
@@ -98,33 +99,65 @@ export class CreateProductDto {
 export class UpdateProductDto extends PartialType(CreateProductDto) {}
 
 export class ProductQueryDto {
+  @ApiPropertyOptional({ example: '1' })
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsString()
   page?: string;
 
+  @ApiPropertyOptional({ example: '15' })
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsString()
   limit?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsString()
   search?: string;
 
+  @ApiPropertyOptional({ enum: ProductStatus })
   @IsOptional()
-  @IsString()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsEnum(ProductStatus)
   status?: ProductStatus;
 
+  @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsString()
   cropType?: string;
 
+  @ApiPropertyOptional({ enum: QualityGrade })
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsEnum(QualityGrade)
   grade?: QualityGrade;
 
+  @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsString()
   categoryId?: string;
+
+  @ApiPropertyOptional({ example: 'newest' })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsString()
+  sortBy?: string;
+
+  @ApiPropertyOptional({ example: '0' })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsString()
+  minPrice?: string;
+
+  @ApiPropertyOptional({ example: '1000000' })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsString()
+  maxPrice?: string;
 }
 
 export class CreateProductFromLotDto {

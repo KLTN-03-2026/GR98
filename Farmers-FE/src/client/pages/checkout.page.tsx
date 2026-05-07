@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCartStore } from '@/client/store';
-import { formatPrice } from '@/client/data/mock-data';
+import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { ShippingAddress } from '@/client/types';
 
@@ -99,7 +99,7 @@ export default function CheckoutPage() {
 
   if (step === 'success') {
     return (
-      <div className="bg-background min-h-screen">
+      <div className="bg-background min-h-screen pt-[110px]">
         <div className="container mx-auto px-4 py-20">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -146,8 +146,8 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="bg-background min-h-screen">
-      <div className="container mx-auto px-4 py-8">
+    <div className="bg-background min-h-screen pt-[110px]">
+      <div className="container mx-auto px-4 pb-16">
         {/* Header */}
         <div className="mb-8">
           <Button variant="ghost" size="sm" className="mb-4" asChild>

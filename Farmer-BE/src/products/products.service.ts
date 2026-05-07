@@ -124,12 +124,42 @@ export class ProductsService {
       };
     }
 
+    // Lọc theo giá
+    if (query.minPrice || query.maxPrice) {
+      where.pricePerKg = {};
+      if (query.minPrice) where.pricePerKg.gte = parseFloat(query.minPrice);
+      if (query.maxPrice) where.pricePerKg.lte = parseFloat(query.maxPrice);
+    }
+
+    // Sắp xếp
+    let orderBy: any = { createdAt: 'desc' };
+    if (query.sortBy) {
+      switch (query.sortBy) {
+        case 'price_asc':
+          orderBy = { pricePerKg: 'asc' };
+          break;
+        case 'price_desc':
+          orderBy = { pricePerKg: 'desc' };
+          break;
+        case 'name':
+          orderBy = { name: 'asc' };
+          break;
+        case 'rating':
+          orderBy = { averageRating: 'desc' };
+          break;
+        case 'newest':
+        default:
+          orderBy = { createdAt: 'desc' };
+          break;
+      }
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           categories: {
             include: { category: true },
@@ -203,6 +233,110 @@ export class ProductsService {
       ...item,
       categories: item.categories.map((pc) => pc.category),
     };
+  }
+
+  async findFeatured(limit: number) {
+    const items = await this.prisma.product.findMany({
+      where: { status: 'PUBLISHED' },
+      take: limit,
+      orderBy: { createdAt: 'desc' }, // Or averageRating if implemented
+      include: {
+        categories: {
+          include: { category: true },
+        },
+      },
+    });
+
+    return Promise.all(items.map(async (item) => {
+      const dynamicStock = await this.calculateDynamicStock(item.id);
+      return {
+        ...item,
+        ...dynamicStock,
+        categories: item.categories.map((pc) => pc.category),
+      };
+    }));
+  }
+
+  async findByCategory(categorySlug: string, query: { page?: string; limit?: string }) {
+    const page = parseInt(query.page || '1', 10);
+    const limit = parseInt(query.limit || '15', 10);
+    const skip = (page - 1) * limit;
+
+    const where = {
+      status: 'PUBLISHED',
+      categories: {
+        some: {
+          category: { slug: categorySlug },
+        },
+      },
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          categories: {
+            include: { category: true },
+          },
+        },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return {
+      items: await Promise.all(items.map(async (item) => {
+        const dynamicStock = await this.calculateDynamicStock(item.id);
+        return {
+          ...item,
+          ...dynamicStock,
+          categories: item.categories.map((pc) => pc.category),
+        };
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findRelated(productId: string, limit: number) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: { categories: true },
+    });
+
+    if (!product) return [];
+
+    const categoryIds = product.categories.map((c) => c.categoryId);
+
+    const items = await this.prisma.product.findMany({
+      where: {
+        id: { not: productId },
+        status: 'PUBLISHED',
+        OR: [
+          { categories: { some: { categoryId: { in: categoryIds } } } },
+          { cropType: product.cropType },
+        ],
+      },
+      take: limit,
+      include: {
+        categories: {
+          include: { category: true },
+        },
+      },
+    });
+
+    return Promise.all(items.map(async (item) => {
+      const dynamicStock = await this.calculateDynamicStock(item.id);
+      return {
+        ...item,
+        ...dynamicStock,
+        categories: item.categories.map((pc) => pc.category),
+      };
+    }));
   }
 
   async create(dto: CreateProductDto, userId: string) {

@@ -17,7 +17,7 @@ export const productApi = {
   }) => apiGet<unknown>('/products', { params }),
 
   getBySlug: (slug: string) =>
-    apiGet<unknown>(`/products/${slug}`),
+    apiGet<unknown>(`/products/slug/${slug}`),
 
   getFeatured: (limit = 8) =>
     apiGet<unknown>('/products/featured', { params: { limit } }),

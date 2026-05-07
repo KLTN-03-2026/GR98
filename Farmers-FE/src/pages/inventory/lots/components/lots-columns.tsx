@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, MapPin, CheckCircle2, XCircle, Warehouse as WarehouseIcon } from 'lucide-react';
+import { Eye, CheckCircle2, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { InventoryLot } from '../api/types';

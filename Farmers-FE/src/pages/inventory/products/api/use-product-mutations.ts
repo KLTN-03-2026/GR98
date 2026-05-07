@@ -6,19 +6,7 @@ import { toast } from "sonner";
 export const useProductMutations = () => {
   const queryClient = useQueryClient();
 
-  const createFromLotMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await inventoryProductApi.createFromLot(data);
-      return extractData<any>(response);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast.success("Niêm yết sản phẩm thành công!");
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi niêm yết");
-    }
-  });
+
 
   const updateProductMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
@@ -48,8 +36,22 @@ export const useProductMutations = () => {
     }
   });
 
+  const createFromContractMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await inventoryProductApi.createFromContract(data);
+      return extractData<any>(response);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success("Niêm yết sản phẩm từ hợp đồng thành công!");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi niêm yết");
+    }
+  });
+
   return {
-    createFromLot: createFromLotMutation,
+    createFromContract: createFromContractMutation,
     updateProduct: updateProductMutation,
     deleteProduct: deleteProductMutation
   };

@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { CompactDataTable } from './CompactDataTable';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { PendingOrderResponse } from '../api/types';
-import { cn } from '@/lib/utils';
 
 const FULFILL_BADGE: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "secondary" | "default" }> = {
   PENDING: { label: 'Chờ xử lý', variant: 'destructive' },

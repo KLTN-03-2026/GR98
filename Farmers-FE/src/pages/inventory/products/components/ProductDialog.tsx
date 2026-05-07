@@ -1,19 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  Pencil,
   ImageIcon,
   CheckCircle2,
-  AlertCircle,
   Trash2,
   ShoppingBag,
-  Calendar as CalendarIcon,
-  Tag,
   Info,
-  Layers
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,27 +19,11 @@ import {
   DialogHeader,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
-  CROP_TYPES,
-  GRADE_LABELS,
   PRODUCT_STATUS_LABELS,
   type Product,
   type ProductStatus,
-  type QualityGrade,
 } from '@/client/types';
 
 import {

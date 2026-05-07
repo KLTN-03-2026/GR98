@@ -1,16 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Layers3,
-  MapPin,
+  Plus,
   SlidersHorizontal,
   Sprout,
   Users,
   UserRound,
+  X,
+  ImagePlus,
+  MapPin,
+  Layers3,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -26,6 +37,13 @@ import { cn } from "@/lib/utils";
 import { DataGrid } from "@/components/data-grid";
 import { usePlots } from "@/pages/admin/plots/api";
 import type { PlotResponse } from "@/pages/admin/plots/api/types";
+import {
+  dailyReportApi,
+  useDailyReports,
+} from "@/pages/admin/daily-reports/api";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { SUPERVISOR_DAILY_DASHBOARD_QUERY_KEY } from "@/pages/supervisor/daily-reports/api";
 
 type CropType = "sau-rieng" | "ca-phe";
 type PlotItem = PlotResponse;
@@ -80,10 +98,21 @@ export default function SupervisorPlotsPage() {
   const [filter, setFilter] = useState<"all" | CropType>("all");
   const [supervisorFilterId, setSupervisorFilterId] = useState("all");
   const [mapFilter, setMapFilter] = useState<"all" | "mapped" | "unmapped">("all");
+  const [isNearHarvest, setIsNearHarvest] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Harvest Report State
+  const queryClient = useQueryClient();
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportContent, setReportContent] = useState("");
+  const [reportImages, setReportImages] = useState<
+    { payload: string; previewUrl: string }[]
+  >([]);
+  const [reportYieldKg, setReportYieldKg] = useState<string>("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const itemsPerPage = 6;
 
   const { data: plotsData, isLoading, isFetching } = usePlots({
@@ -107,13 +136,31 @@ export default function SupervisorPlotsPage() {
   const displayedPlots = useMemo(
     () =>
       plots.filter((plot) => {
+        // Filter by Map
         const hasGis =
           plot.hasGis ??
           (Number.isFinite(plot.lat) && Number.isFinite(plot.lng));
-        if (mapFilter === "all") return true;
-        return mapFilter === "mapped" ? hasGis : !hasGis;
+        if (mapFilter !== "all") {
+          const mapMatch = mapFilter === "mapped" ? hasGis : !hasGis;
+          if (!mapMatch) return false;
+        }
+
+        // Filter by Near Harvest (within 14 days)
+        if (isNearHarvest) {
+          if (!plot.expectedHarvest) return false;
+          const harvestDate = new Date(plot.expectedHarvest);
+          const now = new Date();
+          const fourteenDaysLater = new Date();
+          fourteenDaysLater.setDate(now.getDate() + 14);
+          
+          if (harvestDate < now || harvestDate > fourteenDaysLater) {
+            return false;
+          }
+        }
+
+        return true;
       }),
-    [plots, mapFilter],
+    [plots, mapFilter, isNearHarvest],
   );
 
   const supervisors = useMemo<SupervisorOption[]>(() => {
@@ -175,6 +222,94 @@ export default function SupervisorPlotsPage() {
   };
 
   const editingPlot = plots.find((item) => item.id === editingId) ?? null;
+
+  const handleCreateHarvestReport = async () => {
+    if (!editingPlot || !reportContent.trim()) {
+      toast.error("Vui lòng nhập nội dung báo cáo");
+      return;
+    }
+    if (reportImages.length === 0) {
+      toast.error("Vui lòng thêm ít nhất một ảnh minh chứng");
+      return;
+    }
+    setIsSubmittingReport(true);
+    try {
+      const imageUrls = reportImages.map((img) => img.payload);
+      const yieldKg = Number(reportYieldKg);
+      
+      const res = await dailyReportApi.create({
+        plotId: editingPlot.id,
+        type: "HARVEST",
+        content: reportContent.trim(),
+        imageUrls,
+        yieldEstimateKg: isNaN(yieldKg) ? undefined : yieldKg,
+      });
+      
+      console.log("Create Harvest Report Res:", res);
+      // @ts-ignore
+      const reportId = res?.data?.id || res?.id || (res as any)?.data?.data?.id;
+      
+      if (!reportId) {
+        console.error("Failed to extract reportId from:", res);
+        throw new Error("Không lấy được ID báo cáo sau khi tạo");
+      }
+
+      await dailyReportApi.submit(reportId);
+
+      toast.success("Báo cáo thu hoạch đã được gửi và đang chờ Admin duyệt");
+      setReportDialogOpen(false);
+      setReportContent("");
+      setReportImages([]);
+      setReportYieldKg("");
+
+      queryClient.invalidateQueries({ queryKey: ["daily-reports"] });
+      queryClient.invalidateQueries({
+        queryKey: [...SUPERVISOR_DAILY_DASHBOARD_QUERY_KEY],
+      });
+    } catch (error: any) {
+      toast.error(error?.message || "Không thể gửi báo cáo thu hoạch");
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    const next = [...reportImages];
+    for (const file of Array.from(files)) {
+      if (next.length >= 10) break;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setReportImages((prev) => [
+          ...prev,
+          {
+            payload: String(ev.target?.result),
+            previewUrl: URL.createObjectURL(file),
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = "";
+  };
+
+  const { data: harvestReportsData } = useDailyReports({
+    plotId: editingPlot?.id,
+    type: "HARVEST",
+    limit: 10,
+  });
+
+  const latestHarvestReport = useMemo(() => {
+    const reportFromList = harvestReportsData?.data?.find(
+      (r) =>
+        new Date(r.reportedAt) >= new Date(editingPlot?.contractSignedAt || 0) &&
+        r.status !== "REJECTED",
+    );
+    if (reportFromList) return reportFromList;
+    if (editingPlot?.hasHarvestReport) return { status: 'UNKNOWN' } as any;
+    return null;
+  }, [harvestReportsData, editingPlot]);
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-6 p-0 sm:p-0">
@@ -312,6 +447,13 @@ export default function SupervisorPlotsPage() {
                   onClick={() => setFilter("sau-rieng")}
                 >
                   Sầu riêng
+                </Button>
+                <Button
+                  variant={isNearHarvest ? "primary" : "outline"}
+                  className="rounded-full border-orange-200 text-orange-700 hover:bg-orange-50"
+                  onClick={() => setIsNearHarvest(!isNearHarvest)}
+                >
+                  🌾 Gần thu hoạch
                 </Button>
               </div>
               <div
@@ -635,6 +777,57 @@ export default function SupervisorPlotsPage() {
               );
             })()}
 
+            {/* Harvest Report Section */}
+            <div className="rounded-xl border bg-orange-50/30 p-4 shadow-xs border-orange-200">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+                  <Sprout className="size-4" />
+                </div>
+                <p className="text-sm font-semibold text-orange-900">
+                  Báo cáo thu hoạch & Doanh thu
+                </p>
+              </div>
+
+              {latestHarvestReport ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs p-2 bg-white rounded-lg border border-orange-100">
+                    <span className="text-muted-foreground font-medium">Trạng thái:</span>
+                    <Badge 
+                      variant={
+                        latestHarvestReport.status === 'APPROVED' ? 'emerald' : 
+                        latestHarvestReport.status === 'REJECTED' ? 'destructive' : 'outline'
+                      }
+                      className="text-[10px]"
+                    >
+                      {latestHarvestReport.status === 'SUBMITTED' ? 'Đang chờ duyệt' : 
+                       latestHarvestReport.status === 'APPROVED' ? 'Đã duyệt' : 
+                       latestHarvestReport.status === 'REJECTED' ? 'Bị từ chối' : 
+                       latestHarvestReport.status === 'UNKNOWN' ? 'Đã có báo cáo' : latestHarvestReport.status}
+                    </Badge>
+                  </div>
+                  {latestHarvestReport?.yieldEstimateKg != null && (
+                    <div className="flex items-center justify-between text-xs p-2 bg-white rounded-lg border border-orange-100">
+                      <span className="text-muted-foreground font-medium">Sản lượng:</span>
+                      <span className="font-semibold text-orange-700">{latestHarvestReport.yieldEstimateKg} kg</span>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-orange-700/70 italic px-1">
+                    * Mỗi mùa vụ chỉ có thể gửi một báo cáo thu hoạch duy nhất.
+                  </p>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                  disabled={editingPlot?.progress !== 'on-track' || !editingPlot?.contractId}
+                  onClick={() => setReportDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Gửi báo cáo thu hoạch mới
+                </Button>
+              )}
+            </div>
+
             <p className="text-xs text-muted-foreground">
               Hiển thị {plots.length} / {total} lô đất trong phạm vi bạn phụ trách.
             </p>
@@ -662,6 +855,97 @@ export default function SupervisorPlotsPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sprout className="h-5 w-5 text-orange-600" />
+              Báo cáo thu hoạch mới
+            </DialogTitle>
+            <DialogDescription>
+            Nhập nội dung tổng kết và đính kèm ảnh minh chứng để Admin phê duyệt.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="content">Nội dung / Ghi chú tổng kết vụ mùa</Label>
+            <Textarea
+              id="content"
+              placeholder="Mô tả tình trạng thu hoạch, chất lượng nông sản..."
+              rows={4}
+              value={reportContent}
+              onChange={(e) => setReportContent(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="yield">Sản lượng thu hoạch (kg)</Label>
+            <Input
+              id="yield"
+              type="number"
+              placeholder="Nhập sản lượng thực tế..."
+              value={reportYieldKg}
+              onChange={(e) => setReportYieldKg(e.target.value)}
+              className="border-orange-200 focus-visible:ring-orange-500"
+            />
+          </div>
+          <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <Label>Ảnh minh chứng ({reportImages.length}/10)</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 text-xs"
+                  asChild
+                >
+                  <label className="cursor-pointer">
+                    <ImagePlus className="h-3 w-3 mr-1" />
+                    Thêm ảnh
+                    <input 
+                      type="file" 
+                      multiple 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={onPickImages}
+                    />
+                  </label>
+                </Button>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {reportImages.map((img, i) => (
+                  <div key={i} className="relative aspect-square rounded-md overflow-hidden border bg-muted">
+                    <img src={img.previewUrl} className="object-cover w-full h-full" alt="" />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-5 w-5 rounded-full"
+                      onClick={() => setReportImages(prev => prev.filter((_, idx) => idx !== i))}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+              Hủy bỏ
+            </Button>
+            <Button 
+              className="bg-orange-600 hover:bg-orange-700" 
+              onClick={handleCreateHarvestReport}
+              disabled={isSubmittingReport}
+            >
+              {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { ShieldCheck, AlertCircle, Save, X } from 'lucide-react';
+import { ShieldCheck, AlertCircle, Save } from 'lucide-react';
 import type { InventoryLot, QualityGrade } from '../api/types';
 import { useUpdateLot } from '../api/hooks';
 import { toast } from 'sonner';

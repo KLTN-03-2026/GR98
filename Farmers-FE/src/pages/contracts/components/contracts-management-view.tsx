@@ -86,8 +86,6 @@ export default function ContractsManagementView({
   const contracts = contractsData?.data ?? [];
   const total = contractsData?.total ?? 0;
   const totalPages = Math.max(1, contractsData?.totalPages ?? 1);
-  const pageFrom = total === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
-  const pageTo = Math.min(currentPage * PAGE_LIMIT, total);
   const waitingApprovalCount = useMemo(
     () => contracts.filter((item) => item.status === 'SIGNED').length,
     [contracts],

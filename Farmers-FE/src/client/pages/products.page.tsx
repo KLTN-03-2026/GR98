@@ -1,18 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Filter,
   Grid3X3,
   LayoutGrid,
   SlidersHorizontal,
   Search,
+  PackageSearch,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
 import {
   Select,
@@ -22,9 +24,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ProductCard } from '@/client/components/product-card';
-import { useCategories } from '@/client/api';
+import { useCategories, useProducts } from '@/client/api';
 import {
-  MOCK_PRODUCTS,
   CROP_TYPE_OPTIONS,
   GRADE_OPTIONS,
   SORT_OPTIONS,
@@ -32,6 +33,200 @@ import {
 } from '@/client/data/mock-data';
 
 const ITEMS_PER_PAGE = 12;
+
+interface FilterContentProps {
+  filters: any;
+  categoriesData: any;
+  updateFilter: (key: string, value: string) => void;
+  clearFilters: () => void;
+  activeFiltersCount: number;
+}
+
+const SearchInput = ({ value, onChange }: { value: string; onChange: (val: string) => void }) => {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localValue !== value) {
+        onChange(localValue);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [localValue, onChange, value]);
+
+  return (
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Input
+        placeholder="Tên sản phẩm..."
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        className="pl-10"
+      />
+    </div>
+  );
+};
+
+const FilterContent = ({
+  filters,
+  categoriesData,
+  updateFilter,
+  clearFilters,
+  activeFiltersCount,
+}: FilterContentProps) => (
+  <div className="space-y-6">
+    {/* Search */}
+    <div className="space-y-2">
+      <label className="text-sm font-medium">Tìm kiếm</label>
+      <SearchInput 
+        value={filters.search} 
+        onChange={(val) => updateFilter('search', val)} 
+      />
+    </div>
+
+    <Separator />
+
+    {/* Category */}
+    <div className="space-y-3">
+      <label className="text-sm font-medium">Danh mục</label>
+      <div className="space-y-2">
+        {categoriesData?.data.map((cat: any) => (
+          <label
+            key={cat.id}
+            className="flex items-center gap-2 cursor-pointer group"
+          >
+            <input
+              type="radio"
+              name="categoryId"
+              value={cat.id}
+              checked={filters.categoryId === cat.id}
+              onChange={() => updateFilter('categoryId', cat.id)}
+              className="accent-primary"
+            />
+            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors flex-1">
+              {cat.name}
+            </span>
+            {cat.productCount !== undefined && (
+              <span className="text-xs text-muted-foreground">({cat.productCount})</span>
+            )}
+          </label>
+        ))}
+        {filters.categoryId && (
+          <button
+            onClick={() => updateFilter('categoryId', '')}
+            className="text-xs text-primary hover:underline"
+          >
+            Bỏ chọn
+          </button>
+        )}
+      </div>
+    </div>
+
+    <Separator />
+
+    {/* Crop Type */}
+    <div className="space-y-3">
+      <label className="text-sm font-medium">Loại sản phẩm</label>
+      <div className="space-y-2">
+        {CROP_TYPE_OPTIONS.map((opt) => (
+          <label
+            key={opt.value}
+            className="flex items-center gap-2 cursor-pointer group"
+          >
+            <input
+              type="radio"
+              name="cropType"
+              value={opt.value}
+              checked={filters.cropType === opt.value}
+              onChange={() => updateFilter('cropType', opt.value)}
+              className="accent-primary"
+            />
+            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+              {opt.label}
+            </span>
+          </label>
+        ))}
+        {filters.cropType && (
+          <button
+            onClick={() => updateFilter('cropType', '')}
+            className="text-xs text-primary hover:underline"
+          >
+            Bỏ chọn
+          </button>
+        )}
+      </div>
+    </div>
+
+    <Separator />
+
+    {/* Grade */}
+    <div className="space-y-3">
+      <label className="text-sm font-medium">Hạng chất lượng</label>
+      <div className="flex flex-wrap gap-2">
+        {GRADE_OPTIONS.map((opt) => (
+          <Badge
+            key={opt.value}
+            variant={filters.grade === opt.value ? 'default' : 'outline'}
+            className="cursor-pointer hover:bg-primary/10 transition-colors"
+            onClick={() =>
+              updateFilter(
+                'grade',
+                filters.grade === opt.value ? '' : opt.value,
+              )
+            }
+          >
+            {opt.label}
+          </Badge>
+        ))}
+      </div>
+    </div>
+
+    <Separator />
+
+    {/* Price Range */}
+    <div className="space-y-3">
+      <label className="text-sm font-medium">Khoảng giá</label>
+      <div className="space-y-2">
+        {PRICE_RANGES.map((range) => (
+          <label
+            key={range.value}
+            className="flex items-center gap-2 cursor-pointer group"
+          >
+            <input
+              type="radio"
+              name="priceRange"
+              value={range.value}
+              checked={filters.priceRange === range.value}
+              onChange={() => updateFilter('priceRange', range.value)}
+              className="accent-primary"
+            />
+            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+              {range.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+
+    {activeFiltersCount > 0 && (
+      <>
+        <Separator />
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full rounded-lg"
+          onClick={clearFilters}
+        >
+          Xóa tất cả bộ lọc
+        </Button>
+      </>
+    )}
+  </div>
+);
 
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -51,65 +246,36 @@ export default function ProductsPage() {
     page: parseInt(searchParams.get('page') || '1'),
   };
 
-  // Filter + sort products
-  const filteredProducts = useMemo(() => {
-    let results = [...MOCK_PRODUCTS].filter((p) => p.status === 'PUBLISHED');
-
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      results = results.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.description?.toLowerCase().includes(q) ||
-          p.cropType.toLowerCase().includes(q),
-      );
+  // Transform price range for API
+  const { minPrice, maxPrice } = useMemo(() => {
+    if (!filters.priceRange) return { minPrice: undefined, maxPrice: undefined };
+    
+    if (filters.priceRange.endsWith('+')) {
+      return { 
+        minPrice: parseInt(filters.priceRange.replace('+', '')) || 0, 
+        maxPrice: undefined 
+      };
     }
+    
+    const [min, max] = filters.priceRange.split('-').map(v => parseInt(v) || 0);
+    return { minPrice: min, maxPrice: max };
+  }, [filters.priceRange]);
 
-    if (filters.cropType) {
-      results = results.filter((p) => p.cropType === filters.cropType);
-    }
+  // Fetch products from API
+  const { data: productsData, isLoading } = useProducts({
+    page: filters.page,
+    limit: ITEMS_PER_PAGE,
+    search: filters.search,
+    cropType: filters.cropType,
+    grade: filters.grade,
+    minPrice,
+    maxPrice,
+    categoryId: filters.categoryId,
+    sortBy: filters.sortBy,
+  });
 
-    if (filters.grade) {
-      results = results.filter((p) => p.grade === filters.grade);
-    }
-
-    if (filters.priceRange) {
-      const [min, max] = filters.priceRange.split('-').map((v) => {
-        if (v.endsWith('+')) return 0;
-        return parseInt(v) || 0;
-      });
-      const maxVal = filters.priceRange.endsWith('+') ? Infinity : max;
-      results = results.filter((p) => p.pricePerKg >= min && p.pricePerKg <= maxVal);
-    }
-
-    switch (filters.sortBy) {
-      case 'price_asc':
-        results.sort((a, b) => a.pricePerKg - b.pricePerKg);
-        break;
-      case 'price_desc':
-        results.sort((a, b) => b.pricePerKg - a.pricePerKg);
-        break;
-      case 'rating':
-        results.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-        break;
-      case 'name':
-        results.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      default:
-        results.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-    }
-
-    return results;
-  }, [filters]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-  const paginatedProducts = filteredProducts.slice(
-    (filters.page - 1) * ITEMS_PER_PAGE,
-    filters.page * ITEMS_PER_PAGE,
-  );
+  const products = productsData?.items || [];
+  const totalPages = productsData?.totalPages || 1;
 
   // Active filters count
   const activeFiltersCount = [filters.cropType, filters.grade, filters.priceRange, filters.categoryId].filter(
@@ -131,162 +297,6 @@ export default function ProductsPage() {
   const clearFilters = () => {
     setSearchParams({ sortBy: filters.sortBy });
   };
-
-  const FilterContent = () => (
-    <div className="space-y-6">
-      {/* Search */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Tìm kiếm</label>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Tên sản phẩm..."
-            value={filters.search}
-            onChange={(e) => updateFilter('search', e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Category */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium">Danh mục</label>
-        <div className="space-y-2">
-          {categoriesData?.data.map((cat) => (
-            <label
-              key={cat.id}
-              className="flex items-center gap-2 cursor-pointer group"
-            >
-              <input
-                type="radio"
-                name="categoryId"
-                value={cat.id}
-                checked={filters.categoryId === cat.id}
-                onChange={() => updateFilter('categoryId', cat.id)}
-                className="accent-primary"
-              />
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors flex-1">
-                {cat.name}
-              </span>
-              {cat.productCount !== undefined && (
-                <span className="text-xs text-muted-foreground">({cat.productCount})</span>
-              )}
-            </label>
-          ))}
-          {filters.categoryId && (
-            <button
-              onClick={() => updateFilter('categoryId', '')}
-              className="text-xs text-primary hover:underline"
-            >
-              Bỏ chọn
-            </button>
-          )}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Crop Type */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium">Loại sản phẩm</label>
-        <div className="space-y-2">
-          {CROP_TYPE_OPTIONS.map((opt) => (
-            <label
-              key={opt.value}
-              className="flex items-center gap-2 cursor-pointer group"
-            >
-              <input
-                type="radio"
-                name="cropType"
-                value={opt.value}
-                checked={filters.cropType === opt.value}
-                onChange={() => updateFilter('cropType', opt.value)}
-                className="accent-primary"
-              />
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                {opt.label}
-              </span>
-            </label>
-          ))}
-          {filters.cropType && (
-            <button
-              onClick={() => updateFilter('cropType', '')}
-              className="text-xs text-primary hover:underline"
-            >
-              Bỏ chọn
-            </button>
-          )}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Grade */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium">Hạng chất lượng</label>
-        <div className="flex flex-wrap gap-2">
-          {GRADE_OPTIONS.map((opt) => (
-            <Badge
-              key={opt.value}
-              variant={filters.grade === opt.value ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-primary/10 transition-colors"
-              onClick={() =>
-                updateFilter(
-                  'grade',
-                  filters.grade === opt.value ? '' : opt.value,
-                )
-              }
-            >
-              {opt.label}
-            </Badge>
-          ))}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Price Range */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium">Khoảng giá</label>
-        <div className="space-y-2">
-          {PRICE_RANGES.map((range) => (
-            <label
-              key={range.value}
-              className="flex items-center gap-2 cursor-pointer group"
-            >
-              <input
-                type="radio"
-                name="priceRange"
-                value={range.value}
-                checked={filters.priceRange === range.value}
-                onChange={() => updateFilter('priceRange', range.value)}
-                className="accent-primary"
-              />
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                {range.label}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {activeFiltersCount > 0 && (
-        <>
-          <Separator />
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full rounded-lg"
-            onClick={clearFilters}
-          >
-            Xóa tất cả bộ lọc
-          </Button>
-        </>
-      )}
-    </div>
-  );
 
   return (
     <div className="bg-background min-h-screen pt-[78px]">
@@ -313,7 +323,13 @@ export default function ProductsPage() {
                 <SheetDescription>Chọn bộ lọc để tìm sản phẩm phù hợp</SheetDescription>
               </SheetHeader>
               <div className="mt-6">
-                <FilterContent />
+                <FilterContent
+                  filters={filters}
+                  categoriesData={categoriesData}
+                  updateFilter={updateFilter}
+                  clearFilters={clearFilters}
+                  activeFiltersCount={activeFiltersCount}
+                />
               </div>
             </SheetContent>
           </Sheet>
@@ -322,7 +338,7 @@ export default function ProductsPage() {
           <div className="hidden lg:flex items-center gap-2 flex-1">
             {filters.categoryId && (
               <Badge variant="secondary" className="gap-1 rounded-lg">
-                {categoriesData?.data.find((c) => c.id === filters.categoryId)?.name}
+                {categoriesData?.data.find((c: any) => c.id === filters.categoryId)?.name}
                 <X
                   className="h-3 w-3 cursor-pointer"
                   onClick={() => updateFilter('categoryId', '')}
@@ -424,80 +440,122 @@ export default function ProductsPage() {
                 <SlidersHorizontal className="h-4 w-4" />
                 Bộ lọc
               </h3>
-              <FilterContent />
+              <FilterContent
+                filters={filters}
+                categoriesData={categoriesData}
+                updateFilter={updateFilter}
+                clearFilters={clearFilters}
+                activeFiltersCount={activeFiltersCount}
+              />
             </div>
           </aside>
 
           {/* Products Grid */}
-          <div className="flex-1">
-            {paginatedProducts.length > 0 ? (
-              <>
+          <div className="flex-1 min-h-[400px]">
+            <AnimatePresence mode="wait">
+              {isLoading ? (
                 <motion.div
+                  key="loading"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className={`grid gap-4 md:gap-6 ${gridCols === 2
-                    ? 'grid-cols-2'
-                    : gridCols === 3
+                  exit={{ opacity: 0 }}
+                  className={`grid gap-4 md:gap-6 ${
+                    gridCols === 2
+                      ? 'grid-cols-2'
+                      : gridCols === 3
                       ? 'grid-cols-2 md:grid-cols-3'
                       : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
-                    }`}
+                  }`}
                 >
-                  {paginatedProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="space-y-4">
+                      <Skeleton className="aspect-square rounded-2xl w-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    </div>
                   ))}
                 </motion.div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-2 mt-12">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-xl"
-                      disabled={filters.page <= 1}
-                      onClick={() => updateFilter('page', String(filters.page - 1))}
-                    >
-                      Trước
-                    </Button>
-                    {Array.from({ length: totalPages }).map((_, i) => (
-                      <Button
-                        key={i}
-                        variant={filters.page === i + 1 ? 'primary' : 'outline'}
-                        size="sm"
-                        className="w-10 h-10 rounded-xl"
-                        onClick={() => updateFilter('page', String(i + 1))}
-                      >
-                        {i + 1}
-                      </Button>
+              ) : products.length > 0 ? (
+                <motion.div
+                  key="content"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div
+                    className={`grid gap-4 md:gap-6 ${
+                      gridCols === 2
+                        ? 'grid-cols-2'
+                        : gridCols === 3
+                        ? 'grid-cols-2 md:grid-cols-3'
+                        : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
+                    }`}
+                  >
+                    {products.map((product) => (
+                      <ProductCard key={product.id} product={product} />
                     ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-xl"
-                      disabled={filters.page >= totalPages}
-                      onClick={() => updateFilter('page', String(filters.page + 1))}
-                    >
-                      Sau
-                    </Button>
                   </div>
-                )}
-              </>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center py-20"
-              >
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-semibold mb-2">Không tìm thấy sản phẩm</h3>
-                <p className="text-muted-foreground mb-4">
-                  Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm
-                </p>
-                <Button variant="outline" onClick={clearFilters}>
-                  Xóa bộ lọc
-                </Button>
-              </motion.div>
-            )}
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-2 mt-12">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        disabled={filters.page <= 1}
+                        onClick={() => updateFilter('page', String(filters.page - 1))}
+                      >
+                        Trước
+                      </Button>
+                      {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => (
+                        <Button
+                          key={i}
+                          variant={filters.page === i + 1 ? 'primary' : 'outline'}
+                          size="sm"
+                          className="w-10 h-10 rounded-xl"
+                          onClick={() => updateFilter('page', String(i + 1))}
+                        >
+                          {i + 1}
+                        </Button>
+                      ))}
+                      {totalPages > 5 && <span className="text-muted-foreground">...</span>}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        disabled={filters.page >= totalPages}
+                        onClick={() => updateFilter('page', String(filters.page + 1))}
+                      >
+                        Sau
+                      </Button>
+                    </div>
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-24 bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200"
+                >
+                  <div className="flex justify-center mb-6">
+                    <div className="p-8 bg-white rounded-[2rem] shadow-sm border border-slate-100">
+                      <PackageSearch className="h-12 w-12 text-slate-300" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">Không tìm thấy sản phẩm</h3>
+                  <p className="text-muted-foreground mb-8 max-w-[300px] mx-auto text-sm">
+                    Rất tiếc, chúng tôi không tìm thấy sản phẩm nào khớp với bộ lọc hiện tại của bạn.
+                  </p>
+                  <Button variant="outline" onClick={clearFilters} className="rounded-full px-8 h-11 border-primary/20 text-primary hover:bg-primary/5 font-bold">
+                    Thiết lập lại bộ lọc
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>

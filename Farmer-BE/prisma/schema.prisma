@@ -523,6 +523,7 @@ enum AssignStatus {
 enum ReportType {
   ROUTINE
   INCIDENT
+  HARVEST
 }
 
 enum ContractStatus {
@@ -582,6 +583,8 @@ enum ReportStatus {
   DRAFT
   SUBMITTED
   REVIEWED
+  APPROVED
+  REJECTED
 }
 
 enum TransactionType {

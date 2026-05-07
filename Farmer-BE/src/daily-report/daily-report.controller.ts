@@ -84,4 +84,16 @@ export class DailyReportController {
   submit(@Param('id') id: string, @Request() req: { user: { id: string } }) {
     return this.dailyReportService.submit(id, req.user.id);
   }
+
+  @Patch(':id/review')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Admin duyệt hoặc từ chối báo cáo' })
+  review(
+    @Param('id') id: string,
+    @Body('status') status: 'APPROVED' | 'REJECTED',
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.dailyReportService.review(id, status as any, req.user.id);
+  }
 }

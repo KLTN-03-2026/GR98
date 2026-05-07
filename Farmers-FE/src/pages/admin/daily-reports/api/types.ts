@@ -1,13 +1,22 @@
 import type { ApiSuccessResponse } from '@/client/lib/api-client';
 
-export type DailyReportStatus = 'DRAFT' | 'SUBMITTED' | 'REVIEWED';
-export type DailyReportType = 'ROUTINE' | 'INCIDENT';
+export type DailyReportStatus = 'DRAFT' | 'SUBMITTED' | 'REVIEWED' | 'APPROVED' | 'REJECTED';
+export type DailyReportType = 'ROUTINE' | 'INCIDENT' | 'HARVEST';
 
 export interface DailyReportPlotSummary {
   id: string;
   plotCode: string;
   cropType: string;
   areaHa: number;
+  contracts: Array<{
+    id: string;
+    contractNo: string;
+    grade: string;
+    product: {
+      id: string;
+      name: string;
+    };
+  }>;
   farmer: {
     id: string;
     fullName: string;

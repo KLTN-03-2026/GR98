@@ -5,6 +5,7 @@ export {
   useCreateDailyReport,
   useUpdateDailyReport,
   useSubmitDailyReport,
+  useReviewDailyReport,
 } from './use-daily-reports';
 export type {
   DailyReportResponse,

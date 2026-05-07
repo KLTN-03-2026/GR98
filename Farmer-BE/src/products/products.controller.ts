@@ -24,6 +24,7 @@ import {
   UpdateProductDto,
   ProductQueryDto,
   CreateProductFromLotDto,
+  CreateProductFromContractDto,
 } from './dto/create-product.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -48,8 +49,28 @@ export class ProductsController {
   @ApiOperation({ summary: 'Chi tiết sản phẩm theo slug' })
   @ApiResponse({ status: 200, description: 'Thông tin sản phẩm' })
   findBySlug(@Param('slug') slug: string) {
-    // Note: We need a findBySlug in service, I'll add it or use findOne if I adapt it
     return this.productsService.findBySlug(slug);
+  }
+
+  @Get('featured')
+  @ApiOperation({ summary: 'Danh sách sản phẩm nổi bật' })
+  findFeatured(@Query('limit') limit?: string) {
+    return this.productsService.findFeatured(parseInt(limit || '8', 10));
+  }
+
+  @Get('category/:slug')
+  @ApiOperation({ summary: 'Danh sách sản phẩm theo danh mục' })
+  findByCategory(
+    @Param('slug') slug: string,
+    @Query() query: { page?: string; limit?: string },
+  ) {
+    return this.productsService.findByCategory(slug, query);
+  }
+
+  @Get(':id/related')
+  @ApiOperation({ summary: 'Danh sách sản phẩm liên quan' })
+  findRelated(@Param('id') id: string, @Query('limit') limit?: string) {
+    return this.productsService.findRelated(id, parseInt(limit || '4', 10));
   }
 
   // ─── INTERNAL MANAGEMENT ───────────────────────────────────────────────────
@@ -123,5 +144,19 @@ export class ProductsController {
     @Request() req: any,
   ) {
     return this.productsService.createFromLot(dto, req.user.id);
+  }
+
+  @Post('from-contract')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.INVENTORY)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Niêm yết sản phẩm từ hợp đồng đã tất toán' })
+  @ApiResponse({ status: 201, description: 'Sản phẩm đã được tạo từ hợp đồng' })
+  createFromContract(
+    @Body() dto: CreateProductFromContractDto,
+    @Request() req: any,
+  ) {
+    return this.productsService.createFromContract(dto, req.user.id);
   }
 }

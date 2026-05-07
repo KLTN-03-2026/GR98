@@ -49,7 +49,7 @@ interface FormValues {
   note: string;
 }
 
-function Badge({ children, className, variant }: { children: React.ReactNode, className?: string, variant?: string }) {
+function Badge({ children, className }: { children: React.ReactNode, className?: string }) {
   return (
     <span className={cn("px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider", className)}>
       {children}
@@ -268,7 +268,7 @@ export default function CreateTransactionDialog({ isOpen, onClose }: CreateTrans
                     </FormControl>
                     {newWeightStr && !isNaN(parseFloat(newWeightStr)) && (
                       <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                        <Badge variant="outline" className={cn(
+                        <Badge className={cn(
                           "font-bold",
                           isLargeDeviation ? "bg-rose-100 text-rose-700 border-rose-200" : "bg-emerald-100 text-emerald-700 border-emerald-200"
                         )}>

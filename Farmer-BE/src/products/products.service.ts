@@ -1,6 +1,7 @@
 import {
   Injectable,
   NotFoundException,
+  BadRequestException,
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -10,8 +11,9 @@ import {
   UpdateProductDto,
   ProductQueryDto,
   CreateProductFromLotDto,
+  CreateProductFromContractDto,
 } from './dto/create-product.dto';
-import { Role } from '@prisma/client';
+import { Role, InventoryLotStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -33,7 +35,8 @@ export class ProductsService {
   }
 
   private async generateSku(cropType: string): Promise<string> {
-    const prefix = cropType.slice(0, 3).toUpperCase();
+    const normalized = this.toSlug(cropType).toUpperCase().replace(/-/g, '');
+    const prefix = normalized.slice(0, 3);
     const date = new Date().getFullYear();
     const count = await this.prisma.product.count();
     return `PROD-${prefix}-${date}-${(count + 1).toString().padStart(4, '0')}`;
@@ -66,12 +69,20 @@ export class ProductsService {
   private async calculateDynamicStock(productId: string) {
     const now = new Date();
     const [actual, upcoming] = await Promise.all([
+      // Chỉ tính các lô đã thực nhập (RECEIVED)
       this.prisma.inventoryLot.aggregate({
-        where: { productId, harvestDate: { lte: now } },
+        where: { 
+          productId, 
+          status: InventoryLotStatus.RECEIVED 
+        },
         _sum: { quantityKg: true }
       }),
+      // Tính các lô đang chờ xác nhận hoặc dự kiến về
       this.prisma.inventoryLot.aggregate({
-        where: { productId, harvestDate: { gt: now } },
+        where: { 
+          productId, 
+          status: { in: [InventoryLotStatus.ARRIVED, InventoryLotStatus.SCHEDULED] }
+        },
         _sum: { quantityKg: true }
       })
     ]);
@@ -113,12 +124,42 @@ export class ProductsService {
       };
     }
 
+    // Lọc theo giá
+    if (query.minPrice || query.maxPrice) {
+      where.pricePerKg = {};
+      if (query.minPrice) where.pricePerKg.gte = parseFloat(query.minPrice);
+      if (query.maxPrice) where.pricePerKg.lte = parseFloat(query.maxPrice);
+    }
+
+    // Sắp xếp
+    let orderBy: any = { createdAt: 'desc' };
+    if (query.sortBy) {
+      switch (query.sortBy) {
+        case 'price_asc':
+          orderBy = { pricePerKg: 'asc' };
+          break;
+        case 'price_desc':
+          orderBy = { pricePerKg: 'desc' };
+          break;
+        case 'name':
+          orderBy = { name: 'asc' };
+          break;
+        case 'rating':
+          orderBy = { averageRating: 'desc' };
+          break;
+        case 'newest':
+        default:
+          orderBy = { createdAt: 'desc' };
+          break;
+      }
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           categories: {
             include: { category: true },
@@ -157,8 +198,11 @@ export class ProductsService {
         categories: {
           include: { category: true },
         },
-        contract: true,
+        contract: {
+          include: { farmer: true },
+        },
         plot: true,
+        inventoryLots: true,
       },
     });
 
@@ -189,6 +233,110 @@ export class ProductsService {
       ...item,
       categories: item.categories.map((pc) => pc.category),
     };
+  }
+
+  async findFeatured(limit: number) {
+    const items = await this.prisma.product.findMany({
+      where: { status: 'PUBLISHED' },
+      take: limit,
+      orderBy: { createdAt: 'desc' }, // Or averageRating if implemented
+      include: {
+        categories: {
+          include: { category: true },
+        },
+      },
+    });
+
+    return Promise.all(items.map(async (item) => {
+      const dynamicStock = await this.calculateDynamicStock(item.id);
+      return {
+        ...item,
+        ...dynamicStock,
+        categories: item.categories.map((pc) => pc.category),
+      };
+    }));
+  }
+
+  async findByCategory(categorySlug: string, query: { page?: string; limit?: string }) {
+    const page = parseInt(query.page || '1', 10);
+    const limit = parseInt(query.limit || '15', 10);
+    const skip = (page - 1) * limit;
+
+    const where = {
+      status: 'PUBLISHED',
+      categories: {
+        some: {
+          category: { slug: categorySlug },
+        },
+      },
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          categories: {
+            include: { category: true },
+          },
+        },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return {
+      items: await Promise.all(items.map(async (item) => {
+        const dynamicStock = await this.calculateDynamicStock(item.id);
+        return {
+          ...item,
+          ...dynamicStock,
+          categories: item.categories.map((pc) => pc.category),
+        };
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findRelated(productId: string, limit: number) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: { categories: true },
+    });
+
+    if (!product) return [];
+
+    const categoryIds = product.categories.map((c) => c.categoryId);
+
+    const items = await this.prisma.product.findMany({
+      where: {
+        id: { not: productId },
+        status: 'PUBLISHED',
+        OR: [
+          { categories: { some: { categoryId: { in: categoryIds } } } },
+          { cropType: product.cropType },
+        ],
+      },
+      take: limit,
+      include: {
+        categories: {
+          include: { category: true },
+        },
+      },
+    });
+
+    return Promise.all(items.map(async (item) => {
+      const dynamicStock = await this.calculateDynamicStock(item.id);
+      return {
+        ...item,
+        ...dynamicStock,
+        categories: item.categories.map((pc) => pc.category),
+      };
+    }));
   }
 
   async create(dto: CreateProductDto, userId: string) {
@@ -353,6 +501,79 @@ export class ProductsService {
         contractId: inheritedContractId,
         qrCode: uuidv4(),
         status: 'PUBLISHED', // Niêm yết ngay
+        categories: categoryIds
+          ? {
+            create: categoryIds.map((cid) => ({ categoryId: cid })),
+          }
+          : undefined,
+      },
+    });
+  }
+
+  async createFromContract(dto: CreateProductFromContractDto, userId: string) {
+    const adminId = await this.resolveAdminId(userId);
+
+    // 1. Truy xuất Hợp đồng và kiểm tra trạng thái SETTLED
+    const contract = await this.prisma.contract.findFirst({
+      where: { id: dto.contractId, adminId },
+      include: { plot: true }
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Không tìm thấy hợp đồng hoặc hợp đồng không thuộc quyền quản lý');
+    }
+
+    if (contract.status !== 'SETTLED') {
+      throw new BadRequestException('Chỉ có thể tạo sản phẩm từ hợp đồng đã tất toán (SETTLED)');
+    }
+
+    // Kiểm tra xem hợp đồng đã có sản phẩm chưa
+    const existingProduct = await this.prisma.product.findUnique({
+      where: { contractId: dto.contractId }
+    });
+    if (existingProduct) {
+      throw new ConflictException('Hợp đồng này đã được tạo sản phẩm niêm yết');
+    }
+
+    // 2. Tra cứu giá bán lẻ từ PriceBoard
+    const priceConfig = await this.prisma.priceBoard.findFirst({
+      where: {
+        adminId,
+        cropType: contract.cropType,
+        grade: contract.grade,
+        isActive: true,
+      },
+      orderBy: { effectiveDate: 'desc' },
+    });
+
+    if (!priceConfig) {
+      throw new BadRequestException(
+        `Không tìm thấy giá bán niêm yết cho ${contract.cropType} - Loại ${contract.grade}. Vui lòng cập nhật Bảng giá trước.`
+      );
+    }
+
+    // 3. Tự động sinh mã định danh
+    const slug = dto.slug || this.toSlug(dto.name);
+    const sku = dto.sku || (await this.generateSku(contract.cropType));
+
+    // 4. Tạo sản phẩm với tồn kho mặc định = 0
+    const { categoryIds, ...rest } = dto;
+
+    return this.prisma.product.create({
+      data: {
+        ...rest,
+        adminId,
+        slug,
+        sku,
+        pricePerKg: priceConfig.sellPrice,
+        cropType: contract.cropType,
+        grade: contract.grade,
+        plotId: contract.plotId,
+        contractId: contract.id,
+        harvestDate: contract.harvestDue,
+        stockKg: 0, // Mặc định bằng 0 như yêu cầu
+        qrCode: uuidv4(),
+        status: 'PUBLISHED',
         categories: categoryIds
           ? {
             create: categoryIds.map((cid) => ({ categoryId: cid })),

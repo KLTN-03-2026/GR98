@@ -281,64 +281,6 @@ export default function GISWorkspace({
     });
   };
 
-  const drawContractPolygon = useCallback(() => {
-    const map = mapRef.current;
-    if (!map || !initialCoordinates) return;
-
-    const rawCoords = isValidPolygon(initialCoordinates) ? initialCoordinates : [];
-    if (rawCoords.length < 3) return;
-
-    // Loại bỏ duplicate closing point nếu có, rồi sắp xếp theo góc
-    const noClose = rawCoords.filter((_, i) => i < rawCoords.length - 1 || rawCoords.length < 3 || JSON.stringify(rawCoords[0]) !== JSON.stringify(rawCoords[rawCoords.length - 1]));
-    const coords = sortCoordsByAngle(noClose);
-
-    if (contractPolygonRef.current) {
-      map.removeLayer(contractPolygonRef.current);
-      contractPolygonRef.current = null;
-    }
-    if (contractMarkersRef.current) {
-      contractMarkersRef.current.clearLayers();
-    }
-
-    const polygonLayer = L.polygon(coords, {
-      color: "#dc2626",
-      weight: 3,
-      fillColor: "#ef4444",
-      fillOpacity: 0.25,
-    }).addTo(map);
-
-    contractPolygonRef.current = polygonLayer;
-
-    if (!contractMarkersRef.current) {
-      contractMarkersRef.current = L.layerGroup().addTo(map);
-    }
-
-    coords.forEach(([lat, lng], index) => {
-      L.circleMarker([lat, lng], {
-        radius: 8,
-        color: "#dc2626",
-        fillColor: "#fca5a5",
-        fillOpacity: 0.9,
-        weight: 2,
-      })
-        .bindTooltip(`Điểm ${index + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, {
-          direction: "top",
-          offset: [0, -8],
-        })
-        .addTo(contractMarkersRef.current!);
-    });
-
-    map.fitBounds(polygonLayer.getBounds().pad(0.3), {
-      animate: true,
-      duration: 0.5,
-      maxZoom: 16,
-    });
-
-    setPreviewFromContract({
-      coords,
-      contractNo: initialContractNo || "Hợp đồng",
-    });
-  }, [initialCoordinates, initialContractNo]);
 
   const clearContractPolygon = () => {
     const map = mapRef.current;

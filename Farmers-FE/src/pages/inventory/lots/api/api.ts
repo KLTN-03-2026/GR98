@@ -43,4 +43,14 @@ export const lotApi = {
     apiPost<InventoryLot>(`/inventory/lots/${data.lotId}/reject`, {
       reason: data.reason,
     }),
+  
+  receiveHarvest: (data: {
+    dailyReportId: string;
+    contractId: string;
+    warehouseId: string;
+    actualWeight: number;
+    qualityGrade: string;
+    note?: string;
+  }) =>
+    apiPost<InventoryLot>('/inventory/receive-harvest', data),
 };

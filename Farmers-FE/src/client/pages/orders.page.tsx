@@ -18,12 +18,12 @@ import {
   useOrder,
   useCancelOrder,
 } from '@/client/api';
-import { formatPrice } from '@/client/data/mock-data';
 import {
   PAYMENT_STATUS_LABELS,
   FULFILL_STATUS_LABELS,
   type Order,
 } from '@/client/types';
+import { formatPrice } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -452,8 +452,8 @@ export default function OrdersPage() {
   const items = data?.data ?? [];
 
   return (
-    <div className="bg-background min-h-screen">
-      <div className="container mx-auto px-4 py-8">
+    <div className="bg-background min-h-screen pt-[110px]">
+      <div className="container mx-auto px-4 pb-16">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-1">Đơn Hàng Của Tôi</h1>

@@ -28,6 +28,13 @@ export interface DashboardResponse {
   pendingOrders: number;
   expiringLots: number;
   stagnantLots: number;
+  activeWarehouses: number;
+  warehousesList: {
+    id: string;
+    name: string;
+    locationAddress: string | null;
+    lotCount: number;
+  }[];
   recentTransactions: TransactionResponse[];
   pendingOrdersList: PendingOrderResponse[];
 }

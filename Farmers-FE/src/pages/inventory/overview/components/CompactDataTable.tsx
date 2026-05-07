@@ -22,7 +22,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Settings2, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 

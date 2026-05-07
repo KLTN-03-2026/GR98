@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Scale, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Scale } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import type { InventoryLot } from '../api/types';
 import { useCreateTransaction } from '../api/hooks';
@@ -147,7 +147,7 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
                   className="h-12 rounded-xl border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 pl-4 text-lg font-bold"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                   <Badge variant="outline" className={cn(
+                   <Badge className={cn(
                      "font-bold",
                      isLargeDeviation ? "bg-rose-100 text-rose-700 border-rose-200" : "bg-emerald-100 text-emerald-700 border-emerald-200"
                    )}>
@@ -213,7 +213,7 @@ export function WeightAdjustmentDialog({ lot, isOpen, onClose }: WeightAdjustmen
   );
 }
 
-function Badge({ children, className, variant }: { children: React.ReactNode, className?: string, variant?: string }) {
+function Badge({ children, className }: { children: React.ReactNode, className?: string }) {
   return (
     <span className={cn("px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider", className)}>
       {children}

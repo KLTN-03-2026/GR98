@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   AssignStatus,
+  ContractStatus,
   Prisma,
   ReportStatus,
   Role,
@@ -32,6 +33,16 @@ const reportListInclude = {
       plotCode: true,
       cropType: true,
       areaHa: true,
+      contracts: {
+        where: { status: ContractStatus.ACTIVE },
+        take: 1,
+        select: {
+          id: true,
+          contractNo: true,
+          grade: true,
+          product: { select: { id: true, name: true } },
+        },
+      },
       farmer: {
         select: {
           id: true,
@@ -145,6 +156,51 @@ export class DailyReportService {
     }
   }
 
+  private async assertHarvestUniqueness(
+    plotId: string,
+    adminId: string,
+    supervisorId: string,
+    skipReportId?: string,
+  ) {
+    // 1. Find the active assignment for this supervisor and plot
+    const activeAssignment = await this.prisma.assignment.findFirst({
+      where: {
+        plotId,
+        supervisorId,
+        adminId,
+        status: AssignStatus.ACTIVE,
+      },
+      orderBy: { dueDate: 'asc' }, // Get the one with closest dueDate
+      select: { assignedAt: true, id: true },
+    });
+
+    if (!activeAssignment) {
+      throw new BadRequestException(
+        'Bạn không có phân công hoạt động nào trên lô đất này để báo cáo thu hoạch.',
+      );
+    }
+
+    // 2. Check if any non-rejected HARVEST report exists since the assignment started
+    const existingActiveHarvest = await this.prisma.dailyReport.findFirst({
+      where: {
+        plotId,
+        adminId,
+        type: 'HARVEST',
+        status: { not: ReportStatus.REJECTED },
+        reportedAt: { gte: activeAssignment.assignedAt },
+        ...(skipReportId ? { id: { not: skipReportId } } : {}),
+      },
+    });
+
+    if (existingActiveHarvest) {
+      const status = existingActiveHarvest.status;
+      const msg = status === ReportStatus.APPROVED 
+        ? 'Sản lượng thu hoạch cho đợt phân công này đã được phê duyệt.'
+        : 'Đã tồn tại một báo cáo thu hoạch đang chờ duyệt hoặc ở trạng thái nháp.';
+      throw new BadRequestException(`${msg} Không thể tạo thêm báo cáo mới.`);
+    }
+  }
+
   async create(dto: CreateDailyReportDto, userId: string) {
     const actor = await this.resolveActorContext(userId);
     if (actor?.role !== Role.SUPERVISOR || !actor.supervisorProfileId || !actor.adminId) {
@@ -156,6 +212,10 @@ export class DailyReportService {
       actor.supervisorProfileId,
       actor.adminId,
     );
+
+    if (dto.type === 'HARVEST') {
+      await this.assertHarvestUniqueness(dto.plotId, actor.adminId, actor.supervisorProfileId);
+    }
 
     const imageUrls = this.normalizeImageUrls(dto.imageUrls);
     const content = dto.content?.trim() ?? '';
@@ -234,6 +294,10 @@ export class DailyReportService {
 
     this.assertSubmitPayload(existing.content, existing.imageUrls, existing.yieldEstimateKg);
 
+    if (existing.type === 'HARVEST') {
+      await this.assertHarvestUniqueness(existing.plotId, actor.adminId, actor.supervisorProfileId, existing.id);
+    }
+
     return this.prisma.dailyReport.update({
       where: { id },
       data: { status: ReportStatus.SUBMITTED },
@@ -264,7 +328,18 @@ export class DailyReportService {
       if (query.supervisorId?.trim()) {
         where.supervisorId = query.supervisorId.trim();
       }
-      where.status = { in: [ReportStatus.SUBMITTED, ReportStatus.REVIEWED] };
+      if (query.status) {
+        where.status = query.status;
+      } else {
+        where.status = {
+          in: [
+            ReportStatus.SUBMITTED,
+            ReportStatus.REVIEWED,
+            ReportStatus.APPROVED,
+            ReportStatus.REJECTED,
+          ],
+        };
+      }
     } else {
       throw new ForbiddenException('Không có quyền xem danh sách báo cáo');
     }
@@ -285,6 +360,10 @@ export class DailyReportService {
       if (query.to) {
         where.reportedAt.lte = new Date(query.to);
       }
+    }
+
+    if (query.type?.trim()) {
+      where.type = query.type.trim() as any;
     }
 
     if (query.search?.trim()) {
@@ -339,7 +418,14 @@ export class DailyReportService {
       }
       where.supervisorId = actor.supervisorProfileId;
     } else if (actor.role === Role.ADMIN) {
-      where.status = { in: [ReportStatus.SUBMITTED, ReportStatus.REVIEWED] };
+      where.status = {
+        in: [
+          ReportStatus.SUBMITTED,
+          ReportStatus.REVIEWED,
+          ReportStatus.APPROVED,
+          ReportStatus.REJECTED,
+        ],
+      };
     } else {
       throw new ForbiddenException('Không có quyền xem báo cáo');
     }
@@ -352,5 +438,34 @@ export class DailyReportService {
       throw new NotFoundException('Không tìm thấy báo cáo');
     }
     return row;
+  }
+
+  async review(id: string, status: ReportStatus, userId: string) {
+    const actor = await this.resolveActorContext(userId);
+    if (actor?.role !== Role.ADMIN || !actor.adminId) {
+      throw new ForbiddenException('Chỉ quản trị viên mới được duyệt báo cáo');
+    }
+
+    if (status !== ReportStatus.APPROVED && status !== ReportStatus.REJECTED) {
+      throw new BadRequestException('Trạng thái duyệt không hợp lệ (APPROVED hoặc REJECTED)');
+    }
+
+    const existing = await this.prisma.dailyReport.findFirst({
+      where: { id, adminId: actor.adminId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Không tìm thấy báo cáo');
+    }
+
+    if (existing.status !== ReportStatus.SUBMITTED) {
+      throw new BadRequestException('Chỉ có thể duyệt báo cáo đang ở trạng thái đã gửi (SUBMITTED)');
+    }
+
+    return this.prisma.dailyReport.update({
+      where: { id },
+      data: { status },
+      include: reportListInclude,
+    });
   }
 }

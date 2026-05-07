@@ -17,7 +17,11 @@ export function useProducts(filters: {
   return useQuery({
     queryKey: ['products', filters],
     queryFn: async () => {
-      const response = await productApi.list(filters);
+      // Dọn dẹp các params trống trước khi gửi
+      const cleanFilters = Object.fromEntries(
+        Object.entries(filters).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+      );
+      const response = await productApi.list(cleanFilters as any);
       const result = extractData<{
         items: Product[];
         total: number;

@@ -1,9 +1,7 @@
 // src/pages/inventory/categories/CategoryFilters.tsx
-import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface CategoryFiltersProps {
   search: string;
@@ -18,10 +16,10 @@ export function CategoryFilters({ search, onSearchChange, status, onStatusChange
     <div className="flex flex-wrap items-center gap-3">
       {/* Search */}
       <div className="relative group min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
         <Input
           placeholder="Tìm danh mục..."
-          className="h-9 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500"
+          className="h-9 rounded-full border-slate-200 pl-9 focus-visible:ring-primary/20 focus-visible:border-primary"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />

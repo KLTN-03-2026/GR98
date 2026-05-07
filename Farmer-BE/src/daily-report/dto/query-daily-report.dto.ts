@@ -31,4 +31,8 @@ export class QueryDailyReportDto extends PaginationDto {
   @IsOptional()
   @IsString()
   isHarvest?: string; // "true" or "false"
+
+  @IsOptional()
+  @IsString()
+  type?: string;
 }

@@ -1,9 +1,7 @@
-import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Phone, Calendar, Package } from 'lucide-react';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import type { Client } from '../api/hooks';
 import { Separator } from '@/components/ui/separator';
 import {

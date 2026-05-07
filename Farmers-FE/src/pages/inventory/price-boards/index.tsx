@@ -1,10 +1,8 @@
 import { useState, useMemo } from 'react';
 import { 
-    PackageSearch, 
     Coins, 
     Tag, 
     RefreshCw, 
-    FilterX, 
     MoreVertical, 
     Edit2, 
     Trash2, 

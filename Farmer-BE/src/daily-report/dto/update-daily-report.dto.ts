@@ -13,7 +13,9 @@ import {
 
 export class UpdateDailyReportDto {
   @IsOptional()
-  @IsEnum(ReportType)
+  @IsEnum(['ROUTINE', 'INCIDENT', 'HARVEST'], {
+    message: 'type must be one of: ROUTINE, INCIDENT, HARVEST',
+  })
   type?: ReportType;
 
   @IsOptional()

@@ -38,10 +38,10 @@ export function ProductHeader({
   isRefreshing,
 }: ProductHeaderProps) {
   return (
-    <Card className="border-dashed border-emerald-400/50 bg-white rounded-[2rem] shadow-sm">
+    <Card className="border-dashed border-primary/20 bg-white rounded-[2rem] shadow-sm">
       <CardContent className="p-4 sm:p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+          <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
             <ShoppingBag className="size-4" />
           </div>
           <div className="space-y-0.5">
@@ -56,10 +56,10 @@ export function ProductHeader({
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative group min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-emerald-600 transition-colors" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
               placeholder="Tìm sản phẩm, SKU..."
-              className="h-10 rounded-full border-slate-200 pl-9 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 bg-white"
+              className="h-10 rounded-full border-slate-200 pl-9 focus-visible:ring-primary/20 focus-visible:border-primary bg-white"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
             />
@@ -93,7 +93,7 @@ export function ProductHeader({
 
             <Button 
               onClick={onOpenCreate} 
-              className="h-10 rounded-full px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all"
+              className="h-10 rounded-full px-6 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-slate-200 flex items-center gap-2 transition-all"
             >
               <Plus className="size-4" />
               <span className="text-sm">Niêm yết mới</span>

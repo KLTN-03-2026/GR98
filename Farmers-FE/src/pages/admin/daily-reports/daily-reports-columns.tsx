@@ -16,6 +16,8 @@ function statusLabel(status: DailyReportStatus) {
     DRAFT: 'Nháp',
     SUBMITTED: 'Đã gửi',
     REVIEWED: 'Đã xem',
+    APPROVED: 'Đã duyệt',
+    REJECTED: 'Từ chối',
   };
   return map[status] ?? status;
 }
@@ -23,6 +25,8 @@ function statusLabel(status: DailyReportStatus) {
 function statusVariant(status: DailyReportStatus) {
   if (status === 'SUBMITTED') return 'default' as const;
   if (status === 'REVIEWED') return 'secondary' as const;
+  if (status === 'APPROVED') return 'emerald' as const;
+  if (status === 'REJECTED') return 'destructive' as const;
   return 'outline' as const;
 }
 
@@ -59,6 +63,16 @@ export function createAdminDailyReportColumns(onOpenDetail: (row: DailyReportRes
       cell: ({ row }) => (
         <span className="text-sm">{row.original.plot?.farmer?.fullName ?? '—'}</span>
       ),
+    },
+    {
+      accessorKey: 'yieldEstimateKg',
+      header: 'Sản lượng (kg)',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const val = row.original.yieldEstimateKg;
+        if (val === null || val === undefined || val <= 0) return <span className="text-muted-foreground">—</span>;
+        return <span className="font-medium text-emerald-600">{val.toLocaleString('vi-VN')}</span>;
+      },
     },
     {
       accessorKey: 'status',

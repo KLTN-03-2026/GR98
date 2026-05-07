@@ -4,10 +4,6 @@ import { cn } from '@/lib/utils';
 import { 
   ShoppingCart, 
   RefreshCw, 
-  Clock, 
-  Truck, 
-  CheckCircle2, 
-  Package,
 } from 'lucide-react';
 import { useOrders } from '@/client/api';
 import { Card, CardContent } from '@/components/ui/card';

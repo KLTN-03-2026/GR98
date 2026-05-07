@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Package, RefreshCcw } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useGetLots, useGetWarehouses, useGetProducts } from './api/hooks';
 import { LotDetailDrawer } from './components/LotDetailDrawer';
@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmReceiptDialog } from './components/ConfirmReceiptDialog';
 import { RejectLotDialog } from './components/RejectLotDialog';
 import { QualityGradingDialog } from './components/QualityGradingDialog';
-import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function InventoryLotsPage() {
@@ -22,7 +21,7 @@ export default function InventoryLotsPage() {
   const [activeTab, setActiveTab] = useState('in-stock');
   const [filters, setFilters] = useState<GetLotsFilters>({});
 
-  const { data: lots = [], isLoading, isFetching, refetch } = useGetLots(filters);
+  const { data: lots = [], isLoading, isFetching } = useGetLots(filters);
   const { data: warehouses = [] } = useGetWarehouses();
   const { data: products = [] } = useGetProducts();
 

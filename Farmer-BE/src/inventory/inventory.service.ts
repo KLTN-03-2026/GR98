@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, QualityGrade, ReportStatus, ReportType, ContractStatus, TransactionType, TransactionAction } from '@prisma/client';
+import { Role, QualityGrade, ReportStatus, ReportType, ContractStatus, TransactionType, TransactionAction, FulfillStatus, PaymentStatus, InventoryLotStatus } from '@prisma/client';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -36,6 +36,17 @@ export class InventoryService {
         throw new ForbiddenException('Không xác định được hồ sơ quản trị');
       }
       return admin.id;
+    }
+
+    if (role === Role.SUPERVISOR) {
+      const supervisor = await this.prisma.supervisorProfile.findUnique({
+        where: { userId: currentUserId },
+        select: { adminId: true },
+      });
+      if (!supervisor) {
+        throw new ForbiddenException('Không xác định được hồ sơ giám sát viên');
+      }
+      return supervisor.adminId;
     }
 
     const profile = await this.prisma.inventoryProfile.findUnique({
@@ -144,18 +155,18 @@ export class InventoryService {
     const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [totalStockResult, pendingOrdersCount, expiringLotsCount, stagnantLotsResult, recentTransactions, pendingOrdersList] = await Promise.all([
+    const [totalStockResult, pendingOrdersCount, expiringLotsCount, stagnantLotsResult, warehousesList, recentTransactions, pendingOrdersList] = await Promise.all([
       warehouseIds.length > 0
         ? this.prisma.inventoryLot.aggregate({
           where: {
             warehouseId: { in: warehouseIds },
-            harvestDate: { lte: now } // Chỉ tính lô đã đến ngày thu hoạch
+            status: InventoryLotStatus.RECEIVED
           },
           _sum: { quantityKg: true },
         })
         : { _sum: { quantityKg: null } },
       this.prisma.order.count({
-        where: { adminId, fulfillStatus: 'PENDING', paymentStatus: { in: ['PENDING', 'PAID'] } },
+        where: { adminId, fulfillStatus: FulfillStatus.PENDING, paymentStatus: { in: [PaymentStatus.PENDING, PaymentStatus.PAID] } },
       }),
       warehouseIds.length > 0
         ? this.prisma.inventoryLot.count({
@@ -171,6 +182,18 @@ export class InventoryService {
           }
           : { warehouseId: 'IMPOSSIBLE' },
       }),
+      warehouseIds.length > 0
+        ? this.prisma.warehouse.findMany({
+            where: { id: { in: warehouseIds }, isActive: true },
+            select: {
+              id: true,
+              name: true,
+              locationAddress: true,
+              _count: { select: { inventoryLots: true } }
+            },
+            take: 5
+          })
+        : [],
       this.prisma.warehouseTransaction.findMany({
         where: {
           warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['IMPOSSIBLE'] },
@@ -184,7 +207,7 @@ export class InventoryService {
         },
       }),
       this.prisma.order.findMany({
-        where: { adminId, fulfillStatus: 'PENDING', paymentStatus: { in: ['PENDING', 'PAID'] } },
+        where: { adminId, fulfillStatus: FulfillStatus.PENDING, paymentStatus: { in: [PaymentStatus.PENDING, PaymentStatus.PAID] } },
         orderBy: { orderedAt: 'desc' },
         take: 10,
         include: { client: { select: { user: { select: { fullName: true } } } } },
@@ -196,6 +219,13 @@ export class InventoryService {
       pendingOrders: pendingOrdersCount,
       expiringLots: expiringLotsCount,
       stagnantLots: stagnantLotsResult,
+      activeWarehouses: warehouseIds.length,
+      warehousesList: warehousesList.map(w => ({
+        id: w.id,
+        name: w.name,
+        locationAddress: w.locationAddress,
+        lotCount: w._count.inventoryLots
+      })),
       recentTransactions,
       pendingOrdersList,
     };
@@ -411,7 +441,7 @@ export class InventoryService {
 
     // Cấu trúc lại kết quả trả về với hiệu năng cao (O(1) time)
     const enrichedLots = lots.map((lot) => {
-      const isUpcoming = lot.status === 'SCHEDULED' || (lot.harvestDate && lot.harvestDate > now);
+      const isUpcoming = lot.status === InventoryLotStatus.SCHEDULED || (lot.harvestDate && lot.harvestDate > now);
 
       // Tính trạng thái hết hạn
       const isExpired = lot.expiryDate && new Date(lot.expiryDate) < now;
@@ -467,7 +497,7 @@ export class InventoryService {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
 
-      const lotStatus = harvestDate && harvestDate > now ? 'SCHEDULED' : 'ARRIVED';
+      const lotStatus = harvestDate && harvestDate > now ? InventoryLotStatus.SCHEDULED : InventoryLotStatus.ARRIVED;
 
       const lot = await tx.inventoryLot.create({
         data: {
@@ -529,21 +559,25 @@ export class InventoryService {
       throw new BadRequestException('Hợp đồng này chưa được liên kết với sản phẩm thương mại');
     }
 
-    // 2. Tolerance Logic (5%)
-    if (report.yieldEstimateKg) {
-      const estimate = report.yieldEstimateKg;
-      const deviation = Math.abs(actualWeight - estimate) / estimate;
+    // 3. Yield Balance Logic (Cumulative check)
+    const totalIssued = await this.prisma.inventoryLot.aggregate({
+      where: {
+        contractId,
+        status: { not: InventoryLotStatus.REJECTED },
+      },
+      _sum: { quantityKg: true },
+    });
 
-      if (deviation > 0.05 && !justification) {
-        throw new BadRequestException({
-          code: 'DISCREPANCY_EXCEEDED',
-          message: `Sản lượng thực tế (${actualWeight}kg) lệch >5% so với dự báo (${estimate}kg). Vui lòng nhập lý do giải trình.`,
-          deviation: (deviation * 100).toFixed(2),
-        });
-      }
+    const alreadyIssued = totalIssued._sum.quantityKg || 0;
+    const remaining = (report.yieldEstimateKg || 0) - alreadyIssued;
+
+    if (actualWeight > remaining + (report.yieldEstimateKg || 0) * 0.01) { // 1% buffer for rounding
+      throw new BadRequestException(
+        `Số lượng xuất (${actualWeight}kg) vượt quá sản lượng còn lại khả dụng (${remaining.toFixed(2)}kg).`,
+      );
     }
 
-    // 3. Atomic Transaction
+    // 4. Atomic Transaction
     return this.prisma.$transaction(async (tx) => {
       // A. Create the Inventory Lot - Giai đoạn ARRIVED (Chờ kho xác nhận)
       const lot = await tx.inventoryLot.create({
@@ -554,15 +588,19 @@ export class InventoryService {
           quantityKg: actualWeight,
           qualityGrade,
           harvestDate: new Date(),
-          status: 'ARRIVED',
+          status: InventoryLotStatus.ARRIVED,
         },
       });
 
-      // B. Update Daily Report Status
-      await tx.dailyReport.update({
-        where: { id: dailyReportId },
-        data: { status: 'REVIEWED' }
-      });
+      // B. Update Daily Report Status if almost exhausted (optional, let's keep it consistent)
+      // Note: We only update to REVIEWED if the user is finishing up or if we want to track progress.
+      // For simplicity, we'll keep it as is, or you might want to only set it to REVIEWED when 100% done.
+      if (actualWeight >= remaining - 1) { // Within 1kg of finishing
+        await tx.dailyReport.update({
+          where: { id: dailyReportId },
+          data: { status: 'REVIEWED' },
+        });
+      }
 
       return lot;
     });
@@ -578,13 +616,13 @@ export class InventoryService {
       });
 
       if (!lot) throw new NotFoundException('Không tìm thấy lô hàng');
-      if (lot.status === 'RECEIVED') throw new BadRequestException('Lô hàng này đã được nhập kho trước đó');
+      if (lot.status === InventoryLotStatus.RECEIVED) throw new BadRequestException('Lô hàng này đã được nhập kho trước đó');
 
       // 1. Cập nhật lô hàng sang RECEIVED
       const updatedLot = await tx.inventoryLot.update({
         where: { id: lotId },
         data: {
-          status: 'RECEIVED',
+          status: InventoryLotStatus.RECEIVED,
           quantityKg: actualWeight, // Cập nhật khối lượng thực nhập
         }
       });
@@ -611,6 +649,8 @@ export class InventoryService {
         }
       });
 
+      console.log(`[STOCK_UPDATE] Product ID: ${lot.productId}, Added: ${actualWeight}kg`);
+
       return updatedLot;
     });
   }
@@ -627,15 +667,15 @@ export class InventoryService {
       if (!lot || lot.warehouse.adminId !== adminId) {
         throw new NotFoundException('Không tìm thấy lô hàng');
       }
-
-      if (lot.status !== 'ARRIVED' && lot.status !== 'SCHEDULED') {
+      
+      if (lot.status !== InventoryLotStatus.ARRIVED && lot.status !== InventoryLotStatus.SCHEDULED) {
         throw new BadRequestException('Chỉ có thể từ chối lô hàng đang chờ nhập kho hoặc sắp về');
       }
 
       const updatedLot = await tx.inventoryLot.update({
         where: { id: lotId },
         data: {
-          status: 'REJECTED',
+          status: InventoryLotStatus.REJECTED,
         }
       });
 
@@ -708,7 +748,7 @@ export class InventoryService {
       select: { status: true }
     });
 
-    if ((lot?.status === 'RECEIVED' || lot?.status === 'ARRIVED') && dto.qualityGrade === 'REJECT') {
+    if ((lot?.status === InventoryLotStatus.RECEIVED || lot?.status === InventoryLotStatus.ARRIVED) && dto.qualityGrade === 'REJECT') {
       throw new BadRequestException('Không thể sử dụng phẩm cấp REJECT. Vui lòng sử dụng chức năng "Từ chối lô hàng" để xử lý các lô hàng không đạt yêu cầu.');
     }
 
@@ -730,14 +770,14 @@ export class InventoryService {
       throw new NotFoundException('Không tìm thấy lô hàng hoặc bạn không có quyền chỉnh sửa');
     }
 
-    if ((lot.status === 'RECEIVED' || lot.status === 'ARRIVED') && dto.qualityGrade === 'REJECT') {
+    if ((lot.status === InventoryLotStatus.RECEIVED || lot.status === InventoryLotStatus.ARRIVED) && dto.qualityGrade === 'REJECT') {
       throw new BadRequestException('Không thể sử dụng phẩm cấp REJECT. Vui lòng sử dụng chức năng "Từ chối lô hàng" để xử lý các lô hàng không đạt yêu cầu.');
     }
 
     const now = new Date();
     // Chỉ chặn cập nhật nếu lô hàng là dự kiến (SCHEDULED) VÀ đang cố gắng thay đổi các thông tin không phải phẩm cấp/hạn dùng
     // Nếu là cập nhật phẩm cấp hoặc hạn dùng, chúng ta coi đó là hiệu chỉnh thông tin (Correction) nên cho phép.
-    if (lot.status === 'SCHEDULED' && (dto.harvestDate)) {
+    if (lot.status === InventoryLotStatus.SCHEDULED && (dto.harvestDate)) {
       throw new BadRequestException('Không thể cập nhật ngày thu hoạch cho lô hàng dự kiến. Vui lòng thực hiện tại mục quản lý hợp đồng/thu hoạch.');
     }
 

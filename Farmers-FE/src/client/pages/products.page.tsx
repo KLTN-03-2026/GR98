@@ -1,18 +1,20 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Filter,
   Grid3X3,
   LayoutGrid,
   SlidersHorizontal,
   Search,
+  PackageSearch,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
 import {
   Select,
@@ -22,9 +24,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ProductCard } from '@/client/components/product-card';
-import { useCategories } from '@/client/api';
+import { useCategories, useProducts } from '@/client/api';
 import {
-  MOCK_PRODUCTS,
   CROP_TYPE_OPTIONS,
   GRADE_OPTIONS,
   SORT_OPTIONS,
@@ -51,65 +52,36 @@ export default function ProductsPage() {
     page: parseInt(searchParams.get('page') || '1'),
   };
 
-  // Filter + sort products
-  const filteredProducts = useMemo(() => {
-    let results = [...MOCK_PRODUCTS].filter((p) => p.status === 'PUBLISHED');
-
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      results = results.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.description?.toLowerCase().includes(q) ||
-          p.cropType.toLowerCase().includes(q),
-      );
+  // Transform price range for API
+  const { minPrice, maxPrice } = useMemo(() => {
+    if (!filters.priceRange) return { minPrice: undefined, maxPrice: undefined };
+    
+    if (filters.priceRange.endsWith('+')) {
+      return { 
+        minPrice: parseInt(filters.priceRange.replace('+', '')) || 0, 
+        maxPrice: undefined 
+      };
     }
+    
+    const [min, max] = filters.priceRange.split('-').map(v => parseInt(v) || 0);
+    return { minPrice: min, maxPrice: max };
+  }, [filters.priceRange]);
 
-    if (filters.cropType) {
-      results = results.filter((p) => p.cropType === filters.cropType);
-    }
+  // Fetch products from API
+  const { data: productsData, isLoading } = useProducts({
+    page: filters.page,
+    limit: ITEMS_PER_PAGE,
+    search: filters.search,
+    cropType: filters.cropType,
+    grade: filters.grade,
+    minPrice,
+    maxPrice,
+    categoryId: filters.categoryId,
+    sortBy: filters.sortBy,
+  });
 
-    if (filters.grade) {
-      results = results.filter((p) => p.grade === filters.grade);
-    }
-
-    if (filters.priceRange) {
-      const [min, max] = filters.priceRange.split('-').map((v) => {
-        if (v.endsWith('+')) return 0;
-        return parseInt(v) || 0;
-      });
-      const maxVal = filters.priceRange.endsWith('+') ? Infinity : max;
-      results = results.filter((p) => p.pricePerKg >= min && p.pricePerKg <= maxVal);
-    }
-
-    switch (filters.sortBy) {
-      case 'price_asc':
-        results.sort((a, b) => a.pricePerKg - b.pricePerKg);
-        break;
-      case 'price_desc':
-        results.sort((a, b) => b.pricePerKg - a.pricePerKg);
-        break;
-      case 'rating':
-        results.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-        break;
-      case 'name':
-        results.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      default:
-        results.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-    }
-
-    return results;
-  }, [filters]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-  const paginatedProducts = filteredProducts.slice(
-    (filters.page - 1) * ITEMS_PER_PAGE,
-    filters.page * ITEMS_PER_PAGE,
-  );
+  const products = productsData?.items || [];
+  const totalPages = productsData?.totalPages || 1;
 
   // Active filters count
   const activeFiltersCount = [filters.cropType, filters.grade, filters.priceRange, filters.categoryId].filter(
@@ -429,75 +401,111 @@ export default function ProductsPage() {
           </aside>
 
           {/* Products Grid */}
-          <div className="flex-1">
-            {paginatedProducts.length > 0 ? (
-              <>
+          <div className="flex-1 min-h-[400px]">
+            <AnimatePresence mode="wait">
+              {isLoading ? (
                 <motion.div
+                  key="loading"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className={`grid gap-4 md:gap-6 ${gridCols === 2
-                    ? 'grid-cols-2'
-                    : gridCols === 3
+                  exit={{ opacity: 0 }}
+                  className={`grid gap-4 md:gap-6 ${
+                    gridCols === 2
+                      ? 'grid-cols-2'
+                      : gridCols === 3
                       ? 'grid-cols-2 md:grid-cols-3'
                       : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
-                    }`}
+                  }`}
                 >
-                  {paginatedProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="space-y-4">
+                      <Skeleton className="aspect-square rounded-2xl w-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    </div>
                   ))}
                 </motion.div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-2 mt-12">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-xl"
-                      disabled={filters.page <= 1}
-                      onClick={() => updateFilter('page', String(filters.page - 1))}
-                    >
-                      Trước
-                    </Button>
-                    {Array.from({ length: totalPages }).map((_, i) => (
-                      <Button
-                        key={i}
-                        variant={filters.page === i + 1 ? 'primary' : 'outline'}
-                        size="sm"
-                        className="w-10 h-10 rounded-xl"
-                        onClick={() => updateFilter('page', String(i + 1))}
-                      >
-                        {i + 1}
-                      </Button>
+              ) : products.length > 0 ? (
+                <motion.div
+                  key="content"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div
+                    className={`grid gap-4 md:gap-6 ${
+                      gridCols === 2
+                        ? 'grid-cols-2'
+                        : gridCols === 3
+                        ? 'grid-cols-2 md:grid-cols-3'
+                        : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
+                    }`}
+                  >
+                    {products.map((product) => (
+                      <ProductCard key={product.id} product={product} />
                     ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-xl"
-                      disabled={filters.page >= totalPages}
-                      onClick={() => updateFilter('page', String(filters.page + 1))}
-                    >
-                      Sau
-                    </Button>
                   </div>
-                )}
-              </>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center py-20"
-              >
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-semibold mb-2">Không tìm thấy sản phẩm</h3>
-                <p className="text-muted-foreground mb-4">
-                  Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm
-                </p>
-                <Button variant="outline" onClick={clearFilters}>
-                  Xóa bộ lọc
-                </Button>
-              </motion.div>
-            )}
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-2 mt-12">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        disabled={filters.page <= 1}
+                        onClick={() => updateFilter('page', String(filters.page - 1))}
+                      >
+                        Trước
+                      </Button>
+                      {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => (
+                        <Button
+                          key={i}
+                          variant={filters.page === i + 1 ? 'primary' : 'outline'}
+                          size="sm"
+                          className="w-10 h-10 rounded-xl"
+                          onClick={() => updateFilter('page', String(i + 1))}
+                        >
+                          {i + 1}
+                        </Button>
+                      ))}
+                      {totalPages > 5 && <span className="text-muted-foreground">...</span>}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        disabled={filters.page >= totalPages}
+                        onClick={() => updateFilter('page', String(filters.page + 1))}
+                      >
+                        Sau
+                      </Button>
+                    </div>
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-24 bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200"
+                >
+                  <div className="flex justify-center mb-6">
+                    <div className="p-8 bg-white rounded-[2rem] shadow-sm border border-slate-100">
+                      <PackageSearch className="h-12 w-12 text-slate-300" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">Không tìm thấy sản phẩm</h3>
+                  <p className="text-muted-foreground mb-8 max-w-[300px] mx-auto text-sm">
+                    Rất tiếc, chúng tôi không tìm thấy sản phẩm nào khớp với bộ lọc hiện tại của bạn.
+                  </p>
+                  <Button variant="outline" onClick={clearFilters} className="rounded-full px-8 h-11 border-primary/20 text-primary hover:bg-primary/5 font-bold">
+                    Thiết lập lại bộ lọc
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>

@@ -647,7 +647,7 @@ export default function CategoriesAdminPage() {
                         {/* Name */}
                         <TableCell>
                           <div className="space-y-0.5">
-                            <p className="font-semibold text-slate-900 group-hover:text-primary transition-colors text-sm">{cat.name}</p>
+                            <p className="font-semibold text-slate-700 group-hover:text-primary transition-colors text-sm">{cat.name}</p>
                             {cat.description && (
                               <p className="text-xs text-muted-foreground line-clamp-1 max-w-[300px]">
                                 {cat.description}
@@ -658,7 +658,7 @@ export default function CategoriesAdminPage() {
 
                         {/* Slug */}
                         <TableCell>
-                          <span className="text-[11px] font-mono text-muted-foreground">
+                          <span className="text-[11px] font-mono text-slate-400">
                             /{cat.slug}
                           </span>
                         </TableCell>
@@ -674,14 +674,14 @@ export default function CategoriesAdminPage() {
 
                         {/* Product Count */}
                         <TableCell className="text-center">
-                          <span className="text-sm font-semibold text-slate-600">
+                          <span className="text-sm font-medium text-slate-700">
                             {cat.productCount ?? 0}
                           </span>
                         </TableCell>
 
                         {/* Sort Order */}
                         <TableCell className="text-center">
-                          <span className="text-xs font-bold text-slate-400">
+                          <span className="text-xs font-medium text-slate-400">
                             {cat.sortOrder}
                           </span>
                         </TableCell>

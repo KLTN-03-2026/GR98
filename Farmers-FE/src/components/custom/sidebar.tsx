@@ -194,8 +194,7 @@ export function Sidebar({ collapsed, isMobile }: SidebarProps) {
       isDirectPathActive ||
       (item.path === "/" && location.pathname === "/");
 
-    const showSupervisorDailyBadge =
-      item.path === "/supervisor/daily-reports" && supervisorDailyMissing > 0;
+    const showSupervisorDailyBadge = false;
 
     const menuButton = (
       <Button

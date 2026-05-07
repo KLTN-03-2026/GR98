@@ -4,7 +4,7 @@ import { ShoppingCart, Star, Heart, Eye, Leaf } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { formatPrice } from '@/client/data/mock-data';
+import { formatPrice } from '@/lib/utils';
 import type { Product } from '@/client/types';
 import { toast } from 'sonner';
 import { useCartStore } from '@/client/store';
@@ -92,14 +92,7 @@ export function ProductCard({ product }: ProductCardProps) {
               </Badge>
             </div>
 
-            {/* Out of Stock Overlay */}
-            {product.status === 'OUT_OF_STOCK' && (
-              <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center">
-                <Badge variant="destructive" className="text-sm px-3 py-1">
-                  Hết hàng
-                </Badge>
-              </div>
-            )}
+
 
             {/* Hover Action Buttons */}
             <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -126,7 +119,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
-                {product.status === 'PUBLISHED' && (
+                {product.status === 'PUBLISHED' && product.stockKg > 0 && (
                   <Button
                     size="sm"
                     variant="secondary"
@@ -175,7 +168,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 )}
               </div>
 
-              {product.status === 'PUBLISHED' && (
+              {product.status === 'PUBLISHED' && product.stockKg > 0 && (
                 <Button
                   size="sm"
                   className="h-9 rounded-xl px-3"

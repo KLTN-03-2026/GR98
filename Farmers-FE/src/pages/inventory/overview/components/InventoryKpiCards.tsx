@@ -28,7 +28,7 @@ export function InventoryKpiCards({
       <StatsCard
         icon={Warehouse}
         label="Nhà kho hoạt động"
-        value={12}
+        value={data?.activeWarehouses ?? 0}
         accentColor="primary"
       />
       <StatsCard

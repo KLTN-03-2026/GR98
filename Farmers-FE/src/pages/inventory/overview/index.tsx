@@ -1,4 +1,4 @@
-import { LayoutDashboard, RefreshCcw, Warehouse, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, RefreshCcw, Warehouse, AlertCircle, Package, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useInventoryDashboard, useInventoryChartData } from './api';
@@ -9,7 +9,10 @@ import { InventoryKpiCards } from './components/InventoryKpiCards';
 import { InventoryCharts } from './components/InventoryCharts';
 import { InventoryActivityTable } from './components/InventoryActivityTable';
 
+import { useNavigate } from 'react-router-dom';
+
 export default function InventoryOverviewPage() {
+  const navigate = useNavigate();
   const { data, isLoading, isError, error, refetch, isRefetching } = useInventoryDashboard();
   const { data: chartData, isLoading: isChartLoading } = useInventoryChartData();
 
@@ -75,17 +78,62 @@ export default function InventoryOverviewPage() {
                 <InventoryCharts data={chartData} isLoading={isChartLoading} />
              </div>
              <div className="lg:col-span-1">
-                <div className="h-full rounded-2xl border border-primary/15 bg-gradient-to-b from-card to-primary/[0.03] p-6 shadow-sm flex flex-col items-center justify-center text-center gap-4 transition-all hover:shadow-md dark:to-primary/[0.06]">
-                   <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm shadow-primary/5">
-                      <Warehouse className="size-8" />
+                <div className="h-full rounded-2xl border border-primary/15 bg-card flex flex-col shadow-sm transition-all hover:shadow-md overflow-hidden">
+                   <div className="p-5 border-b border-border/50 flex items-center justify-between bg-primary/[0.02]">
+                     <div className="flex items-center gap-2">
+                       <Warehouse className="size-5 text-primary" />
+                       <h3 className="font-semibold tracking-tight text-foreground">Nhà kho</h3>
+                     </div>
+                     <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                       {data?.activeWarehouses ?? 0} đang hoạt động
+                     </span>
                    </div>
-                   <div className="space-y-1">
-                      <h3 className="text-lg font-semibold tracking-tight text-foreground">Hệ thống Nhà kho</h3>
-                      <p className="text-sm text-muted-foreground max-w-[200px]">Giám sát trạng thái hoạt động và phân bổ nguồn lực tại các chi nhánh.</p>
+                   
+                   <div className="flex-1 p-0 flex flex-col">
+                     {!data?.warehousesList || data.warehousesList.length === 0 ? (
+                       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-2">
+                         <div className="flex size-12 items-center justify-center rounded-full bg-muted/50">
+                            <Warehouse className="size-6 text-muted-foreground/50" />
+                         </div>
+                         <p className="text-sm text-muted-foreground">Chưa có kho hàng nào</p>
+                       </div>
+                     ) : (
+                       <div className="divide-y divide-border/50">
+                         {data.warehousesList.map((warehouse) => (
+                           <div key={warehouse.id} className="p-4 hover:bg-muted/30 transition-colors flex items-start gap-3">
+                             <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                               <Warehouse className="size-4" />
+                             </div>
+                             <div className="min-w-0 flex-1">
+                               <p className="truncate text-sm font-medium text-foreground">{warehouse.name}</p>
+                               <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                                 <span className="flex items-center gap-1 shrink-0">
+                                   <Package className="size-3" />
+                                   {warehouse.lotCount} lô
+                                 </span>
+                                 {warehouse.locationAddress && (
+                                   <span className="flex items-center gap-1 truncate">
+                                     <MapPin className="size-3 shrink-0" />
+                                     <span className="truncate">{warehouse.locationAddress}</span>
+                                   </span>
+                                 )}
+                               </div>
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     )}
                    </div>
-                   <Button variant="outline" className="h-9 rounded-full border-primary/20 px-6 text-sm font-semibold text-primary hover:bg-primary/5">
-                      Xem danh sách kho
-                   </Button>
+                   
+                   <div className="p-4 border-t border-border/50 bg-muted/10 mt-auto">
+                     <Button 
+                       variant="outline" 
+                       className="w-full h-9 rounded-xl border-primary/20 text-sm font-semibold text-primary hover:bg-primary/5"
+                       onClick={() => navigate('/inventory/warehouses')}
+                     >
+                        Quản lý toàn bộ kho
+                     </Button>
+                   </div>
                 </div>
              </div>
           </div>

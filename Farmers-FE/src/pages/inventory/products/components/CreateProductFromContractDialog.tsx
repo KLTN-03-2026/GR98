@@ -157,17 +157,22 @@ export function CreateProductFromContractDialog({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-[540px] p-0 flex flex-col h-full font-manrope">
         {/* Header - Fixed */}
-        <div className="p-6 border-b border-slate-100 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="size-11 rounded-2xl bg-amber-100/50 flex items-center justify-center shadow-sm border border-amber-200/50">
-              <FileText className="size-5 text-amber-600" />
+        <SheetHeader className="relative overflow-hidden border-b px-6 py-8 sm:px-8 bg-linear-to-b from-primary/[0.07] via-background to-background dark:from-primary/20 flex-shrink-0">
+          <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative flex items-center gap-4">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/25">
+              <FileText className="size-6" />
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">Niêm yết từ Hợp đồng</h2>
-              <p className="text-[11px] text-slate-500 font-medium">Khởi tạo sản phẩm từ hợp đồng đã tất toán</p>
+            <div className="space-y-1">
+              <SheetTitle className="text-2xl font-black text-slate-900 tracking-tight">
+                Niêm yết mới
+              </SheetTitle>
+              <p className="text-xs font-bold text-primary/80 uppercase tracking-widest">
+                Từ hợp đồng đã tất toán
+              </p>
             </div>
           </div>
-        </div>
+        </SheetHeader>
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -183,8 +188,8 @@ export function CreateProductFromContractDialog({
               {/* Phần 1: Hợp đồng tất toán */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <div className="size-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">1</div>
-                  <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Thông tin Hợp đồng</Label>
+                  <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">1</div>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Thông tin Hợp đồng</Label>
                 </div>
                 
                 <div className="space-y-3">
@@ -195,7 +200,7 @@ export function CreateProductFromContractDialog({
                         placeholder="Tìm theo mã HĐ, tên nông dân, loại cây..." 
                         value={search}
                         onChange={handleSearchChange}
-                        className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-sm focus:ring-amber-500/20"
+                        className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-sm focus:ring-primary/20"
                       />
                       <RefreshCw className={`absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 ${isContractsLoading ? 'animate-spin' : ''}`} />
                     </div>
@@ -215,20 +220,22 @@ export function CreateProductFromContractDialog({
                               key={c.id}
                               type="button"
                               onClick={() => handleContractSelect(c.id)}
-                              className={`w-full text-left p-3 rounded-xl transition-all flex items-center justify-between group ${
+                              className={`w-full text-left p-3.5 rounded-xl transition-all flex items-center justify-between group border ${
                                 selectedContractId === c.id 
-                                  ? 'bg-amber-50 border-amber-200 ring-1 ring-amber-200' 
-                                  : 'hover:bg-slate-50 border-transparent border'
+                                  ? 'bg-primary/[0.04] border-primary/20 ring-1 ring-primary/10' 
+                                  : 'hover:bg-primary/[0.02] border-transparent'
                               }`}
                             >
-                              <div className="flex flex-col gap-0.5">
-                                <span className={`font-bold text-sm ${selectedContractId === c.id ? 'text-amber-900' : 'text-slate-700'}`}>
+                              <div className="flex flex-col gap-1">
+                                <span className={`font-black text-sm tracking-tight ${selectedContractId === c.id ? 'text-primary' : 'text-slate-700'}`}>
                                   {c.contractNo}
                                 </span>
-                                <div className="flex items-center gap-2 text-[10px]">
-                                  <span className="font-bold text-amber-600 uppercase">{c.cropType}</span>
-                                  <span className="text-slate-300">•</span>
-                                  <span className="text-slate-500 font-medium">{c.farmer?.fullName}</span>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black bg-primary/10 text-primary border-none uppercase">
+                                    {c.cropType}
+                                  </Badge>
+                                  <span className="text-slate-300 font-bold">•</span>
+                                  <span className="text-[11px] text-slate-500 font-bold">{c.farmer?.fullName}</span>
                                 </div>
                               </div>
                             </button>
@@ -270,39 +277,42 @@ export function CreateProductFromContractDialog({
                 </div>
 
                 {selectedContract ? (
-                  <div className="rounded-2xl border border-slate-100 bg-amber-50/30 p-5 space-y-4 animate-in fade-in zoom-in-95 duration-300">
-                    <div className="grid grid-cols-2 gap-y-4 gap-x-4">
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Nông dân</span>
-                        <p className="text-sm font-bold text-slate-700">{selectedContract.farmer?.fullName || "N/A"}</p>
+                  <div className="rounded-2xl border border-primary/20 bg-card p-5 space-y-4 animate-in fade-in zoom-in-95 duration-300 relative overflow-hidden">
+                    <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-primary/5 blur-2xl" />
+                    <div className="relative grid grid-cols-2 gap-y-5 gap-x-6">
+                      <div className="space-y-1.5">
+                        <span className="text-[9px] text-primary/60 font-black uppercase tracking-widest">Nông dân</span>
+                        <p className="text-sm font-black text-slate-900">{selectedContract.farmer?.fullName || "N/A"}</p>
                       </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Chất lượng</span>
+                      <div className="space-y-1.5 text-right">
+                        <span className="text-[9px] text-primary/60 font-black uppercase tracking-widest">Phẩm cấp</span>
                         <div>
-                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] font-black h-5">
+                          <Badge className="bg-primary text-white border-none text-[10px] font-black h-5 px-2 shadow-sm shadow-primary/20">
                             HẠNG {selectedContract.grade}
                           </Badge>
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Thửa đất</span>
-                        <p className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-                          <MapPin className="size-3 text-rose-500" />
+                      <div className="space-y-1.5">
+                        <span className="text-[9px] text-primary/60 font-black uppercase tracking-widest">Vùng trồng</span>
+                        <p className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                          <MapPin className="size-3.5 text-rose-500" />
                           {selectedContract.plot?.plotCode || "N/A"}
                         </p>
                       </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Trạng thái</span>
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px]">
-                          SETTLED
-                        </Badge>
+                      <div className="space-y-1.5 text-right">
+                        <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Trạng thái HĐ</span>
+                        <div>
+                           <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[9px] font-black h-5 uppercase">
+                             Đã tất toán
+                           </Badge>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="h-28 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-2 bg-slate-50/30">
-                    <FileText className="size-8 opacity-20" />
-                    <span className="text-xs font-medium italic">Vui lòng chọn hợp đồng để bắt đầu</span>
+                  <div className="h-28 rounded-[2.5rem] border border-dashed border-primary/20 flex flex-col items-center justify-center text-primary/40 gap-3 bg-primary/[0.02]">
+                    <FileText className="size-10 opacity-20" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">Vui lòng chọn hợp đồng để bắt đầu</span>
                   </div>
                 )}
               </div>
@@ -310,24 +320,24 @@ export function CreateProductFromContractDialog({
               {/* Phần 2: Thương mại */}
               <div className="space-y-5">
                 <div className="flex items-center gap-2">
-                  <div className="size-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">2</div>
-                  <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Niêm yết Thương mại</Label>
+                  <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">2</div>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Niêm yết Thương mại</Label>
                 </div>
 
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700 ml-1">Tên sản phẩm niêm yết</Label>
-                    <Input 
-                      value={name} 
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Ví dụ: Gạo ST25 - Sóc Trăng..." 
-                      className="h-11 rounded-xl border-slate-200 focus:border-amber-500/50 text-sm font-medium"
-                    />
+                      <Input 
+                        value={name} 
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Ví dụ: Gạo ST25 - Sóc Trăng..." 
+                        className="h-11 rounded-xl border-slate-200 focus:border-primary/50 text-sm font-medium"
+                      />
                     {name && (
                       <div className="flex items-center gap-1.5 px-1 py-1 text-[10px] text-slate-400">
-                        <Link2 className="size-3 text-amber-600/60" />
+                        <Link2 className="size-3 text-primary/60" />
                         <span>Slug: </span>
-                        <span className="font-medium text-amber-600">/products/{toSlug(name)}</span>
+                        <span className="font-medium text-primary">/products/{toSlug(name)}</span>
                       </div>
                     )}
                   </div>
@@ -336,13 +346,13 @@ export function CreateProductFromContractDialog({
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-semibold text-slate-700 ml-1">Giá bán lẻ (Tự động)</Label>
-                        {isSearchingPrice && <RefreshCw className="size-3 animate-spin text-amber-600" />}
+                        {isSearchingPrice && <RefreshCw className="size-3 animate-spin text-primary" />}
                       </div>
                       <div className="relative">
                         <Input 
                           readOnly
                           value={price} 
-                          className="h-11 pl-4 pr-10 rounded-xl border-slate-200 bg-slate-50 text-sm font-bold text-amber-600 cursor-not-allowed"
+                          className="h-11 pl-4 pr-10 rounded-xl border-slate-200 bg-slate-50 text-sm font-bold text-primary cursor-not-allowed"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">đ/kg</span>
                       </div>
@@ -374,7 +384,7 @@ export function CreateProductFromContractDialog({
 
                   <div className="space-y-4 pt-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-700 ml-1 text-amber-700 uppercase tracking-wider text-[10px]">Hình ảnh sản phẩm (URL)</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Hình ảnh sản phẩm (URL)</Label>
                       <div className="space-y-3">
                         <div className="space-y-1">
                           <Label className="text-[10px] text-slate-400 font-medium ml-1">Ảnh đại diện (Thumbnail)</Label>
@@ -409,7 +419,7 @@ export function CreateProductFromContractDialog({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Mô tả về đặc điểm, hương vị và nguồn gốc sản phẩm..." 
-                  className="min-h-[120px] rounded-xl border-slate-200 focus:border-amber-500/50 text-sm leading-relaxed"
+                  className="min-h-[120px] rounded-xl border-slate-200 focus:border-primary/50 text-sm leading-relaxed"
                 />
               </div>
             </form>
@@ -417,11 +427,11 @@ export function CreateProductFromContractDialog({
         </div>
 
         {/* Footer - Fixed */}
-        <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex flex-row gap-3 flex-shrink-0">
+        <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex flex-row gap-3 flex-shrink-0 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
           <Button 
             variant="ghost" 
             onClick={() => onOpenChange(false)} 
-            className="rounded-xl h-12 px-6 font-bold text-slate-500 hover:bg-slate-100"
+            className="rounded-2xl h-12 px-6 font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
           >
             Hủy
           </Button>
@@ -429,7 +439,7 @@ export function CreateProductFromContractDialog({
             type="submit"
             form="create-product-contract-form"
             disabled={isLoading || !selectedContractId || !name || !price}
-            className="rounded-xl h-12 flex-1 bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/30 font-black uppercase tracking-wider disabled:opacity-50"
+            className="rounded-2xl h-12 flex-1 bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-200 font-black uppercase tracking-wider disabled:opacity-50 transition-all active:scale-[0.98]"
           >
             {isLoading ? (
               <div className="flex items-center gap-2">

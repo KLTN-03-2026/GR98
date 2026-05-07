@@ -122,7 +122,7 @@ export default function ProductsManagementPage() {
           </Button>
           <Button
             size="sm"
-            className="h-9 bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20 font-bold border-none"
+            className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 font-bold border-none transition-all active:scale-95"
             onClick={() => setIsContractDialogOpen(true)}
           >
             <FileText className="size-4 mr-2" />

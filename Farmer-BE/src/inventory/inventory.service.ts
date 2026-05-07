@@ -155,7 +155,7 @@ export class InventoryService {
     const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [totalStockResult, pendingOrdersCount, expiringLotsCount, stagnantLotsResult, recentTransactions, pendingOrdersList] = await Promise.all([
+    const [totalStockResult, pendingOrdersCount, expiringLotsCount, stagnantLotsResult, warehousesList, recentTransactions, pendingOrdersList] = await Promise.all([
       warehouseIds.length > 0
         ? this.prisma.inventoryLot.aggregate({
           where: {
@@ -182,6 +182,18 @@ export class InventoryService {
           }
           : { warehouseId: 'IMPOSSIBLE' },
       }),
+      warehouseIds.length > 0
+        ? this.prisma.warehouse.findMany({
+            where: { id: { in: warehouseIds }, isActive: true },
+            select: {
+              id: true,
+              name: true,
+              locationAddress: true,
+              _count: { select: { inventoryLots: true } }
+            },
+            take: 5
+          })
+        : [],
       this.prisma.warehouseTransaction.findMany({
         where: {
           warehouseId: { in: warehouseIds.length > 0 ? warehouseIds : ['IMPOSSIBLE'] },
@@ -207,6 +219,13 @@ export class InventoryService {
       pendingOrders: pendingOrdersCount,
       expiringLots: expiringLotsCount,
       stagnantLots: stagnantLotsResult,
+      activeWarehouses: warehouseIds.length,
+      warehousesList: warehousesList.map(w => ({
+        id: w.id,
+        name: w.name,
+        locationAddress: w.locationAddress,
+        lotCount: w._count.inventoryLots
+      })),
       recentTransactions,
       pendingOrdersList,
     };

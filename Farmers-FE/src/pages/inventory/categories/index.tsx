@@ -658,9 +658,9 @@ export default function CategoriesAdminPage() {
 
                         {/* Slug */}
                         <TableCell>
-                          <code className="text-[11px] font-mono bg-slate-50 px-2 py-0.5 rounded text-muted-foreground border border-slate-100">
-                            {cat.slug}
-                          </code>
+                          <span className="text-[11px] font-mono text-muted-foreground">
+                            /{cat.slug}
+                          </span>
                         </TableCell>
 
                         {/* Status */}
@@ -674,16 +674,16 @@ export default function CategoriesAdminPage() {
 
                         {/* Product Count */}
                         <TableCell className="text-center">
-                          <Badge variant="secondary" className="font-semibold px-2 h-6">
+                          <span className="text-sm font-semibold text-slate-600">
                             {cat.productCount ?? 0}
-                          </Badge>
+                          </span>
                         </TableCell>
 
                         {/* Sort Order */}
                         <TableCell className="text-center">
-                          <div className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-50 border border-slate-100 font-mono text-xs font-bold text-slate-400 group-hover:text-primary group-hover:bg-primary/5 transition-all">
+                          <span className="text-xs font-bold text-slate-400">
                             {cat.sortOrder}
-                          </div>
+                          </span>
                         </TableCell>
 
                         {/* Actions */}

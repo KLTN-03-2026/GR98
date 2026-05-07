@@ -124,12 +124,42 @@ export class ProductsService {
       };
     }
 
+    // Lọc theo giá
+    if (query.minPrice || query.maxPrice) {
+      where.pricePerKg = {};
+      if (query.minPrice) where.pricePerKg.gte = parseFloat(query.minPrice);
+      if (query.maxPrice) where.pricePerKg.lte = parseFloat(query.maxPrice);
+    }
+
+    // Sắp xếp
+    let orderBy: any = { createdAt: 'desc' };
+    if (query.sortBy) {
+      switch (query.sortBy) {
+        case 'price_asc':
+          orderBy = { pricePerKg: 'asc' };
+          break;
+        case 'price_desc':
+          orderBy = { pricePerKg: 'desc' };
+          break;
+        case 'name':
+          orderBy = { name: 'asc' };
+          break;
+        case 'rating':
+          orderBy = { averageRating: 'desc' };
+          break;
+        case 'newest':
+        default:
+          orderBy = { createdAt: 'desc' };
+          break;
+      }
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           categories: {
             include: { category: true },

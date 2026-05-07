@@ -21,7 +21,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/custom/combobox';
 import { DataTable } from '@/components/data-table';
@@ -509,35 +509,45 @@ export default function SupervisorDailyReportsPage() {
         </Button>
       </div>
 
-      <Tabs
-        value={categoryTab}
-        onValueChange={(v) => setCategoryTab(v as CategoryTab)}
-        className="w-full"
-      >
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <TabsList>
-            <TabsTrigger value="ALL">Tất cả báo cáo</TabsTrigger>
-            <TabsTrigger value="HARVEST">Báo cáo sản lượng</TabsTrigger>
-            <TabsTrigger value="OTHER">Báo cáo khác</TabsTrigger>
-          </TabsList>
+      <div className="space-y-4">
+        {/* Category Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                { key: 'ALL' as const, label: 'Tất cả báo cáo' },
+                { key: 'HARVEST' as const, label: 'Báo cáo sản lượng' },
+                { key: 'OTHER' as const, label: 'Báo cáo khác' },
+              ] as const
+            ).map((tab) => (
+              <Button
+                key={tab.key}
+                type="button"
+                variant={categoryTab === tab.key ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setCategoryTab(tab.key)}
+                className={categoryTab === tab.key ? '' : 'border-foreground/40 hover:border-foreground/60'}
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </div>
 
+          {/* Total Yield Badge */}
           {categoryTab === 'HARVEST' && listData?.meta && (
-            <div className="flex items-center gap-3 px-4 py-2 bg-primary/5 border border-primary/10 rounded-xl animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="h-8 w-1 bg-primary rounded-full" />
-              <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-                  Tổng sản lượng thu hoạch
-                </span>
-                <span className="text-lg font-bold text-primary leading-tight">
-                  {listData.meta.totalYield.toLocaleString()} <span className="text-sm font-medium">kg</span>
-                </span>
+            <div className="flex items-center gap-3 px-3 py-2 bg-muted border border-border rounded-lg animate-in fade-in slide-in-from-right-2 duration-300">
+              <div className="text-xs font-medium text-muted-foreground">Tổng sản lượng:</div>
+              <div className="text-sm font-semibold text-foreground">
+                {listData.meta.totalYield.toLocaleString()} kg
               </div>
             </div>
           )}
         </div>
 
-        <Card>
-          <CardContent className="pt-6">
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
             <DataTable
               columns={columns}
               data={rows}
@@ -581,7 +591,6 @@ export default function SupervisorDailyReportsPage() {
             />
           </CardContent>
         </Card>
-      </Tabs>
 
       <Sheet open={sheetOpen} onOpenChange={closeSheet}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto flex flex-col">

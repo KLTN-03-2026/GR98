@@ -38,8 +38,25 @@ export class ProductsService {
     const normalized = this.toSlug(cropType).toUpperCase().replace(/-/g, '');
     const prefix = normalized.slice(0, 3);
     const date = new Date().getFullYear();
-    const count = await this.prisma.product.count();
-    return `PROD-${prefix}-${date}-${(count + 1).toString().padStart(4, '0')}`;
+    // Sử dụng 4 số cuối của timestamp + một chuỗi ngẫu nhiên ngắn để đảm bảo không trùng
+    const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
+    const timestampPart = Date.now().toString().slice(-4);
+    
+    return `PROD-${prefix}-${date}-${timestampPart}${randomStr}`;
+  }
+
+  private async generateUniqueSlug(name: string): Promise<string> {
+    const baseSlug = this.toSlug(name);
+    let slug = baseSlug;
+    let count = 1;
+
+    while (true) {
+      const existing = await this.prisma.product.findUnique({ where: { slug } });
+      if (!existing) break;
+      slug = `${baseSlug}-${count}`;
+      count++;
+    }
+    return slug;
   }
 
   private async resolveAdminId(userId: string): Promise<string> {
@@ -552,8 +569,8 @@ export class ProductsService {
       );
     }
 
-    // 3. Tự động sinh mã định danh
-    const slug = dto.slug || this.toSlug(dto.name);
+    // 3. Tự động sinh mã định danh (Đảm bảo không trùng kể cả khi trùng tên)
+    const slug = dto.slug || (await this.generateUniqueSlug(dto.name));
     const sku = dto.sku || (await this.generateSku(contract.cropType));
 
     // 4. Tạo sản phẩm với tồn kho mặc định = 0

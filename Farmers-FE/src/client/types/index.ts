@@ -108,6 +108,7 @@ export interface Product {
   harvestDate?: string;
   aiConfidenceScore?: number;
   createdAt: string;
+  updatedAt: string;
   plotId?: string;
   contractId?: string;
   plot?: any;

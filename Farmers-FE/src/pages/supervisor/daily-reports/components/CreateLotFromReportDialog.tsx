@@ -123,7 +123,15 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Không thể tạo lô hàng');
+      console.error('Create lot error:', error);
+      // Lấy thông báo lỗi chi tiết từ Backend
+      const errorMessage = 
+        error?.response?.data?.message || 
+        error?.response?.data?.error?.message ||
+        error?.message || 
+        'Không thể tạo lô hàng';
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -189,7 +197,9 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
                 <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Thông tin sản phẩm</Label>
                 <div className="flex justify-between items-start">
                   <div className="space-y-0.5 max-w-[70%]">
-                    <p className="font-bold text-slate-900 truncate">{activeContract.product.name}</p>
+                    <p className="font-bold text-slate-900 truncate">
+                      {activeContract.product?.name || report?.plot?.cropType}
+                    </p>
                     <p className="text-[11px] text-slate-500 truncate">HĐ: {activeContract.contractNo}</p>
                   </div>
                   <div className="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold text-slate-600 uppercase">

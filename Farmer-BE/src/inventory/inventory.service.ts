@@ -551,12 +551,20 @@ export class InventoryService {
       throw new NotFoundException('Báo cáo thực địa không tồn tại');
     }
 
+    if (report.status !== ReportStatus.APPROVED && report.status !== ReportStatus.REVIEWED) {
+      throw new BadRequestException('Báo cáo thực địa này chưa được phê duyệt. Vui lòng phê duyệt báo cáo trước khi thực hiện xuất lô.');
+    }
+
     if (!contract || contract.adminId !== adminId) {
       throw new NotFoundException('Hợp đồng không tồn tại');
     }
 
+    if (contract.status !== ContractStatus.SETTLED) {
+      throw new BadRequestException('Hợp đồng này chưa ở trạng thái tất toán (SETTLED). Không thể thực hiện nhập kho.');
+    }
+
     if (!contract.product) {
-      throw new BadRequestException('Hợp đồng này chưa được liên kết với sản phẩm thương mại');
+      throw new BadRequestException('Hợp đồng này chưa được liên kết với sản phẩm thương mại trên sàn. Vui lòng tạo niêm yết mới trước khi thực hiện xuất lô.');
     }
 
     // 3. Yield Balance Logic (Cumulative check)

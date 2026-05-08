@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCategories, type CategoryResponse } from '@/client/api';
+import FileUpload from '@/components/custom/file-upload';
 import {
   useCreateCategory,
   useUpdateCategory,
@@ -63,6 +64,14 @@ function toSlug(name: string): string {
     .trim()
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-');
+}
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 // ─── Category Form ────────────────────────────────────────────────────────────
@@ -131,6 +140,17 @@ function CategoryDialog({
   const handleNameChange = (name: string) => {
     const slug = toSlug(name);
     setForm({ ...form, name, slug });
+  };
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      const base64 = await fileToBase64(file);
+      setForm({ ...form, imageUrl: base64 });
+      toast.success('Đã tải ảnh lên thành công');
+    } catch (error) {
+      toast.error('Lỗi khi tải ảnh lên');
+      console.error(error);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -241,17 +261,20 @@ function CategoryDialog({
               {/* Media & Description Section */}
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="cat-image" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Ảnh đại diện (URL)</Label>
-                  <div className="relative group">
-                    <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-primary transition-colors" />
-                    <Input
-                      id="cat-image"
-                      value={form.imageUrl}
-                      onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                      placeholder="https://..."
-                      className="pl-10 rounded-2xl border-slate-200 h-12 text-xs bg-slate-50/30 transition-all hover:bg-white"
-                    />
-                  </div>
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Ảnh đại diện danh mục</Label>
+                  <FileUpload multiple={false} onFileSelect={handleFileUpload} />
+                  {form.imageUrl && (
+                    <div className="mt-2 relative h-20 w-32 rounded-xl overflow-hidden border border-slate-200 group/img">
+                      <img src={form.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, imageUrl: '' })}
+                        className="absolute inset-0 bg-rose-500/80 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

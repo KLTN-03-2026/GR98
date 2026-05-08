@@ -1,10 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { 
   Package, 
@@ -33,7 +27,8 @@ import {
   Fingerprint,
   ExternalLink,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
@@ -47,6 +42,8 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogHeader,
+  DialogFooter
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { PRODUCT_STATUS_LABELS, type ProductStatus, type Product, type Category } from '@/client/types';
@@ -144,10 +141,6 @@ export function ProductDetailsDialog({
     }
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-  };
-
   const handleAddImage = () => {
     if (imageUrlInput && !form.imageUrls.includes(imageUrlInput)) {
       const newImages = [...form.imageUrls, imageUrlInput];
@@ -228,38 +221,30 @@ export function ProductDetailsDialog({
 
     await onUpdate(updatePayload);
     setIsEditing(false);
-    onOpenChange(false);
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-[720px] p-0 flex flex-col h-full font-manrope border-l-0 shadow-2xl">
-        
-        {/* Header Section */}
-        <SheetHeader className="relative overflow-hidden border-b px-8 py-10 flex-shrink-0 bg-linear-to-b from-primary/[0.07] via-background to-background dark:from-primary/20">
-          <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-primary/10 blur-3xl" />
-          <div className="relative flex items-start justify-between">
-            <div className="flex items-center gap-5">
-              <div className="size-16 rounded-[2rem] bg-primary text-primary-foreground flex items-center justify-center shadow-xl shadow-primary/25 border-4 border-white/50">
-                <Package className="size-8" />
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 h-5 border-primary/20 bg-primary/5 text-primary shadow-xs">
-                    SKU: {product.sku}
-                  </Badge>
-                  {!isEditing && (
-                    <Badge className={cn(
-                      "text-[10px] font-black h-5 px-2.5 uppercase tracking-wider shadow-sm",
-                      product.status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-slate-500/10 text-slate-600 border border-slate-500/20'
-                    )}>
-                      {PRODUCT_STATUS_LABELS[product.status]}
-                    </Badge>
-                  )}
-                </div>
-                <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight leading-none">
-                  {isEditing ? 'Cập nhật sản phẩm' : product.name}
-                </SheetTitle>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent 
+        showCloseButton
+        className="flex w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] max-h-[min(94dvh,1080px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl lg:max-w-7xl font-manrope"
+      >
+        <DialogHeader className="shrink-0 border-b px-6 py-4 text-left sm:px-8 bg-slate-50/50">
+          <div className="flex items-center justify-between pr-8">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-bold text-slate-900">
+                {isEditing ? 'Cập nhật sản phẩm' : product.name}
+              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider px-2 py-0 h-5 bg-white border-slate-200 text-slate-500">
+                  SKU: {product.sku}
+                </Badge>
+                <Badge className={cn(
+                  "text-[10px] font-bold h-5 px-2 uppercase tracking-wider",
+                  product.status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-slate-500/10 text-slate-600 border border-slate-500/20'
+                )}>
+                  {PRODUCT_STATUS_LABELS[product.status]}
+                </Badge>
               </div>
             </div>
 
@@ -268,450 +253,295 @@ export function ProductDetailsDialog({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-10 px-5 rounded-2xl border-primary/20 bg-white text-primary hover:bg-primary/5 font-black shadow-sm transition-all active:scale-95"
+                  className="h-9 px-4 rounded-xl border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-bold shadow-sm transition-all"
                   onClick={() => setIsEditing(true)}
                 >
-                  <Pencil className="size-4 mr-2" />
+                  <Pencil className="size-3.5 mr-2" />
                   Chỉnh sửa
                 </Button>
               ) : (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-10 px-5 rounded-2xl text-slate-400 hover:text-slate-600 font-black"
+                  className="h-9 px-4 rounded-xl text-slate-400 hover:text-slate-600 font-bold"
                   onClick={() => setIsEditing(false)}
                 >
-                  <X className="size-4 mr-2" />
+                  <X className="size-3.5 mr-2" />
                   Hủy bỏ
                 </Button>
               )}
             </div>
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
-        {/* Quick Stats Grid */}
-        <div className="px-8 py-6 flex-shrink-0">
-          <div className="grid grid-cols-4 gap-4">
-            <div className="group relative min-w-0 overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-5 shadow-sm transition-all hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest">Giá niêm yết</span>
-                <div className="size-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
-                  <Tag className="size-4" />
-                </div>
-              </div>
-              {isEditing ? (
-                <div className="relative mt-2">
-                   <Input
-                    type="number"
-                    value={form.pricePerKg}
-                    onChange={(e) => setForm({ ...form, pricePerKg: Number(e.target.value) })}
-                    className="h-10 bg-white border-primary/20 text-lg font-black text-primary rounded-xl pl-3 pr-8"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/40">đ</span>
-                </div>
-              ) : (
-                <span className="mt-2 text-2xl font-black text-slate-900 tracking-tight">{formatPrice(product.pricePerKg)}</span>
-              )}
-              <span className="mt-1 text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Giá bán lẻ trên KG</span>
-            </div>
-
-            <div className="group relative min-w-0 overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-5 shadow-sm transition-all hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest">Tồn kho</span>
-                <div className="size-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
-                  <Package className="size-4" />
-                </div>
-              </div>
-              {isEditing ? (
-                <div className="relative mt-2">
-                  <Input
-                    type="number"
-                    value={form.stockKg}
-                    onChange={(e) => setForm({ ...form, stockKg: Number(e.target.value) })}
-                    className="h-10 bg-white border-primary/20 text-lg font-black text-primary rounded-xl pl-3 pr-8"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/40">kg</span>
-                </div>
-              ) : (
-                <span className="mt-2 text-2xl font-black text-slate-900 tracking-tight">{product.stockKg.toLocaleString()} {product.unit || 'kg'}</span>
-              )}
-              <span className="mt-1 text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Khả dụng trong kho</span>
-            </div>
-
-            <div className="group relative min-w-0 overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-5 shadow-sm transition-all hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest">Trạng thái</span>
-                <div className="size-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
-                  <Activity className="size-4" />
-                </div>
-              </div>
-              {isEditing ? (
-                <Select 
-                  value={form.status} 
-                  onValueChange={(val) => setForm({ ...form, status: val as ProductStatus })}
-                >
-                  <SelectTrigger className="h-10 mt-2 bg-white border-primary/20 font-black text-primary rounded-xl text-[10px] uppercase tracking-wider">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
-                    {Object.entries(PRODUCT_STATUS_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key} className="font-black text-[10px] uppercase tracking-widest">{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="mt-2 flex items-center gap-2">
-                  <div className={cn("size-2.5 rounded-full animate-pulse", product.status === 'PUBLISHED' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-slate-400")} />
-                  <span className="text-2xl font-black tracking-tight text-slate-900">{PRODUCT_STATUS_LABELS[product.status]}</span>
-                </div>
-              )}
-              <span className="mt-1 text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Trạng thái thương mại</span>
-            </div>
-
-            <div className="group relative min-w-0 overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-5 shadow-sm transition-all hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest">Chất lượng</span>
-                <div className="size-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
-                  <BadgeCheck className="size-4" />
-                </div>
-              </div>
-              {isEditing ? (
-                <Select 
-                  value={form.grade} 
-                  onValueChange={(val) => setForm({ ...form, grade: val as any })}
-                >
-                  <SelectTrigger className="h-10 mt-2 bg-white border-primary/20 font-black text-primary rounded-xl text-[10px] uppercase tracking-wider">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-indigo-100 shadow-xl">
-                    {['A', 'B', 'C', 'REJECT'].map((g) => (
-                      <SelectItem key={g} value={g} className="font-black text-[10px] uppercase tracking-widest">Hạng {g}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <span className="mt-2 text-2xl font-black text-slate-900 tracking-tight">Hạng {product.grade}</span>
-              )}
-              <span className="mt-1 text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Phẩm cấp nông sản</span>
-            </div>
-          </div>
-
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-8">
-            <TabsList className="h-14 w-full bg-primary/5 p-1.5 rounded-3xl mb-0">
-              <TabsTrigger value="general" className="flex-1 rounded-[1.25rem] font-black text-[11px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg transition-all">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 sm:px-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="h-11 w-full bg-slate-100 p-1 rounded-xl mb-6">
+              <TabsTrigger value="general" className="flex-1 rounded-lg font-bold text-[11px] uppercase tracking-wider data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all">
                 Thông tin & Truy xuất
               </TabsTrigger>
-              <TabsTrigger value="media" className="flex-1 rounded-[1.25rem] font-black text-[11px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="media" className="flex-1 rounded-lg font-bold text-[11px] uppercase tracking-wider data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all">
                 Hình ảnh Album
               </TabsTrigger>
             </TabsList>
-          </Tabs>
-        </div>
 
-        {/* Content Section - Scrollable */}
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <Tabs value={activeTab}>
-            <TabsContent value="general" className="m-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <CustomScrollArea className="h-full">
-                <div className="px-8 pb-32 space-y-12 pt-4">
-                  {isEditing ? (
-                    <div className="space-y-10">
-                      {/* Edit Mode General Info */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <div className="size-9 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20"><FileText className="size-4.5" /></div>
-                          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Thông tin cơ bản</h3>
+            <TabsContent value="general" className="m-0 space-y-8 animate-in fade-in duration-300">
+              {isEditing ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-10">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2 text-slate-900 border-b pb-2">
+                      <FileText className="size-4" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider">Thông tin cơ bản</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-bold text-slate-500 uppercase">Tên sản phẩm</Label>
+                        <Input value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="h-10 rounded-xl" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold text-slate-500 uppercase">Mã SKU</Label>
+                          <Input value={form.sku} onChange={(e) => setForm({...form, sku: e.target.value})} className="h-10 rounded-xl font-mono" />
                         </div>
-                        <div className="grid grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên sản phẩm</Label>
-                            <Input value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="h-12 rounded-2xl border-slate-200 focus:border-primary/50 bg-white" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã SKU</Label>
-                            <Input value={form.sku} onChange={(e) => setForm({...form, sku: e.target.value})} className="h-12 rounded-2xl border-slate-200 font-mono bg-white" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Đơn vị tính</Label>
-                            <Input value={form.unit} onChange={(e) => setForm({...form, unit: e.target.value})} className="h-12 rounded-2xl border-slate-200 bg-white" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Đặt hàng tối thiểu</Label>
-                            <Input type="number" value={form.minOrderKg} onChange={(e) => setForm({...form, minOrderKg: Number(e.target.value)})} className="h-12 rounded-2xl border-slate-200 bg-white" />
-                          </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold text-slate-500 uppercase">Trạng thái</Label>
+                          <Select value={form.status} onValueChange={(val) => setForm({ ...form, status: val as ProductStatus })}>
+                            <SelectTrigger className="h-10 rounded-xl">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {Object.entries(PRODUCT_STATUS_LABELS).map(([key, label]) => (
+                                <SelectItem key={key} value={key}>{label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-
-                      <div className="space-y-6 pt-10 border-t border-primary/5">
-                        <div className="flex items-center gap-3">
-                          <div className="size-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20"><Fingerprint className="size-4.5" /></div>
-                          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Truy xuất nguồn gốc</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold text-slate-500 uppercase">Giá bán (VNĐ/kg)</Label>
+                          <Input type="number" value={form.pricePerKg} onChange={(e) => setForm({...form, pricePerKg: Number(e.target.value)})} className="h-10 rounded-xl" />
                         </div>
-                        <div className="grid grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Loại giống cây</Label>
-                            <Input value={form.cropType} onChange={(e) => setForm({...form, cropType: e.target.value})} className="h-12 rounded-2xl border-slate-200 bg-white" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày thu hoạch</Label>
-                            <Input type="date" value={form.harvestDate?.split('T')[0]} onChange={(e) => setForm({...form, harvestDate: e.target.value})} className="h-12 rounded-2xl border-slate-200 bg-white" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã vùng trồng (Plot)</Label>
-                            <Input value={form.plotId} onChange={(e) => setForm({...form, plotId: e.target.value})} className="h-12 rounded-2xl border-slate-200 font-mono bg-white" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã hợp đồng</Label>
-                            <Input value={form.contractId} onChange={(e) => setForm({...form, contractId: e.target.value})} className="h-12 rounded-2xl border-slate-200 font-mono bg-white" />
-                          </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold text-slate-500 uppercase">Tồn kho (kg)</Label>
+                          <Input type="number" value={form.stockKg} onChange={(e) => setForm({...form, stockKg: Number(e.target.value)})} className="h-10 rounded-xl" />
                         </div>
                       </div>
+                    </div>
+                  </div>
 
-                      <div className="space-y-4 pt-10 border-t border-primary/5">
-                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Danh mục sản phẩm</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {categories.map((cat) => (
-                            <button
-                              key={cat.id}
-                              type="button"
-                              onClick={() => toggleCategory(cat.id)}
-                              className={cn(
-                                "px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] transition-all border",
-                                form.categoryIds.includes(cat.id)
-                                  ? "bg-primary border-primary text-white shadow-lg shadow-primary/25"
-                                  : "bg-white border-slate-200 text-slate-400 hover:border-primary/30 hover:text-primary"
-                              )}
-                            >
-                              {cat.name}
-                            </button>
-                          ))}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2 text-slate-900 border-b pb-2">
+                      <Fingerprint className="size-4" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider">Truy xuất & Mô tả</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold text-slate-500 uppercase">Loại giống</Label>
+                          <Input value={form.cropType} onChange={(e) => setForm({...form, cropType: e.target.value})} className="h-10 rounded-xl" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold text-slate-500 uppercase">Phẩm cấp</Label>
+                          <Select value={form.grade} onValueChange={(val) => setForm({ ...form, grade: val as any })}>
+                            <SelectTrigger className="h-10 rounded-xl">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {['A', 'B', 'C', 'REJECT'].map((g) => (
+                                <SelectItem key={g} value={g}>Hạng {g}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-
-                      <div className="space-y-4 pt-10 border-t border-slate-100">
-                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mô tả sản phẩm</Label>
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-bold text-slate-500 uppercase">Mô tả sản phẩm</Label>
                         <textarea
                           value={form.description}
                           onChange={(e) => setForm({ ...form, description: e.target.value })}
-                          className="w-full min-h-[150px] rounded-2xl border border-slate-200 bg-white px-6 py-5 text-sm resize-none"
+                          className="w-full min-h-[100px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm resize-none"
                         />
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-16 pt-4">
-                      <div className="grid grid-cols-2 gap-x-12 gap-y-16">
-                        {/* Basic Info Group */}
-                        <div className="space-y-8">
-                           <div className="flex items-center gap-3">
-                             <div className="size-9 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20"><FileText className="size-4.5" /></div>
-                             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Thông tin chung</h3>
-                           </div>
-                           <div className="space-y-6">
-                             <div className="flex flex-col gap-1">
-                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Mã định danh SKU</span>
-                               <span className="text-sm font-black text-primary font-mono bg-primary/5 px-4 py-2 rounded-xl border border-primary/10 w-fit">{product.sku}</span>
-                             </div>
-                             <div className="flex flex-col gap-0.5">
-                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Đơn vị kinh doanh</span>
-                               <span className="text-base font-black text-slate-900">Mỗi {product.unit || 'Kilôgam'}</span>
-                             </div>
-                             <div className="flex flex-col gap-0.5">
-                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Chính sách đặt hàng</span>
-                               <span className="text-base font-black text-slate-900">Tối thiểu {product.minOrderKg} {product.unit || 'kg'} / đơn</span>
-                             </div>
-                           </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10">
+                  <div className="lg:col-span-2 space-y-8">
+                    {/* General Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-slate-500 mb-2">
+                          <FileText className="size-3.5" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider">Thông tin chung</span>
                         </div>
-
-                        {/* Traceability Group */}
-                        <div className="space-y-8">
-                           <div className="flex items-center gap-3">
-                             <div className="size-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20"><Fingerprint className="size-4.5" /></div>
-                             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Truy xuất nguồn gốc</h3>
-                           </div>
-                           <div className="space-y-6">
-                             <div className="flex items-start gap-4">
-                               <div className="size-10 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 text-slate-400">
-                                 <Calendar className="size-5" />
-                               </div>
-                               <div className="flex flex-col">
-                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ngày thu hoạch</span>
-                                 <span className="text-sm font-black text-slate-900">{product.harvestDate ? new Date(product.harvestDate).toLocaleDateString('vi-VN', { dateStyle: 'long' }) : 'Chưa cập nhật'}</span>
-                               </div>
-                             </div>
-                             <div className="flex items-start gap-4">
-                               <div className="size-10 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 text-slate-400">
-                                 <MapPin className="size-5" />
-                               </div>
-                               <div className="flex flex-col">
-                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vùng canh tác (Plot)</span>
-                                 <span className="text-sm font-black text-primary font-mono underline underline-offset-4 decoration-primary/20">{product.plot?.plotCode || product.plotId || 'N/A'}</span>
-                               </div>
-                             </div>
-                             <div className="flex items-start gap-4">
-                               <div className="size-10 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 text-slate-400">
-                                 <Globe className="size-5" />
-                               </div>
-                               <div className="flex flex-col">
-                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Mã hợp đồng liên kết</span>
-                                 <span className="text-sm font-black text-slate-900 font-mono">{product.contract?.contractNo || product.contractId || 'N/A'}</span>
-                               </div>
-                             </div>
-                           </div>
-                        </div>
-
-                        {/* Tech & QR Section */}
-                        {product.aiConfidenceScore !== undefined && (
-                          <div className="col-span-2 p-10 rounded-[2.5rem] bg-linear-to-br from-primary to-primary-foreground text-white flex items-center justify-between gap-10 shadow-2xl shadow-primary/20 relative overflow-hidden group">
-                            <div className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-white/10 blur-[80px]" />
-                            <div className="flex-1 space-y-8 relative">
-                              <div className="flex items-center gap-3">
-                                <div className="size-8 rounded-xl bg-white/20 flex items-center justify-center text-white"><Cpu className="size-5" /></div>
-                                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/70">Minh bạch dữ liệu AI</h3>
-                              </div>
-                              <div className="space-y-5">
-                                <div className="flex flex-col gap-3">
-                                  <div className="flex justify-between items-end">
-                                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/50">Độ tin cậy xác thực (Confidence)</span>
-                                    <span className="text-3xl font-black text-white">{product.aiConfidenceScore}%</span>
-                                  </div>
-                                  <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
-                                    <div className="h-full bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.5)] transition-all duration-1000" style={{ width: `${product.aiConfidenceScore}%` }} />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="size-36 p-4 bg-white rounded-3xl flex flex-col items-center justify-center gap-2 shadow-2xl shrink-0 group-hover:scale-110 transition-transform duration-500">
-                              <QrCode className="size-20 text-primary" />
-                              <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">QR Verified</span>
-                            </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between py-2 border-b border-slate-100">
+                            <span className="text-sm text-slate-500">Giá niêm yết</span>
+                            <span className="text-sm font-bold text-slate-900">{formatPrice(product.pricePerKg)}/kg</span>
                           </div>
-                        )}
-
-                        {/* Description Section */}
-                        <div className="col-span-2 space-y-6">
-                          <div className="flex items-center gap-3">
-                            <div className="size-9 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20"><ShieldCheck className="size-4.5" /></div>
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Giới thiệu sản phẩm</h3>
+                          <div className="flex justify-between py-2 border-b border-slate-100">
+                            <span className="text-sm text-slate-500">Tồn kho hiện tại</span>
+                            <span className="text-sm font-bold text-slate-900">{product.stockKg.toLocaleString()} {product.unit || 'kg'}</span>
                           </div>
-                          <div className="relative">
-                            <div className="absolute -left-4 top-0 bottom-0 w-1.5 bg-indigo-500/20 rounded-full" />
-                            <p className="text-base leading-[2] text-slate-600 font-medium px-4 italic">
-                              "{product.description || 'Chưa có mô tả chi tiết cho sản phẩm này.'}"
-                            </p>
+                          <div className="flex justify-between py-2 border-b border-slate-100">
+                            <span className="text-sm text-slate-500">Chất lượng</span>
+                            <span className="text-sm font-bold text-slate-900">Hạng {product.grade}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-slate-100">
+                            <span className="text-sm text-slate-500">Giống cây</span>
+                            <span className="text-sm font-bold text-slate-900">{product.cropType || '—'}</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* System Info Footer */}
-                      <div className="pt-16 border-t border-slate-100 opacity-40">
-                        <div className="flex items-center justify-between text-slate-400">
-                          <div className="flex flex-wrap items-center gap-x-10 gap-y-3 text-[10px] font-black uppercase tracking-widest">
-                             <div className="flex items-center gap-2.5"><Fingerprint className="size-3.5" /> ID: {product.id}</div>
-                             <div className="flex items-center gap-2.5"><Globe className="size-3.5" /> {product.slug}</div>
-                             <div className="flex items-center gap-2.5"><History className="size-3.5" /> Created: {new Date(product.createdAt).toLocaleDateString('vi-VN')}</div>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-slate-500 mb-2">
+                          <Fingerprint className="size-3.5" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider">Nguồn gốc & Hệ thống</span>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between py-2 border-b border-slate-100">
+                            <span className="text-sm text-slate-500">Mã vùng trồng</span>
+                            <span className="text-sm font-mono font-medium text-primary">{product.plot?.plotCode || '—'}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-slate-100">
+                            <span className="text-sm text-slate-500">Mã hợp đồng</span>
+                            <span className="text-sm font-mono font-medium text-slate-900">{product.contract?.contractNo || '—'}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-slate-100">
+                            <span className="text-sm text-slate-500">Ngày thu hoạch</span>
+                            <span className="text-sm font-bold text-slate-900">{product.harvestDate ? formatDate(product.harvestDate) : '—'}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-slate-100">
+                            <span className="text-sm text-slate-500">Độ tin cậy AI</span>
+                            <span className="text-sm font-bold text-emerald-600">{product.aiConfidenceScore ? `${product.aiConfidenceScore}%` : '—'}</span>
                           </div>
                         </div>
                       </div>
                     </div>
-                  )}
+
+                    {/* Description */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <Info className="size-3.5" />
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Mô tả chi tiết</span>
+                      </div>
+                      <p className="text-sm leading-relaxed text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100 whitespace-pre-wrap">
+                        {product.description || 'Chưa có mô tả chi tiết cho sản phẩm này.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Sidebar Info */}
+                  <div className="space-y-6">
+                    <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-4">
+                      <div className="flex items-center gap-2 text-slate-500 border-b pb-2">
+                        <QrCode className="size-3.5" />
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Mã định danh QR</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-3 py-2">
+                        <div className="size-32 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100">
+                          <QrCode className="size-20 text-slate-300" />
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-tighter">{product.qrCode}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-3">
+                      <div className="flex items-center gap-2 text-slate-400 mb-1">
+                        <History className="size-3" />
+                        <span className="text-[9px] font-bold uppercase tracking-widest">Nhật ký hệ thống</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 space-y-2">
+                        <p>ID: <span className="font-mono text-[10px]">{product.id}</span></p>
+                        <p>Tạo: {formatDate(product.createdAt)}</p>
+                        <p>Cập nhật: {formatDate(product.updatedAt)}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </CustomScrollArea>
+              )}
             </TabsContent>
 
-            <TabsContent value="media" className="m-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <CustomScrollArea className="h-full">
-                <div className="px-8 pb-32 pt-4 space-y-10">
-                  {isEditing ? (
-                    <div className="space-y-10">
-                       <div className="space-y-4">
-                         <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ảnh đại diện (Thumbnail)</Label>
-                         <FileUpload multiple={false} onFileSelect={handleThumbnailUpload} />
-                         {form.thumbnailUrl && (
-                           <div className="mt-4 aspect-video rounded-3xl overflow-hidden border-4 border-slate-50 shadow-lg">
-                             <img src={form.thumbnailUrl} alt="thumbnail" className="w-full h-full object-cover" />
+            <TabsContent value="media" className="m-0 space-y-8 animate-in fade-in duration-300 pb-10">
+              {isEditing ? (
+                <div className="space-y-8">
+                   <div className="space-y-4">
+                     <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ảnh đại diện chính</Label>
+                     <FileUpload multiple={false} onFileSelect={handleThumbnailUpload} />
+                     {form.thumbnailUrl && (
+                       <div className="mt-4 aspect-video max-w-md rounded-2xl overflow-hidden border border-slate-200">
+                         <img src={form.thumbnailUrl} alt="thumbnail" className="w-full h-full object-cover" />
+                       </div>
+                     )}
+                   </div>
+                   <div className="space-y-4 pt-8 border-t">
+                     <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Album hình ảnh ({form.imageUrls.length})</Label>
+                     <FileUpload multiple={true} onFilesSelect={handleMultiFileUpload} />
+                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
+                       {form.imageUrls.map((url, i) => (
+                         <div key={i} className="group relative aspect-square rounded-xl overflow-hidden border border-slate-200">
+                           <img src={url} alt="album" className="w-full h-full object-cover" />
+                           <div className="absolute inset-0 bg-rose-500/80 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center cursor-pointer" onClick={() => handleRemoveImage(url)}>
+                             <Trash2 className="size-4 text-white" />
                            </div>
-                         )}
-                       </div>
-                       <div className="space-y-4 pt-10 border-t border-slate-100">
-                         <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Album hình ảnh ({form.imageUrls.length})</Label>
-                         <FileUpload multiple={true} onFilesSelect={handleMultiFileUpload} />
-                         <div className="grid grid-cols-4 gap-4 mt-6">
-                           {form.imageUrls.map((url, i) => (
-                             <div key={i} className="group relative aspect-square rounded-2xl overflow-hidden border-2 border-slate-100">
-                               <img src={url} alt="album" className="w-full h-full object-cover" />
-                               <div className="absolute inset-0 bg-rose-500/80 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center cursor-pointer" onClick={() => handleRemoveImage(url)}>
-                                 <Trash2 className="size-5 text-white" />
-                               </div>
-                             </div>
-                           ))}
                          </div>
-                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-12">
-                    <div className="space-y-16">
-                       <div className="space-y-8">
-                          <div className="flex items-center justify-center">
-                            <Badge className="bg-primary/10 text-primary border-none text-[11px] h-8 px-6 font-black uppercase tracking-[0.2em] rounded-full">Ảnh đại diện chính</Badge>
-                          </div>
-                          <div 
-                            className="aspect-video rounded-[3.5rem] overflow-hidden border-[12px] border-slate-50 shadow-2xl shadow-slate-200/50 cursor-zoom-in group relative"
-                            onClick={() => setSelectedZoomImage(product.thumbnailUrl || product.imageUrls[0])}
-                          >
-                            <img src={product.thumbnailUrl || product.imageUrls[0]} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <ImageIcon className="size-12 text-white/80" />
-                            </div>
-                          </div>
-                       </div>
-                       <div className="space-y-10 pt-10 border-t border-slate-100">
-                          <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 text-center">Album chi tiết sản phẩm</h3>
-                          <div className="grid grid-cols-3 gap-8">
-                            {product.imageUrls.map((url, i) => (
-                              <div 
-                                key={i} 
-                                className="aspect-square rounded-[2.5rem] overflow-hidden border-8 border-slate-50 shadow-xl cursor-zoom-in hover:scale-[1.08] transition-all duration-500 group relative"
-                                onClick={() => setSelectedZoomImage(url)}
-                              >
-                                <img src={url} alt={`${product.name} detail ${i + 1}`} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
-                            ))}
-                          </div>
-                       </div>
-                    </div>
-                    </div>
-                  )}
+                       ))}
+                     </div>
+                   </div>
                 </div>
-              </CustomScrollArea>
+              ) : (
+                <div className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ảnh đại diện</span>
+                      <div 
+                        className="aspect-video rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm cursor-zoom-in group relative"
+                        onClick={() => setSelectedZoomImage(product.thumbnailUrl || product.imageUrls[0])}
+                      >
+                        <img src={product.thumbnailUrl || product.imageUrls[0]} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Album ({product.imageUrls.length} ảnh)</span>
+                      <div className="grid grid-cols-3 gap-3">
+                        {product.imageUrls.map((url, i) => (
+                          <div 
+                            key={i} 
+                            className="aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm cursor-zoom-in hover:opacity-90 transition-all"
+                            onClick={() => setSelectedZoomImage(url)}
+                          >
+                            <img src={url} alt={`${product.name} ${i + 1}`} className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>
 
-        {/* Floating Action Bar (In Edit Mode) */}
-        {isEditing && (
-          <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-white via-white/95 to-transparent pointer-events-none">
-            <div className="max-w-md mx-auto bg-slate-900 rounded-[2.5rem] p-2.5 shadow-2xl flex items-center gap-2 pointer-events-auto border border-white/10 shadow-slate-900/40">
-              <Button
-                variant="ghost"
-                className="flex-1 h-14 text-slate-400 hover:bg-white/5 hover:text-white font-black text-[11px] uppercase tracking-widest rounded-[1.75rem] transition-all"
-                onClick={() => setIsEditing(false)}
-              >
-                Hủy bỏ
-              </Button>
-              <Button
-                className="flex-[2] h-14 bg-slate-900 text-white hover:bg-slate-800 font-black text-[11px] uppercase tracking-widest rounded-[1.75rem] shadow-xl shadow-slate-200 transition-all active:scale-[0.98]"
-                onClick={handleSubmit}
-                disabled={isUpdating}
-              >
-                {isUpdating ? <Activity className="size-5 animate-spin mr-2" /> : <Save className="size-5 mr-2" />}
-                Lưu thay đổi
-              </Button>
-            </div>
-          </div>
-        )}
-      </SheetContent>
+        <DialogFooter className="shrink-0 border-t px-6 py-3 sm:justify-end sm:px-8 bg-slate-50/50 gap-2">
+          {isEditing && (
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white min-w-[120px] font-bold rounded-xl"
+              onClick={handleSubmit}
+              disabled={isUpdating}
+            >
+              {isUpdating ? <Loader2 className="size-4 animate-spin mr-2" /> : <Save className="size-4 mr-2" />}
+              Lưu thay đổi
+            </Button>
+          )}
+          <Button type="button" variant="secondary" className="font-bold rounded-xl" onClick={() => onOpenChange(false)} disabled={isUpdating}>
+            Đóng
+          </Button>
+        </DialogFooter>
+      </DialogContent>
 
       {/* Lightbox Dialog */}
       <Dialog open={!!selectedZoomImage} onOpenChange={(open) => !open && setSelectedZoomImage(null)}>
@@ -736,6 +566,6 @@ export function ProductDetailsDialog({
           )}
         </DialogContent>
       </Dialog>
-    </Sheet>
+    </Dialog>
   );
 }

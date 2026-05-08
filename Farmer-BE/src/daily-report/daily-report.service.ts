@@ -34,7 +34,7 @@ const reportListInclude = {
       cropType: true,
       areaHa: true,
       contracts: {
-        where: { status: ContractStatus.ACTIVE },
+        where: { status: { in: [ContractStatus.ACTIVE, ContractStatus.SETTLED] } },
         take: 1,
         select: {
           id: true,

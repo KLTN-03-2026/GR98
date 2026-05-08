@@ -13,7 +13,7 @@ import {
   CreateProductFromLotDto,
   CreateProductFromContractDto,
 } from './dto/create-product.dto';
-import { Role, InventoryLotStatus } from '@prisma/client';
+import { Role, InventoryLotStatus, ProductStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -104,7 +104,7 @@ export class ProductsService {
 
     // Nếu là public query -> chỉ lấy PUBLISHED
     if (!adminId) {
-      where.status = 'PUBLISHED';
+      where.status = ProductStatus.PUBLISHED;
     } else {
       where.adminId = adminId;
       if (query.status) where.status = query.status;
@@ -237,7 +237,7 @@ export class ProductsService {
 
   async findFeatured(limit: number) {
     const items = await this.prisma.product.findMany({
-      where: { status: 'PUBLISHED' },
+      where: { status: ProductStatus.PUBLISHED },
       take: limit,
       orderBy: { createdAt: 'desc' }, // Or averageRating if implemented
       include: {
@@ -262,8 +262,8 @@ export class ProductsService {
     const limit = parseInt(query.limit || '15', 10);
     const skip = (page - 1) * limit;
 
-    const where = {
-      status: 'PUBLISHED',
+    const where: any = {
+      status: ProductStatus.PUBLISHED,
       categories: {
         some: {
           category: { slug: categorySlug },
@@ -315,7 +315,7 @@ export class ProductsService {
     const items = await this.prisma.product.findMany({
       where: {
         id: { not: productId },
-        status: 'PUBLISHED',
+        status: ProductStatus.PUBLISHED,
         OR: [
           { categories: { some: { categoryId: { in: categoryIds } } } },
           { cropType: product.cropType },
@@ -500,7 +500,7 @@ export class ProductsService {
         plotId: inheritedPlotId,
         contractId: inheritedContractId,
         qrCode: uuidv4(),
-        status: 'PUBLISHED', // Niêm yết ngay
+        status: ProductStatus.PUBLISHED, // Niêm yết ngay
         categories: categoryIds
           ? {
             create: categoryIds.map((cid) => ({ categoryId: cid })),
@@ -573,7 +573,7 @@ export class ProductsService {
         harvestDate: contract.harvestDue,
         stockKg: 0, // Mặc định bằng 0 như yêu cầu
         qrCode: uuidv4(),
-        status: 'PUBLISHED',
+        status: ProductStatus.PUBLISHED,
         categories: categoryIds
           ? {
             create: categoryIds.map((cid) => ({ categoryId: cid })),

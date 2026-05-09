@@ -66,7 +66,7 @@ export default function InventoryWarehousesPage() {
   }, [warehouses]);
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-6 p-0 font-manrope">
+    <div className="h-full min-h-0">
       <DataGrid<Warehouse>
         items={filteredWarehouses}
         title="Quản lý Kho hàng"
@@ -179,7 +179,7 @@ export default function InventoryWarehousesPage() {
           },
           filters: (
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 rounded-full bg-slate-100 p-1">
+              <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
                 {[
                   { id: 'all', label: 'Tất cả' },
                   { id: 'small', label: 'Nhỏ' },
@@ -189,7 +189,7 @@ export default function InventoryWarehousesPage() {
                     key={s.id}
                     onClick={() => setScaleFilter(s.id as ScaleFilter)}
                     className={cn(
-                      "px-4 py-1.5 text-xs font-bold rounded-full transition-all whitespace-nowrap",
+                      "px-4 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap",
                       scaleFilter === s.id 
                         ? "bg-primary text-primary-foreground shadow-sm" 
                         : "text-muted-foreground hover:text-foreground"
@@ -205,7 +205,7 @@ export default function InventoryWarehousesPage() {
                 <select
                   value={regionFilter}
                   onChange={(event) => setRegionFilter(event.target.value)}
-                  className="h-9 min-w-[8rem] max-w-[12rem] rounded-full border border-slate-200 bg-white pl-9 pr-3 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+                  className="h-9 min-w-[8rem] max-w-[12rem] rounded-md border bg-background pl-9 pr-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
                 >
                   <option value="all">Khu vực</option>
                   {regions.map((region) => (
@@ -219,7 +219,7 @@ export default function InventoryWarehousesPage() {
               <Button
                 variant="outline"
                 size="icon"
-                className="size-9 rounded-full border-slate-200 bg-white shadow-sm shrink-0"
+                className="size-9 shrink-0"
                 onClick={() => refetch()}
                 disabled={isRefetching}
               >
@@ -229,11 +229,11 @@ export default function InventoryWarehousesPage() {
           ),
           quickStats: (
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-sky-800">
+              <div className="flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-sky-800">
                 <LayoutGrid className="size-3.5" />
                 <span className="font-bold">{warehouses.length} kho</span>
               </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
+              <div className="flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
                 <Box className="size-3.5" />
                 <span className="font-bold">{totalLots} lô</span>
               </div>

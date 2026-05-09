@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { 
     Coins, 
     Tag, 
-    RefreshCw, 
     MoreVertical, 
     Edit2, 
     Trash2, 
@@ -231,15 +230,14 @@ export default function PriceBoardsPage() {
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto font-manrope animate-in fade-in duration-500">
-      {/* Header Section - Admin Style */}
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
             <div className="flex items-center gap-2">
                 <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8 text-primary">
                     <Coins className="size-4" />
                 </div>
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                <h1 className="text-2xl font-semibold tracking-tight">
                     Bảng giá Nông sản
                 </h1>
             </div>
@@ -250,17 +248,8 @@ export default function PriceBoardsPage() {
 
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            size="icon"
-            className="size-9 rounded-xl border-slate-200"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw className={cn("size-4 text-slate-400", isFetching && "animate-spin")} />
-          </Button>
-          <Button
             size="sm"
-            className="h-9 rounded-xl px-4 font-bold"
+            className="h-9"
             onClick={() => setIsAddOpen(true)}
           >
             <Plus className="size-4 mr-2" />

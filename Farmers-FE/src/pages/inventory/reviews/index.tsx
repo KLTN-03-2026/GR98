@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, BookOpenCheck, Star, Trash2, CheckCircle, XCircle, MoreVertical, RefreshCw, X } from 'lucide-react';
+import { Search, BookOpenCheck, Star, Trash2, CheckCircle, XCircle, MoreVertical, X } from 'lucide-react';
 import { useInternalReviews, useUpdateReviewStatus, useDeleteReview } from '@/client/api/reviews';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -247,38 +247,23 @@ export default function ReviewsAdminPage() {
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto font-manrope animate-in fade-in duration-500">
-      {/* Header Section - Admin Style */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-1">
-            <div className="flex items-center gap-2">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8 text-primary shadow-sm">
-                    <BookOpenCheck className="size-5" />
-                </div>
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                    Quản lý Đánh giá
-                </h1>
-            </div>
-            <p className="text-sm text-muted-foreground">
-                Kiểm duyệt và phản hồi các đánh giá của khách hàng về chất lượng sản phẩm.
-            </p>
-        </div>
-
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-9 rounded-xl border-slate-200"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw className={cn("size-4 text-slate-400", isFetching && "animate-spin")} />
-          </Button>
+          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8 text-primary">
+            <BookOpenCheck className="size-5" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Quản lý Đánh giá
+          </h1>
         </div>
+        <p className="text-sm text-muted-foreground">
+          Kiểm duyệt và phản hồi các đánh giá của khách hàng về chất lượng sản phẩm.
+        </p>
       </div>
 
-      <Card className="border-border/60 shadow-sm overflow-hidden">
-        <CardContent className="p-6">
+      <Card>
+        <CardContent className="pt-6">
           <DataTable
             columns={columns}
             data={items}

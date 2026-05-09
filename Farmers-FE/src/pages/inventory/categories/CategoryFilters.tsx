@@ -13,20 +13,20 @@ interface CategoryFiltersProps {
 
 export function CategoryFilters({ search, onSearchChange, status, onStatusChange }: CategoryFiltersProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-end gap-3">
       {/* Search */}
-      <div className="relative group min-w-[200px]">
+      <div className="relative min-w-[220px] flex-1 max-w-sm">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
         <Input
           placeholder="Tìm danh mục..."
-          className="h-9 rounded-full border-slate-200 pl-9 focus-visible:ring-primary/20 focus-visible:border-primary"
+          className="h-9 pl-9"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
       {/* Status Filter */}
       <Select value={status} onValueChange={onStatusChange}>
-        <SelectTrigger className="w-[150px] h-9 rounded-full border-slate-200">
+        <SelectTrigger className="h-9 w-[170px]">
           <SelectValue placeholder="Trạng thái" />
         </SelectTrigger>
         <SelectContent>

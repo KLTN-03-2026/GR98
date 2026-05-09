@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { PaginationState, Updater } from '@tanstack/react-table';
 import { cn } from '@/lib/utils';
 import { 
   ShoppingCart, 
-  RefreshCw, 
 } from 'lucide-react';
 import { useOrders } from '@/client/api';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,19 +27,32 @@ import { Search, X } from 'lucide-react';
 export default function InventoryOrdersPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState('');
   const [fulfillFilter, setFulfillFilter] = useState<string>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<string>('ALL');
 
   const { data, isLoading, isFetching, refetch } = useOrders({
     page,
-    limit: 10,
+    limit,
     search: search || undefined,
     fulfillStatus: fulfillFilter === 'ALL' ? undefined : (fulfillFilter as FulfillStatus),
     paymentStatus: paymentFilter === 'ALL' ? undefined : (paymentFilter as PaymentStatus),
   });
 
   const orders = data?.data ?? [];
+  const totalPages = data?.totalPages ?? 1;
+  const total = data?.total ?? 0;
+  const paginationState = useMemo(
+    () => ({ pageIndex: page - 1, pageSize: limit }),
+    [page, limit],
+  );
+  const handlePaginationChange = (updater: Updater<PaginationState>) => {
+    const prev: PaginationState = { pageIndex: page - 1, pageSize: limit };
+    const next = typeof updater === 'function' ? updater(prev) : updater;
+    setPage(next.pageIndex + 1);
+    setLimit(next.pageSize);
+  };
 
   const stats = useMemo(() => {
     return {
@@ -120,25 +133,13 @@ export default function InventoryOrdersPage() {
   );
 
   return (
-    <div className="space-y-6 p-4 md:p-6 font-manrope">
-      {/* Header Section - Admin Style */}
+    <div className="space-y-6 p-4 md:p-6">
       <div className="space-y-1">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
-                    <ShoppingCart className="size-4 text-primary" />
-                </div>
-                <h1 className="text-2xl font-semibold tracking-tight">Đơn hàng & Thanh toán</h1>
-            </div>
-            <Button
-                variant="outline"
-                size="icon"
-                className="size-9 rounded-xl border-slate-200"
-                onClick={() => refetch()}
-                disabled={isFetching}
-            >
-                <RefreshCw className={`size-4 text-muted-foreground ${isFetching ? 'animate-spin' : ''}`} />
-            </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+            <ShoppingCart className="size-4 text-primary" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Đơn hàng & Thanh toán</h1>
         </div>
         <p className="text-sm text-muted-foreground">
           Quản lý và giám sát quy trình xử lý đơn hàng, giao nhận và đối soát thanh toán.
@@ -166,6 +167,12 @@ export default function InventoryOrdersPage() {
             onReload={() => refetch()}
             hiddenSearch
             enableSorting={false}
+            manualPagination
+            pageCount={Math.max(1, totalPages)}
+            totalItems={total}
+            onPaginationChange={handlePaginationChange}
+            state={{ pagination: paginationState }}
+            pageSizeOptions={[10, 20, 30, 50, 100]}
             filterToolbar={filterToolbar}
             noResults={<span className="text-muted-foreground">Không tìm thấy đơn hàng nào.</span>}
           />

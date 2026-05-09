@@ -52,6 +52,7 @@ interface DataTableProps<TData, TValue> {
   filterToolbar?: React.ReactNode;
   enableCheckbox?: boolean;
   onDeleteMultiple?: (selectedRows: any[]) => void;
+  getRowProps?: (data: TData) => React.HTMLAttributes<HTMLTableRowElement>;
 
   // SSR (Manual) Props
   totalItems?: number;
@@ -98,6 +99,7 @@ export function DataTable<TData, TValue>({
   filterToolbar,
   enableCheckbox = false,
   onDeleteMultiple,
+  getRowProps,
 
   // SSR
   totalItems,
@@ -249,7 +251,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className={cn("w-full space-y-4", className)}>
-      {(titleTable || descripTable || customActions) && (
+      {(titleTable || descripTable) && (
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
             {titleTable && <h2 className="text-2xl font-bold">{titleTable}</h2>}
@@ -268,6 +270,7 @@ export function DataTable<TData, TValue>({
         searchPlaceholder={searchPlaceholder}
         hiddenSearch={hiddenSearch}
         filterToolbar={filterToolbar}
+        customActions={customActions}
         onDeleteMultiple={onDeleteMultiple}
         enableCheckbox={enableCheckbox}
       />
@@ -291,12 +294,19 @@ export function DataTable<TData, TValue>({
                 <TableSkeleton key={index} columns={columnsWithCheckbox.length} />
               ))
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row) => {
+                const rowProps = getRowProps?.(row.original) ?? {};
+                const { className: rowClassName, onClick: rowOnClick, ...restRowProps } = rowProps;
+                return (
                 <TableRow
                   key={row.id}
+                  {...restRowProps}
                   data-state={row.getIsSelected() && "selected"}
-                  className={cn(onRowClick && "cursor-pointer hover:bg-muted/50")}
-                  onClick={() => onRowClick?.(row.original)}
+                  className={cn(onRowClick && "cursor-pointer hover:bg-muted/50", rowClassName)}
+                  onClick={(event) => {
+                    rowOnClick?.(event);
+                    onRowClick?.(row.original);
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -304,7 +314,8 @@ export function DataTable<TData, TValue>({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
+                );
+              })
             ) : (
               <TableRow className="h-40">
                 <TableCell colSpan={columnsWithCheckbox.length} className="h-24 text-center">

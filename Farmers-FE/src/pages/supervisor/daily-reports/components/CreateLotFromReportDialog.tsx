@@ -76,17 +76,22 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
   const loadRemainingBalance = async () => {
     if (!activeContract) return;
     try {
-      // Sum up existing lots for this contract
+      // Lấy tất cả lots của contract này
       const res = await lotApi.getLots({ contractId: activeContract.id });
       const lots = extractData<InventoryLot[]>(res);
       const totalIssued = lots.reduce((sum, lot) => sum + (lot.status !== 'REJECTED' ? lot.quantityKg : 0), 0);
-      const remaining = (report?.yieldEstimateKg || 0) - totalIssued;
-      setRemainingBalance(remaining > 0 ? remaining : 0);
+
+      // Frontend: dùng yieldEstimateKg của report hiện tại làm "tổng thu hoạch" hiển thị
+      // Backend sẽ tính chính xác bằng tổng tất cả harvest reports
+      // Remaining = yield hiện tại (nếu chưa xuất lô nào từ report này)
+      const currentYield = report?.yieldEstimateKg || 0;
       
-      // Auto-set weight to remaining if it's less than original estimate
-      if (remaining < (report?.yieldEstimateKg || 0)) {
-         setActualWeight(remaining.toFixed(2));
-      }
+      // Ước lượng: nếu tổng lots > tổng các báo cáo trước → remaining chỉ là currentYield
+      // Nếu chưa có lot nào → remaining = currentYield
+      // Backend sẽ validate chính xác, FE chỉ hiển thị estimate
+      const remaining = Math.max(0, currentYield);
+      setRemainingBalance(remaining);
+      setActualWeight(currentYield.toString());
     } catch (error) {
       console.error('Failed to load balance', error);
     }
@@ -189,7 +194,7 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
                 <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Thông tin sản phẩm</Label>
                 <div className="flex justify-between items-start">
                   <div className="space-y-0.5 max-w-[70%]">
-                    <p className="font-bold text-slate-900 truncate">{activeContract.product.name}</p>
+                    <p className="font-bold text-slate-900 truncate">{activeContract.product?.name || activeContract.cropType}</p>
                     <p className="text-[11px] text-slate-500 truncate">HĐ: {activeContract.contractNo}</p>
                   </div>
                   <div className="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold text-slate-600 uppercase">

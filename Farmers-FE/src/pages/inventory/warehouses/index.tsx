@@ -8,6 +8,7 @@ import {
   RefreshCcw,
   LayoutGrid,
   Map,
+  Weight,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -105,31 +106,67 @@ export default function InventoryWarehousesPage() {
               </Badge>
             </div>
 
-            <div className="mt-4 min-h-0 flex-1 grid grid-cols-2 gap-3 text-sm">
-              <div className="flex flex-col gap-1 rounded-xl border border-slate-200/60 bg-white/50 p-2.5 transition-colors group-hover:bg-white">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Lô hàng</span>
-                <div className="flex items-center gap-1.5">
-                  <Box className="size-3.5 text-emerald-600" />
-                  <span className="font-manrope text-sm font-bold text-slate-900">{warehouse.lotCount}</span>
-                </div>
-              </div>
-              <div className="flex flex-col gap-1 rounded-xl border border-slate-200/60 bg-white/50 p-2.5 transition-colors group-hover:bg-white">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Thành lập</span>
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="size-3.5 text-emerald-600" />
-                  <span className="font-manrope text-sm font-bold text-slate-900">
-                    {format(new Date(warehouse.createdAt), 'MM/yyyy')}
-                  </span>
-                </div>
-              </div>
-            </div>
+            {(() => {
+              const hasCapacity = warehouse.capacityKg != null && warehouse.capacityKg > 0;
+              const usagePercent = hasCapacity
+                ? Math.min(Math.round((warehouse.currentStock / warehouse.capacityKg!) * 100), 100)
+                : null;
+              const barColor = usagePercent === null
+                ? 'bg-primary/50'
+                : usagePercent >= 90 ? 'bg-red-500' : usagePercent >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+              const textColor = usagePercent === null
+                ? 'text-primary'
+                : usagePercent >= 90 ? 'text-red-600' : usagePercent >= 70 ? 'text-amber-600' : 'text-emerald-600';
 
-            <div className="mt-auto flex shrink-0 items-center justify-between border-t border-dashed border-primary/30 pt-3">
-               <span className="text-xs font-medium text-muted-foreground">ID: {warehouse.id.slice(0, 8)}</span>
-               <div className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-primary opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                  <WarehouseIcon className="size-3.5" />
-               </div>
-            </div>
+              return (
+                <>
+                  <div className="mt-4 min-h-0 flex-1 grid grid-cols-3 gap-2 text-sm">
+                    <div className="flex flex-col gap-1 rounded-xl border border-slate-200/60 bg-white/50 p-2.5 transition-colors group-hover:bg-white">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Lô hàng</span>
+                      <div className="flex items-center gap-1.5">
+                        <Box className="size-3.5 text-emerald-600" />
+                        <span className="font-manrope text-sm font-bold text-slate-900">{warehouse.lotCount}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1 rounded-xl border border-slate-200/60 bg-white/50 p-2.5 transition-colors group-hover:bg-white">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Tồn kho</span>
+                      <div className="flex items-center gap-1.5">
+                        <Weight className="size-3.5 text-emerald-600" />
+                        <span className="font-manrope text-xs font-bold text-slate-900">{warehouse.currentStock.toLocaleString('vi-VN')}kg</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1 rounded-xl border border-slate-200/60 bg-white/50 p-2.5 transition-colors group-hover:bg-white">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Thành lập</span>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="size-3.5 text-emerald-600" />
+                        <span className="font-manrope text-xs font-bold text-slate-900">
+                          {format(new Date(warehouse.createdAt), 'MM/yyyy')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto shrink-0 border-t border-dashed border-primary/30 pt-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-medium text-muted-foreground">
+                        {hasCapacity 
+                          ? `${warehouse.currentStock.toLocaleString('vi-VN')} / ${warehouse.capacityKg!.toLocaleString('vi-VN')} kg`
+                          : 'Không giới hạn sức chứa'}
+                      </span>
+                      <span className={cn("font-bold", textColor)}>
+                        {usagePercent !== null ? `${usagePercent}%` : '∞'}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-slate-200/70 overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full transition-all duration-500", barColor)}
+                        style={{ width: usagePercent !== null ? `${usagePercent}%` : '100%' }}
+                      />
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
         isLoading={isLoading}

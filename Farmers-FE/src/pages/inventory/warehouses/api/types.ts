@@ -5,6 +5,10 @@ export interface Warehouse {
   name: string;
   locationAddress: string | null;
   isActive: boolean;
+  /** Sức chứa tối đa của kho (kg), null là không giới hạn */
+  capacityKg: number | null;
+  /** Tồn kho hiện tại (kg) (vật lý: ARRIVED, RECEIVED) */
+  currentStock: number;
   /** Số bản ghi InventoryLot (lô hàng tồn kho) của kho — không phải lô đất / số phiếu giao dịch. */
   lotCount: number;
   createdAt: string;

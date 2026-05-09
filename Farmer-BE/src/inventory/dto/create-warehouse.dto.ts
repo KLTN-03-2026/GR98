@@ -5,7 +5,9 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  IsNumber,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateWarehouseDto {
   @ApiProperty({ example: 'Kho trung tâm' })
@@ -31,4 +33,10 @@ export class CreateWarehouseDto {
   @IsOptional()
   @IsString()
   managedBy?: string | null;
+
+  @ApiPropertyOptional({ description: 'Sức chứa tối đa của kho (kg). Bỏ trống nghĩa là không giới hạn.' })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  capacityKg?: number | null;
 }

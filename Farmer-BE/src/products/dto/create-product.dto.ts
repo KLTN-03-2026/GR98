@@ -217,7 +217,7 @@ export class CreateProductFromLotDto {
 export class CreateProductFromContractDto {
   @IsString()
   @IsNotEmpty()
-  @ApiProperty({ description: 'ID của hợp đồng (phải ở trạng thái SETTLED)' })
+  @ApiProperty({ description: 'ID của hợp đồng (phải ở trạng thái ACTIVE hoặc SETTLED)' })
   contractId: string;
 
   @IsString()

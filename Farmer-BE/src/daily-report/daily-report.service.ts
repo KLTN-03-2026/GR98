@@ -10,6 +10,7 @@ import {
   Prisma,
   ReportStatus,
   Role,
+  InventoryLotStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
@@ -180,23 +181,24 @@ export class DailyReportService {
       );
     }
 
-    // 2. Check if any non-rejected HARVEST report exists since the assignment started
-    const existingActiveHarvest = await this.prisma.dailyReport.findFirst({
+    // 2. Check if any pending HARVEST report exists (DRAFT or SUBMITTED only)
+    // Reports that are APPROVED or REVIEWED are completed — allow new harvest for next season
+    const existingPendingHarvest = await this.prisma.dailyReport.findFirst({
       where: {
         plotId,
         adminId,
         type: 'HARVEST',
-        status: { not: ReportStatus.REJECTED },
+        status: { in: [ReportStatus.DRAFT, ReportStatus.SUBMITTED] },
         reportedAt: { gte: activeAssignment.assignedAt },
         ...(skipReportId ? { id: { not: skipReportId } } : {}),
       },
     });
 
-    if (existingActiveHarvest) {
-      const status = existingActiveHarvest.status;
-      const msg = status === ReportStatus.APPROVED 
-        ? 'Sản lượng thu hoạch cho đợt phân công này đã được phê duyệt.'
-        : 'Đã tồn tại một báo cáo thu hoạch đang chờ duyệt hoặc ở trạng thái nháp.';
+    if (existingPendingHarvest) {
+      const status = existingPendingHarvest.status;
+      const msg = status === ReportStatus.SUBMITTED
+        ? 'Đã tồn tại một báo cáo thu hoạch đang chờ duyệt.'
+        : 'Đã tồn tại một báo cáo thu hoạch ở trạng thái nháp.';
       throw new BadRequestException(`${msg} Không thể tạo thêm báo cáo mới.`);
     }
   }
@@ -462,10 +464,59 @@ export class DailyReportService {
       throw new BadRequestException('Chỉ có thể duyệt báo cáo đang ở trạng thái đã gửi (SUBMITTED)');
     }
 
-    return this.prisma.dailyReport.update({
+    const result = await this.prisma.dailyReport.update({
       where: { id },
       data: { status },
       include: reportListInclude,
     });
+
+    // ── Tự động tạo Lô hàng SCHEDULED (Sắp về) khi duyệt báo cáo thu hoạch ──
+    if (status === ReportStatus.APPROVED && existing.type === 'HARVEST' && existing.yieldEstimateKg) {
+      const contract = await this.prisma.contract.findFirst({
+        where: { plotId: existing.plotId, status: ContractStatus.ACTIVE },
+        select: { id: true, product: { select: { id: true, grade: true } } }
+      });
+      
+      if (contract?.product) {
+        // Lấy tạm 1 kho của admin để làm placeholder (NV kho sẽ đổi lại khi nhận)
+        const defaultWarehouse = await this.prisma.warehouse.findFirst({
+          where: { adminId: actor.adminId, isActive: true },
+          select: { id: true }
+        });
+
+        if (defaultWarehouse) {
+          // Check if a SCHEDULED lot already exists for this report to prevent duplicates
+          // However, we don't link reportId directly in lot right now, so we just check if any SCHEDULED lot exists for this contract
+          // Wait, multiple harvest seasons? Better to check if a scheduled lot already exists
+          const existingLot = await this.prisma.inventoryLot.findFirst({
+            where: {
+              contractId: contract.id,
+              status: InventoryLotStatus.SCHEDULED,
+            }
+          });
+
+          if (!existingLot) {
+            await this.prisma.inventoryLot.create({
+              data: {
+                warehouseId: defaultWarehouse.id,
+                productId: contract.product.id,
+                contractId: contract.id,
+                quantityKg: existing.yieldEstimateKg,
+                qualityGrade: contract.product.grade,
+                status: InventoryLotStatus.SCHEDULED,
+              }
+            });
+          } else {
+             // Cập nhật số lượng nếu admin sửa và duyệt lại (hiếm, nhưng an toàn)
+             await this.prisma.inventoryLot.update({
+               where: { id: existingLot.id },
+               data: { quantityKg: existingLot.quantityKg + existing.yieldEstimateKg }
+             })
+          }
+        }
+      }
+    }
+
+    return result;
   }
 }

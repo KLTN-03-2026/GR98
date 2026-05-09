@@ -9,10 +9,12 @@ import {
   AssignStatus,
   ContractStatus,
   PlotStatus,
+  ProductStatus,
   Prisma,
   Role,
   UserStatus,
 } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
@@ -874,6 +876,7 @@ export class ContractService {
           plotId: true,
           contractNo: true,
           cropType: true,
+          grade: true,
           farmerId: true,
           supervisorId: true,
           plotDraftProvince: true,
@@ -985,6 +988,71 @@ export class ContractService {
           rejectedReason: null,
         },
       });
+
+      // ── Auto-create DRAFT product khi hợp đồng được duyệt ──────────
+      // Giải quyết chicken-and-egg: receiveHarvest cần product tồn tại,
+      // nên tạo sẵn product DRAFT ngay khi HĐ ACTIVE.
+      const existingProduct = await tx.product.findUnique({
+        where: { contractId: id },
+        select: { id: true },
+      });
+
+      if (!existingProduct) {
+        const cropType = existing.cropType;
+        const grade = existing.grade;
+        const defaultName = `${cropType} - ${existing.contractNo}`;
+
+        // Generate slug
+        const baseSlug = defaultName
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[đĐ]/g, 'd')
+          .replace(/[^a-z0-9\s-]/g, '')
+          .trim()
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-');
+        const slug = `${baseSlug}-${Date.now()}`;
+
+        // Generate SKU
+        const skuPrefix = cropType
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[đĐ]/g, 'd')
+          .replace(/[^a-zA-Z]/g, '')
+          .slice(0, 3)
+          .toUpperCase();
+        const productCount = await tx.product.count();
+        const sku = `PROD-${skuPrefix}-${new Date().getFullYear()}-${(productCount + 1).toString().padStart(4, '0')}`;
+
+        // Tra cứu giá bán từ PriceBoard (nếu có)
+        const priceConfig = await tx.priceBoard.findFirst({
+          where: {
+            adminId: actor.adminId,
+            cropType,
+            grade,
+            isActive: true,
+          },
+          orderBy: { effectiveDate: 'desc' },
+        });
+
+        await tx.product.create({
+          data: {
+            adminId: actor.adminId,
+            contractId: id,
+            plotId: nextPlotId,
+            name: defaultName,
+            slug,
+            sku,
+            cropType,
+            grade,
+            pricePerKg: priceConfig?.sellPrice ?? 0,
+            stockKg: 0,
+            qrCode: uuidv4(),
+            status: ProductStatus.DRAFT,
+          },
+        });
+      }
     });
 
     return this.findOne(id, currentUserId);

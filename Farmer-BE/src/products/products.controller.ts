@@ -151,7 +151,7 @@ export class ProductsController {
   @Roles(Role.ADMIN, Role.INVENTORY)
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Niêm yết sản phẩm từ hợp đồng đã tất toán' })
+  @ApiOperation({ summary: 'Niêm yết sản phẩm từ hợp đồng đang hiệu lực' })
   @ApiResponse({ status: 201, description: 'Sản phẩm đã được tạo từ hợp đồng' })
   createFromContract(
     @Body() dto: CreateProductFromContractDto,

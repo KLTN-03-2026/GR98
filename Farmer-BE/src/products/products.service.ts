@@ -523,8 +523,8 @@ export class ProductsService {
       throw new NotFoundException('Không tìm thấy hợp đồng hoặc hợp đồng không thuộc quyền quản lý');
     }
 
-    if (contract.status !== 'SETTLED') {
-      throw new BadRequestException('Chỉ có thể tạo sản phẩm từ hợp đồng đã tất toán (SETTLED)');
+    if (contract.status !== 'ACTIVE' && contract.status !== 'SETTLED') {
+      throw new BadRequestException('Chỉ có thể tạo sản phẩm từ hợp đồng đang hiệu lực (ACTIVE) hoặc đã tất toán (SETTLED)');
     }
 
     // Kiểm tra xem hợp đồng đã có sản phẩm chưa

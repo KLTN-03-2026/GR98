@@ -55,12 +55,12 @@ export function CreateProductFromContractDialog({
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  // 1. Lấy danh sách hợp đồng đã tất toán (SETTLED)
+  // 1. Lấy danh sách hợp đồng đang hiệu lực (ACTIVE)
   const { data: contractsResponse, isLoading: isContractsLoading } = useQuery({
-    queryKey: ['contracts', 'settled', search, page],
+    queryKey: ['contracts', 'active-for-listing', search, page],
     queryFn: async () => {
       const response = await contractApi.list({ 
-        status: 'SETTLED' as any, 
+        status: 'ACTIVE' as any, 
         limit, 
         page,
         search: search || undefined
@@ -168,7 +168,7 @@ export function CreateProductFromContractDialog({
                 Niêm yết mới
               </SheetTitle>
               <p className="text-xs font-bold text-primary/80 uppercase tracking-widest">
-                Từ hợp đồng đã tất toán
+                Từ hợp đồng đang hiệu lực
               </p>
             </div>
           </div>
@@ -185,7 +185,7 @@ export function CreateProductFromContractDialog({
             )}
 
             <form id="create-product-contract-form" onSubmit={handleFormSubmit} className="space-y-8">
-              {/* Phần 1: Hợp đồng tất toán */}
+              {/* Phần 1: Hợp đồng đang hiệu lực */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">1</div>
@@ -194,7 +194,7 @@ export function CreateProductFromContractDialog({
                 
                 <div className="space-y-3">
                   <div className="flex flex-col gap-2">
-                    <Label className="text-xs font-semibold text-slate-700 ml-1">Tìm kiếm & Chọn hợp đồng đã thanh toán</Label>
+                    <Label className="text-xs font-semibold text-slate-700 ml-1">Tìm kiếm & Chọn hợp đồng đang hiệu lực</Label>
                     <div className="relative">
                       <Input 
                         placeholder="Tìm theo mã HĐ, tên nông dân, loại cây..." 
@@ -303,7 +303,7 @@ export function CreateProductFromContractDialog({
                         <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Trạng thái HĐ</span>
                         <div>
                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[9px] font-black h-5 uppercase">
-                             Đã tất toán
+                             Đang hiệu lực
                            </Badge>
                         </div>
                       </div>

@@ -69,7 +69,7 @@ export function createLotColumns(handlers: {
     },
     {
       id: 'warehouse',
-      header: 'Kho chứa',
+      header: mode === 'upcoming' ? 'Kho chứa dự kiến' : 'Kho chứa',
       cell: ({ row }) => (
         <span className="text-sm">{row.original.warehouse.name}</span>
       ),

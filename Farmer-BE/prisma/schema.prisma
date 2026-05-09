@@ -411,6 +411,7 @@ model Warehouse {
   name            String
   locationAddress String?
   isActive        Boolean                @default(true)
+  capacityKg      Float?
   createdAt       DateTime               @default(now())
   managedBy       String?
   adminId         String

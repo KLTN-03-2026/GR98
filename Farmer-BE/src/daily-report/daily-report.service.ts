@@ -478,13 +478,39 @@ export class DailyReportService {
       });
       
       if (contract?.product) {
-        // Lấy tạm 1 kho của admin để làm placeholder (NV kho sẽ đổi lại khi nhận)
-        const defaultWarehouse = await this.prisma.warehouse.findFirst({
+        // --- Logic Smart Routing: Tìm kho có đủ sức chứa ---
+        const warehouses = await this.prisma.warehouse.findMany({
           where: { adminId: actor.adminId, isActive: true },
-          select: { id: true }
+          select: { id: true, capacityKg: true }
         });
 
-        if (defaultWarehouse) {
+        let targetWarehouseId = warehouses[0]?.id; // Fallback: chọn kho đầu tiên
+
+        for (const wh of warehouses) {
+          if (wh.capacityKg === null) {
+            targetWarehouseId = wh.id; // Ưu tiên kho không giới hạn sức chứa
+            break;
+          }
+
+          const currentLots = await this.prisma.inventoryLot.aggregate({
+            where: {
+              warehouseId: wh.id,
+              status: { in: [InventoryLotStatus.ARRIVED, InventoryLotStatus.RECEIVED, InventoryLotStatus.SCHEDULED] }
+            },
+            _sum: { quantityKg: true }
+          });
+          
+          const currentStock = currentLots._sum.quantityKg || 0;
+          const remaining = wh.capacityKg - currentStock;
+
+          if (remaining >= existing.yieldEstimateKg) {
+            targetWarehouseId = wh.id; // Kho này đủ chỗ -> chọn
+            break;
+          }
+        }
+        // --- Kết thúc Logic Smart Routing ---
+
+        if (targetWarehouseId) {
           // Check if a SCHEDULED lot already exists for this report to prevent duplicates
           // However, we don't link reportId directly in lot right now, so we just check if any SCHEDULED lot exists for this contract
           // Wait, multiple harvest seasons? Better to check if a scheduled lot already exists
@@ -498,7 +524,7 @@ export class DailyReportService {
           if (!existingLot) {
             await this.prisma.inventoryLot.create({
               data: {
-                warehouseId: defaultWarehouse.id,
+                warehouseId: targetWarehouseId,
                 productId: contract.product.id,
                 contractId: contract.id,
                 quantityKg: existing.yieldEstimateKg,

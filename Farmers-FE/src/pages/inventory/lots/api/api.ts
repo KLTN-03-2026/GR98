@@ -53,4 +53,7 @@ export const lotApi = {
     note?: string;
   }) =>
     apiPost<InventoryLot>('/inventory/receive-harvest', data),
+
+  getRemainingBalance: (contractId: string) =>
+    apiGet<{ totalYield: number; alreadyIssued: number; remaining: number }>(`/inventory/remaining-balance/${contractId}`),
 };

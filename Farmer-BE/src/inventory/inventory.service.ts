@@ -122,6 +122,7 @@ export class InventoryService {
     isActive: boolean;
     createdAt: Date;
     managedBy: string | null;
+    capacityKg: number | null;
     _count: { inventoryLots: number };
     inventory: {
       id: string;
@@ -134,6 +135,7 @@ export class InventoryService {
       name: w.name,
       locationAddress: w.locationAddress,
       isActive: w.isActive,
+      capacityKg: w.capacityKg,
       lotCount: w._count.inventoryLots,
       createdAt: w.createdAt,
       managedBy: w.managedBy,
@@ -189,6 +191,7 @@ export class InventoryService {
             id: true,
             name: true,
             locationAddress: true,
+            capacityKg: true,
             _count: { select: { inventoryLots: true } }
           },
           take: 5
@@ -220,11 +223,19 @@ export class InventoryService {
       expiringLots: expiringLotsCount,
       stagnantLots: stagnantLotsResult,
       activeWarehouses: warehouseIds.length,
-      warehousesList: warehousesList.map(w => ({
-        id: w.id,
-        name: w.name,
-        locationAddress: w.locationAddress,
-        lotCount: w._count.inventoryLots
+      warehousesList: await Promise.all(warehousesList.map(async w => {
+        const stockResult = await this.prisma.inventoryLot.aggregate({
+          where: { warehouseId: w.id, status: { in: ['ARRIVED', 'RECEIVED'] } },
+          _sum: { quantityKg: true }
+        });
+        return {
+          id: w.id,
+          name: w.name,
+          locationAddress: w.locationAddress,
+          lotCount: w._count.inventoryLots,
+          capacityKg: w.capacityKg,
+          currentStock: stockResult._sum.quantityKg || 0
+        };
       })),
       recentTransactions,
       pendingOrdersList,
@@ -299,7 +310,22 @@ export class InventoryService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return warehouses.map((w) => this.mapWarehouseListItem(w));
+    const currentStocks = await Promise.all(
+      warehouses.map(w => 
+        this.prisma.inventoryLot.aggregate({
+          where: {
+            warehouseId: w.id,
+            status: { in: ['ARRIVED', 'RECEIVED'] }
+          },
+          _sum: { quantityKg: true }
+        })
+      )
+    );
+
+    return warehouses.map((w, index) => ({
+      ...this.mapWarehouseListItem(w),
+      currentStock: currentStocks[index]._sum.quantityKg || 0
+    }));
   }
 
   async getWarehouseById(id: string, currentUser: InventoryUser) {
@@ -323,7 +349,19 @@ export class InventoryService {
     if (!warehouse || warehouse.adminId !== adminId) {
       throw new ForbiddenException('Kho hàng không tồn tại hoặc bạn không có quyền truy cập');
     }
-    return warehouse;
+    
+    const currentStockResult = await this.prisma.inventoryLot.aggregate({
+      where: {
+        warehouseId: id,
+        status: { in: ['ARRIVED', 'RECEIVED'] }
+      },
+      _sum: { quantityKg: true }
+    });
+
+    return {
+      ...warehouse,
+      currentStock: currentStockResult._sum.quantityKg || 0
+    };
   }
 
   async createWarehouse(currentUser: InventoryUser, dto: CreateWarehouseDto) {
@@ -337,6 +375,7 @@ export class InventoryService {
         locationAddress: dto.locationAddress?.trim() || null,
         isActive: dto.isActive ?? true,
         managedBy: dto.managedBy || null,
+        capacityKg: dto.capacityKg,
         adminId,
       },
       include: {
@@ -358,6 +397,7 @@ export class InventoryService {
         locationAddress: dto.locationAddress?.trim(),
         isActive: dto.isActive,
         managedBy: dto.managedBy,
+        capacityKg: dto.capacityKg,
       },
       include: {
         _count: { select: { inventoryLots: true } },
@@ -524,6 +564,47 @@ export class InventoryService {
     });
   }
 
+  async getRemainingBalance(contractId: string) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      select: { plotId: true },
+    });
+
+    if (!contract || !contract.plotId) {
+      throw new NotFoundException('Hợp đồng không tồn tại');
+    }
+
+    // Tổng sản lượng từ TẤT CẢ báo cáo thu hoạch đã duyệt cho contract này
+    const totalYieldResult = await this.prisma.dailyReport.aggregate({
+      where: {
+        plotId: contract.plotId,
+        type: 'HARVEST',
+        status: { notIn: ['DRAFT', 'REJECTED'] },
+      },
+      _sum: { yieldEstimateKg: true },
+    });
+
+    const totalYield = totalYieldResult._sum?.yieldEstimateKg || 0;
+
+    // Tổng đã xuất (loại trừ REJECTED và SCHEDULED)
+    const totalIssued = await this.prisma.inventoryLot.aggregate({
+      where: {
+        contractId,
+        status: { notIn: [InventoryLotStatus.REJECTED, InventoryLotStatus.SCHEDULED] },
+      },
+      _sum: { quantityKg: true },
+    });
+
+    const alreadyIssued = totalIssued._sum.quantityKg || 0;
+    const remaining = Math.max(0, totalYield - alreadyIssued);
+
+    return {
+      totalYield,
+      alreadyIssued,
+      remaining,
+    };
+  }
+
   async receiveHarvest(currentUser: InventoryUser, dto: ReceiveHarvestDto) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
@@ -594,17 +675,42 @@ export class InventoryService {
       );
     }
 
-    // 4. Atomic Transaction
-    return this.prisma.$transaction(async (tx) => {
-      // Tìm xem đã có lô hàng SCHEDULED (được tạo tự động lúc admin duyệt) chưa
-      const existingScheduledLot = await tx.inventoryLot.findFirst({
-        where: {
-          contractId,
-          status: InventoryLotStatus.SCHEDULED,
-        },
-        orderBy: { createdAt: 'asc' },
-      });
+    // 4. Pre-check: Sức chứa kho (ngoài transaction để BadRequestException trả về đúng)
+    const existingScheduledLot = await this.prisma.inventoryLot.findFirst({
+      where: {
+        contractId,
+        status: InventoryLotStatus.SCHEDULED,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
 
+    const targetWarehouse = await this.prisma.warehouse.findUnique({
+      where: { id: warehouseId },
+      select: { capacityKg: true, name: true }
+    });
+
+    if (targetWarehouse && targetWarehouse.capacityKg !== null) {
+      const currentLots = await this.prisma.inventoryLot.aggregate({
+        where: {
+          warehouseId,
+          status: { in: [InventoryLotStatus.ARRIVED, InventoryLotStatus.RECEIVED, InventoryLotStatus.SCHEDULED] },
+          ...(existingScheduledLot ? { id: { not: existingScheduledLot.id } } : {})
+        },
+        _sum: { quantityKg: true }
+      });
+      
+      const currentStock = currentLots._sum.quantityKg || 0;
+      const remainingCapacity = targetWarehouse.capacityKg - currentStock;
+
+      if (actualWeight > remainingCapacity) {
+        throw new BadRequestException(
+          `Kho "${targetWarehouse.name}" không đủ chỗ chứa. Sức chứa còn lại: ${remainingCapacity.toFixed(2)}kg, khối lượng nhập: ${actualWeight}kg.`
+        );
+      }
+    }
+
+    // 5. Atomic Transaction
+    return this.prisma.$transaction(async (tx) => {
       let lot;
       if (existingScheduledLot) {
         // Cập nhật lô SCHEDULED thành ARRIVED với kho thực tế và số cân thực tế

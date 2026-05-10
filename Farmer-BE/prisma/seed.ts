@@ -32,6 +32,12 @@ const ACCOUNTS: LoginSeedAccount[] = [
     role: Role.INVENTORY,
   },
   {
+    email: 'shipper@farmers.com',
+    fullName: 'Nhân Viên Giao Hàng',
+    phone: '0933444555',
+    role: Role.SHIPPER,
+  },
+  {
     email: 'client@farmers.com',
     fullName: 'Khách Hàng',
     phone: '0987654321',
@@ -48,6 +54,8 @@ async function clearNonAuthData() {
     prisma.review.deleteMany(),
     prisma.orderItem.deleteMany(),
     prisma.order.deleteMany(),
+    prisma.cartItem.deleteMany(),
+    prisma.cart.deleteMany(),
     prisma.productCategory.deleteMany(),
     prisma.product.deleteMany(),
     prisma.contract.deleteMany(),
@@ -216,6 +224,46 @@ async function upsertLoginUsersOnly() {
       userId: clientUser.id,
       adminId: adminProfile.id,
       province: 'Hà Nội',
+    },
+  });
+
+  // ==================== SHIPPER ====================
+  const shipperAccount = ACCOUNTS.find(
+    (account) => account.role === Role.SHIPPER,
+  );
+  if (!shipperAccount) {
+    throw new Error('Shipper account seed config is missing');
+  }
+
+  const shipperUser = await prisma.user.upsert({
+    where: { email: shipperAccount.email },
+    update: {
+      fullName: shipperAccount.fullName,
+      phone: shipperAccount.phone,
+      role: shipperAccount.role,
+      passwordHash: hashedPassword,
+    },
+    create: {
+      email: shipperAccount.email,
+      fullName: shipperAccount.fullName,
+      phone: shipperAccount.phone,
+      role: shipperAccount.role,
+      passwordHash: hashedPassword,
+    },
+  });
+
+  await prisma.shipperProfile.upsert({
+    where: { userId: shipperUser.id },
+    update: {
+      adminId: adminProfile.id,
+      employeeCode: 'SHP-000001',
+    },
+    create: {
+      userId: shipperUser.id,
+      adminId: adminProfile.id,
+      employeeCode: 'SHP-000001',
+      vehicleType: 'MOTORBIKE',
+      licensePlate: '29-A1 123.45',
     },
   });
 

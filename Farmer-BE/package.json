@@ -42,9 +42,11 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "cloudinary": "^2.6.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@types/multer": "^1.4.12",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",

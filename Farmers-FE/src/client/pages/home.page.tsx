@@ -25,7 +25,7 @@ const STATIC_BANNERS = [
     title: 'Cà Phê Đắk Lắk',
     subtitle: '100% rang mộc - Hương vị Tây Nguyên đậm đà',
     cta: 'Khám Phá',
-    ctaLink: '/products?cropType=CA_PHE',
+    ctaLink: '/products?cropType=ca-phe',
     imageUrl:
       'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=1400&q=85',
   },

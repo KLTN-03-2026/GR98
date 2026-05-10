@@ -5,7 +5,6 @@ import {
   Menu,
   Search,
   X,
-  ChevronDown,
   LogOut,
   Settings,
 } from 'lucide-react';
@@ -29,44 +28,30 @@ import { ModeToggle } from '@/components/custom/mode-toggle';
 interface CategoryNavItem {
   label: string;
   href: string;
-  children: { label: string; href: string }[];
 }
 
 /**
  * Build navbar từ danh sách Category của DB.
- * Chiến lược hiển thị: gom các category theo prefix slug để tạo group hợp lý.
- * - "sau-rieng-*" → group "Sầu Riêng"
- * - "ca-phe-*" → group "Cà Phê"
- * - còn lại → hiện riêng lẻ (không có children)
  */
 function buildCategoriesNav(
-  cats: Array<{ id: string; name: string; slug: string; sortOrder: number }>,
+  cats: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    sortOrder: number;
+    productCount?: number;
+  }>,
+  topN = 5,
 ): CategoryNavItem[] {
   if (!cats || cats.length === 0) return [];
 
-  const sorted = [...cats].sort((a, b) => a.sortOrder - b.sortOrder);
-  const groups: Record<string, CategoryNavItem> = {};
-  const topLevel: CategoryNavItem[] = [];
-
-  for (const c of sorted) {
-    const href = `/categories/${c.slug}`;
-    if (c.slug.startsWith('sau-rieng')) {
-      if (!groups.sr) {
-        groups.sr = { label: 'Sầu Riêng', href, children: [] };
-        topLevel.push(groups.sr);
-      }
-      groups.sr.children.push({ label: c.name, href });
-    } else if (c.slug.startsWith('ca-phe')) {
-      if (!groups.cp) {
-        groups.cp = { label: 'Cà Phê', href, children: [] };
-        topLevel.push(groups.cp);
-      }
-      groups.cp.children.push({ label: c.name, href });
-    } else {
-      topLevel.push({ label: c.name, href, children: [] });
-    }
-  }
-  return topLevel;
+  return [...cats]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .slice(0, Math.max(0, topN))
+    .map((c) => ({
+      label: c.name,
+      href: `/categories/${c.slug}`,
+    }));
 }
 
 const TOPBAR_LINKS = [
@@ -86,7 +71,10 @@ export default function ClientNavbar() {
     const list = Array.isArray(categoriesData)
       ? categoriesData
       : (categoriesData as { data?: unknown[] } | undefined)?.data ?? [];
-    return buildCategoriesNav(list as Array<{ id: string; name: string; slug: string; sortOrder: number }>);
+    return buildCategoriesNav(
+      list as Array<{ id: string; name: string; slug: string; sortOrder: number; productCount?: number }>,
+      5,
+    );
   }, [categoriesData]);
 
   // Cart count từ API (chỉ fetch khi đã đăng nhập)
@@ -157,44 +145,16 @@ export default function ClientNavbar() {
                 Tất Cả Sản Phẩm
                 <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-foreground/70 transition-all duration-300 group-hover:w-full" />
               </Link>
-              {categoriesNav.map((cat) =>
-                cat.children.length > 0 ? (
-                  <DropdownMenu key={cat.href}>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className={cn(
-                          'text-sm font-medium transition-colors duration-300 relative group inline-flex items-center gap-1.5',
-                          location.pathname.startsWith(cat.href)
-                            ? 'text-foreground'
-                            : 'text-foreground/70 hover:text-foreground',
-                        )}
-                      >
-                        {cat.label}
-                        <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-foreground/70 transition-all duration-300 group-hover:w-full" />
-                        <ChevronDown className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48">
-                      {cat.children.map((child) => (
-                        <DropdownMenuItem key={child.href} asChild>
-                          <Link to={child.href} className="cursor-pointer">
-                            {child.label}
-                          </Link>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <Link
-                    key={cat.href}
-                    to={cat.href}
-                    className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors duration-300 relative group"
-                  >
-                    {cat.label}
-                    <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-foreground/70 transition-all duration-300 group-hover:w-full" />
-                  </Link>
-                ),
-              )}
+              {categoriesNav.map((cat) => (
+                <Link
+                  key={cat.href}
+                  to={cat.href}
+                  className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors duration-300 relative group"
+                >
+                  {cat.label}
+                  <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-foreground/70 transition-all duration-300 group-hover:w-full" />
+                </Link>
+              ))}
             </nav>
 
             {/* Search Bar - Desktop */}
@@ -381,20 +341,6 @@ export default function ClientNavbar() {
                     >
                       {cat.label}
                     </Link>
-                    {cat.children.length > 0 && (
-                      <div className="mt-2 ml-2 space-y-1">
-                        {cat.children.map((child) => (
-                          <Link
-                            key={child.href}
-                            to={child.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="block text-base text-foreground/50 hover:text-foreground/80 transition-colors duration-300 py-1"
-                          >
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 ))}
                 {TOPBAR_LINKS.map((link) => (

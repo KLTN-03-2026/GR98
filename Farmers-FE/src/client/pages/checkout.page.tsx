@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -8,7 +8,8 @@ import {
   Smartphone,
   Banknote,
   Lock,
-  Truck,
+  MapPin,
+  Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,11 +17,18 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useCart, useClearCart, useCreateOrder } from '@/client/api';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { useCart, useClearCart, useCreateOrder, useMe } from '@/client/api';
 import { useAuthStore } from '@/client/store';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { ShippingAddress, PaymentMethod } from '@/client/types';
+import type { PaymentMethod } from '@/client/types';
 import { apiPost } from '@/client/lib/api-client';
 
 const PAYMENT_METHODS = [
@@ -32,14 +40,14 @@ const PAYMENT_METHODS = [
   },
   {
     value: 'VNPAY',
-    label: 'VNPay',
-    description: 'Thanh toán qua ví VNPay',
-    icon: Smartphone,
+    label: 'Chuyển khoản ngân hàng (VNPay)',
+    description: 'Thanh toán qua cổng VNPay',
+    icon: CreditCard,
   },
   {
     value: 'MOMO',
-    label: 'MoMo',
-    description: 'Thanh toán qua ví MoMo',
+    label: 'Thẻ tín dụng / ví MoMo',
+    description: 'Thanh toán qua ví MoMo hoặc thẻ tín dụng',
     icon: Smartphone,
   },
 ];
@@ -47,38 +55,50 @@ const PAYMENT_METHODS = [
 export default function CheckoutPage() {
   const { isAuthenticated } = useAuthStore();
   const { data: cart } = useCart(isAuthenticated);
+  const { data: me } = useMe();
   const clearCart = useClearCart();
   const createOrder = useCreateOrder();
+  const location = useLocation();
 
-  const items = cart?.items ?? [];
-  const subtotal = cart?.subtotal ?? 0;
+  const selectedIds = (location.state as { selectedIds?: string[] } | null)?.selectedIds;
+  const allItems = cart?.items ?? [];
+  const items = selectedIds?.length
+    ? allItems.filter((i) => selectedIds.includes(i.id))
+    : allItems;
+  const subtotal = items.reduce(
+    (sum, i) => sum + i.product.pricePerKg * i.quantityKg,
+    0,
+  );
   const shippingFee = subtotal >= 500000 ? 0 : 30000;
   const total = subtotal + shippingFee;
 
-  const [step, setStep] = useState<'info' | 'payment' | 'success'>('info');
+  const savedAddresses = me?.clientProfile?.shippingAddresses ?? [];
+
+  const [step, setStep] = useState<'info' | 'success'>('info');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrderNo, setCreatedOrderNo] = useState<string>('');
   const [orderTotal, setOrderTotal] = useState<number>(0);
 
-  const [formData, setFormData] = useState<ShippingAddress>({
-    fullName: '',
-    phone: '',
-    addressLine: '',
-    province: '',
-    district: '',
-    ward: '',
-    isDefault: false,
-  });
+  const [selectedAddress, setSelectedAddress] = useState(savedAddresses[0] ?? null);
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherDiscount, setVoucherDiscount] = useState(0);
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
-    }));
+  useEffect(() => {
+    const addr = savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0] ?? null;
+    if (addr && !selectedAddress) {
+      setSelectedAddress(addr);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedAddresses.length]);
+
+  const handleApplyVoucher = () => {
+    if (!voucherCode.trim()) return;
+    // Demo: giảm 10% tối đa 50k
+    const discount = Math.min(Math.round(subtotal * 0.1), 50000);
+    setVoucherDiscount(discount);
+    toast.success(`Đã áp dụng mã giảm giá: -${formatPrice(discount)}`);
   };
 
   const handleSubmitOrder = async () => {
@@ -86,8 +106,8 @@ export default function CheckoutPage() {
       toast.error('Giỏ hàng trống');
       return;
     }
-    if (!formData.fullName || !formData.phone || !formData.addressLine || !formData.province) {
-      toast.error('Vui lòng điền đầy đủ thông tin giao hàng');
+    if (!selectedAddress) {
+      toast.error('Vui lòng chọn địa chỉ giao hàng');
       return;
     }
 
@@ -95,22 +115,22 @@ export default function CheckoutPage() {
     try {
       const order = await createOrder.mutateAsync({
         items: items.map((i) => ({
-          productId: i.productId,
+          productId: i.product.id,
           quantityKg: i.quantityKg,
         })),
         shippingAddr: {
-          fullName: formData.fullName,
-          phone: formData.phone,
-          addressLine: formData.addressLine,
-          district: formData.district || undefined,
-          province: formData.province,
+          fullName: selectedAddress.fullName,
+          phone: selectedAddress.phone,
+          addressLine: selectedAddress.addressLine,
+          district: selectedAddress.district || undefined,
+          province: selectedAddress.province,
         },
         paymentMethod,
         note: undefined,
       });
 
       setCreatedOrderNo(order.orderNo);
-      setOrderTotal(total);
+      setOrderTotal(total - voucherDiscount);
 
       // Nếu COD: clear cart và tới success
       if (paymentMethod === 'COD') {
@@ -139,14 +159,18 @@ export default function CheckoutPage() {
     }
   };
 
-  if (items.length === 0 && step !== 'success') {
+  if (items.length === 0 && step === 'info') {
     return (
       <div className="bg-background min-h-screen">
         <div className="container mx-auto px-4 py-20 text-center">
-          <h2 className="text-2xl font-bold mb-2">Giỏ hàng trống</h2>
-          <p className="text-muted-foreground mb-4">Vui lòng thêm sản phẩm trước khi thanh toán.</p>
+          <h2 className="text-2xl font-bold mb-2">
+            {selectedIds?.length ? 'Không có sản phẩm nào được chọn' : 'Giỏ hàng trống'}
+          </h2>
+          <p className="text-muted-foreground mb-4">
+            {selectedIds?.length ? 'Vui lòng quay lại giỏ hàng và chọn sản phẩm.' : 'Vui lòng thêm sản phẩm trước khi thanh toán.'}
+          </p>
           <Button asChild>
-            <Link to="/products">Mua sắm ngay</Link>
+            <Link to="/cart">Quay lại giỏ hàng</Link>
           </Button>
         </div>
       </div>
@@ -213,212 +237,70 @@ export default function CheckoutPage() {
             </Link>
           </Button>
           <h1 className="text-3xl font-bold">Thanh Toán</h1>
-          {/* Steps */}
-          <div className="flex items-center gap-4 mt-4">
-            <div className={`flex items-center gap-2 ${step === 'info' ? 'text-primary' : 'text-green-600'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step === 'info' ? 'bg-primary text-primary-foreground' : 'bg-green-600 text-white'
-                }`}>
-                {step === 'info' ? '1' : <CheckCircle2 className="h-4 w-4" />}
-              </div>
-              <span className="text-sm font-medium">Thông tin giao hàng</span>
-            </div>
-            <div className="flex-1 h-px bg-border" />
-            <div className={`flex items-center gap-2 ${step === 'payment' ? 'text-primary' : 'text-muted-foreground'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step === 'payment' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                }`}>
-                2
-              </div>
-              <span className="text-sm font-medium">Thanh toán</span>
-            </div>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Form */}
+          {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {step === 'info' && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Truck className="h-5 w-5 text-primary" />
-                      Thông tin giao hàng
+            {/* Address Section */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      Địa chỉ nhận hàng
                     </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="fullName">Họ và tên *</Label>
-                        <Input
-                          id="fullName"
-                          name="fullName"
-                          placeholder="Nhập họ và tên"
-                          value={formData.fullName}
-                          onChange={handleInputChange}
-                        />
+                    {savedAddresses.length > 0 && (
+                      <Button variant="ghost" size="sm" onClick={() => setAddressDialogOpen(true)}>
+                        Thay đổi
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {selectedAddress ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold">{selectedAddress.fullName}</span>
+                        <span className="text-muted-foreground">|</span>
+                        <span className="text-sm">{selectedAddress.phone}</span>
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          {selectedAddress.addressType === 'OFFICE' ? 'Văn phòng' : 'Nhà riêng'}
+                        </Badge>
+                        {selectedAddress.isDefault && (
+                          <Badge className="text-[10px]">Mặc định</Badge>
+                        )}
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Số điện thoại *</Label>
-                        <Input
-                          id="phone"
-                          name="phone"
-                          placeholder="0901 234 567"
-                          value={formData.phone}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="addressLine">Địa chỉ cụ thể *</Label>
-                      <Input
-                        id="addressLine"
-                        name="addressLine"
-                        placeholder="Số nhà, đường, phường/xã"
-                        value={formData.addressLine ?? ''}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="province">Tỉnh/Thành phố *</Label>
-                        <Input
-                          id="province"
-                          name="province"
-                          placeholder="TP. HCM"
-                          value={formData.province}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="district">Quận/Huyện *</Label>
-                        <Input
-                          id="district"
-                          name="district"
-                          placeholder="Quận 3"
-                          value={formData.district ?? ''}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="ward">Phường/Xã</Label>
-                        <Input
-                          id="ward"
-                          name="ward"
-                          placeholder="Phường 5"
-                          value={formData.ward ?? ''}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="note">Ghi chú đơn hàng</Label>
-                      <textarea
-                        id="note"
-                        name="note"
-                        placeholder="Ghi chú thêm cho đơn hàng (tùy chọn)"
-                        rows={3}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/20"
-                      />
-                    </div>
-                    <Button
-                      size="lg"
-                      className="w-full rounded-xl mt-2"
-                      onClick={() => setStep('payment')}
-                      disabled={!formData.fullName || !formData.phone || !formData.addressLine}
-                    >
-                      Tiếp tục thanh toán
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {step === 'payment' && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="h-5 w-5 text-primary" />
-                      Phương thức thanh toán
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <RadioGroup
-                      value={paymentMethod}
-                      onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
-                    >
-                      {PAYMENT_METHODS.map((method) => (
-                        <Label
-                          key={method.value}
-                          htmlFor={method.value}
-                          className="flex items-start gap-4 p-4 border rounded-xl cursor-pointer transition-all hover:bg-muted/30 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
-                        >
-                          <RadioGroupItem value={method.value} id={method.value} className="mt-0.5" />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <method.icon className="h-5 w-5 text-primary" />
-                              <span className="font-medium">{method.label}</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">{method.description}</p>
-                          </div>
-                        </Label>
-                      ))}
-                    </RadioGroup>
-
-                    {/* Shipping Address Summary */}
-                    <div className="bg-muted/30 rounded-xl p-4">
-                      <h4 className="font-medium text-sm mb-2">Địa chỉ giao hàng</h4>
                       <p className="text-sm text-muted-foreground">
-                        {formData.fullName} - {formData.phone}
-                        <br />
-                        {formData.addressLine}, {formData.ward && `${formData.ward}, `}
-                        {formData.district}, {formData.province}
+                        {selectedAddress.addressLine}
+                        {selectedAddress.district ? `, ${selectedAddress.district}` : ''}, {selectedAddress.province}
                       </p>
                     </div>
-
-                    <div className="flex gap-3 pt-2">
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="flex-1 rounded-xl"
-                        onClick={() => setStep('info')}
-                      >
-                        <ArrowLeft className="h-4 w-4 mr-1.5" />
-                        Quay lại
-                      </Button>
-                      <Button
-                        size="lg"
-                        className="flex-1 rounded-xl gap-2"
-                        onClick={handleSubmitOrder}
-                        isLoading={isSubmitting}
-                      >
-                        <Lock className="h-4 w-4" />
-                        Thanh toán {formatPrice(total)}
+                  ) : savedAddresses.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">
+                      <p>Bạn chưa có địa chỉ giao hàng.</p>
+                      <Button variant="link" size="sm" className="px-0" asChild>
+                        <Link to="/profile">Thêm địa chỉ mới</Link>
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Đang tải địa chỉ...</p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
-          {/* Order Summary Sidebar */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-24">
-              <CardHeader>
-                <CardTitle className="text-base">Đơn hàng của bạn</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3 max-h-60 overflow-y-auto">
+            {/* Products Section */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Sản phẩm đã chọn ({items.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   {items.map((item) => (
-                    <div key={item.productId} className="flex gap-3">
-                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
+                    <div key={item.id} className="flex gap-3">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
                         <img
                           src={item.product.thumbnailUrl || item.product.imageUrls?.[0] || ''}
                           alt={item.product.name}
@@ -427,20 +309,96 @@ export default function CheckoutPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium line-clamp-2">{item.product.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.quantityKg}kg × {formatPrice(item.product.pricePerKg)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.quantityKg}kg × {formatPrice(item.product.pricePerKg)}
+                        </p>
                         <p className="text-sm font-semibold text-primary">
                           {formatPrice(item.product.pricePerKg * item.quantityKg)}
                         </p>
                       </div>
                     </div>
                   ))}
-                </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-                <Separator />
+            {/* Voucher Section */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Tag className="h-4 w-4 text-primary" />
+                    Voucher / Mã giảm giá
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Nhập mã giảm giá"
+                      value={voucherCode}
+                      onChange={(e) => setVoucherCode(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button variant="outline" onClick={handleApplyVoucher} disabled={!voucherCode.trim()}>
+                      Áp dụng
+                    </Button>
+                  </div>
+                  {voucherDiscount > 0 && (
+                    <p className="text-sm text-green-600 mt-2">
+                      Đã giảm: {formatPrice(voucherDiscount)}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
+            {/* Payment Methods */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CreditCard className="h-4 w-4 text-primary" />
+                    Phương thức thanh toán
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <RadioGroup
+                    value={paymentMethod}
+                    onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+                    className="space-y-2"
+                  >
+                    {PAYMENT_METHODS.map((method) => (
+                      <Label
+                        key={method.value}
+                        htmlFor={method.value}
+                        className="flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-all hover:bg-muted/30 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+                      >
+                        <RadioGroupItem value={method.value} id={method.value} className="mt-0.5" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <method.icon className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">{method.label}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{method.description}</p>
+                        </div>
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          {/* Order Summary Sidebar */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-24">
+              <CardHeader>
+                <CardTitle className="text-base">Chi tiết thanh toán</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tạm tính</span>
+                    <span className="text-muted-foreground">Tổng tiền hàng</span>
                     <span>{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between">
@@ -449,15 +407,40 @@ export default function CheckoutPage() {
                       {shippingFee === 0 ? 'Miễn phí' : formatPrice(shippingFee)}
                     </span>
                   </div>
+                  {voucherDiscount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Giảm giá voucher</span>
+                      <span className="text-green-600">-{formatPrice(voucherDiscount)}</span>
+                    </div>
+                  )}
                   <Separator />
                   <div className="flex justify-between font-semibold text-base">
-                    <span>Tổng cộng</span>
-                    <span className="text-primary">{formatPrice(total)}</span>
+                    <span>Tổng thanh toán</span>
+                    <span className="text-primary text-lg">{formatPrice(total - voucherDiscount)}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Lock className="h-3.5 w-3.5" />
+                <Button
+                  size="lg"
+                  className="w-full rounded-xl h-12"
+                  onClick={handleSubmitOrder}
+                  disabled={isSubmitting || items.length === 0 || !selectedAddress}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Lock className="h-4 w-4 mr-2 animate-pulse" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Đặt hàng
+                    </>
+                  )}
+                </Button>
+
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Lock className="h-3 w-3" />
                   Thanh toán an toàn & bảo mật
                 </div>
               </CardContent>
@@ -465,6 +448,49 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Address Selection Dialog */}
+      <Dialog open={addressDialogOpen} onOpenChange={setAddressDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chọn địa chỉ giao hàng</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 max-h-80 overflow-y-auto">
+            {savedAddresses.map((addr) => (
+              <div
+                key={addr.id}
+                className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                  selectedAddress?.id === addr.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-input hover:bg-muted/30'
+                }`}
+                onClick={() => {
+                  setSelectedAddress(addr);
+                  setAddressDialogOpen(false);
+                }}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm">{addr.fullName}</span>
+                  <span className="text-muted-foreground text-sm">|</span>
+                  <span className="text-xs text-muted-foreground">{addr.phone}</span>
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    {addr.addressType === 'OFFICE' ? 'Văn phòng' : 'Nhà riêng'}
+                  </Badge>
+                  {addr.isDefault && <Badge className="text-[10px]">Mặc định</Badge>}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {addr.addressLine}{addr.district ? `, ${addr.district}` : ''}, {addr.province}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setAddressDialogOpen(false)}>
+              Đóng
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

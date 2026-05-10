@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -10,6 +11,7 @@ import {
   ShoppingBag,
   Loader2,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -32,14 +34,41 @@ export default function CartPage() {
   const clearMutation = useClearCart();
 
   const items = cart?.items ?? [];
-  const subtotal = cart?.subtotal ?? 0;
-  const itemCount = items.length;
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [draftQty, setDraftQty] = useState<Record<string, string>>({});
 
+  const selectedItems = items.filter((i) => selectedIds.has(i.id));
+  const subtotal = selectedItems.reduce(
+    (sum, i) => sum + i.product.pricePerKg * i.quantityKg,
+    0,
+  );
   const shippingFee = subtotal >= 500000 ? 0 : 30000;
+  const total = subtotal + shippingFee;
 
-  const handleCheckout = () => navigate('/checkout');
+  const toggleSelect = (itemId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const handleCheckout = () => {
+    if (selectedItems.length === 0) return;
+    navigate('/checkout', { state: { selectedIds: Array.from(selectedIds) } });
+  };
+
+  const clearDraft = (itemId: string) => {
+    setDraftQty((prev) => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+  };
 
   const updateQuantity = (itemId: string, quantityKg: number) => {
+    clearDraft(itemId);
     if (quantityKg <= 0) {
       removeMutation.mutate(itemId);
       return;
@@ -108,7 +137,7 @@ export default function CartPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-1">Giỏ Hàng</h1>
           <p className="text-muted-foreground">
-            {itemCount} sản phẩm trong giỏ hàng
+            {items.length} sản phẩm trong giỏ hàng
           </p>
         </div>
 
@@ -140,20 +169,26 @@ export default function CartPage() {
                       </Link>
 
                       {/* Product Info */}
-                      <div className="flex-1 min-w-0">
-                        <Link
-                          to={`/products/${item.product.slug}`}
-                          className="font-semibold text-sm sm:text-base line-clamp-2 hover:text-primary transition-colors"
-                        >
-                          {item.product.name}
-                        </Link>
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <Checkbox
+                          checked={selectedIds.has(item.id)}
+                          onCheckedChange={() => toggleSelect(item.id)}
+                          className="mt-1 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <Link
+                            to={`/products/${item.product.slug}`}
+                            className="font-semibold text-sm sm:text-base line-clamp-2 hover:text-primary transition-colors"
+                          >
+                            {item.product.name}
+                          </Link>
 
                         <div className="flex items-center gap-2 mt-1">
                           <Badge
                             variant="secondary"
                             className="text-[10px] px-1.5 py-0.5"
                           >
-                            {item.product.cropType === 'SAU_RIENG' ? '🌿 Sầu Riêng' : '☕ Cà Phê'}
+                            {item.product.cropType === 'sau-rieng' ? '🌿 Sầu Riêng' : '☕ Cà Phê'}
                           </Badge>
                           <Badge
                             variant="outline"
@@ -163,14 +198,14 @@ export default function CartPage() {
                           </Badge>
                         </div>
 
-                        <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-4 mt-3">
                           {/* Price */}
-                          <p className="font-bold text-primary">
+                          <p className="font-bold text-primary shrink-0">
                             {formatPrice(item.product.pricePerKg * item.quantityKg)}
                           </p>
 
                           {/* Quantity Controls */}
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 ml-auto">
                             <div className="flex items-center border rounded-lg overflow-hidden">
                               <Button
                                 variant="ghost"
@@ -182,9 +217,30 @@ export default function CartPage() {
                               >
                                 <Minus className="h-3 w-3" />
                               </Button>
-                              <span className="w-14 text-center text-sm font-medium">
-                                {item.quantityKg}kg
-                              </span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                className="w-16 text-center text-sm font-medium border-x bg-transparent outline-none py-1 h-8 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                value={draftQty[item.id] ?? String(item.quantityKg)}
+                                onChange={(e) =>
+                                  setDraftQty((prev) => ({
+                                    ...prev,
+                                    [item.id]: e.target.value,
+                                  }))
+                                }
+                                onBlur={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  clearDraft(item.id);
+                                  if (!isNaN(val) && val > 0) {
+                                    updateQuantity(item.id, parseFloat(val.toFixed(1)));
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                              />
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -216,6 +272,7 @@ export default function CartPage() {
                         <p className="text-xs text-muted-foreground mt-1">
                           {formatPrice(item.product.pricePerKg)}/kg
                         </p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -252,18 +309,24 @@ export default function CartPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Items Summary */}
-                <div className="space-y-2">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground line-clamp-1 flex-1 pr-2">
-                        {item.product.name} × {item.quantityKg}kg
-                      </span>
-                      <span className="font-medium shrink-0">
-                        {formatPrice(item.product.pricePerKg * item.quantityKg)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {selectedItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Chưa chọn sản phẩm nào để thanh toán.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedItems.map((item) => (
+                      <div key={item.id} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground line-clamp-1 flex-1 pr-2">
+                          {item.product.name} × {item.quantityKg}kg
+                        </span>
+                        <span className="font-medium shrink-0">
+                          {formatPrice(item.product.pricePerKg * item.quantityKg)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <Separator />
 
@@ -299,7 +362,7 @@ export default function CartPage() {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-base">Tổng cộng</span>
                   <span className="text-xl font-bold text-primary">
-                    {formatPrice(subtotal + shippingFee)}
+                    {formatPrice(total)}
                   </span>
                 </div>
 
@@ -308,6 +371,7 @@ export default function CartPage() {
                   size="lg"
                   className="w-full rounded-xl h-12 mt-2"
                   onClick={handleCheckout}
+                  disabled={selectedItems.length === 0}
                 >
                   Tiến Hành Thanh Toán
                   <ArrowRight className="h-5 w-5 ml-2" />

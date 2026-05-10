@@ -34,6 +34,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   useCreateShippingAddress,
   useDeleteShippingAddress,
+  useUpdateShippingAddress,
   useMe,
   useSetDefaultShippingAddress,
   useChangePassword,
@@ -65,16 +66,19 @@ export default function ProfilePage() {
   });
 
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [newAddress, setNewAddress] = useState({
     fullName: '',
     phone: '',
     addressLine: '',
     district: '',
     province: '',
+    addressType: 'HOME' as 'HOME' | 'OFFICE',
     isDefault: false,
   });
 
   const createAddress = useCreateShippingAddress();
+  const updateAddress = useUpdateShippingAddress();
   const deleteAddress = useDeleteShippingAddress();
   const setDefaultAddress = useSetDefaultShippingAddress();
   const changePassword = useChangePassword();
@@ -144,13 +148,29 @@ export default function ProfilePage() {
   const openAddAddressDialog = () => {
     if (!me || me.role !== 'CLIENT' || !me.clientProfile) return;
     const { clientProfile } = me;
+    setEditingAddressId(null);
     setNewAddress({
       fullName: me.fullName,
       phone: me.phone ?? '',
       addressLine: '',
       district: '',
       province: clientProfile.province ?? '',
+      addressType: 'HOME',
       isDefault: addresses.length === 0,
+    });
+    setAddressDialogOpen(true);
+  };
+
+  const openEditAddressDialog = (addr: typeof addresses[number]) => {
+    setEditingAddressId(addr.id);
+    setNewAddress({
+      fullName: addr.fullName,
+      phone: addr.phone,
+      addressLine: addr.addressLine,
+      district: addr.district ?? '',
+      province: addr.province,
+      addressType: addr.addressType ?? 'HOME',
+      isDefault: addr.isDefault,
     });
     setAddressDialogOpen(true);
   };
@@ -163,17 +183,23 @@ export default function ProfilePage() {
       toast.error('Vui lòng điền đầy đủ họ tên, SĐT, địa chỉ và tỉnh/thành.');
       return;
     }
-    createAddress.mutate(
-      {
-        fullName: fullName.trim(),
-        phone: phone.trim(),
-        addressLine: addressLine.trim(),
-        district: newAddress.district.trim() || undefined,
-        province: province.trim(),
-        isDefault: newAddress.isDefault,
-      },
-      { onSuccess: () => setAddressDialogOpen(false) },
-    );
+    const payload = {
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      addressLine: addressLine.trim(),
+      district: newAddress.district.trim() || undefined,
+      province: province.trim(),
+      addressType: newAddress.addressType,
+      isDefault: newAddress.isDefault,
+    };
+    if (editingAddressId) {
+      updateAddress.mutate(
+        { id: editingAddressId, data: payload },
+        { onSuccess: () => { setAddressDialogOpen(false); setEditingAddressId(null); } },
+      );
+    } else {
+      createAddress.mutate(payload, { onSuccess: () => setAddressDialogOpen(false) });
+    }
   };
 
   if (isLoading) {
@@ -389,7 +415,7 @@ export default function ProfilePage() {
                     <DialogContent className="sm:max-w-md">
                       <form onSubmit={handleSubmitNewAddress}>
                         <DialogHeader>
-                          <DialogTitle>Thêm địa chỉ giao hàng</DialogTitle>
+                          <DialogTitle>{editingAddressId ? 'Cập nhật địa chỉ' : 'Thêm địa chỉ giao hàng'}</DialogTitle>
                           <DialogDescription>
                             Điền thông tin người nhận và địa chỉ. Các trường có dấu * là bắt buộc.
                           </DialogDescription>
@@ -438,6 +464,45 @@ export default function ProfilePage() {
                               onChange={(e) => setNewAddress((s) => ({ ...s, province: e.target.value }))}
                             />
                           </div>
+                          <div className="space-y-2">
+                            <Label>Loại địa chỉ</Label>
+                            <div className="flex gap-3">
+                              <label
+                                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${
+                                  newAddress.addressType === 'HOME'
+                                    ? 'border-primary bg-primary/5 text-primary'
+                                    : 'border-input hover:bg-muted/30'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="addressType"
+                                  value="HOME"
+                                  className="sr-only"
+                                  checked={newAddress.addressType === 'HOME'}
+                                  onChange={() => setNewAddress((s) => ({ ...s, addressType: 'HOME' }))}
+                                />
+                                Nhà riêng
+                              </label>
+                              <label
+                                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${
+                                  newAddress.addressType === 'OFFICE'
+                                    ? 'border-primary bg-primary/5 text-primary'
+                                    : 'border-input hover:bg-muted/30'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="addressType"
+                                  value="OFFICE"
+                                  className="sr-only"
+                                  checked={newAddress.addressType === 'OFFICE'}
+                                  onChange={() => setNewAddress((s) => ({ ...s, addressType: 'OFFICE' }))}
+                                />
+                                Văn phòng
+                              </label>
+                            </div>
+                          </div>
                           <label className="flex items-center gap-2 text-sm cursor-pointer">
                             <input
                               type="checkbox"
@@ -452,19 +517,19 @@ export default function ProfilePage() {
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={() => setAddressDialogOpen(false)}
-                            disabled={createAddress.isPending}
+                            onClick={() => { setAddressDialogOpen(false); setEditingAddressId(null); }}
+                            disabled={createAddress.isPending || updateAddress.isPending}
                           >
                             Hủy
                           </Button>
-                          <Button type="submit" disabled={createAddress.isPending}>
-                            {createAddress.isPending ? (
+                          <Button type="submit" disabled={createAddress.isPending || updateAddress.isPending}>
+                            {createAddress.isPending || updateAddress.isPending ? (
                               <>
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                 Đang lưu…
                               </>
                             ) : (
-                              'Lưu địa chỉ'
+                              editingAddressId ? 'Cập nhật' : 'Lưu địa chỉ'
                             )}
                           </Button>
                         </DialogFooter>
@@ -488,6 +553,9 @@ export default function ProfilePage() {
                             <div className="space-y-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">{addr.fullName}</span>
+                                <Badge variant="outline" className="text-[10px] font-normal">
+                                  {addr.addressType === 'OFFICE' ? 'Văn phòng' : 'Nhà riêng'}
+                                </Badge>
                                 {addr.isDefault && (
                                   <Badge variant="default" className="text-xs">
                                     Mặc định
@@ -502,7 +570,14 @@ export default function ProfilePage() {
                             </div>
                             {canManageAddresses && (
                               <div className="flex flex-wrap gap-1 items-center shrink-0">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" type="button" disabled>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  type="button"
+                                  onClick={() => openEditAddressDialog(addr)}
+                                  disabled={updateAddress.isPending}
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 {!addr.isDefault && (

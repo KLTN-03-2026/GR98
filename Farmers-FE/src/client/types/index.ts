@@ -92,7 +92,8 @@ export interface Product {
   name: string;
   slug: string;
   description?: string;
-  cropType: string; // 'SAU_RIENG' | 'CA_PHE'
+  cropType: string; // 'ca-phe' | 'sau-rieng'
+  variety?: string | null;
   grade: QualityGrade;
   pricePerKg: number;
   stockKg: number;
@@ -110,9 +111,9 @@ export interface Product {
   createdAt: string;
   plotId?: string;
   contractId?: string;
-  plot?: any;
-  contract?: any;
-  inventoryLot?: any;
+  plot?: Record<string, unknown>;
+  contract?: Record<string, unknown>;
+  inventoryLot?: Record<string, unknown>;
   categories?: Category[];
   reviews?: Review[];
   averageRating?: number;
@@ -211,12 +212,32 @@ export interface Order {
   note?: string | null;
   orderedAt: string;
   paidAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  deliveryProofUrl?: string | null;
   orderItems: OrderItem[];
   client?: {
     id: string;
     user: { fullName: string; email: string; phone: string | null };
   };
   admin?: { id: string; businessName: string };
+  shipperId?: string | null;
+  shipper?: {
+    id: string;
+    employeeCode: string;
+    vehicleType?: string | null;
+    licensePlate?: string | null;
+    status?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    lastSeenAt?: string | null;
+    user: {
+      id: string;
+      fullName: string;
+      phone?: string | null;
+      avatar?: string | null;
+    };
+  } | null;
 }
 
 export interface CreateOrderRequest {
@@ -252,10 +273,10 @@ export interface ApiError {
 // ============================================================
 // CROP TYPE CONSTANTS (E-com domain)
 // ============================================================
-export const CROP_TYPES = {
-  SAU_RIENG: 'Sầu Riêng',
-  CA_PHE: 'Cà Phê',
-} as const;
+export const CROP_TYPES: Record<string, string> = {
+  'ca-phe': 'Cà Phê',
+  'sau-rieng': 'Sầu Riêng',
+};
 
 export type CropTypeKey = keyof typeof CROP_TYPES;
 

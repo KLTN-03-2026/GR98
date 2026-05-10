@@ -12,16 +12,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmReceiptDialog } from './components/ConfirmReceiptDialog';
 import { RejectLotDialog } from './components/RejectLotDialog';
 import { QualityGradingDialog } from './components/QualityGradingDialog';
-import { useQueryClient } from '@tanstack/react-query';
 
 export default function InventoryLotsPage() {
-  const queryClient = useQueryClient();
   const [selectedLot, setSelectedLot] = useState<InventoryLot | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('in-stock');
   const [filters, setFilters] = useState<GetLotsFilters>({});
 
-  const { data: lots = [], isLoading, isFetching } = useGetLots(filters);
+  const { data: lots = [], isLoading, isFetching, refetch } = useGetLots(filters);
   const { data: warehouses = [] } = useGetWarehouses();
   const { data: products = [] } = useGetProducts();
 
@@ -116,7 +114,7 @@ export default function InventoryLotsPage() {
                 data={inStock}
                 isLoading={isLoading || isFetching}
                 onRowClick={(row) => handleViewDetail(row)}
-                onReload={() => queryClient.invalidateQueries({ queryKey: ['inventory-lots'] })}
+                onReload={() => void refetch()}
                 hiddenSearch
                 enableSorting={false}
                 filterToolbar={filterToolbar}
@@ -130,7 +128,7 @@ export default function InventoryLotsPage() {
                 data={pending}
                 isLoading={isLoading || isFetching}
                 onRowClick={(row) => handleViewDetail(row)}
-                onReload={() => queryClient.invalidateQueries({ queryKey: ['inventory-lots'] })}
+                onReload={() => void refetch()}
                 hiddenSearch
                 enableSorting={false}
                 filterToolbar={filterToolbar}
@@ -144,7 +142,7 @@ export default function InventoryLotsPage() {
                 data={upcoming}
                 isLoading={isLoading || isFetching}
                 onRowClick={(row) => handleViewDetail(row)}
-                onReload={() => queryClient.invalidateQueries({ queryKey: ['inventory-lots'] })}
+                onReload={() => void refetch()}
                 hiddenSearch
                 enableSorting={false}
                 filterToolbar={filterToolbar}

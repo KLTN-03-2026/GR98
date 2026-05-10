@@ -135,6 +135,9 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
     const user = await this.prisma.$transaction(async (tx) => {
+      // Auto-assign client to the first admin in the system (single-tenant)
+      const firstAdmin = await tx.adminProfile.findFirst();
+
       const createdUser = await tx.user.create({
         data: {
           email: registerDto.email,
@@ -148,7 +151,7 @@ export class AuthService {
       await tx.clientProfile.create({
         data: {
           userId: createdUser.id,
-          adminId: null,
+          adminId: firstAdmin?.id ?? null,
           province: null,
         },
       });

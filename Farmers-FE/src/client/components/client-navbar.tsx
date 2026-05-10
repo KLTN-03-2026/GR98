@@ -10,11 +10,10 @@ import {
   Settings,
 } from 'lucide-react';
 import { AppLogo } from '@/components/global/app-logo';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { useCartStore } from '@/client/store';
 import { useAuthStore } from '@/client/store';
-import { useLogout } from '@/client/api';
+import { useLogout, useCategories, useCart } from '@/client/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -27,26 +26,48 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ModeToggle } from '@/components/custom/mode-toggle';
 
-const CATEGORIES_NAV = [
-  {
-    label: 'Sầu Riêng',
-    href: '/categories/sau-rieng-tuoi',
-    children: [
-      { label: 'Sầu Riêng Tươi', href: '/categories/sau-rieng-tuoi' },
-      { label: 'Sầu Riêng Đông Lạnh', href: '/categories/sau-rieng-dong-lanh' },
-    ],
-  },
-  {
-    label: 'Cà Phê',
-    href: '/categories/ca-phe-hat',
-    children: [
-      { label: 'Cà Phê Hạt', href: '/categories/ca-phe-hat' },
-      { label: 'Cà Phê Bột', href: '/categories/ca-phe-bot' },
-      { label: 'Cà Phê Đặc Sản', href: '/categories/ca-phe-dac-san' },
-    ],
-  },
-  { label: 'Combo Quà', href: '/categories/combo-qua-tang', children: [] },
-];
+interface CategoryNavItem {
+  label: string;
+  href: string;
+  children: { label: string; href: string }[];
+}
+
+/**
+ * Build navbar từ danh sách Category của DB.
+ * Chiến lược hiển thị: gom các category theo prefix slug để tạo group hợp lý.
+ * - "sau-rieng-*" → group "Sầu Riêng"
+ * - "ca-phe-*" → group "Cà Phê"
+ * - còn lại → hiện riêng lẻ (không có children)
+ */
+function buildCategoriesNav(
+  cats: Array<{ id: string; name: string; slug: string; sortOrder: number }>,
+): CategoryNavItem[] {
+  if (!cats || cats.length === 0) return [];
+
+  const sorted = [...cats].sort((a, b) => a.sortOrder - b.sortOrder);
+  const groups: Record<string, CategoryNavItem> = {};
+  const topLevel: CategoryNavItem[] = [];
+
+  for (const c of sorted) {
+    const href = `/categories/${c.slug}`;
+    if (c.slug.startsWith('sau-rieng')) {
+      if (!groups.sr) {
+        groups.sr = { label: 'Sầu Riêng', href, children: [] };
+        topLevel.push(groups.sr);
+      }
+      groups.sr.children.push({ label: c.name, href });
+    } else if (c.slug.startsWith('ca-phe')) {
+      if (!groups.cp) {
+        groups.cp = { label: 'Cà Phê', href, children: [] };
+        topLevel.push(groups.cp);
+      }
+      groups.cp.children.push({ label: c.name, href });
+    } else {
+      topLevel.push({ label: c.name, href, children: [] });
+    }
+  }
+  return topLevel;
+}
 
 const TOPBAR_LINKS = [
   { label: 'Về Chúng Tôi', href: '/about' },
@@ -56,10 +77,21 @@ const TOPBAR_LINKS = [
 
 export default function ClientNavbar() {
   const location = useLocation();
-  const { getItemCount } = useCartStore();
   const { isAuthenticated, user } = useAuthStore();
   const { mutate: logoutMutate } = useLogout();
-  const cartCount = getItemCount();
+
+  // Categories động từ API
+  const { data: categoriesData } = useCategories({ limit: 100 });
+  const categoriesNav = useMemo(() => {
+    const list = Array.isArray(categoriesData)
+      ? categoriesData
+      : (categoriesData as { data?: unknown[] } | undefined)?.data ?? [];
+    return buildCategoriesNav(list as Array<{ id: string; name: string; slug: string; sortOrder: number }>);
+  }, [categoriesData]);
+
+  // Cart count từ API (chỉ fetch khi đã đăng nhập)
+  const { data: cart } = useCart(isAuthenticated);
+  const cartCount = cart?.items?.length ?? 0;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -125,7 +157,7 @@ export default function ClientNavbar() {
                 Tất Cả Sản Phẩm
                 <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-foreground/70 transition-all duration-300 group-hover:w-full" />
               </Link>
-              {CATEGORIES_NAV.map((cat) =>
+              {categoriesNav.map((cat) =>
                 cat.children.length > 0 ? (
                   <DropdownMenu key={cat.href}>
                     <DropdownMenuTrigger asChild>
@@ -340,7 +372,7 @@ export default function ClientNavbar() {
                 >
                   Tất Cả Sản Phẩm
                 </Link>
-                {CATEGORIES_NAV.map((cat) => (
+                {categoriesNav.map((cat) => (
                   <div key={cat.href}>
                     <Link
                       to={cat.href}

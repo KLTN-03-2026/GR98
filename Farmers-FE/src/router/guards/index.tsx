@@ -60,7 +60,7 @@ export function RoleRoute({
   allowedRoles,
 }: {
   children: React.ReactNode;
-  allowedRoles: Array<'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT'>;
+  allowedRoles: Array<'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'SHIPPER' | 'CLIENT'>;
 }) {
   const { user } = useAuthStore();
   const location = useLocation();

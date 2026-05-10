@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { uploadImage } from '@/client/api/upload';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -276,20 +277,20 @@ export default function SupervisorPlotsPage() {
   const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
-    const next = [...reportImages];
     for (const file of Array.from(files)) {
-      if (next.length >= 10) break;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
+      if (reportImages.length >= 10) break;
+      try {
+        const uploaded = await uploadImage(file, 'reports');
         setReportImages((prev) => [
           ...prev,
           {
-            payload: String(ev.target?.result),
-            previewUrl: URL.createObjectURL(file),
+            payload: uploaded.url,
+            previewUrl: uploaded.url,
           },
         ]);
-      };
-      reader.readAsDataURL(file);
+      } catch {
+        toast.error(`Không thể tải ảnh ${file.name}`);
+      }
     }
     e.target.value = "";
   };

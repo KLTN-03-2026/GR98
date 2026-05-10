@@ -106,3 +106,92 @@ export function useCancelOrder() {
     },
   });
 }
+
+// ─── State machine mutations ──────────────────────────────────────────
+
+export function useConfirmPacking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, note }: { orderId: string; note?: string }) => {
+      const res = await orderApi.confirmPacking(orderId, note);
+      return extractData<Order>(res);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['order'] });
+      toast.success('Xác nhận đơn, chuyển PACKING');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || 'Không thể xác nhận đơn');
+    },
+  });
+}
+
+export function useAssignShipper() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      shipperId,
+    }: {
+      orderId: string;
+      shipperId: string;
+    }) => {
+      const res = await orderApi.assignShipper(orderId, shipperId);
+      return extractData<Order>(res);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['order'] });
+      toast.success('Đã gán shipper, chuyển SHIPPED');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || 'Không thể gán shipper');
+    },
+  });
+}
+
+export function useMarkDelivered() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      deliveryProofUrl,
+      note,
+    }: {
+      orderId: string;
+      deliveryProofUrl?: string;
+      note?: string;
+    }) => {
+      const res = await orderApi.markDelivered(orderId, { deliveryProofUrl, note });
+      return extractData<Order>(res);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['order'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Đã giao hàng thành công!');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || 'Không thể cập nhật');
+    },
+  });
+}
+
+export function useAdminCancelOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason?: string }) => {
+      const res = await orderApi.adminCancel(orderId, reason);
+      return extractData<Order>(res);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['order'] });
+      toast.success('Đã huỷ đơn');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || 'Không thể huỷ đơn');
+    },
+  });
+}

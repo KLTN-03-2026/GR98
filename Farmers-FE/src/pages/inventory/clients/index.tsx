@@ -4,6 +4,7 @@ import { DataTable } from '@/components/data-table';
 import { useGetInventoryClients, type Client } from './api/hooks';
 import { clientColumns } from './components/client-columns';
 import { ClientDetailDrawer } from './components/ClientDetailDrawer';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function InventoryClientsPage() {
   const { data: clients = [], isLoading, isFetching, refetch } = useGetInventoryClients();
@@ -16,15 +17,14 @@ export default function InventoryClientsPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6 animate-in fade-in duration-500">
-      {/* Header Section */}
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8 text-primary">
               <Users className="size-4" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="text-2xl font-semibold tracking-tight">
               Quản lý Khách hàng
             </h1>
           </div>
@@ -34,9 +34,8 @@ export default function InventoryClientsPage() {
         </div>
       </div>
 
-      {/* Main Table Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-        <div className="max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-hide">
+      <Card>
+        <CardContent className="pt-6">
           <DataTable
             columns={clientColumns}
             data={clients}
@@ -45,24 +44,14 @@ export default function InventoryClientsPage() {
             searchPlaceholder="Tìm kiếm khách hàng..."
             onRowClick={handleRowClick}
           />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <ClientDetailDrawer 
         client={selectedClient}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
       />
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}} />
     </div>
   );
 }

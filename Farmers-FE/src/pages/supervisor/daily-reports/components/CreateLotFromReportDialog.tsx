@@ -42,25 +42,25 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
   const [warehouseId, setWarehouseId] = useState('');
   const [actualWeight, setActualWeight] = useState('');
   const [note, setNote] = useState('');
+  const [totalYield, setTotalYield] = useState<number | null>(null);
   const [remainingBalance, setRemainingBalance] = useState<number | null>(null);
 
   // Get active contract from report - Memoize to prevent effect loops
   const activeContract = React.useMemo(() => report?.plot?.contracts?.[0], [report]);
-
   useEffect(() => {
     console.log('Dialog Effect - Open:', open, 'Report:', report?.id, 'Contract:', activeContract?.id);
     if (open) {
       loadWarehouses();
       if (activeContract) {
         loadRemainingBalance();
-      }
-      if (report?.yieldEstimateKg) {
+      } else if (report?.yieldEstimateKg) {
         setActualWeight(report.yieldEstimateKg.toString());
       }
     } else {
       setWarehouseId('');
       setNote('');
       setRemainingBalance(null);
+      setTotalYield(null);
     }
   }, [open, activeContract, report]);
 
@@ -76,19 +76,20 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
   const loadRemainingBalance = async () => {
     if (!activeContract) return;
     try {
-      // Sum up existing lots for this contract
-      const res = await lotApi.getLots({ contractId: activeContract.id });
-      const lots = extractData<InventoryLot[]>(res);
-      const totalIssued = lots.reduce((sum, lot) => sum + (lot.status !== 'REJECTED' ? lot.quantityKg : 0), 0);
-      const remaining = (report?.yieldEstimateKg || 0) - totalIssued;
-      setRemainingBalance(remaining > 0 ? remaining : 0);
-      
-      // Auto-set weight to remaining if it's less than original estimate
-      if (remaining < (report?.yieldEstimateKg || 0)) {
-         setActualWeight(remaining.toFixed(2));
-      }
+      // Gọi API Backend để lấy số liệu chính xác
+      const res = await lotApi.getRemainingBalance(activeContract.id);
+      const data = extractData<{ totalYield: number; alreadyIssued: number; remaining: number }>(res);
+      setTotalYield(data.totalYield);
+      setRemainingBalance(data.remaining);
+      setActualWeight(data.remaining > 0 ? data.remaining.toString() : '');
     } catch (error) {
       console.error('Failed to load balance', error);
+      // Fallback: dùng yieldEstimateKg từ report
+      if (report?.yieldEstimateKg) {
+        setTotalYield(report.yieldEstimateKg);
+        setRemainingBalance(report.yieldEstimateKg);
+        setActualWeight(report.yieldEstimateKg.toString());
+      }
     }
   };
 
@@ -123,15 +124,7 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error('Create lot error:', error);
-      // Lấy thông báo lỗi chi tiết từ Backend
-      const errorMessage = 
-        error?.response?.data?.message || 
-        error?.response?.data?.error?.message ||
-        error?.message || 
-        'Không thể tạo lô hàng';
-      
-      toast.error(errorMessage);
+      toast.error(error?.message || 'Không thể tạo lô hàng');
     } finally {
       setLoading(false);
     }
@@ -180,7 +173,7 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
                     <Weight className="h-3 w-3" /> Tổng thu hoạch
                   </div>
                   <div className="text-lg font-bold text-slate-900">
-                    {(report.yieldEstimateKg ?? 0).toLocaleString()} <span className="text-xs font-normal opacity-60">kg</span>
+                    {(totalYield ?? report.yieldEstimateKg ?? 0).toLocaleString()} <span className="text-xs font-normal opacity-60">kg</span>
                   </div>
                 </div>
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
@@ -197,9 +190,7 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
                 <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Thông tin sản phẩm</Label>
                 <div className="flex justify-between items-start">
                   <div className="space-y-0.5 max-w-[70%]">
-                    <p className="font-bold text-slate-900 truncate">
-                      {activeContract.product?.name || report?.plot?.cropType}
-                    </p>
+                    <p className="font-bold text-slate-900 truncate">{activeContract.product?.name || activeContract.cropType}</p>
                     <p className="text-[11px] text-slate-500 truncate">HĐ: {activeContract.contractNo}</p>
                   </div>
                   <div className="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold text-slate-600 uppercase">

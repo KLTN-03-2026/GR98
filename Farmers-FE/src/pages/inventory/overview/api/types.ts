@@ -33,6 +33,8 @@ export interface DashboardResponse {
     id: string;
     name: string;
     locationAddress: string | null;
+    capacityKg: number | null;
+    currentStock: number;
     lotCount: number;
   }[];
   recentTransactions: TransactionResponse[];

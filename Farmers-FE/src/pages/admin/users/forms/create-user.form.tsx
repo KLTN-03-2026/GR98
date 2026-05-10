@@ -4,14 +4,7 @@ import type { AxiosError } from 'axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
-async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+import { uploadImage } from '@/client/api/upload';
 import {
   FileUserIcon,
   VoicemailIcon,
@@ -94,10 +87,11 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
   async function onSubmit(values: UserCreateFormInput) {
     setIsSubmitting(true);
     try {
-      // Convert File to Base64 data URL
-      let avatarBase64: string | undefined;
+      // Upload avatar to Cloudinary
+      let avatarUrl: string | undefined;
       if (values.avatar instanceof File) {
-        avatarBase64 = await fileToBase64(values.avatar);
+        const uploaded = await uploadImage(values.avatar, 'avatars');
+        avatarUrl = uploaded.url;
       }
 
       const payload = {
@@ -106,7 +100,7 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
         fullName: values.fullName,
         phone: values.phone || undefined,
         role: values.role as 'SUPERVISOR' | 'INVENTORY',
-        ...(avatarBase64 && { avatar: avatarBase64 }),
+        ...(avatarUrl && { avatar: avatarUrl }),
       };
 
       await userApi.create(payload);

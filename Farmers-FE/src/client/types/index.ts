@@ -1,7 +1,7 @@
 // ============================================================
 // AUTH TYPES
 // ============================================================
-export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
+export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'SHIPPER' | 'CLIENT';
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 export type PaymentMethod = 'COD' | 'VNPAY' | 'MOMO';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';

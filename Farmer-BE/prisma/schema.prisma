@@ -45,6 +45,7 @@ model User {
   adminProfile      AdminProfile?
   clientProfile     ClientProfile?
   inventoryProfile  InventoryProfile?
+  shipperProfile    ShipperProfile?
   passwordResets    PasswordReset[]
   refreshToken      RefreshToken?
   supervisorProfile SupervisorProfile?
@@ -64,6 +65,7 @@ model AdminProfile {
   contracts        Contract[]
   farmers          Farmer[]
   inventoryStaff   InventoryProfile[]
+  shippers         ShipperProfile[]
   orders           Order[]
   plantScanRecords PlantScanRecord[]
   plots            Plot[]
@@ -121,8 +123,52 @@ model ClientProfile {
   shippingAddresses ClientShippingAddress[]
   orders            Order[]
   reviews           Review[]
+  cart              Cart?
 
   @@map("ClientProfiles")
+}
+
+model ShipperProfile {
+  id           String        @id @default(cuid())
+  userId       String        @unique
+  adminId      String
+  employeeCode String        @unique
+  hiredAt      DateTime      @default(now())
+  lat          Float?
+  lng          Float?
+  lastSeenAt   DateTime?
+  vehicleType  VehicleType   @default(MOTORBIKE)
+  licensePlate String?
+  status       ShipperStatus @default(AVAILABLE)
+  admin        AdminProfile  @relation(fields: [adminId], references: [id])
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries   Order[]
+
+  @@map("ShipperProfiles")
+}
+
+model Cart {
+  id        String        @id @default(cuid())
+  clientId  String        @unique
+  updatedAt DateTime      @updatedAt
+  createdAt DateTime      @default(now())
+  client    ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+
+  @@map("Carts")
+}
+
+model CartItem {
+  id         String   @id @default(cuid())
+  cartId     String
+  productId  String
+  quantityKg Float
+  addedAt    DateTime @default(now())
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@map("CartItems")
 }
 
 model ClientShippingAddress {
@@ -303,6 +349,7 @@ model Product {
   grade             QualityGrade
   pricePerKg        Float
   stockKg           Float                  @default(0)
+  reservedKg        Float                  @default(0)
   minOrderKg        Float                  @default(1)
   unit              String                 @default("kg")
   qrCode            String                 @unique
@@ -314,6 +361,7 @@ model Product {
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   orderItems        OrderItem[]
+  cartItems         CartItem[]
   categories        ProductCategory[]
   admin             AdminProfile           @relation(fields: [adminId], references: [id])
   contract          Contract?              @relation(fields: [contractId], references: [id])
@@ -350,28 +398,36 @@ model ProductCategory {
 }
 
 model Order {
-  id               String        @id @default(cuid())
+  id               String          @id @default(cuid())
   clientId         String
   adminId          String
-  orderNo          String        @unique
-  orderCode        String        @unique
+  shipperId        String?
+  orderNo          String          @unique
+  orderCode        String          @unique
   subtotal         Float
-  shippingFee      Float         @default(0)
-  discount         Float         @default(0)
+  shippingFee      Float           @default(0)
+  discount         Float           @default(0)
   total            Float
   paymentMethod    PaymentMethod
   paymentRef       String?
-  paymentStatus    PaymentStatus @default(PENDING)
-  fulfillStatus    FulfillStatus @default(PENDING)
+  paymentStatus    PaymentStatus   @default(PENDING)
+  fulfillStatus    FulfillStatus   @default(PENDING)
   shippingAddr     Json
   shippingAddrText String?
   trackingCode     String?
+  deliveryProofUrl String?
   note             String?
-  orderedAt        DateTime      @default(now())
+  orderedAt        DateTime        @default(now())
   paidAt           DateTime?
+  packedAt         DateTime?
+  shippedAt        DateTime?
+  deliveredAt      DateTime?
+  cancelledAt      DateTime?
+  cancelReason     String?
   orderItems       OrderItem[]
-  admin            AdminProfile  @relation(fields: [adminId], references: [id])
-  client           ClientProfile @relation(fields: [clientId], references: [id])
+  admin            AdminProfile    @relation(fields: [adminId], references: [id])
+  client           ClientProfile   @relation(fields: [clientId], references: [id])
+  shipper          ShipperProfile? @relation(fields: [shipperId], references: [id])
 
   @@map("Orders")
 }
@@ -411,6 +467,7 @@ model Warehouse {
   name            String
   locationAddress String?
   isActive        Boolean                @default(true)
+  capacityKg      Float?
   createdAt       DateTime               @default(now())
   managedBy       String?
   adminId         String
@@ -490,7 +547,21 @@ enum Role {
   ADMIN
   SUPERVISOR
   INVENTORY
+  SHIPPER
   CLIENT
+}
+
+enum ShipperStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+enum VehicleType {
+  MOTORBIKE
+  TRUCK
+  VAN
+  BICYCLE
 }
 
 enum UserStatus {

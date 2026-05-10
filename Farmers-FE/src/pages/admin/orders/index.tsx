@@ -2,7 +2,17 @@ import { useCallback, useMemo, useState } from 'react';
 import type { PaginationState, Updater } from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Search, Package, CheckCircle2, Truck, Clock, XCircle, RefreshCw } from 'lucide-react';
-import { useOrders, useOrder, useUpdateOrder } from '@/client/api';
+import {
+  useOrders,
+  useOrder,
+  useUpdateOrder,
+  useConfirmPacking,
+  useAssignShipper,
+  useMarkDelivered,
+  useAdminCancelOrder,
+} from '@/client/api';
+import { apiGet } from '@/client/lib/api-client';
+import { useQuery } from '@tanstack/react-query';
 import { formatPrice } from '@/client/data/mock-data';
 import {
   PAYMENT_STATUS_LABELS,
@@ -93,6 +103,126 @@ function getImageUrl(item: Order['orderItems'][0]): string | null {
 
 // ─── Update Dialog ────────────────────────────────────────────────────────
 
+// ============================================================
+// State Machine Action Buttons
+// ============================================================
+function OrderStateMachineActions({ order }: { order: Order }) {
+  const confirmPacking = useConfirmPacking();
+  const assignShipper = useAssignShipper();
+  const markDelivered = useMarkDelivered();
+  const adminCancel = useAdminCancelOrder();
+
+  const { data: shippersData } = useQuery({
+    queryKey: ['shippers', 'list-for-assign'],
+    queryFn: async () => {
+      const res = await apiGet<{
+        data: { data: Array<{ id: string; user: { fullName: string }; employeeCode: string; status: string }> };
+      }>('/shippers', { params: { limit: 100 } });
+      return (res.data as unknown as { data?: { data?: Array<{ id: string; user: { fullName: string }; employeeCode: string; status: string }> } })?.data?.data ?? [];
+    },
+    enabled: order.fulfillStatus === 'PACKING',
+  });
+
+  const [selectedShipperId, setSelectedShipperId] = useState<string>('');
+  const [cancelReason, setCancelReason] = useState('');
+
+  if (order.fulfillStatus === 'PENDING') {
+    return (
+      <div className="flex flex-col gap-2">
+        <Button
+          className="w-full"
+          onClick={() => confirmPacking.mutate({ orderId: order.id })}
+          disabled={confirmPacking.isPending}
+        >
+          <Package className="h-4 w-4 mr-1.5" />
+          Xác nhận đơn → PACKING
+        </Button>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full text-destructive">
+              <XCircle className="h-4 w-4 mr-1.5" />
+              Huỷ đơn
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Huỷ đơn hàng</DialogTitle>
+              <DialogDescription>
+                Đơn sẽ được huỷ và stock được hoàn lại.
+              </DialogDescription>
+            </DialogHeader>
+            <Input
+              placeholder="Lý do..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            />
+            <DialogFooter>
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  adminCancel.mutate({ orderId: order.id, reason: cancelReason || undefined })
+                }
+              >
+                Xác nhận huỷ
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  if (order.fulfillStatus === 'PACKING') {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Chọn shipper</Label>
+          <Select value={selectedShipperId} onValueChange={setSelectedShipperId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Chọn shipper..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(shippersData ?? []).map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.user.fullName} ({s.employeeCode}) - {s.status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          className="w-full"
+          disabled={!selectedShipperId || assignShipper.isPending}
+          onClick={() =>
+            assignShipper.mutate({
+              orderId: order.id,
+              shipperId: selectedShipperId,
+            })
+          }
+        >
+          <Truck className="h-4 w-4 mr-1.5" />
+          Gán shipper → SHIPPED
+        </Button>
+      </div>
+    );
+  }
+
+  if (order.fulfillStatus === 'SHIPPED') {
+    return (
+      <Button
+        className="w-full"
+        onClick={() => markDelivered.mutate({ orderId: order.id })}
+        disabled={markDelivered.isPending}
+      >
+        <CheckCircle2 className="h-4 w-4 mr-1.5" />
+        Đánh dấu đã giao → DELIVERED
+      </Button>
+    );
+  }
+
+  return null;
+}
+
 function UpdateOrderDialog({ orderId }: { orderId: string }) {
   const [open, setOpen] = useState(false);
   const { data: order } = useOrder(orderId);
@@ -105,7 +235,7 @@ function UpdateOrderDialog({ orderId }: { orderId: string }) {
     if (order) {
       setFulfillStatus(order.fulfillStatus);
       setPaymentStatus(order.paymentStatus);
-      setTrackingCode(order.trackingCode ?? '');
+      setTrackingCode(order.trackingCode || '');
     }
     setOpen(true);
   };
@@ -131,12 +261,10 @@ function UpdateOrderDialog({ orderId }: { orderId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1" onClick={handleOpen}>
-          <RefreshCw className="h-3.5 w-3.5" />
-          Cập nhật
-        </Button>
-      </DialogTrigger>
+      <Button variant="outline" size="sm" className="gap-1" onClick={handleOpen}>
+        <RefreshCw className="h-3.5 w-3.5" />
+        Cập nhật
+      </Button>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Cập nhật đơn hàng</DialogTitle>
@@ -334,9 +462,10 @@ function OrderDetailSheet({ orderId }: { orderId: string }) {
               </p>
             </div>
 
-            {/* Admin Actions */}
+            {/* Admin Actions - State Machine */}
             {order.fulfillStatus !== 'CANCELLED' && order.fulfillStatus !== 'DELIVERED' && (
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col gap-2 pt-2">
+                <OrderStateMachineActions order={order} />
                 <UpdateOrderDialog orderId={order.id} />
               </div>
             )}
@@ -422,6 +551,15 @@ export default function AdminOrdersPage() {
             onPaginationChange={handlePaginationChange}
             state={{ pagination: paginationState }}
             pageSizeOptions={[10, 20, 30, 50, 100]}
+            initialColumnVisibility={{
+              phone: false,
+              subtotal: false,
+              shippingFee: false,
+              itemCount: false,
+              shippingAddress: false,
+              trackingCode: false,
+              note: false,
+            }}
             onReload={() => queryClient.invalidateQueries({ queryKey: ['orders'] })}
             noResults={
               <div className="flex flex-col items-center justify-center py-12 text-center">

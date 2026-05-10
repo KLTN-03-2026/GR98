@@ -50,19 +50,11 @@ import { PRODUCT_STATUS_LABELS, type ProductStatus, type Product, type Category 
 import { toast } from 'sonner';
 import FileUpload from '@/components/custom/file-upload';
 import { CustomScrollArea } from '@/components/custom/custom-scroll-area';
+import { uploadImage, uploadImages } from '@/client/api/upload';
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 };
-
-async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 interface ProductDetailsDialogProps {
   open: boolean;
@@ -155,25 +147,15 @@ export function ProductDetailsDialog({
 
   const handleMultiFileUpload = async (files: File[]) => {
     try {
-      const base64s = await Promise.all(files.map(file => fileToBase64(file)));
-      const newImages = [...form.imageUrls];
-      let addedCount = 0;
-      
-      for (const base64 of base64s) {
-        if (!newImages.includes(base64)) {
-          newImages.push(base64);
-          addedCount++;
-        }
-      }
-
-      if (addedCount > 0) {
-        setForm({ 
-          ...form, 
-          imageUrls: newImages,
-          thumbnailUrl: form.thumbnailUrl || newImages[0]
-        });
-        toast.success(`Đã tải lên ${addedCount} ảnh vào Album`);
-      }
+      const uploaded = await uploadImages(files, 'products');
+      const newUrls = uploaded.map((u) => u.url);
+      const newImages = [...form.imageUrls, ...newUrls];
+      setForm({ 
+        ...form, 
+        imageUrls: newImages,
+        thumbnailUrl: form.thumbnailUrl || newImages[0]
+      });
+      toast.success(`Đã tải lên ${newUrls.length} ảnh vào Album`);
     } catch (error) {
       toast.error('Lỗi khi tải ảnh lên Album');
       console.error(error);
@@ -182,8 +164,8 @@ export function ProductDetailsDialog({
 
   const handleThumbnailUpload = async (file: File) => {
     try {
-      const base64 = await fileToBase64(file);
-      setForm({ ...form, thumbnailUrl: base64 });
+      const uploaded = await uploadImage(file, 'products');
+      setForm({ ...form, thumbnailUrl: uploaded.url });
       toast.success('Đã cập nhật ảnh đại diện');
     } catch (error) {
       toast.error('Lỗi khi tải ảnh đại diện');

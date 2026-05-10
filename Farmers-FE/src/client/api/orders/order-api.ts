@@ -34,4 +34,19 @@ export const orderApi = {
 
   cancel: (orderId: string, data?: CancelOrderPayload) =>
     apiPost<OrderResponse>(`/orders/${orderId}/cancel`, data ?? {}),
+
+  // ─── State machine (Admin/Supervisor/Inventory/Shipper) ───
+  confirmPacking: (orderId: string, note?: string) =>
+    apiPost<OrderResponse>(`/orders/${orderId}/confirm`, { note }),
+
+  assignShipper: (orderId: string, shipperId: string) =>
+    apiPost<OrderResponse>(`/orders/${orderId}/assign-shipper`, { shipperId }),
+
+  markDelivered: (
+    orderId: string,
+    data?: { deliveryProofUrl?: string; note?: string },
+  ) => apiPost<OrderResponse>(`/orders/${orderId}/deliver`, data ?? {}),
+
+  adminCancel: (orderId: string, reason?: string) =>
+    apiPost<OrderResponse>(`/orders/${orderId}/admin-cancel`, { reason }),
 };

@@ -22,6 +22,9 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { FileText, MapPin, RefreshCw, Link2, Info, Plus } from "lucide-react";
+import FileUpload from '@/components/custom/file-upload';
+import { uploadImage, uploadImages } from '@/client/api/upload';
+import { toast } from 'sonner';
 import { useCategories } from "@/client/api/categories/use-categories";
 import { priceBoardApi } from "../../price-boards/api/price-board-api";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -45,22 +48,25 @@ export function CreateProductFromContractDialog({
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
-  const [imageUrls, setImageUrls] = useState("");
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const [albumImageUrls, setAlbumImageUrls] = useState<string[]>([]);
+  const [isUploadingAlbum, setIsUploadingAlbum] = useState(false);
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [isSearchingPrice, setIsSearchingPrice] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isUploading = isUploadingThumbnail || isUploadingAlbum;
   
   // States for search and pagination
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  // 1. Lấy danh sách hợp đồng đã tất toán (SETTLED)
+  // 1. Lấy danh sách hợp đồng đang hiệu lực (ACTIVE)
   const { data: contractsResponse, isLoading: isContractsLoading } = useQuery({
-    queryKey: ['contracts', 'settled', search, page],
+    queryKey: ['contracts', 'active-for-listing', search, page],
     queryFn: async () => {
       const response = await contractApi.list({ 
-        status: 'SETTLED' as any, 
+        status: 'ACTIVE' as any, 
         limit, 
         page,
         search: search || undefined
@@ -145,7 +151,7 @@ export function CreateProductFromContractDialog({
         description,
         categoryIds,
         thumbnailUrl: thumbnailUrl || undefined,
-        imageUrls: imageUrls ? imageUrls.split(',').map(s => s.trim()).filter(Boolean) : []
+        imageUrls: albumImageUrls
       });
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || "Có lỗi xảy ra khi tạo sản phẩm.";
@@ -168,7 +174,7 @@ export function CreateProductFromContractDialog({
                 Niêm yết mới
               </SheetTitle>
               <p className="text-xs font-bold text-primary/80 uppercase tracking-widest">
-                Từ hợp đồng đã tất toán
+                Từ hợp đồng đang hiệu lực
               </p>
             </div>
           </div>
@@ -185,7 +191,7 @@ export function CreateProductFromContractDialog({
             )}
 
             <form id="create-product-contract-form" onSubmit={handleFormSubmit} className="space-y-8">
-              {/* Phần 1: Hợp đồng tất toán */}
+              {/* Phần 1: Hợp đồng đang hiệu lực */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">1</div>
@@ -194,7 +200,7 @@ export function CreateProductFromContractDialog({
                 
                 <div className="space-y-3">
                   <div className="flex flex-col gap-2">
-                    <Label className="text-xs font-semibold text-slate-700 ml-1">Tìm kiếm & Chọn hợp đồng đã thanh toán</Label>
+                    <Label className="text-xs font-semibold text-slate-700 ml-1">Tìm kiếm & Chọn hợp đồng đang hiệu lực</Label>
                     <div className="relative">
                       <Input 
                         placeholder="Tìm theo mã HĐ, tên nông dân, loại cây..." 
@@ -303,7 +309,7 @@ export function CreateProductFromContractDialog({
                         <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Trạng thái HĐ</span>
                         <div>
                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[9px] font-black h-5 uppercase">
-                             Đã tất toán
+                             Đang hiệu lực
                            </Badge>
                         </div>
                       </div>
@@ -384,25 +390,69 @@ export function CreateProductFromContractDialog({
 
                   <div className="space-y-4 pt-2">
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Hình ảnh sản phẩm (URL)</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Hình ảnh sản phẩm</Label>
                       <div className="space-y-3">
                         <div className="space-y-1">
                           <Label className="text-[10px] text-slate-400 font-medium ml-1">Ảnh đại diện (Thumbnail)</Label>
-                          <Input 
-                            value={thumbnailUrl}
-                            onChange={(e) => setThumbnailUrl(e.target.value)}
-                            placeholder="https://example.com/thumbnail.jpg"
-                            className="h-10 rounded-xl border-slate-200 text-sm"
+                          <FileUpload
+                            acceptedFileTypes={['image/*']}
+                            onFileSelect={async (file) => {
+                              setIsUploadingThumbnail(true);
+                              try {
+                                const uploaded = await uploadImage(file, 'products');
+                                setThumbnailUrl(uploaded.url);
+                                toast.success('Đã tải ảnh đại diện');
+                              } catch {
+                                toast.error('Lỗi tải ảnh đại diện');
+                              } finally {
+                                setIsUploadingThumbnail(false);
+                              }
+                            }}
                           />
+                          {isUploadingThumbnail && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                              <RefreshCw className="h-3 w-3 animate-spin" />
+                              Đang tải ảnh đại diện...
+                            </div>
+                          )}
+                          {thumbnailUrl && (
+                            <img src={thumbnailUrl} alt="thumbnail" className="mt-2 h-20 w-20 rounded-xl object-cover border" />
+                          )}
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-slate-400 font-medium ml-1">Danh sách ảnh chi tiết (Phân cách bằng dấu phẩy)</Label>
-                          <Textarea 
-                            value={imageUrls}
-                            onChange={(e) => setImageUrls(e.target.value)}
-                            placeholder="url1.jpg, url2.jpg, url3.jpg"
-                            className="min-h-[80px] rounded-xl border-slate-200 text-sm"
+                          <Label className="text-[10px] text-slate-400 font-medium ml-1">Danh sách ảnh chi tiết</Label>
+                          <FileUpload
+                            multiple
+                            acceptedFileTypes={['image/*']}
+                            onFilesSelect={async (files) => {
+                              setIsUploadingAlbum(true);
+                              try {
+                                const uploaded = await uploadImages(files, 'products');
+                                const newUrls = uploaded.map((u) => u.url);
+                                setAlbumImageUrls((prev) => [...prev, ...newUrls]);
+                                toast.success(`Đã tải ${newUrls.length} ảnh`);
+                              } catch {
+                                toast.error('Lỗi tải ảnh');
+                              } finally {
+                                setIsUploadingAlbum(false);
+                              }
+                            }}
                           />
+                          {isUploadingAlbum && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                              <RefreshCw className="h-3 w-3 animate-spin" />
+                              Đang tải ảnh chi tiết...
+                            </div>
+                          )}
+                          {albumImageUrls.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {albumImageUrls.map((url, i) => (
+                                <div key={i} className="relative">
+                                  <img src={url} alt={`album-${i}`} className="h-16 w-16 rounded-xl object-cover border" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -438,7 +488,7 @@ export function CreateProductFromContractDialog({
           <Button 
             type="submit"
             form="create-product-contract-form"
-            disabled={isLoading || !selectedContractId || !name || !price}
+            disabled={isLoading || isUploading || !selectedContractId || !name || !price}
             className="rounded-2xl h-12 flex-1 bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-200 font-black uppercase tracking-wider disabled:opacity-50 transition-all active:scale-[0.98]"
           >
             {isLoading ? (

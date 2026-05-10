@@ -98,30 +98,65 @@ export default function InventoryOverviewPage() {
                          <p className="text-sm text-muted-foreground">Chưa có kho hàng nào</p>
                        </div>
                      ) : (
-                       <div className="divide-y divide-border/50">
-                         {data.warehousesList.map((warehouse) => (
-                           <div key={warehouse.id} className="p-4 hover:bg-muted/30 transition-colors flex items-start gap-3">
-                             <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                               <Warehouse className="size-4" />
-                             </div>
-                             <div className="min-w-0 flex-1">
-                               <p className="truncate text-sm font-medium text-foreground">{warehouse.name}</p>
-                               <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                                 <span className="flex items-center gap-1 shrink-0">
-                                   <Package className="size-3" />
-                                   {warehouse.lotCount} lô
-                                 </span>
-                                 {warehouse.locationAddress && (
-                                   <span className="flex items-center gap-1 truncate">
-                                     <MapPin className="size-3 shrink-0" />
-                                     <span className="truncate">{warehouse.locationAddress}</span>
-                                   </span>
-                                 )}
-                               </div>
-                             </div>
-                           </div>
-                         ))}
-                       </div>
+                        <div className="divide-y divide-border/50">
+                          {data.warehousesList.map((warehouse) => {
+                            const hasCapacity = warehouse.capacityKg != null && warehouse.capacityKg > 0;
+                            const usagePercent = hasCapacity
+                              ? Math.min(Math.round((warehouse.currentStock / warehouse.capacityKg!) * 100), 100)
+                              : null;
+                            const barColor = usagePercent === null
+                              ? 'bg-primary/60'
+                              : usagePercent >= 90
+                                ? 'bg-red-500'
+                                : usagePercent >= 70
+                                  ? 'bg-amber-500'
+                                  : 'bg-emerald-500';
+
+                            return (
+                              <div key={warehouse.id} className="p-4 hover:bg-muted/30 transition-colors flex items-start gap-3">
+                                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                  <Warehouse className="size-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-foreground">{warehouse.name}</p>
+                                  <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                                    <span className="flex items-center gap-1 shrink-0">
+                                      <Package className="size-3" />
+                                      {warehouse.lotCount} lô
+                                    </span>
+                                    {warehouse.locationAddress && (
+                                      <span className="flex items-center gap-1 truncate">
+                                        <MapPin className="size-3 shrink-0" />
+                                        <span className="truncate">{warehouse.locationAddress}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                  {/* Progress bar sức chứa */}
+                                  <div className="mt-2.5">
+                                    <div className="flex items-center justify-between text-[11px] mb-1">
+                                      <span className="font-medium text-muted-foreground">
+                                        {warehouse.currentStock.toLocaleString('vi-VN')} kg
+                                        {hasCapacity && ` / ${warehouse.capacityKg!.toLocaleString('vi-VN')} kg`}
+                                      </span>
+                                      <span className={cn(
+                                        "font-bold",
+                                        usagePercent === null ? "text-primary" : usagePercent >= 90 ? "text-red-600" : usagePercent >= 70 ? "text-amber-600" : "text-emerald-600"
+                                      )}>
+                                        {usagePercent !== null ? `${usagePercent}%` : 'Không giới hạn'}
+                                      </span>
+                                    </div>
+                                    <div className="h-1.5 w-full rounded-full bg-muted/60 overflow-hidden">
+                                      <div
+                                        className={cn("h-full rounded-full transition-all duration-500", barColor)}
+                                        style={{ width: usagePercent !== null ? `${usagePercent}%` : '100%' }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                      )}
                    </div>
                    

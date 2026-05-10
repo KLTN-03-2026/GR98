@@ -122,6 +122,7 @@ export class InventoryService {
     isActive: boolean;
     createdAt: Date;
     managedBy: string | null;
+    capacityKg: number | null;
     _count: { inventoryLots: number };
     inventory: {
       id: string;
@@ -134,6 +135,7 @@ export class InventoryService {
       name: w.name,
       locationAddress: w.locationAddress,
       isActive: w.isActive,
+      capacityKg: w.capacityKg,
       lotCount: w._count.inventoryLots,
       createdAt: w.createdAt,
       managedBy: w.managedBy,
@@ -184,15 +186,16 @@ export class InventoryService {
       }),
       warehouseIds.length > 0
         ? this.prisma.warehouse.findMany({
-            where: { id: { in: warehouseIds }, isActive: true },
-            select: {
-              id: true,
-              name: true,
-              locationAddress: true,
-              _count: { select: { inventoryLots: true } }
-            },
-            take: 5
-          })
+          where: { id: { in: warehouseIds }, isActive: true },
+          select: {
+            id: true,
+            name: true,
+            locationAddress: true,
+            capacityKg: true,
+            _count: { select: { inventoryLots: true } }
+          },
+          take: 5
+        })
         : [],
       this.prisma.warehouseTransaction.findMany({
         where: {
@@ -220,11 +223,19 @@ export class InventoryService {
       expiringLots: expiringLotsCount,
       stagnantLots: stagnantLotsResult,
       activeWarehouses: warehouseIds.length,
-      warehousesList: warehousesList.map(w => ({
-        id: w.id,
-        name: w.name,
-        locationAddress: w.locationAddress,
-        lotCount: w._count.inventoryLots
+      warehousesList: await Promise.all(warehousesList.map(async w => {
+        const stockResult = await this.prisma.inventoryLot.aggregate({
+          where: { warehouseId: w.id, status: { in: ['ARRIVED', 'RECEIVED'] } },
+          _sum: { quantityKg: true }
+        });
+        return {
+          id: w.id,
+          name: w.name,
+          locationAddress: w.locationAddress,
+          lotCount: w._count.inventoryLots,
+          capacityKg: w.capacityKg,
+          currentStock: stockResult._sum.quantityKg || 0
+        };
       })),
       recentTransactions,
       pendingOrdersList,
@@ -299,7 +310,22 @@ export class InventoryService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return warehouses.map((w) => this.mapWarehouseListItem(w));
+    const currentStocks = await Promise.all(
+      warehouses.map(w => 
+        this.prisma.inventoryLot.aggregate({
+          where: {
+            warehouseId: w.id,
+            status: { in: ['ARRIVED', 'RECEIVED'] }
+          },
+          _sum: { quantityKg: true }
+        })
+      )
+    );
+
+    return warehouses.map((w, index) => ({
+      ...this.mapWarehouseListItem(w),
+      currentStock: currentStocks[index]._sum.quantityKg || 0
+    }));
   }
 
   async getWarehouseById(id: string, currentUser: InventoryUser) {
@@ -323,7 +349,19 @@ export class InventoryService {
     if (!warehouse || warehouse.adminId !== adminId) {
       throw new ForbiddenException('Kho hàng không tồn tại hoặc bạn không có quyền truy cập');
     }
-    return warehouse;
+    
+    const currentStockResult = await this.prisma.inventoryLot.aggregate({
+      where: {
+        warehouseId: id,
+        status: { in: ['ARRIVED', 'RECEIVED'] }
+      },
+      _sum: { quantityKg: true }
+    });
+
+    return {
+      ...warehouse,
+      currentStock: currentStockResult._sum.quantityKg || 0
+    };
   }
 
   async createWarehouse(currentUser: InventoryUser, dto: CreateWarehouseDto) {
@@ -337,6 +375,7 @@ export class InventoryService {
         locationAddress: dto.locationAddress?.trim() || null,
         isActive: dto.isActive ?? true,
         managedBy: dto.managedBy || null,
+        capacityKg: dto.capacityKg,
         adminId,
       },
       include: {
@@ -358,6 +397,7 @@ export class InventoryService {
         locationAddress: dto.locationAddress?.trim(),
         isActive: dto.isActive,
         managedBy: dto.managedBy,
+        capacityKg: dto.capacityKg,
       },
       include: {
         _count: { select: { inventoryLots: true } },
@@ -524,6 +564,47 @@ export class InventoryService {
     });
   }
 
+  async getRemainingBalance(contractId: string) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      select: { plotId: true },
+    });
+
+    if (!contract || !contract.plotId) {
+      throw new NotFoundException('Hợp đồng không tồn tại');
+    }
+
+    // Tổng sản lượng từ TẤT CẢ báo cáo thu hoạch đã duyệt cho contract này
+    const totalYieldResult = await this.prisma.dailyReport.aggregate({
+      where: {
+        plotId: contract.plotId,
+        type: 'HARVEST',
+        status: { notIn: ['DRAFT', 'REJECTED'] },
+      },
+      _sum: { yieldEstimateKg: true },
+    });
+
+    const totalYield = totalYieldResult._sum?.yieldEstimateKg || 0;
+
+    // Tổng đã xuất (loại trừ REJECTED và SCHEDULED)
+    const totalIssued = await this.prisma.inventoryLot.aggregate({
+      where: {
+        contractId,
+        status: { notIn: [InventoryLotStatus.REJECTED, InventoryLotStatus.SCHEDULED] },
+      },
+      _sum: { quantityKg: true },
+    });
+
+    const alreadyIssued = totalIssued._sum.quantityKg || 0;
+    const remaining = Math.max(0, totalYield - alreadyIssued);
+
+    return {
+      totalYield,
+      alreadyIssued,
+      remaining,
+    };
+  }
+
   async receiveHarvest(currentUser: InventoryUser, dto: ReceiveHarvestDto) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
     const inventoryProfileId = await this.resolveInventoryProfileId(currentUser.id);
@@ -567,38 +648,104 @@ export class InventoryService {
       throw new BadRequestException('Hợp đồng này chưa được liên kết với sản phẩm thương mại trên sàn. Vui lòng tạo niêm yết mới trước khi thực hiện xuất lô.');
     }
 
-    // 3. Yield Balance Logic (Cumulative check)
+    // 3. Yield Balance Logic (Cumulative across all harvest reports for this contract)
+    // Tổng sản lượng từ TẤT CẢ báo cáo thu hoạch đã duyệt cho contract này
+    const contract_ = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      select: { plotId: true },
+    });
+
+    const totalYieldResult = await this.prisma.dailyReport.aggregate({
+      where: {
+        plotId: contract_?.plotId ?? report.plotId,
+        type: 'HARVEST',
+        status: { notIn: ['DRAFT', 'REJECTED'] },
+      },
+      _sum: { yieldEstimateKg: true },
+    });
+
+    const totalYield = totalYieldResult._sum.yieldEstimateKg || 0;
+
     const totalIssued = await this.prisma.inventoryLot.aggregate({
       where: {
         contractId,
-        status: { not: InventoryLotStatus.REJECTED },
+        status: { notIn: [InventoryLotStatus.REJECTED, InventoryLotStatus.SCHEDULED] },
       },
       _sum: { quantityKg: true },
     });
 
     const alreadyIssued = totalIssued._sum.quantityKg || 0;
-    const remaining = (report.yieldEstimateKg || 0) - alreadyIssued;
+    const remaining = totalYield - alreadyIssued;
 
-    if (actualWeight > remaining + (report.yieldEstimateKg || 0) * 0.01) { // 1% buffer for rounding
+    if (actualWeight > remaining + totalYield * 0.01) { // 1% buffer for rounding
       throw new BadRequestException(
         `Số lượng xuất (${actualWeight}kg) vượt quá sản lượng còn lại khả dụng (${remaining.toFixed(2)}kg).`,
       );
     }
 
-    // 4. Atomic Transaction
-    return this.prisma.$transaction(async (tx) => {
-      // A. Create the Inventory Lot - Giai đoạn ARRIVED (Chờ kho xác nhận)
-      const lot = await tx.inventoryLot.create({
-        data: {
+    // 4. Pre-check: Sức chứa kho (ngoài transaction để BadRequestException trả về đúng)
+    const existingScheduledLot = await this.prisma.inventoryLot.findFirst({
+      where: {
+        contractId,
+        status: InventoryLotStatus.SCHEDULED,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const targetWarehouse = await this.prisma.warehouse.findUnique({
+      where: { id: warehouseId },
+      select: { capacityKg: true, name: true }
+    });
+
+    if (targetWarehouse && targetWarehouse.capacityKg !== null) {
+      const currentLots = await this.prisma.inventoryLot.aggregate({
+        where: {
           warehouseId,
-          productId: contract.product!.id,
-          contractId,
-          quantityKg: actualWeight,
-          qualityGrade,
-          harvestDate: new Date(),
-          status: InventoryLotStatus.ARRIVED,
+          status: { in: [InventoryLotStatus.ARRIVED, InventoryLotStatus.RECEIVED, InventoryLotStatus.SCHEDULED] },
+          ...(existingScheduledLot ? { id: { not: existingScheduledLot.id } } : {})
         },
+        _sum: { quantityKg: true }
       });
+      
+      const currentStock = currentLots._sum.quantityKg || 0;
+      const remainingCapacity = targetWarehouse.capacityKg - currentStock;
+
+      if (actualWeight > remainingCapacity) {
+        throw new BadRequestException(
+          `Kho "${targetWarehouse.name}" không đủ chỗ chứa. Sức chứa còn lại: ${remainingCapacity.toFixed(2)}kg, khối lượng nhập: ${actualWeight}kg.`
+        );
+      }
+    }
+
+    // 5. Atomic Transaction
+    return this.prisma.$transaction(async (tx) => {
+      let lot;
+      if (existingScheduledLot) {
+        // Cập nhật lô SCHEDULED thành ARRIVED với kho thực tế và số cân thực tế
+        lot = await tx.inventoryLot.update({
+          where: { id: existingScheduledLot.id },
+          data: {
+            warehouseId,
+            quantityKg: actualWeight,
+            qualityGrade,
+            harvestDate: new Date(),
+            status: InventoryLotStatus.ARRIVED,
+          },
+        });
+      } else {
+        // Fallback: Tạo mới lô hàng ARRIVED (nếu chưa có SCHEDULED)
+        lot = await tx.inventoryLot.create({
+          data: {
+            warehouseId,
+            productId: contract.product!.id,
+            contractId,
+            quantityKg: actualWeight,
+            qualityGrade,
+            harvestDate: new Date(),
+            status: InventoryLotStatus.ARRIVED,
+          },
+        });
+      }
 
       // B. Update Daily Report Status if almost exhausted (optional, let's keep it consistent)
       // Note: We only update to REVIEWED if the user is finishing up or if we want to track progress.
@@ -675,7 +822,7 @@ export class InventoryService {
       if (!lot || lot.warehouse.adminId !== adminId) {
         throw new NotFoundException('Không tìm thấy lô hàng');
       }
-      
+
       if (lot.status !== InventoryLotStatus.ARRIVED && lot.status !== InventoryLotStatus.SCHEDULED) {
         throw new BadRequestException('Chỉ có thể từ chối lô hàng đang chờ nhập kho hoặc sắp về');
       }
@@ -735,7 +882,7 @@ export class InventoryService {
       const inboundTransactions = lot.transactions
         .filter(t => t.type === TransactionType.INBOUND)
         .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-      
+
       const firstInbound = inboundTransactions[0];
       if (firstInbound && firstInbound.quantityKg > 0) {
         initialWeight = firstInbound.quantityKg;
@@ -1130,7 +1277,7 @@ export class InventoryService {
 
   async getClients(currentUser: InventoryUser) {
     const adminId = await this.resolveAdminId(currentUser.id, currentUser.role);
-    
+
     return this.prisma.clientProfile.findMany({
       where: {
         OR: [

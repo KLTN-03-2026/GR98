@@ -139,6 +139,17 @@ export class InventoryController {
     return this.inventoryService.createLot(req.user, dto);
   }
 
+  @Get('remaining-balance/:contractId')
+  @Roles(Role.ADMIN, Role.INVENTORY, Role.SUPERVISOR)
+  @ApiOperation({ summary: 'Lấy sản lượng còn lại khả dụng của hợp đồng' })
+  @ApiResponse({ status: 200, description: 'Sản lượng còn lại' })
+  getRemainingBalance(
+    @Param('contractId') contractId: string,
+    @Request() req: { user: any },
+  ) {
+    return this.inventoryService.getRemainingBalance(contractId);
+  }
+
   @Post('receive-harvest')
   @Roles(Role.ADMIN, Role.INVENTORY, Role.SUPERVISOR)
   @ApiOperation({ summary: 'Nhận hàng từ thực địa (Giai đoạn 2)' })

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { uploadImage } from '@/client/api/upload';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -314,13 +315,8 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
 
   const persistSignatureFromFile = async (file: File) => {
     if (!contract || mode !== 'supervisor' || contract.status !== 'ACTIVE') return;
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('Không thể đọc file'));
-      reader.readAsDataURL(file);
-    });
-    await updateMutation.mutateAsync({ id: contract.id, data: { signatureUrl: base64 } });
+    const uploaded = await uploadImage(file, 'signatures');
+    await updateMutation.mutateAsync({ id: contract.id, data: { signatureUrl: uploaded.url } });
     void refetch();
   };
 

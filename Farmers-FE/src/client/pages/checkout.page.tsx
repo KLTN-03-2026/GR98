@@ -16,10 +16,12 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useCartStore } from '@/client/store';
+import { useCart, useClearCart, useCreateOrder } from '@/client/api';
+import { useAuthStore } from '@/client/store';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { ShippingAddress } from '@/client/types';
+import type { ShippingAddress, PaymentMethod } from '@/client/types';
+import { apiPost } from '@/client/lib/api-client';
 
 const PAYMENT_METHODS = [
   {
@@ -43,15 +45,21 @@ const PAYMENT_METHODS = [
 ];
 
 export default function CheckoutPage() {
-  const { items, getSubtotal, clearCart } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
+  const { data: cart } = useCart(isAuthenticated);
+  const clearCart = useClearCart();
+  const createOrder = useCreateOrder();
 
-  const subtotal = getSubtotal();
+  const items = cart?.items ?? [];
+  const subtotal = cart?.subtotal ?? 0;
   const shippingFee = subtotal >= 500000 ? 0 : 30000;
   const total = subtotal + shippingFee;
 
   const [step, setStep] = useState<'info' | 'payment' | 'success'>('info');
-  const [paymentMethod, setPaymentMethod] = useState('COD');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdOrderNo, setCreatedOrderNo] = useState<string>('');
+  const [orderTotal, setOrderTotal] = useState<number>(0);
 
   const [formData, setFormData] = useState<ShippingAddress>({
     fullName: '',
@@ -74,13 +82,61 @@ export default function CheckoutPage() {
   };
 
   const handleSubmitOrder = async () => {
+    if (items.length === 0) {
+      toast.error('Giỏ hàng trống');
+      return;
+    }
+    if (!formData.fullName || !formData.phone || !formData.addressLine || !formData.province) {
+      toast.error('Vui lòng điền đầy đủ thông tin giao hàng');
+      return;
+    }
+
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise((res) => setTimeout(res, 2000));
-    setIsSubmitting(false);
-    clearCart();
-    setStep('success');
-    toast.success('Đặt hàng thành công! Cảm ơn bạn đã mua sắm.');
+    try {
+      const order = await createOrder.mutateAsync({
+        items: items.map((i) => ({
+          productId: i.productId,
+          quantityKg: i.quantityKg,
+        })),
+        shippingAddr: {
+          fullName: formData.fullName,
+          phone: formData.phone,
+          addressLine: formData.addressLine,
+          district: formData.district || undefined,
+          province: formData.province,
+        },
+        paymentMethod,
+        note: undefined,
+      });
+
+      setCreatedOrderNo(order.orderNo);
+      setOrderTotal(total);
+
+      // Nếu COD: clear cart và tới success
+      if (paymentMethod === 'COD') {
+        await clearCart.mutateAsync();
+        setStep('success');
+        return;
+      }
+
+      // VNPay/MoMo: tạo session thanh toán giả lập và redirect
+      const res = await apiPost<{ data: { paymentUrl: string } }>(
+        '/payment/create',
+        { orderId: order.id, method: paymentMethod },
+      );
+      await clearCart.mutateAsync();
+      const paymentUrl = (res.data as unknown as { data?: { paymentUrl?: string } })
+        ?.data?.paymentUrl;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+        return;
+      }
+      setStep('success');
+    } catch {
+      // toast shown by mutation onError
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (items.length === 0 && step !== 'success') {
@@ -118,7 +174,7 @@ export default function CheckoutPage() {
             <div className="bg-muted/30 rounded-2xl p-6 text-left space-y-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Mã đơn hàng</span>
-                <span className="font-mono font-semibold">EC-{Date.now().toString().slice(-8)}</span>
+                <span className="font-mono font-semibold">{createdOrderNo}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Phương thức thanh toán</span>
@@ -128,7 +184,7 @@ export default function CheckoutPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tổng thanh toán</span>
-                <span className="font-bold text-primary text-lg">{formatPrice(total)}</span>
+                <span className="font-bold text-primary text-lg">{formatPrice(orderTotal)}</span>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -293,7 +349,10 @@ export default function CheckoutPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <RadioGroup
+                      value={paymentMethod}
+                      onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+                    >
                       {PAYMENT_METHODS.map((method) => (
                         <Label
                           key={method.value}
@@ -361,7 +420,7 @@ export default function CheckoutPage() {
                     <div key={item.productId} className="flex gap-3">
                       <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
                         <img
-                          src={item.product.imageUrls[0]}
+                          src={item.product.thumbnailUrl || item.product.imageUrls?.[0] || ''}
                           alt={item.product.name}
                           className="w-full h-full object-cover"
                         />

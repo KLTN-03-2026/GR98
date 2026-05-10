@@ -8,34 +8,68 @@ import {
   ArrowLeft,
   ArrowRight,
   ShoppingBag,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { useCartStore } from '@/client/store';
+import {
+  useCart,
+  useUpdateCartItem,
+  useRemoveCartItem,
+  useClearCart,
+} from '@/client/api';
+import { useAuthStore } from '@/client/store';
 import { formatPrice } from '@/lib/utils';
-import { toast } from 'sonner';
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const {
-    items,
-    updateQuantity,
-    removeItem,
-    clearCart,
-    getSubtotal,
-    getItemCount,
-  } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
+  const { data: cart, isLoading } = useCart(isAuthenticated);
+  const updateMutation = useUpdateCartItem();
+  const removeMutation = useRemoveCartItem();
+  const clearMutation = useClearCart();
 
-  const subtotal = getSubtotal();
-  const itemCount = getItemCount();
+  const items = cart?.items ?? [];
+  const subtotal = cart?.subtotal ?? 0;
+  const itemCount = items.length;
 
   const shippingFee = subtotal >= 500000 ? 0 : 30000;
 
-  const handleCheckout = () => {
-    navigate('/checkout');
+  const handleCheckout = () => navigate('/checkout');
+
+  const updateQuantity = (itemId: string, quantityKg: number) => {
+    if (quantityKg <= 0) {
+      removeMutation.mutate(itemId);
+      return;
+    }
+    updateMutation.mutate({ itemId, quantityKg });
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="bg-background min-h-screen pt-[110px]">
+        <div className="container mx-auto px-4 py-20 text-center space-y-6">
+          <h2 className="text-2xl font-bold">Vui lòng đăng nhập</h2>
+          <p className="text-muted-foreground">
+            Bạn cần đăng nhập để xem giỏ hàng.
+          </p>
+          <Button asChild size="lg">
+            <Link to="/auth/login">Đăng Nhập</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="bg-background min-h-screen pt-[110px] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -83,7 +117,7 @@ export default function CartPage() {
           <div className="lg:col-span-2 space-y-4">
             {items.map((item, index) => (
               <motion.div
-                key={item.productId}
+                key={item.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
@@ -98,7 +132,7 @@ export default function CartPage() {
                       >
                         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-muted/30">
                           <img
-                            src={item.product.imageUrls[0]}
+                            src={item.product.thumbnailUrl || item.product.imageUrls?.[0] || ''}
                             alt={item.product.name}
                             className="w-full h-full object-cover"
                           />
@@ -143,7 +177,7 @@ export default function CartPage() {
                                 size="icon"
                                 className="h-8 w-8 rounded-none"
                                 onClick={() =>
-                                  updateQuantity(item.productId, item.quantityKg - 1)
+                                  updateQuantity(item.id, item.quantityKg - 1)
                                 }
                               >
                                 <Minus className="h-3 w-3" />
@@ -156,9 +190,12 @@ export default function CartPage() {
                                 size="icon"
                                 className="h-8 w-8 rounded-none"
                                 onClick={() =>
-                                  updateQuantity(item.productId, item.quantityKg + 1)
+                                  updateQuantity(item.id, item.quantityKg + 1)
                                 }
-                                disabled={item.quantityKg >= item.product.stockKg}
+                                disabled={
+                                  item.quantityKg >=
+                                  item.product.stockKg - item.product.reservedKg
+                                }
                               >
                                 <Plus className="h-3 w-3" />
                               </Button>
@@ -168,10 +205,7 @@ export default function CartPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => {
-                                removeItem(item.productId);
-                                toast.info(`Đã xóa "${item.product.name}" khỏi giỏ hàng`);
-                              }}
+                              onClick={() => removeMutation.mutate(item.id)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -195,10 +229,7 @@ export default function CartPage() {
                 variant="ghost"
                 size="sm"
                 className="text-destructive"
-                onClick={() => {
-                  clearCart();
-                  toast.info('Đã xóa toàn bộ giỏ hàng');
-                }}
+                onClick={() => clearMutation.mutate()}
               >
                 <Trash2 className="h-4 w-4 mr-1.5" />
                 Xóa toàn bộ
@@ -223,7 +254,7 @@ export default function CartPage() {
                 {/* Items Summary */}
                 <div className="space-y-2">
                   {items.map((item) => (
-                    <div key={item.productId} className="flex justify-between text-sm">
+                    <div key={item.id} className="flex justify-between text-sm">
                       <span className="text-muted-foreground line-clamp-1 flex-1 pr-2">
                         {item.product.name} × {item.quantityKg}kg
                       </span>

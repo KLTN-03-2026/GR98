@@ -11,6 +11,7 @@ import CartPage from '@/client/pages/cart.page';
 import CheckoutPage from '@/client/pages/checkout.page';
 import OrdersPage from '@/client/pages/orders.page';
 import ProfilePage from '@/client/pages/profile.page';
+import PaymentSimulatePage from '@/client/pages/payment-simulate.page';
 
 // Route guards
 import { ProtectedRoute } from '@/router/guards';
@@ -84,6 +85,14 @@ const clientLayoutRoute: RouteObject = {
       element: (
         <ProtectedRoute>
           <ProfilePage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: 'payment/simulate',
+      element: (
+        <ProtectedRoute>
+          <PaymentSimulatePage />
         </ProtectedRoute>
       ),
     },

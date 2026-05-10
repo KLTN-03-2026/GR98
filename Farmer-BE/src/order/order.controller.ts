@@ -24,6 +24,9 @@ import {
   UpdateOrderDto,
   OrderQueryDto,
   CancelOrderDto,
+  AssignShipperDto,
+  ConfirmOrderDto,
+  MarkDeliveredDto,
 } from './dto/create-order.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -88,5 +91,63 @@ export class OrderController {
     @Request() req: any,
   ) {
     return this.orderService.cancel(id, dto, req.user.id);
+  }
+
+  // ─── State machine (ADMIN/SUPERVISOR/INVENTORY) ─────────────────────────
+
+  @Post(':id/confirm')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPERVISOR, Role.INVENTORY)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xác nhận đơn → PACKING' })
+  confirmPacking(
+    @Param('id') id: string,
+    @Body() dto: ConfirmOrderDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.orderService.confirmPacking(id, dto, req.user.id);
+  }
+
+  @Post(':id/assign-shipper')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPERVISOR, Role.INVENTORY)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Gán shipper cho đơn → SHIPPED' })
+  assignShipper(
+    @Param('id') id: string,
+    @Body() dto: AssignShipperDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.orderService.assignShipper(id, dto, req.user.id);
+  }
+
+  @Post(':id/deliver')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPERVISOR, Role.INVENTORY, Role.SHIPPER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Đánh dấu đã giao → DELIVERED (trừ kho + COD thì set PAID)',
+  })
+  markDelivered(
+    @Param('id') id: string,
+    @Body() dto: MarkDeliveredDto,
+    @Request() req: { user: { id: string; role: Role } },
+  ) {
+    const asShipper = req.user.role === Role.SHIPPER;
+    return this.orderService.markDelivered(id, dto, req.user.id, asShipper);
+  }
+
+  @Post(':id/admin-cancel')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPERVISOR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Admin huỷ đơn' })
+  adminCancel(
+    @Param('id') id: string,
+    @Body() dto: CancelOrderDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.orderService.adminCancel(id, dto, req.user.id);
   }
 }

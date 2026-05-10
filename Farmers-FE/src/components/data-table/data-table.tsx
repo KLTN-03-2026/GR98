@@ -53,6 +53,7 @@ interface DataTableProps<TData, TValue> {
   enableCheckbox?: boolean;
   onDeleteMultiple?: (selectedRows: any[]) => void;
   getRowProps?: (data: TData) => React.HTMLAttributes<HTMLTableRowElement>;
+  initialColumnVisibility?: VisibilityState;
 
   // SSR (Manual) Props
   totalItems?: number;
@@ -100,6 +101,7 @@ export function DataTable<TData, TValue>({
   enableCheckbox = false,
   onDeleteMultiple,
   getRowProps,
+  initialColumnVisibility,
 
   // SSR
   totalItems,
@@ -115,7 +117,7 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(initialColumnVisibility ?? {});
   const [rowSelection, setRowSelection] = React.useState({});
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,

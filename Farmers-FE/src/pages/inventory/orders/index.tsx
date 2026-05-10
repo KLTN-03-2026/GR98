@@ -173,6 +173,15 @@ export default function InventoryOrdersPage() {
             onPaginationChange={handlePaginationChange}
             state={{ pagination: paginationState }}
             pageSizeOptions={[10, 20, 30, 50, 100]}
+            initialColumnVisibility={{
+              phone: false,
+              subtotal: false,
+              shippingFee: false,
+              itemCount: false,
+              shippingAddress: false,
+              trackingCode: false,
+              note: false,
+            }}
             filterToolbar={filterToolbar}
             noResults={<span className="text-muted-foreground">Không tìm thấy đơn hàng nào.</span>}
           />

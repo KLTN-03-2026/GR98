@@ -168,3 +168,29 @@ export class CancelOrderDto {
   @IsString()
   reason?: string;
 }
+
+export class AssignShipperDto {
+  @ApiProperty({ example: 'clxxx', description: 'ID ShipperProfile' })
+  @IsString()
+  @IsNotEmpty()
+  shipperId: string;
+}
+
+export class ConfirmOrderDto {
+  @ApiPropertyOptional({ example: 'Đã kiểm hàng, sẵn sàng đóng gói' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class MarkDeliveredDto {
+  @ApiPropertyOptional({ example: 'https://.../delivery-proof.jpg' })
+  @IsOptional()
+  @IsString()
+  deliveryProofUrl?: string;
+
+  @ApiPropertyOptional({ example: 'Đã giao tận tay người nhận' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+}

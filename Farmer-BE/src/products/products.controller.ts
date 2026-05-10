@@ -52,6 +52,13 @@ export class ProductsController {
     return this.productsService.findBySlug(slug);
   }
 
+  @Get('slug/:slug/trace')
+  @ApiOperation({ summary: 'Truy xuất nguồn gốc sản phẩm theo slug' })
+  @ApiResponse({ status: 200, description: 'Dữ liệu truy xuất nguồn gốc' })
+  findTraceability(@Param('slug') slug: string) {
+    return this.productsService.findTraceability(slug);
+  }
+
   @Get('featured')
   @ApiOperation({ summary: 'Danh sách sản phẩm nổi bật' })
   findFeatured(@Query('limit') limit?: string) {

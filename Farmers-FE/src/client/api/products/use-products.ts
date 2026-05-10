@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { extractData } from '@/client/lib/api-client';
-import type { Product } from '@/client/types';
+import type { Product, ProductTraceability } from '@/client/types';
 import { productApi } from './product-api';
 
 export function useProducts(filters: {
@@ -85,5 +85,16 @@ export function useProductsByCategory(
       }>(response);
     },
     enabled: !!categorySlug,
+  });
+}
+
+export function useProductTraceability(slug: string) {
+  return useQuery({
+    queryKey: ['product', slug, 'traceability'],
+    queryFn: async () => {
+      const response = await productApi.getTraceability(slug);
+      return extractData<ProductTraceability>(response);
+    },
+    enabled: !!slug,
   });
 }

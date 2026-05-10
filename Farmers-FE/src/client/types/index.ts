@@ -142,6 +142,86 @@ export interface PaginatedProducts {
 }
 
 // ============================================================
+// TRACEABILITY
+// ============================================================
+export interface TraceTimelineItem {
+  date: string;
+  type: 'planting' | 'expected_harvest' | 'report' | 'incident' | 'harvest' | 'scan' | 'warehouse' | 'transaction';
+  title: string;
+  description: string;
+  imageUrls?: string[];
+  meta?: Record<string, unknown>;
+}
+
+export interface TracePlot {
+  id: string;
+  plotCode: string;
+  cropType: string;
+  areaHa: number;
+  plantingDate?: string | null;
+  expectedHarvest?: string | null;
+  estimatedYieldKg?: number | null;
+  farmer: { fullName: string; province?: string } | null;
+  zone: { name: string; province: string; district?: string } | null;
+}
+
+export interface TraceContract {
+  id: string;
+  contractNo: string;
+  cropType: string;
+  variety?: string | null;
+  grade: string;
+  signedAt?: string | null;
+  harvestDue?: string | null;
+  traceabilityQr?: string | null;
+  farmer: { fullName: string } | null;
+  supervisor: { fullName?: string } | null;
+}
+
+export interface TraceInventoryLot {
+  id: string;
+  quantityKg: number;
+  harvestDate?: string | null;
+  expiryDate?: string | null;
+  qualityGrade: string;
+  warehouseName?: string;
+}
+
+export interface TraceReview {
+  id: string;
+  rating: number;
+  comment?: string;
+  imageUrls: string[];
+  clientName?: string;
+  clientAvatar?: string;
+  createdAt: string;
+}
+
+export interface TraceStats {
+  totalReports: number;
+  totalIncidents: number;
+  totalHarvestReports: number;
+  totalScans: number;
+  avgYieldEstimate: number;
+  yieldHistory: { date: string; value: number }[];
+  reportTypeCounts: Record<string, number>;
+  scanCategoryCounts: Record<string, number>;
+  totalInventoryKg: number;
+}
+
+export interface ProductTraceability {
+  product: Product & { averageRating: number; reviewCount: number };
+  plot: TracePlot | null;
+  contract: TraceContract | null;
+  timeline: TraceTimelineItem[];
+  reports: unknown[];
+  scans: unknown[];
+  inventoryLots: TraceInventoryLot[];
+  reviews: TraceReview[];
+  stats: TraceStats;
+}
+
+// ============================================================
 // REVIEW
 // ============================================================
 export interface Review {

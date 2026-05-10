@@ -236,6 +236,255 @@ export class ProductsService {
     };
   }
 
+  async findTraceability(slug: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { slug, status: ProductStatus.PUBLISHED },
+      include: {
+        categories: { include: { category: true } },
+        plot: {
+          include: {
+            farmer: true,
+            zone: true,
+            dailyReports: {
+              include: { supervisor: { include: { user: { select: { fullName: true, avatar: true } } } } },
+              orderBy: { reportedAt: 'asc' },
+            },
+            plantScanRecords: {
+              include: { supervisor: { include: { user: { select: { fullName: true, avatar: true } } } } },
+              orderBy: { scannedAt: 'asc' },
+            },
+          },
+        },
+        contract: {
+          include: {
+            farmer: true,
+            supervisor: { include: { user: { select: { fullName: true, avatar: true } } } },
+            inventoryLots: {
+              include: {
+                warehouse: true,
+                transactions: { orderBy: { createdAt: 'asc' } },
+              },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        },
+        reviews: {
+          where: { status: 'APPROVED' },
+          include: {
+            client: { include: { user: { select: { fullName: true, avatar: true } } } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
+
+    if (!product) throw new NotFoundException('Sản phẩm không tồn tại');
+
+    // Build unified timeline
+    const timeline: any[] = [];
+
+    if (product.plot?.plantingDate) {
+      timeline.push({
+        date: product.plot.plantingDate,
+        type: 'planting',
+        title: 'Gieo trồng',
+        description: `Gieo trồng ${product.cropType} trên lô ${product.plot.plotCode}`,
+      });
+    }
+
+    if (product.plot?.expectedHarvest) {
+      timeline.push({
+        date: product.plot.expectedHarvest,
+        type: 'expected_harvest',
+        title: 'Dự kiến thu hoạch',
+        description: `Dự kiến thu hoạch vào ${product.plot.expectedHarvest.toISOString().split('T')[0]}`,
+      });
+    }
+
+    for (const report of product.plot?.dailyReports ?? []) {
+      timeline.push({
+        date: report.reportedAt,
+        type: report.type === 'ROUTINE' ? 'report' : report.type === 'INCIDENT' ? 'incident' : 'harvest',
+        title: report.type === 'ROUTINE' ? 'Báo cáo định kỳ' : report.type === 'INCIDENT' ? 'Sự cố' : 'Báo cáo thu hoạch',
+        description: report.content,
+        imageUrls: report.imageUrls,
+        meta: {
+          yieldEstimateKg: report.yieldEstimateKg,
+          supervisorName: report.supervisor?.user?.fullName,
+        },
+      });
+    }
+
+    for (const scan of product.plot?.plantScanRecords ?? []) {
+      timeline.push({
+        date: scan.scannedAt,
+        type: 'scan',
+        title: `Phát hiện: ${scan.diseaseVi}`,
+        description: scan.symptoms,
+        meta: {
+          dangerLevel: scan.dangerLevel,
+          confidence: scan.confidence,
+          treatment: scan.treatment,
+          supervisorName: scan.supervisor?.user?.fullName,
+        },
+      });
+    }
+
+    for (const lot of product.contract?.inventoryLots ?? []) {
+      timeline.push({
+        date: lot.harvestDate ?? lot.createdAt,
+        type: 'warehouse',
+        title: 'Nhập kho',
+        description: `Nhập ${lot.quantityKg}kg vào kho ${lot.warehouse?.name}`,
+        meta: {
+          quantityKg: lot.quantityKg,
+          qualityGrade: lot.qualityGrade,
+          warehouseName: lot.warehouse?.name,
+        },
+      });
+      for (const tx of lot.transactions ?? []) {
+        timeline.push({
+          date: tx.createdAt,
+          type: 'transaction',
+          title: tx.type === 'INBOUND' ? 'Nhập kho' : tx.type === 'OUTBOUND' ? 'Xuất kho' : 'Điều chỉnh',
+          description: tx.note || `${tx.action} ${tx.quantityKg}kg`,
+          meta: { quantityKg: tx.quantityKg, action: tx.action },
+        });
+      }
+    }
+
+    if (product.harvestDate) {
+      timeline.push({
+        date: product.harvestDate,
+        type: 'harvest',
+        title: 'Thu hoạch sản phẩm',
+        description: `Thu hoạch ${product.name}`,
+      });
+    }
+
+    timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Stats for charts
+    const reports = product.plot?.dailyReports ?? [];
+    const scans = product.plot?.plantScanRecords ?? [];
+    const lots = product.contract?.inventoryLots ?? [];
+
+    const reportTypeCounts: Record<string, number> = {};
+    for (const r of reports) {
+      reportTypeCounts[r.type] = (reportTypeCounts[r.type] || 0) + 1;
+    }
+
+    const scanCategoryCounts: Record<string, number> = {};
+    for (const s of scans) {
+      scanCategoryCounts[s.category] = (scanCategoryCounts[s.category] || 0) + 1;
+    }
+
+    const yieldHistory = reports
+      .filter((r) => r.yieldEstimateKg != null)
+      .map((r) => ({ date: r.reportedAt, value: r.yieldEstimateKg! }));
+
+    const totalYieldEstimate = yieldHistory.reduce((sum, y) => sum + y.value, 0);
+    const avgYieldEstimate = yieldHistory.length > 0 ? totalYieldEstimate / yieldHistory.length : 0;
+
+    return {
+      product: {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        sku: product.sku,
+        description: product.description,
+        cropType: product.cropType,
+        variety: product.variety,
+        grade: product.grade,
+        pricePerKg: product.pricePerKg,
+        unit: product.unit,
+        imageUrls: product.imageUrls,
+        thumbnailUrl: product.thumbnailUrl,
+        harvestDate: product.harvestDate,
+        qrCode: product.qrCode,
+        categories: product.categories.map((pc) => pc.category),
+        averageRating: product.reviews?.length
+          ? product.reviews.reduce((s, r) => s + r.rating, 0) / product.reviews.length
+          : 0,
+        reviewCount: product.reviews?.length ?? 0,
+      },
+      plot: product.plot
+        ? {
+            id: product.plot.id,
+            plotCode: product.plot.plotCode,
+            cropType: product.plot.cropType,
+            areaHa: product.plot.areaHa,
+            plantingDate: product.plot.plantingDate,
+            expectedHarvest: product.plot.expectedHarvest,
+            estimatedYieldKg: product.plot.estimatedYieldKg,
+            farmer: product.plot.farmer
+              ? {
+                  fullName: product.plot.farmer.fullName,
+                  province: product.plot.farmer.province,
+                }
+              : null,
+            zone: product.plot.zone
+              ? {
+                  name: product.plot.zone.name,
+                  province: product.plot.zone.province,
+                  district: product.plot.zone.district,
+                }
+              : null,
+          }
+        : null,
+      contract: product.contract
+        ? {
+            id: product.contract.id,
+            contractNo: product.contract.contractNo,
+            cropType: product.contract.cropType,
+            variety: product.contract.variety,
+            grade: product.contract.grade,
+            signedAt: product.contract.signedAt,
+            harvestDue: product.contract.harvestDue,
+            traceabilityQr: product.contract.traceabilityQr,
+            farmer: product.contract.farmer
+              ? { fullName: product.contract.farmer.fullName }
+              : null,
+            supervisor: product.contract.supervisor
+              ? { fullName: product.contract.supervisor.user?.fullName }
+              : null,
+          }
+        : null,
+      timeline,
+      reports,
+      scans,
+      inventoryLots: lots.map((lot) => ({
+        id: lot.id,
+        quantityKg: lot.quantityKg,
+        harvestDate: lot.harvestDate,
+        expiryDate: lot.expiryDate,
+        qualityGrade: lot.qualityGrade,
+        warehouseName: lot.warehouse?.name,
+      })),
+      reviews: product.reviews?.map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        comment: r.comment,
+        imageUrls: r.imageUrls,
+        clientName: r.client?.user?.fullName,
+        clientAvatar: r.client?.user?.avatar,
+        createdAt: r.createdAt,
+      })),
+      stats: {
+        totalReports: reports.length,
+        totalIncidents: reports.filter((r) => r.type === 'INCIDENT').length,
+        totalHarvestReports: reports.filter((r) => r.type === 'HARVEST').length,
+        totalScans: scans.length,
+        avgYieldEstimate,
+        yieldHistory,
+        reportTypeCounts,
+        scanCategoryCounts,
+        totalInventoryKg: lots.reduce((sum, l) => sum + l.quantityKg, 0),
+      },
+    };
+  }
+
   async findFeatured(limit: number) {
     const items = await this.prisma.product.findMany({
       where: { status: ProductStatus.PUBLISHED },

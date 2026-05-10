@@ -179,6 +179,7 @@ model ClientShippingAddress {
   addressLine     String
   district        String?
   province        String
+  addressType     AddressType   @default(HOME)
   isDefault       Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -311,6 +312,7 @@ model Contract {
   plotId                   String?
   contractNo               String            @unique
   cropType                 String
+  variety                  String?
   grade                    QualityGrade
   status                   ContractStatus    @default(DRAFT)
   signedAt                 DateTime?
@@ -346,6 +348,7 @@ model Product {
   sku               String                 @unique
   description       String?
   cropType          String
+  variety           String?
   grade             QualityGrade
   pricePerKg        Float
   stockKg           Float                  @default(0)
@@ -621,6 +624,11 @@ enum ProductStatus {
   PUBLISHED
   OUT_OF_STOCK
   ARCHIVED
+}
+
+enum AddressType {
+  HOME
+  OFFICE
 }
 
 enum PaymentMethod {

@@ -38,6 +38,13 @@ export class ShipperService {
       if (!p) throw new ForbiddenException('Không tìm thấy hồ sơ Supervisor');
       return p.adminId;
     }
+    if (user.role === Role.INVENTORY) {
+      const p = await this.prisma.inventoryProfile.findUnique({
+        where: { userId: currentUserId },
+      });
+      if (!p) throw new ForbiddenException('Không tìm thấy hồ sơ Inventory');
+      return p.adminId;
+    }
     throw new ForbiddenException('Không có quyền quản lý shipper');
   }
 

@@ -20,6 +20,7 @@ import {
   Role,
   TransactionType,
   TransactionAction,
+  ShipperStatus,
 } from '@prisma/client';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
 
@@ -341,6 +342,26 @@ export class OrderService {
         admin: {
           select: { id: true, businessName: true },
         },
+        shipper: {
+          select: {
+            id: true,
+            employeeCode: true,
+            vehicleType: true,
+            licensePlate: true,
+            status: true,
+            lat: true,
+            lng: true,
+            lastSeenAt: true,
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                avatar: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -492,13 +513,19 @@ export class OrderService {
       throw new ForbiddenException('Shipper không thuộc đơn vị của bạn');
     }
 
-    await this.prisma.order.update({
-      where: { id },
-      data: {
-        fulfillStatus: FulfillStatus.SHIPPED,
-        shippedAt: new Date(),
-        shipperId: dto.shipperId,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id },
+        data: {
+          fulfillStatus: FulfillStatus.SHIPPED,
+          shippedAt: new Date(),
+          shipperId: dto.shipperId,
+        },
+      });
+      await tx.shipperProfile.update({
+        where: { id: dto.shipperId },
+        data: { status: ShipperStatus.BUSY },
+      });
     });
 
     return this.formatOrder(id, currentUserId);
@@ -609,6 +636,14 @@ export class OrderService {
       }
 
       await tx.order.update({ where: { id }, data: updateData });
+
+      // Giải phóng shipper nếu có
+      if (order.shipperId) {
+        await tx.shipperProfile.update({
+          where: { id: order.shipperId },
+          data: { status: ShipperStatus.AVAILABLE },
+        });
+      }
     });
 
     return this.formatOrder(id, currentUserId);
@@ -648,6 +683,13 @@ export class OrderService {
         await tx.product.update({
           where: { id: item.productId },
           data: { reservedKg: { decrement: item.quantityKg } },
+        });
+      }
+      // Giải phóng shipper nếu đơn đang được giao
+      if (order.shipperId) {
+        await tx.shipperProfile.update({
+          where: { id: order.shipperId },
+          data: { status: ShipperStatus.AVAILABLE },
         });
       }
     });
@@ -692,6 +734,26 @@ export class OrderService {
           select: {
             id: true,
             user: { select: { fullName: true, email: true, phone: true } },
+          },
+        },
+        shipper: {
+          select: {
+            id: true,
+            employeeCode: true,
+            vehicleType: true,
+            licensePlate: true,
+            status: true,
+            lat: true,
+            lng: true,
+            lastSeenAt: true,
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                avatar: true,
+              },
+            },
           },
         },
       },

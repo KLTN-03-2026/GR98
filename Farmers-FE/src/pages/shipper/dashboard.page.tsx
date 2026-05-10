@@ -26,7 +26,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { apiGet } from '@/client/lib/api-client';
+import { uploadImage } from '@/client/api/upload';
 import { useMarkDelivered } from '@/client/api';
+import FileUpload from '@/components/custom/file-upload';
 import { useAuthStore } from '@/client/store';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -61,23 +63,34 @@ interface ShipperOrder {
 
 function ShipperOrderCard({ order }: { order: ShipperOrder }) {
   const markDelivered = useMarkDelivered();
-  const [proofUrl, setProofUrl] = useState('');
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const [note, setNote] = useState('');
   const [open, setOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const isDelivered = order.fulfillStatus === 'DELIVERED';
   const addr = order.shippingAddr;
 
   const handleDeliver = async () => {
+    setIsUploading(true);
     try {
+      let proofUrl: string | undefined;
+      if (proofFile) {
+        const uploaded = await uploadImage(proofFile, 'delivery-proofs');
+        proofUrl = uploaded.url;
+      }
       await markDelivered.mutateAsync({
         orderId: order.id,
-        deliveryProofUrl: proofUrl || undefined,
+        deliveryProofUrl: proofUrl,
         note: note || undefined,
       });
       setOpen(false);
+      setProofFile(null);
+      setNote('');
     } catch {
       /* toast shown by mutation */
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -161,17 +174,18 @@ function ShipperOrderCard({ order }: { order: ShipperOrder }) {
               </DialogHeader>
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label>URL ảnh chứng minh (optional)</Label>
-                  <Input
-                    placeholder="https://..."
-                    value={proofUrl}
-                    onChange={(e) => setProofUrl(e.target.value)}
+                  <Label className="flex items-center gap-1.5">
+                    <Camera className="h-3.5 w-3.5" />
+                    Ảnh chứng minh (optional)
+                  </Label>
+                  <FileUpload
+                    onFileSelect={(file) => setProofFile(file)}
+                    onFileError={(error) => {
+                      toast.error(error || 'Ảnh không hợp lệ');
+                    }}
+                    currentFile={proofFile}
+                    maxFileSize={5 * 1024 * 1024}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    <Camera className="h-3 w-3 inline mr-1" />
-                    Tạm thời paste URL ảnh đã upload. Production sẽ tích hợp
-                    upload trực tiếp.
-                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Ghi chú (optional)</Label>
@@ -185,12 +199,12 @@ function ShipperOrderCard({ order }: { order: ShipperOrder }) {
               <DialogFooter>
                 <Button
                   onClick={handleDeliver}
-                  disabled={markDelivered.isPending}
+                  disabled={markDelivered.isPending || isUploading}
                 >
-                  {markDelivered.isPending && (
+                  {(markDelivered.isPending || isUploading) && (
                     <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
                   )}
-                  Xác nhận
+                  {isUploading ? 'Đang upload...' : 'Xác nhận'}
                 </Button>
               </DialogFooter>
             </DialogContent>

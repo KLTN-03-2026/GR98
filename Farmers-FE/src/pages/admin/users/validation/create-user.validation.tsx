@@ -34,7 +34,7 @@ export const userCreateFormSchema = z
         { message: 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt' },
       ),
 
-    role: z.enum(['SUPERVISOR', 'INVENTORY'], {
+    role: z.enum(['SUPERVISOR', 'INVENTORY', 'SHIPPER'], {
       message: 'Vai trò là bắt buộc',
     }),
 
@@ -49,6 +49,10 @@ export const userCreateFormSchema = z
 
     // CLIENT-only
     defaultAddress: z.string().optional(),
+
+    // SHIPPER-only
+    vehicleType: z.enum(['MOTORBIKE', 'TRUCK', 'VAN']).optional(),
+    licensePlate: z.string().optional(),
 
     avatar: z
       .instanceof(File)

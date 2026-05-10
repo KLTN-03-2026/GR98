@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { Role, VehicleType } from '@prisma/client';
 import {
   IsEmail,
   IsString,
@@ -8,7 +8,6 @@ import {
   IsEnum,
   Matches,
 } from 'class-validator';
-import { IsBase64Image } from '../../common/validators/is-base64-image';
 
 export class CreateUserDto {
   @IsNotEmpty({ message: 'Họ tên là bắt buộc' })
@@ -40,11 +39,7 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  @IsBase64Image({
-    message:
-      'Ảnh đại diện phải có dung lượng nhỏ hơn 5MB và định dạng hợp lệ (PNG, JPG, WEBP, ...)',
-  })
-  avatar?: string;
+  avatar?: string; // Cloudinary URL
 
   // ── ADMIN-only fields ──────────────────────────────────────────────────────
   @IsOptional()
@@ -59,4 +54,13 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   defaultAddress?: string;
+
+  // ── SHIPPER-only fields ────────────────────────────────────────────────────
+  @IsOptional()
+  @IsEnum(VehicleType, { message: 'Loại phương tiện không hợp lệ' })
+  vehicleType?: VehicleType;
+
+  @IsOptional()
+  @IsString()
+  licensePlate?: string;
 }

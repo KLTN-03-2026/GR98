@@ -1,11 +1,22 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useOrder, useUpdateOrder } from '@/client/api';
+import {
+  useOrder,
+  useConfirmPacking,
+  useAssignShipper,
+  useMarkDelivered,
+  useAdminCancelOrder,
+} from '@/client/api';
+import { apiGet } from '@/client/lib/api-client';
+import { useQuery } from '@tanstack/react-query';
 import { formatPrice } from '@/client/data/mock-data';
 import {
   PAYMENT_STATUS_LABELS,
   FULFILL_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
+  type Order,
 } from '@/client/types';
+import { Input } from '@/components/ui/input';
+import { XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,9 +35,9 @@ import {
   Clock,
   Banknote,
   Hash,
-  RefreshCw,
   MoreVertical,
-  Phone
+  Phone,
+  ImageIcon,
 } from 'lucide-react';
 import { cn, getImageUrl } from '@/lib/utils';
 import { 
@@ -50,81 +61,245 @@ import { useState } from 'react';
 
 // ─── Sub-Components ───────────────────────────────────────────────────────
 
-function UpdateOrderDialog({ 
-  orderId, 
-  currentStatus, 
-  onSuccess 
-}: { 
-  orderId: string; 
-  currentStatus: string; 
-  onSuccess: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState(currentStatus);
-  const { mutate: updateOrder, isPending } = useUpdateOrder();
+type Shipper = {
+  id: string;
+  employeeCode: string;
+  status: string;
+  vehicleType?: string;
+  user: { fullName: string; phone?: string | null };
+};
 
-  const handleUpdate = () => {
-    updateOrder(
-      { orderId, data: { fulfillStatus: status as any } },
-      {
-        onSuccess: () => {
-          setOpen(false);
-          onSuccess();
-        },
-      },
-    );
-  };
+const SHIPPER_STATUS_STYLES: Record<string, string> = {
+  AVAILABLE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  BUSY: 'bg-amber-50 text-amber-700 border-amber-200',
+  OFFLINE: 'bg-slate-100 text-slate-500 border-slate-200',
+};
 
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
+function OrderStateMachineActions({ order }: { order: Order }) {
+  const confirmPacking = useConfirmPacking();
+  const assignShipper = useAssignShipper();
+  const markDelivered = useMarkDelivered();
+  const adminCancel = useAdminCancelOrder();
+
+  const { data: shippersData, isLoading: isLoadingShippers } = useQuery({
+    queryKey: ['shippers', 'list-for-assign'],
+    queryFn: async () => {
+      const res = await apiGet<{ data: { data: Shipper[] } }>('/shippers', {
+        params: { limit: 100 },
+      });
+      return (
+        (res.data as unknown as { data?: { data?: Shipper[] } })?.data?.data ?? []
+      );
+    },
+    enabled: order.fulfillStatus === 'PACKING',
+  });
+
+  const [selectedShipperId, setSelectedShipperId] = useState<string>('');
+  const [cancelReason, setCancelReason] = useState('');
+
+  const cancelDialog = (
+    <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9 rounded-xl border-slate-200 font-semibold gap-2">
-          <RefreshCw className="size-3.5" />
-          Cập nhật trạng thái
+        <Button
+          variant="outline"
+          className="h-10 rounded-xl gap-2 text-rose-600 border-rose-200 bg-rose-50/40 hover:bg-rose-50 hover:text-rose-700"
+        >
+          <XCircle className="size-4" />
+          Huỷ đơn
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] rounded-2xl font-manrope">
+      <DialogContent className="sm:max-w-[425px] rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">Cập nhật đơn hàng</DialogTitle>
-          <DialogDescription className="text-sm">
-            Thay đổi trạng thái xử lý cho đơn hàng này.
+          <DialogTitle>Huỷ đơn hàng</DialogTitle>
+          <DialogDescription>
+            Đơn sẽ được huỷ và stock được hoàn lại kho.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-6 space-y-4">
-          <div className="space-y-2">
-            <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Trạng thái vận hành</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="rounded-xl h-11 border-slate-200">
-                <SelectValue placeholder="Chọn trạng thái" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {Object.entries(FULFILL_STATUS_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value} className="rounded-lg">
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter className="gap-2">
+        <Input
+          placeholder="Lý do huỷ (không bắt buộc)"
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          className="rounded-xl"
+        />
+        <DialogFooter>
           <Button
-            variant="ghost"
-            onClick={() => setOpen(false)}
-            className="rounded-xl h-10"
+            variant="destructive"
+            onClick={() =>
+              adminCancel.mutate({
+                orderId: order.id,
+                reason: cancelReason || undefined,
+              })
+            }
+            disabled={adminCancel.isPending}
+            className="rounded-xl"
           >
-            Hủy
-          </Button>
-          <Button
-            onClick={handleUpdate}
-            disabled={isPending || status === currentStatus}
-            className="rounded-xl px-8 h-10 shadow-sm"
-          >
-            {isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+            Xác nhận huỷ
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+
+  let title = '';
+  let description = '';
+  let icon: React.ReactNode = null;
+  let iconBg = 'bg-primary/10 text-primary';
+  let body: React.ReactNode = null;
+
+  if (order.fulfillStatus === 'PENDING') {
+    title = 'Xác nhận đơn hàng';
+    description =
+      'Kiểm tra tồn kho và chuyển đơn sang trạng thái đóng gói (PACKING).';
+    icon = <Package className="size-5" />;
+    iconBg = 'bg-amber-100 text-amber-700';
+    body = (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          onClick={() => confirmPacking.mutate({ orderId: order.id })}
+          disabled={confirmPacking.isPending}
+          className="h-10 rounded-xl gap-2 px-5"
+        >
+          <Package className="size-4" />
+          Xác nhận → PACKING
+        </Button>
+        {cancelDialog}
+      </div>
+    );
+  } else if (order.fulfillStatus === 'PACKING') {
+    title = 'Gán shipper giao hàng';
+    description = 'Chọn shipper khả dụng để chuyển đơn sang đang giao (SHIPPED).';
+    icon = <Truck className="size-5" />;
+    iconBg = 'bg-blue-100 text-blue-700';
+
+    const shippers = shippersData ?? [];
+    body = (
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex-1 space-y-1.5 min-w-0">
+            <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Shipper
+            </Label>
+            <Select
+              value={selectedShipperId}
+              onValueChange={setSelectedShipperId}
+              disabled={isLoadingShippers || shippers.length === 0}
+            >
+              <SelectTrigger className="h-11 rounded-xl bg-white">
+                <SelectValue
+                  placeholder={
+                    isLoadingShippers
+                      ? 'Đang tải danh sách shipper...'
+                      : shippers.length === 0
+                      ? 'Chưa có shipper khả dụng'
+                      : 'Chọn shipper...'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl max-h-[320px]">
+                {shippers.map((s) => {
+                  const isAvailable = s.status === 'AVAILABLE';
+                  return (
+                    <SelectItem
+                      key={s.id}
+                      value={s.id}
+                      className={cn('py-2.5', !isAvailable && 'opacity-50 pointer-events-none')}
+                      disabled={!isAvailable}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold">
+                          {s.user.fullName
+                            .split(' ')
+                            .slice(-1)[0]
+                            ?.charAt(0)
+                            .toUpperCase() || 'S'}
+                        </div>
+                        <div className="flex flex-col items-start gap-0.5 min-w-0">
+                          <span className="text-sm font-medium leading-none truncate">
+                            {s.user.fullName}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {s.employeeCode}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'h-4 px-1.5 text-[9px] font-bold uppercase tracking-wider rounded-md',
+                                SHIPPER_STATUS_STYLES[s.status] ?? '',
+                              )}
+                            >
+                              {isAvailable ? 'Sẵn sàng' : s.status === 'BUSY' ? 'Đang giao' : s.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            disabled={!selectedShipperId || assignShipper.isPending}
+            onClick={() =>
+              assignShipper.mutate({
+                orderId: order.id,
+                shipperId: selectedShipperId,
+              })
+            }
+            className="h-11 rounded-xl gap-2 px-5"
+          >
+            <Truck className="size-4" />
+            Gán shipper → SHIPPED
+          </Button>
+        </div>
+        {cancelDialog}
+      </div>
+    );
+  } else if (order.fulfillStatus === 'SHIPPED') {
+    title = 'Xác nhận giao thành công';
+    description =
+      'Đánh dấu đơn đã giao đến khách hàng. Stock sẽ được trừ, COD tự động đánh dấu đã thanh toán.';
+    icon = <CheckCircle2 className="size-5" />;
+    iconBg = 'bg-emerald-100 text-emerald-700';
+    body = (
+      <Button
+        onClick={() => markDelivered.mutate({ orderId: order.id })}
+        disabled={markDelivered.isPending}
+        className="h-10 rounded-xl gap-2 px-5"
+      >
+        <CheckCircle2 className="size-4" />
+        Đánh dấu đã giao → DELIVERED
+      </Button>
+    );
+  } else {
+    return null;
+  }
+
+  return (
+    <Card className="border-border/50 shadow-xs overflow-hidden bg-gradient-to-br from-white to-slate-50/40">
+      <CardContent className="p-5">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          <div
+            className={cn(
+              'size-11 rounded-xl flex items-center justify-center shrink-0',
+              iconBg,
+            )}
+          >
+            {icon}
+          </div>
+          <div className="flex-1 min-w-0 space-y-3">
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {description}
+              </p>
+            </div>
+            {body}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -133,7 +308,7 @@ function UpdateOrderDialog({
 export default function InventoryOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data: order, isLoading, refetch } = useOrder(id!);
+  const { data: order, isLoading } = useOrder(id!);
 
   if (isLoading) {
     return (
@@ -220,9 +395,6 @@ export default function InventoryOrderDetailPage() {
         </div>
         
         <div className="flex flex-wrap items-center gap-2 lg:ml-14">
-          {order.fulfillStatus !== 'CANCELLED' && order.fulfillStatus !== 'DELIVERED' && (
-            <UpdateOrderDialog orderId={order.id} currentStatus={order.fulfillStatus} onSuccess={refetch} />
-          )}
           <Button variant="outline" className="h-9 rounded-xl font-semibold text-xs gap-2 border-slate-200 shadow-xs">
             <FileText className="size-4" /> Hóa đơn
           </Button>
@@ -236,6 +408,11 @@ export default function InventoryOrderDetailPage() {
         {/* Main Column */}
         <div className="lg:col-span-2 space-y-8">
           
+          {/* Action Card - State Machine */}
+          {order.fulfillStatus !== 'CANCELLED' && order.fulfillStatus !== 'DELIVERED' && (
+            <OrderStateMachineActions order={order} />
+          )}
+
           {/* Status Progress - Clean Admin Style */}
           <Card className="border-border/50 shadow-none bg-slate-50/30 overflow-hidden">
             <CardContent className="p-8">
@@ -345,62 +522,124 @@ export default function InventoryOrderDetailPage() {
         </div>
 
         {/* Sidebar Column */}
-        <div className="space-y-6">
-          
-          {/* Customer & Shipping - Simplified Admin Style */}
+        <div className="space-y-3">
+
+          {/* Combined Info Card */}
           <Card className="border-border/50 shadow-xs overflow-hidden">
-            <CardHeader className="pb-4 pt-5 px-5 border-b border-border/50 bg-slate-50/30">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                    <Users className="size-3.5" /> Thông tin nhận hàng
-                </CardTitle>
+            <CardHeader className="pb-3 pt-4 px-4 border-b border-border/50 bg-slate-50/30">
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <Users className="size-3.5" /> Thông tin đơn hàng
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-5 space-y-5">
-              <div className="flex items-center gap-3.5">
-                <div className="size-11 rounded-xl bg-primary/8 flex items-center justify-center text-primary shadow-sm">
-                  <Users className="size-5" />
+            <CardContent className="p-4 space-y-4">
+              {/* Customer */}
+              <div className="flex items-center gap-3">
+                <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <Users className="size-4" />
                 </div>
-                <div>
-                  <p className="font-semibold text-slate-900 leading-none">{order.shippingAddr.fullName}</p>
-                  <p className="text-xs text-muted-foreground font-medium mt-1.5 flex items-center gap-1.5">
-                    <Phone className="size-3 text-primary/60" /> {order.shippingAddr.phone}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate">{order.shippingAddr.fullName}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Phone className="size-3" /> {order.shippingAddr.phone}
                   </p>
-                </div>
-              </div>
-              
-              <div className="space-y-2.5 pt-4 border-t border-slate-100">
-                <div className="flex gap-3">
-                  <MapPinned className="size-4 text-slate-400 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Địa chỉ giao nhận</p>
-                    <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                      {order.shippingAddr.addressLine}{order.shippingAddr.district ? `, ${order.shippingAddr.district}` : ''}, {order.shippingAddr.province}
-                    </p>
-                  </div>
                 </div>
               </div>
 
+              {/* Address */}
+              <div className="flex gap-2.5">
+                <MapPinned className="size-4 text-slate-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  {order.shippingAddr.addressLine}{order.shippingAddr.district ? `, ${order.shippingAddr.district}` : ''}, {order.shippingAddr.province}
+                </p>
+              </div>
+
               {order.note && (
-                <div className="rounded-xl bg-amber-50/50 border border-amber-100/50 p-4">
-                  <p className="text-[9px] font-bold text-amber-700 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                <div className="rounded-lg bg-amber-50/60 border border-amber-100/60 p-3">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
                     <FileText className="size-3" /> Ghi chú
                   </p>
-                  <p className="text-xs text-amber-900/80 italic font-medium leading-relaxed">
+                  <p className="text-xs text-amber-900/80 italic leading-relaxed">
                     "{order.note}"
                   </p>
+                </div>
+              )}
+
+              {/* Shipper Section */}
+              {order.shipper && (
+                <div className="pt-3 border-t border-slate-100 space-y-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 flex items-center gap-2">
+                    <Truck className="size-3.5" /> Người giao hàng
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="size-9 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
+                      {order.shipper.user.avatar ? (
+                        <img src={order.shipper.user.avatar} alt="" className="size-9 rounded-lg object-cover" />
+                      ) : (
+                        order.shipper.user.fullName.split(' ').slice(-1)[0]?.charAt(0).toUpperCase() || 'S'
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-900 truncate">{order.shipper.user.fullName}</p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-[10px] text-muted-foreground">{order.shipper.employeeCode}</span>
+                        {order.shipper.vehicleType && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {order.shipper.vehicleType === 'MOTORBIKE' ? 'Xe máy' : 'Ô tô'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'h-5 px-1.5 text-[10px] font-bold uppercase tracking-wider rounded',
+                        SHIPPER_STATUS_STYLES[order.shipper.status ?? ''] ?? 'bg-slate-100 text-slate-500 border-slate-200',
+                      )}
+                    >
+                      {order.shipper.status ?? 'N/A'}
+                    </Badge>
+                  </div>
+                  {order.shippedAt && (
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                      <Clock className="size-3 text-blue-400" />
+                      Bắt đầu giao: {new Date(order.shippedAt).toLocaleString('vi-VN')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Delivery Proof Section */}
+              {order.deliveryProofUrl && (
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 flex items-center gap-2">
+                    <ImageIcon className="size-3.5" /> Chứng minh giao hàng
+                  </p>
+                  <a
+                    href={order.deliveryProofUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-xl overflow-hidden border border-slate-200 hover:border-emerald-300 transition-colors"
+                  >
+                    <img
+                      src={order.deliveryProofUrl}
+                      alt="Chứng minh giao hàng"
+                      className="w-full h-36 object-cover"
+                    />
+                  </a>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Payment Details - Modern Analytics Style */}
+          {/* Payment Details */}
           <Card className="border-border/50 shadow-xs overflow-hidden">
-            <CardHeader className="pb-4 pt-5 px-5 border-b border-border/50">
+            <CardHeader className="pb-3 pt-4 px-4 border-b border-border/50">
                 <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
                     <CreditCard className="size-3.5" /> Chi phí & Thanh toán
                 </CardTitle>
             </CardHeader>
-            <CardContent className="p-5">
-              <div className="space-y-3 pb-5">
+            <CardContent className="p-4">
+              <div className="space-y-2.5 pb-4">
                 <div className="flex justify-between text-xs font-medium text-muted-foreground">
                   <span>Tạm tính</span>
                   <span className="tabular-nums font-semibold text-slate-700">{formatPrice(order.subtotal)}</span>

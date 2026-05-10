@@ -140,7 +140,7 @@ export class OrderController {
 
   @Post(':id/admin-cancel')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERVISOR)
+  @Roles(Role.ADMIN, Role.SUPERVISOR, Role.INVENTORY)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Admin huỷ đơn' })
   adminCancel(

@@ -73,7 +73,7 @@ export default function ClientNavbar() {
       : (categoriesData as { data?: unknown[] } | undefined)?.data ?? [];
     return buildCategoriesNav(
       list as Array<{ id: string; name: string; slug: string; sortOrder: number; productCount?: number }>,
-      5,
+      4,
     );
   }, [categoriesData]);
 

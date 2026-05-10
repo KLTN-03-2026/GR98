@@ -113,6 +113,13 @@ export function ContractLegalTemplate({ vm }: Props) {
               <td className="border border-black px-2 py-1">{vm.cropType}</td>
               <td className="border border-black px-2 py-1">Áp dụng suốt thời hạn HĐ</td>
             </tr>
+            {vm.variety && vm.variety !== '—' && (
+              <tr>
+                <td className="border border-black px-2 py-1 font-semibold">Giống cây</td>
+                <td className="border border-black px-2 py-1">{vm.variety}</td>
+                <td className="border border-black px-2 py-1">Giống cây trồng theo hồ sơ hợp đồng</td>
+              </tr>
+            )}
             <tr>
               <td className="border border-black px-2 py-1 font-semibold">Khu vực lô đất dự thảo</td>
               <td className="border border-black px-2 py-1">
@@ -142,7 +149,7 @@ export function ContractLegalTemplate({ vm }: Props) {
       <section className="space-y-2 text-xs">
         <h2 className="font-bold uppercase">Điều 1: Đối tượng và thời hạn hợp đồng</h2>
         <p>
-          <strong>1.1. Đối tượng:</strong> Nông sản {vm.cropType} được thu hoạch tại vùng trồng plotId nêu
+          <strong>1.1. Đối tượng:</strong> Nông sản {vm.cropType}{vm.variety && vm.variety !== '—' ? ` (giống ${vm.variety})` : ''} được thu hoạch tại vùng trồng plotId nêu
           trên.
         </p>
         <p>

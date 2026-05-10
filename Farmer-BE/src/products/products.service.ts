@@ -117,6 +117,7 @@ export class ProductsService {
       ];
     }
     if (query.cropType) where.cropType = query.cropType;
+    if (query.variety) where.variety = { contains: query.variety, mode: 'insensitive' };
     if (query.grade) where.grade = query.grade;
     if (query.categoryId) {
       where.categories = {
@@ -485,6 +486,7 @@ export class ProductsService {
 
     // 5. Tạo Sản phẩm thương mại mới với liên kết nguồn gốc
     const { categoryIds, inventoryLotId, pricePerKg, ...rest } = dto;
+    const inheritedVariety = dto.variety || (lot.contract as any)?.variety || undefined;
 
     return this.prisma.product.create({
       data: {
@@ -496,6 +498,7 @@ export class ProductsService {
         description: dto.description,
         pricePerKg: finalPrice,
         cropType: inheritedCropType,
+        variety: inheritedVariety,
         grade: inheritedGrade,
         plotId: inheritedPlotId,
         contractId: inheritedContractId,
@@ -567,6 +570,7 @@ export class ProductsService {
         sku,
         pricePerKg: priceConfig.sellPrice,
         cropType: contract.cropType,
+        variety: dto.variety ?? (contract as any).variety ?? undefined,
         grade: contract.grade,
         plotId: contract.plotId,
         contractId: contract.id,

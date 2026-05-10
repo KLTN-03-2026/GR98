@@ -9,6 +9,7 @@ export const productApi = {
     limit?: number;
     search?: string;
     cropType?: string;
+    variety?: string;
     grade?: string;
     minPrice?: number;
     maxPrice?: number;

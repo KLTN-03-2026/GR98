@@ -25,7 +25,7 @@ interface ProductFiltersProps {
     categoryId?: string;
   };
   categories: Category[];
-  onFilterChange: (key: string, value: any) => void;
+  onFilterChange: (key: string, value: string | undefined) => void;
   onClear: () => void;
 }
 
@@ -126,7 +126,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
             <SelectContent>
               <SelectItem value="ALL">Tất cả loại cây</SelectItem>
               {Object.entries(CROP_TYPES).map(([key, label]) => (
-                <SelectItem key={key} value={label}>
+                <SelectItem key={key} value={key}>
                   {label}
                 </SelectItem>
               ))}

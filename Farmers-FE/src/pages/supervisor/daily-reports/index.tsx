@@ -48,6 +48,7 @@ import {
 } from './api';
 import { createSupervisorDailyReportColumns } from './components';
 import { CreateLotFromReportDialog } from './components/CreateLotFromReportDialog';
+import { uploadImage } from '@/client/api/upload';
 
 const PAGE_LIMIT = 15;
 const MAX_IMAGES = 10;
@@ -324,12 +325,20 @@ export default function SupervisorDailyReportsPage() {
         break;
       }
       try {
-        const dataUrl = await readFileAsDataUrl(file);
-        const previewUrl = URL.createObjectURL(file);
+        // Validate file type and size locally first
+        if (!file.type.startsWith('image/')) {
+          toast.error('Chỉ chấp nhận file ảnh');
+          continue;
+        }
+        if (file.size > MAX_FILE_BYTES) {
+          toast.error(`Ảnh "${file.name}" vượt quá 2MB`);
+          continue;
+        }
+        const uploaded = await uploadImage(file, 'reports');
         next.push({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          payload: dataUrl,
-          previewUrl,
+          payload: uploaded.url,
+          previewUrl: uploaded.url,
         });
       } catch (err) {
         toast.error(err instanceof Error ? err.message : `Không thể thêm ảnh ${file.name}`);

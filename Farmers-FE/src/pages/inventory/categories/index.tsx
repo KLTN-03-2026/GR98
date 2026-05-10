@@ -1,12 +1,13 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { CategoryFilters } from './CategoryFilters';
 import {
   Plus,
   Pencil,
   Trash2,
-  Image as ImageIcon,
   GripVertical,
   Layers,
+  ImageIcon,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCategories, type CategoryResponse } from '@/client/api';
@@ -42,6 +43,8 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { ColumnDef } from '@tanstack/react-table';
+import FileUpload from '@/components/custom/file-upload';
+import { uploadImage } from '@/client/api/upload';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -94,6 +97,7 @@ function CategoryDialog({
     sortOrder: 0,
     isActive: true,
   });
+  const [isUploading, setIsUploading] = useState(false);
 
   // Sync form when category changes (edit mode)
   useEffect(() => {
@@ -233,17 +237,30 @@ function CategoryDialog({
               {/* Media & Description Section */}
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="cat-image" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Ảnh đại diện (URL)</Label>
-                  <div className="relative group">
-                    <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-primary transition-colors" />
-                    <Input
-                      id="cat-image"
-                      value={form.imageUrl}
-                      onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                      placeholder="https://..."
-                      className="pl-10 rounded-2xl border-slate-200 h-12 text-xs bg-slate-50/30 transition-all hover:bg-white"
-                    />
-                  </div>
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Ảnh đại diện</Label>
+                  <FileUpload
+                    acceptedFileTypes={['image/*']}
+                    onFileSelect={async (file) => {
+                      setIsUploading(true);
+                      try {
+                        const uploaded = await uploadImage(file, 'categories');
+                        setForm({ ...form, imageUrl: uploaded.url });
+                      } catch {
+                        toast.error('Lỗi tải ảnh danh mục');
+                      } finally {
+                        setIsUploading(false);
+                      }
+                    }}
+                  />
+                  {isUploading && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      Đang tải ảnh lên...
+                    </div>
+                  )}
+                  {form.imageUrl && !isUploading && (
+                    <img src={form.imageUrl} alt="category" className="mt-2 h-20 w-20 rounded-xl object-cover border" />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -310,11 +327,16 @@ function CategoryDialog({
             </Button>
             <Button
               type="submit"
-              className="rounded-full h-11 px-10 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xl shadow-slate-200 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0"
+              disabled={isUploading}
+              className="rounded-full h-11 px-10 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xl shadow-slate-200 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
             >
-              <ShoppingBag className="size-4" />
+              {isUploading ? (
+                <RefreshCw className="size-4 animate-spin" />
+              ) : (
+                <ShoppingBag className="size-4" />
+              )}
               <span className="text-[10px] uppercase tracking-[0.15em]">
-                {mode === 'create' ? 'Tạo danh mục mới' : 'Lưu thay đổi'}
+                {isUploading ? 'Đang tải ảnh...' : mode === 'create' ? 'Tạo danh mục mới' : 'Lưu thay đổi'}
               </span>
             </Button>
           </DialogFooter>
@@ -426,25 +448,23 @@ export default function CategoriesAdminPage() {
     setStatusFilter(value);
   };
 
-  const handleOpenEdit = (cat: CategoryResponse) => {
+  const handleOpenEdit = useCallback((cat: CategoryResponse) => {
     setMode('edit');
     setSelected(cat);
     setDialogOpen(true);
-  };
+  }, []);
 
-  const handleOpenDelete = (cat: CategoryResponse) => {
+  const handleOpenDelete = useCallback((cat: CategoryResponse) => {
     setSelected(cat);
     setDeleteOpen(true);
-  };
+  }, []);
 
   const handleSubmit = async (formData: CategoryFormData) => {
     try {
       if (mode === 'create') {
         await createCategory.mutateAsync(formData);
-        toast.success('Đã tạo danh mục mới');
       } else if (selected) {
         await updateCategory.mutateAsync({ id: selected.id, data: formData });
-        toast.success('Đã cập nhật danh mục');
       }
       setDialogOpen(false);
     } catch {

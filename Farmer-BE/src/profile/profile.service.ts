@@ -58,6 +58,7 @@ export class ProfileService {
                 addressLine: true,
                 district: true,
                 province: true,
+                addressType: true,
                 isDefault: true,
                 createdAt: true,
                 updatedAt: true,
@@ -194,6 +195,7 @@ export class ProfileService {
           addressLine: dto.addressLine,
           district: dto.district ?? null,
           province: dto.province,
+          addressType: dto.addressType ?? 'HOME',
           isDefault: dto.isDefault ?? false,
         },
       });
@@ -251,6 +253,7 @@ export class ProfileService {
           addressLine: dto.addressLine ?? undefined,
           district: dto.district ?? undefined,
           province: dto.province ?? undefined,
+          addressType: dto.addressType ?? undefined,
           isDefault: dto.isDefault ?? undefined,
         },
       });

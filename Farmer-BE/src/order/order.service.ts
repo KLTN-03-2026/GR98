@@ -23,10 +23,14 @@ import {
   ShipperStatus,
 } from '@prisma/client';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
+import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
 export class OrderService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private paymentService: PaymentService,
+  ) {}
 
   // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -234,6 +238,9 @@ export class OrderService {
   // ─── findAll (admin) ─────────────────────────────────────────────────────
 
   async findAll(query: OrderQueryDto, currentUserId: string) {
+    // Tự động huỷ các đơn VNPAY hết hạn (>15 phút) trước khi list
+    await this.paymentService.sweepExpiredVnpayOrders().catch(() => 0);
+
     const currentUser = await this.prisma.user.findUnique({
       where: { id: currentUserId },
     });

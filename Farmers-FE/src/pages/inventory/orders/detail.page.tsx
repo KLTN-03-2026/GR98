@@ -57,7 +57,9 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import html2canvas from 'html2canvas-pro';
+import { jsPDF } from 'jspdf';
 
 // ─── Sub-Components ───────────────────────────────────────────────────────
 
@@ -309,6 +311,55 @@ export default function InventoryOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: order, isLoading } = useOrder(id!);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const invoiceRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadPdf = async () => {
+    if (!invoiceRef.current || !order) return;
+    setInvoiceOpen(false);
+
+    // Clone to off-screen container for clean capture
+    const clone = invoiceRef.current.cloneNode(true) as HTMLDivElement;
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '210mm';
+    container.appendChild(clone);
+    document.body.appendChild(container);
+
+    await new Promise((r) => setTimeout(r, 300));
+
+    try {
+      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`invoice-${order.orderNo}.pdf`);
+    } catch (e) {
+      console.error('PDF export failed:', e);
+      alert('Tải PDF thất bại. Vui lòng thử lại.');
+    } finally {
+      if (document.body.contains(container)) document.body.removeChild(container);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -395,7 +446,7 @@ export default function InventoryOrderDetailPage() {
         </div>
         
         <div className="flex flex-wrap items-center gap-2 lg:ml-14">
-          <Button variant="outline" className="h-9 rounded-xl font-semibold text-xs gap-2 border-slate-200 shadow-xs">
+          <Button variant="outline" className="h-9 rounded-xl font-semibold text-xs gap-2 border-slate-200 shadow-xs" onClick={() => setInvoiceOpen(true)}>
             <FileText className="size-4" /> Hóa đơn
           </Button>
           <Button variant="outline" size="icon" className="size-9 rounded-xl border-slate-200 shadow-xs">
@@ -712,6 +763,120 @@ export default function InventoryOrderDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Invoice Dialog */}
+      <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
+        <DialogContent className="max-w-[850px] max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="px-8 pt-6 pb-2">
+            <DialogTitle>Hóa đơn bán hàng</DialogTitle>
+            <DialogDescription>
+              Mã đơn: {order?.orderNo}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div ref={invoiceRef} style={{ backgroundColor: '#ffffff', padding: '0 32px 24px', color: '#1e293b', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+            {/* Invoice Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #1e293b', paddingBottom: '20px', marginBottom: '24px' }}>
+              <div>
+                <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.025em' }}>HÓA ĐƠN BÁN HÀNG</h2>
+                <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>Mã đơn: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#334155' }}>{order?.orderNo}</span></p>
+                <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Ngày đặt: {order ? new Date(order.orderedAt).toLocaleString('vi-VN') : ''}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', borderRadius: '9999px', border: '1px solid #e2e8f0', padding: '2px 10px', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', color: '#475569', backgroundColor: '#f8fafc' }}>
+                  {order?.fulfillStatus}
+                </span>
+              </div>
+            </div>
+
+            {/* Customer Info */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', fontSize: '14px', marginBottom: '24px' }}>
+              <div>
+                <p style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', marginBottom: '8px' }}>Người nhận</p>
+                <p style={{ fontWeight: 700, color: '#0f172a', fontSize: '16px', margin: 0 }}>{order?.shippingAddr.fullName}</p>
+                <p style={{ color: '#475569', marginTop: '4px' }}>{order?.shippingAddr.phone}</p>
+                <p style={{ color: '#64748b', marginTop: '8px', lineHeight: 1.6 }}>
+                  {order?.shippingAddr.addressLine}<br />
+                  {order?.shippingAddr.district ? `${order?.shippingAddr.district}, ` : ''}{order?.shippingAddr.province}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', marginBottom: '8px' }}>Thông tin đơn</p>
+                <p style={{ color: '#334155' }}><span style={{ color: '#64748b' }}>Thanh toán:</span> <span style={{ fontWeight: 600 }}>{order?.paymentMethod}</span></p>
+                <p style={{ color: '#334155', marginTop: '4px' }}><span style={{ color: '#64748b' }}>Trạng thái:</span> <span style={{ fontWeight: 600 }}>{order?.paymentStatus}</span></p>
+                {order?.trackingCode && <p style={{ fontFamily: 'monospace', color: '#334155', marginTop: '4px' }}>{order.trackingCode}</p>}
+              </div>
+            </div>
+
+            {/* Items Table */}
+            <div style={{ marginBottom: '24px' }}>
+              <p style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', marginBottom: '12px' }}>Danh sách sản phẩm</p>
+              <table style={{ width: '100%', fontSize: '14px', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                    <th style={{ textAlign: 'left', padding: '12px 8px 12px 0', fontWeight: 700, color: '#1e293b', width: '45%' }}>Sản phẩm</th>
+                    <th style={{ textAlign: 'right', padding: '12px 8px', fontWeight: 700, color: '#1e293b', width: '20%' }}>Đơn giá</th>
+                    <th style={{ textAlign: 'right', padding: '12px 8px', fontWeight: 700, color: '#1e293b', width: '15%' }}>SL</th>
+                    <th style={{ textAlign: 'right', padding: '12px 0 12px 8px', fontWeight: 700, color: '#1e293b', width: '20%' }}>Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order?.orderItems.map((item, idx) => (
+                    <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? '#f8fafc' : '#ffffff' }}>
+                      <td style={{ padding: '14px 8px 14px 0', color: '#1e293b', fontWeight: 500 }}>{item.nameSnapshot}</td>
+                      <td style={{ padding: '14px 8px', textAlign: 'right', color: '#475569' }}>{formatPrice(item.priceSnapshot)}</td>
+                      <td style={{ padding: '14px 8px', textAlign: 'right', color: '#475569' }}>{item.quantityKg} kg</td>
+                      <td style={{ padding: '14px 0 14px 8px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{formatPrice(item.subtotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totals */}
+            <div style={{ fontSize: '14px', borderTop: '2px solid #f1f5f9', paddingTop: '20px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span style={{ color: '#64748b' }}>Tạm tính</span>
+                <span style={{ fontWeight: 600, color: '#334155' }}>{formatPrice(order?.subtotal ?? 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span style={{ color: '#64748b' }}>Phí vận chuyển</span>
+                <span style={{ fontWeight: 600, color: '#334155' }}>{order?.shippingFee === 0 ? 'Miễn phí' : formatPrice(order?.shippingFee ?? 0)}</span>
+              </div>
+              {(order?.discount ?? 0) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#059669' }}>
+                  <span>Giảm giá</span>
+                  <span style={{ fontWeight: 700 }}>-{formatPrice(order.discount)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: 800, color: '#0f172a', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                <span>TỔNG CỘNG</span>
+                <span>{formatPrice(order?.total ?? 0)}</span>
+              </div>
+            </div>
+
+            {/* Notes */}
+            {order?.note && (
+              <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px', padding: '16px', fontSize: '14px', marginBottom: '24px' }}>
+                <p style={{ fontWeight: 700, color: '#92400e', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ghi chú</p>
+                <p style={{ color: '#78350f', fontStyle: 'italic', margin: 0 }}>{order.note}</p>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ textAlign: 'center', fontSize: '12px', color: '#94a3b8', paddingTop: '24px', borderTop: '1px dashed #cbd5e1' }}>
+              <p style={{ margin: 0 }}>Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ!</p>
+            </div>
+          </div>
+
+          <DialogFooter className="px-8 pb-6 pt-2 gap-2 border-t">
+            <Button variant="outline" onClick={() => setInvoiceOpen(false)}>Đóng</Button>
+            <Button onClick={handleDownloadPdf} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+              <FileText className="size-4" /> Tải PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

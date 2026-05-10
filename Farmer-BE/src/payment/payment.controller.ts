@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Get,
   Post,
-  UseGuards,
+  Query,
   Request,
+  UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -25,12 +27,18 @@ export class PaymentController {
 
   @Post('create')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Tạo phiên thanh toán VNPay/MoMo (giả lập)' })
+  @ApiOperation({ summary: 'Tạo phiên thanh toán VNPay' })
   createSession(
     @Body() dto: CreatePaymentDto,
     @Request() req: { user: { id: string } },
   ) {
     return this.paymentService.createPaymentSession(dto, req.user.id);
+  }
+
+  @Get('vnpay/verify')
+  @ApiOperation({ summary: 'Xác thực callback từ VNPay (return URL)' })
+  verifyReturnUrl(@Query() query: Record<string, string>) {
+    return this.paymentService.verifyReturnUrl(query);
   }
 
   @Post('simulate')

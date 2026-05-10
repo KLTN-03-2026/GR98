@@ -38,6 +38,7 @@ import InventoryTransactionsPage from '@/pages/inventory/transactions';
 import InventorySupplyDemandPage from '@/pages/inventory/supply-demand';
 import InventoryClientsPage from '@/pages/inventory/clients';
 import InventoryReviewsPage from '@/pages/inventory/reviews';
+import ShipperDashboardPage from '@/pages/shipper/dashboard.page';
 
 import LoginPage from '@/pages/auth/login.page';
 import RegisterPage from '@/pages/auth/register.page';
@@ -393,6 +394,21 @@ const inventoryDashboard: RouteObject = {
 
 
 // ============================================================
+// SHIPPER DASHBOARD — SHIPPER only
+// ============================================================
+const shipperDashboard: RouteObject = {
+  path: 'shipper',
+  element: (
+    <ProtectedRoute>
+      <RoleRoute allowedRoles={['SHIPPER']}>
+        <ShipperDashboardPage />
+      </RoleRoute>
+    </ProtectedRoute>
+  ),
+  errorElement: <RouteErrorPage />,
+};
+
+// ============================================================
 // EXPORT
 // ============================================================
 export const routes: RouteObject[] = [
@@ -403,6 +419,7 @@ export const routes: RouteObject[] = [
   adminDashboard,
   supervisorDashboard,
   inventoryDashboard,
+  shipperDashboard,
   {
     path: '*',
     element: <NotFoundPage />,

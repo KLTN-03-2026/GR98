@@ -9,8 +9,10 @@ import type {
   DailyReportResponse,
   DailyReportStatus,
   DailyReportType,
+  IncidentHandlingStatus,
   PaginatedDailyReportsResponse,
   UpdateDailyReportPayload,
+  UpdateIncidentHandlingPayload,
 } from './types';
 
 const longTimeout = { timeout: 120_000 as const };
@@ -27,6 +29,7 @@ export const dailyReportApi = {
     to?: string;
     search?: string;
     isHarvest?: string;
+    incidentHandlingStatus?: IncidentHandlingStatus;
   }) =>
     apiGet<ApiSuccessResponse<PaginatedDailyReportsResponse>>('/daily-reports', { params }),
 
@@ -46,6 +49,13 @@ export const dailyReportApi = {
     apiPatch<ApiSuccessResponse<DailyReportResponse>>(
       `/daily-reports/${id}/review`,
       { status },
+      longTimeout,
+    ),
+
+  updateIncidentHandling: (id: string, payload: UpdateIncidentHandlingPayload) =>
+    apiPatch<ApiSuccessResponse<DailyReportResponse>>(
+      `/daily-reports/${id}/incident-handling`,
+      payload,
       longTimeout,
     ),
 };

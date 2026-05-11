@@ -492,61 +492,67 @@ export default function TraceabilityDetailPage() {
                 </p>
               </CardHeader>
               <CardContent className="pt-0">
-                {timeline.length === 0 ? (
-                  <EmptyState text="Chưa có sự kiện nào." />
-                ) : (
-                  <ol className="relative space-y-8 pl-12 sm:pl-16">
-                    <span
-                      aria-hidden
-                      className="absolute left-[18px] sm:left-[22px] top-2 bottom-2 w-px bg-gradient-to-b from-emerald-300/70 via-border to-emerald-200/30"
-                    />
-                    {timeline.map((item: TraceTimelineItem, idx: number) => {
-                      const style = getTimelineStyle(item.type);
-                      const Icon = style.Icon;
-                      return (
-                        <li key={idx} className="relative">
-                          {/* Marker */}
-                          <span
-                            className={`absolute -left-12 sm:-left-16 top-0 flex h-9 w-9 items-center justify-center rounded-full ring-4 ${style.bg} ${style.ring} ${style.color}`}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </span>
-                          <div className="space-y-2 rounded-xl border bg-card p-4 hover:shadow-md transition-shadow">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="secondary" className={`${style.color} bg-transparent border-0 px-0`}>
-                                {style.label}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDateTime(item.date)}
-                              </span>
-                            </div>
-                            <h4 className="text-base font-semibold">{item.title}</h4>
-                            {item.description && (
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {item.description}
-                              </p>
-                            )}
-                            {item.imageUrls && item.imageUrls.length > 0 && (
-                              <div className="flex gap-2 overflow-x-auto pt-1">
-                                {item.imageUrls.map((url: string, i: number) => (
-                                  <img
-                                    key={i}
-                                    src={url}
-                                    alt=""
-                                    className="h-24 w-24 object-cover rounded-lg border shrink-0"
-                                  />
-                                ))}
+                {(() => {
+                  const publicTimeline = sanitizePublicTimeline(timeline);
+                  if (publicTimeline.length === 0) {
+                    return <EmptyState text="Chưa có sự kiện nào." />;
+                  }
+                  return (
+                    <ol className="relative space-y-3 pl-9 sm:pl-12">
+                      <span
+                        aria-hidden
+                        className="absolute left-[14px] sm:left-[18px] top-3 bottom-3 w-px bg-gradient-to-b from-emerald-300/70 via-border to-emerald-200/30"
+                      />
+                      {publicTimeline.map((item, idx) => {
+                        const style = getTimelineStyle(item.type);
+                        const Icon = style.Icon;
+                        return (
+                          <li key={idx} className="relative">
+                            {/* Marker */}
+                            <span
+                              className={`absolute -left-9 sm:-left-12 top-2.5 flex h-7 w-7 items-center justify-center rounded-full ring-2 ${style.bg} ${style.ring} ${style.color}`}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                            </span>
+                            <div className="rounded-lg border bg-card px-3.5 py-2.5 hover:shadow-sm transition-shadow">
+                              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                <span className={`text-[11px] font-semibold uppercase tracking-wide ${style.color}`}>
+                                  {style.label}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  {formatDateTime(item.date)}
+                                </span>
                               </div>
-                            )}
-                            {item.meta && Object.keys(item.meta).length > 0 && (
-                              <TimelineMeta meta={item.meta} />
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                )}
+                              <h4 className="mt-0.5 text-sm font-semibold leading-snug">
+                                {item.title}
+                              </h4>
+                              {item.description && (
+                                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                                  {item.description}
+                                </p>
+                              )}
+                              {item.imageUrls && item.imageUrls.length > 0 && (
+                                <div className="mt-2 flex gap-1.5 overflow-x-auto">
+                                  {item.imageUrls.slice(0, 4).map((url: string, i: number) => (
+                                    <img
+                                      key={i}
+                                      src={url}
+                                      alt=""
+                                      className="h-16 w-16 object-cover rounded-md border shrink-0"
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                              {item.meta && Object.keys(item.meta).length > 0 && (
+                                <TimelineMeta meta={item.meta} />
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1133,34 +1139,32 @@ function PersonRow({
 }
 
 function TimelineMeta({ meta }: { meta: Record<string, unknown> }) {
+  // Lưu ý: timeline này hiển thị công khai (truy xuất nguồn gốc).
+  // Cố ý KHÔNG render các trường nhạy cảm về kinh doanh:
+  //   - yieldEstimateKg / quantityKg (sản lượng & khối lượng cụ thể)
+  //   - mã đơn hàng / mã giao dịch (orderNo, transactionRef...)
+  // Chỉ hiển thị các thông tin minh bạch nguồn gốc (vùng kho, phân hạng,
+  // mức độ sự cố, biện pháp xử lý, người giám sát).
   const chips = useMemo(() => {
     const items: { label: string; tone?: 'default' | 'warning' | 'success' }[] = [];
-    if (meta.yieldEstimateKg)
-      items.push({ label: `Ước tính: ${meta.yieldEstimateKg} kg`, tone: 'success' });
     if (meta.dangerLevel)
       items.push({ label: `Mức độ: ${meta.dangerLevel}`, tone: 'warning' });
-    if (meta.warehouseName)
-      items.push({ label: `Kho: ${meta.warehouseName}` });
-    if (meta.qualityGrade)
-      items.push({ label: `Hạng ${meta.qualityGrade}` });
-    if (meta.quantityKg)
-      items.push({ label: `${meta.quantityKg} kg` });
-    if (meta.supervisorName)
-      items.push({ label: `GS: ${meta.supervisorName}` });
-    if (meta.treatment)
-      items.push({ label: `Xử lý: ${meta.treatment}` });
+    if (meta.warehouseName) items.push({ label: `Kho: ${meta.warehouseName}` });
+    if (meta.qualityGrade) items.push({ label: `Hạng ${meta.qualityGrade}` });
+    if (meta.supervisorName) items.push({ label: `GS: ${meta.supervisorName}` });
+    if (meta.treatment) items.push({ label: `Xử lý: ${meta.treatment}` });
     return items;
   }, [meta]);
 
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-1.5 pt-1">
+    <div className="mt-2 flex flex-wrap gap-1">
       {chips.map((chip, i) => (
         <Badge
           key={i}
           variant="secondary"
-          className={`text-[11px] font-normal ${
+          className={`text-[10px] font-normal px-1.5 py-0 h-5 ${
             chip.tone === 'warning'
               ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
               : chip.tone === 'success'
@@ -1173,6 +1177,61 @@ function TimelineMeta({ meta }: { meta: Record<string, unknown> }) {
       ))}
     </div>
   );
+}
+
+/**
+ * Lọc & làm sạch timeline trước khi hiển thị công khai.
+ * - Bỏ hoàn toàn các sự kiện `transaction` (giao dịch nhập/xuất nội bộ, bán online)
+ *   vì chứa thông tin kinh doanh nhạy cảm (mã đơn EC-..., khối lượng cụ thể).
+ * - Với sự kiện `warehouse` (Nhập kho): giữ mốc thời gian + tên kho, ẩn số liệu kg.
+ * - Với sự kiện `harvest` (Thu hoạch): giữ mô tả vụ mùa, ẩn ước tính sản lượng.
+ * - Các sự kiện khác (gieo trồng, báo cáo định kỳ, sự cố, quét bệnh) giữ nguyên
+ *   — đây là phần minh bạch quy trình canh tác mà khách hàng cần thấy.
+ */
+function sanitizePublicTimeline(items: TraceTimelineItem[]): TraceTimelineItem[] {
+  return items
+    .filter((item) => item.type !== 'transaction')
+    .map((item) => {
+      if (item.type === 'warehouse') {
+        const warehouseName = (item.meta?.warehouseName as string | undefined) ?? '';
+        return {
+          ...item,
+          description: warehouseName
+            ? `Sản phẩm đã được đưa vào kho lưu trữ tại ${warehouseName}.`
+            : 'Sản phẩm đã được đưa vào kho lưu trữ.',
+          // Giữ lại meta nhưng loại bỏ số lượng kg.
+          meta: stripSensitiveMeta(item.meta),
+        };
+      }
+      if (item.type === 'harvest') {
+        return {
+          ...item,
+          description: redactKgFromText(item.description),
+          meta: stripSensitiveMeta(item.meta),
+        };
+      }
+      return item;
+    });
+}
+
+function stripSensitiveMeta(meta?: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (!meta) return undefined;
+  const { quantityKg, yieldEstimateKg, orderNo, orderId, transactionRef, ...rest } = meta;
+  void quantityKg;
+  void yieldEstimateKg;
+  void orderNo;
+  void orderId;
+  void transactionRef;
+  return rest;
+}
+
+/** Bỏ các con số kg cụ thể trong mô tả (ví dụ: "Nhập 1500kg" → "Nhập sản phẩm"). */
+function redactKgFromText(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\d[\d.,]*\s*kg\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 function EmptyState({ text }: { text: string }) {

@@ -7,8 +7,10 @@ import type {
   DailyReportResponse,
   DailyReportStatus,
   DailyReportType,
+  IncidentHandlingStatus,
   PaginatedDailyReportsResponse,
   UpdateDailyReportPayload,
+  UpdateIncidentHandlingPayload,
 } from './types';
 
 export function useDailyReports(params?: {
@@ -22,6 +24,7 @@ export function useDailyReports(params?: {
   to?: string;
   search?: string;
   isHarvest?: string;
+  incidentHandlingStatus?: IncidentHandlingStatus;
 }) {
   return useQuery({
     queryKey: ['daily-reports', params],
@@ -113,6 +116,30 @@ export function useReviewDailyReport() {
     },
     onError: (error: { message?: string }) => {
       toast.error(error.message || 'Không thể thực hiện thao tác');
+    },
+  });
+}
+
+export function useUpdateIncidentHandling() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: UpdateIncidentHandlingPayload;
+    }) => {
+      const response = await dailyReportApi.updateIncidentHandling(id, payload);
+      return extractData<DailyReportResponse>(response);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['daily-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-report', data.id] });
+      toast.success('Đã cập nhật trạng thái xử lý');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không thể cập nhật trạng thái xử lý');
     },
   });
 }

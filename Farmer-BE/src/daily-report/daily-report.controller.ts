@@ -26,6 +26,7 @@ import { DailyReportService } from './daily-report.service';
 import { CreateDailyReportDto } from './dto/create-daily-report.dto';
 import { UpdateDailyReportDto } from './dto/update-daily-report.dto';
 import { QueryDailyReportDto } from './dto/query-daily-report.dto';
+import { UpdateIncidentHandlingDto } from './dto/update-incident-handling.dto';
 
 @ApiTags('daily-reports')
 @ApiBearerAuth()
@@ -95,5 +96,20 @@ export class DailyReportController {
     @Request() req: { user: { id: string } },
   ) {
     return this.dailyReportService.review(id, status as any, req.user.id);
+  }
+
+  @Patch(':id/incident-handling')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Admin cập nhật trạng thái xử lý sự cố (PENDING / IN_PROGRESS / RESOLVED) + ghi chú',
+  })
+  updateIncidentHandling(
+    @Param('id') id: string,
+    @Body() dto: UpdateIncidentHandlingDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.dailyReportService.updateIncidentHandling(id, dto, req.user.id);
   }
 }

@@ -2,6 +2,13 @@ import type { ApiSuccessResponse } from '@/client/lib/api-client';
 
 export type DailyReportStatus = 'DRAFT' | 'SUBMITTED' | 'REVIEWED' | 'APPROVED' | 'REJECTED';
 export type DailyReportType = 'ROUTINE' | 'INCIDENT' | 'HARVEST';
+export type IncidentHandlingStatus = 'PENDING' | 'IN_PROGRESS' | 'RESOLVED';
+
+export const INCIDENT_HANDLING_LABEL: Record<IncidentHandlingStatus, string> = {
+  PENDING: 'Chờ xử lý',
+  IN_PROGRESS: 'Đang xử lý',
+  RESOLVED: 'Đã xử lý xong',
+};
 
 export interface DailyReportPlotSummary {
   id: string;
@@ -46,8 +53,17 @@ export interface DailyReportResponse {
   status: DailyReportStatus;
   aiVisionResult: unknown;
   yieldEstimateKg: number | null;
+  /** Trạng thái xử lý sự cố (chỉ có với type=INCIDENT đã gửi). */
+  incidentHandlingStatus: IncidentHandlingStatus | null;
+  incidentHandlingNote: string | null;
+  incidentHandledAt: string | null;
   plot: DailyReportPlotSummary;
   supervisor: DailyReportSupervisorSummary;
+}
+
+export interface UpdateIncidentHandlingPayload {
+  status: IncidentHandlingStatus;
+  note?: string;
 }
 
 export interface PaginatedDailyReportsResponse {

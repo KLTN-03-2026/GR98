@@ -271,21 +271,27 @@ model Assignment {
 }
 
 model DailyReport {
-  id              String            @id @default(cuid())
-  supervisorId    String
-  plotId          String
-  adminId         String
-  type            ReportType        @default(ROUTINE)
-  content         String
-  imageUrls       String[]
-  isSynced        Boolean           @default(false)
-  reportedAt      DateTime          @default(now())
-  syncedAt        DateTime?
-  status          ReportStatus      @default(DRAFT)
-  aiVisionResult  Json?
-  yieldEstimateKg Float?
-  plot            Plot              @relation(fields: [plotId], references: [id])
-  supervisor      SupervisorProfile @relation(fields: [supervisorId], references: [id])
+  id                      String                   @id @default(cuid())
+  supervisorId            String
+  plotId                  String
+  adminId                 String
+  type                    ReportType               @default(ROUTINE)
+  content                 String
+  imageUrls               String[]
+  isSynced                Boolean                  @default(false)
+  reportedAt              DateTime                 @default(now())
+  syncedAt                DateTime?
+  status                  ReportStatus             @default(DRAFT)
+  aiVisionResult          Json?
+  yieldEstimateKg         Float?
+  /// Workflow xử lý sự cố — chỉ áp dụng cho báo cáo loại INCIDENT.
+  incidentHandlingStatus  IncidentHandlingStatus?
+  /// Ghi chú của Admin khi cập nhật trạng thái xử lý (tên chuyên gia, kết quả...).
+  incidentHandlingNote    String?
+  /// Thời điểm Admin cập nhật trạng thái xử lý lần cuối.
+  incidentHandledAt       DateTime?
+  plot                    Plot                     @relation(fields: [plotId], references: [id])
+  supervisor              SupervisorProfile        @relation(fields: [supervisorId], references: [id])
 
   @@map("DailyReports")
 }
@@ -666,6 +672,12 @@ enum ReportStatus {
   REVIEWED
   APPROVED
   REJECTED
+}
+
+enum IncidentHandlingStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
 }
 
 enum TransactionType {

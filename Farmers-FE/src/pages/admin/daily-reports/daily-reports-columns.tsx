@@ -2,7 +2,13 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { DailyReportResponse, DailyReportStatus } from './api';
+import { cn } from '@/lib/utils';
+import type {
+  DailyReportResponse,
+  DailyReportStatus,
+  IncidentHandlingStatus,
+} from './api';
+import { INCIDENT_HANDLING_LABEL } from './api';
 
 function formatDateTime(value?: string | null) {
   if (!value) return '—';
@@ -29,6 +35,12 @@ function statusVariant(status: DailyReportStatus) {
   if (status === 'REJECTED') return 'destructive' as const;
   return 'outline' as const;
 }
+
+const HANDLING_BADGE_CLASS: Record<IncidentHandlingStatus, string> = {
+  PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
+  IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
+  RESOLVED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
 
 export function createAdminDailyReportColumns(onOpenDetail: (row: DailyReportResponse) => void) {
   const columns: ColumnDef<DailyReportResponse>[] = [
@@ -81,6 +93,26 @@ export function createAdminDailyReportColumns(onOpenDetail: (row: DailyReportRes
       cell: ({ row }) => (
         <Badge variant={statusVariant(row.original.status)}>{statusLabel(row.original.status)}</Badge>
       ),
+    },
+    {
+      id: 'handlingStatus',
+      header: 'Xử lý',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const r = row.original;
+        if (r.type !== 'INCIDENT') {
+          return <span className="text-muted-foreground text-xs">—</span>;
+        }
+        const handling = r.incidentHandlingStatus;
+        if (!handling) {
+          return <span className="text-muted-foreground text-xs">—</span>;
+        }
+        return (
+          <Badge variant="outline" className={cn('border', HANDLING_BADGE_CLASS[handling])}>
+            {INCIDENT_HANDLING_LABEL[handling]}
+          </Badge>
+        );
+      },
     },
     {
       id: 'actions',

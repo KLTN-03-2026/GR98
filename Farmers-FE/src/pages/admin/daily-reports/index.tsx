@@ -20,7 +20,16 @@ import {
   type DailyReportResponse,
   type DailyReportStatus,
   type DailyReportType,
+  type IncidentHandlingStatus,
+  INCIDENT_HANDLING_LABEL,
 } from './api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminDailyReportDetailDialog } from './admin-daily-report-detail-dialog';
 import { getLocalDayEndIso, getLocalDayStartIso, getTodayLocalIsoDate } from '@/lib/local-day-range';
@@ -43,6 +52,7 @@ export default function AdminDailyReportsPage() {
   const [limit, setLimit] = useState(PAGE_LIMIT);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [reportType, setReportType] = useState<DailyReportType | 'ALL'>('ALL');
+  const [handlingStatus, setHandlingStatus] = useState<IncidentHandlingStatus | 'ALL'>('ALL');
   const todayIso = getTodayLocalIsoDate(now);
   const isInvalidDateRange = Boolean(from && to && from > to);
   const apiDateRange = useMemo(() => {
@@ -84,6 +94,8 @@ export default function AdminDailyReportsPage() {
     from: apiDateRange.from,
     to: apiDateRange.to,
     type: reportType === 'ALL' ? undefined : reportType,
+    incidentHandlingStatus:
+      reportType === 'INCIDENT' && handlingStatus !== 'ALL' ? handlingStatus : undefined,
   });
 
   const { data: detailRow, isFetching: detailLoading } = useDailyReport(detailId ?? '');
@@ -192,7 +204,23 @@ export default function AdminDailyReportsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedKeyword, supervisorId, from, to, apiDateRange.from, apiDateRange.to, reportType]);
+  }, [
+    debouncedKeyword,
+    supervisorId,
+    from,
+    to,
+    apiDateRange.from,
+    apiDateRange.to,
+    reportType,
+    handlingStatus,
+  ]);
+
+  // Reset filter xử lý sự cố mỗi khi rời khỏi tab Sự cố.
+  useEffect(() => {
+    if (reportType !== 'INCIDENT' && handlingStatus !== 'ALL') {
+      setHandlingStatus('ALL');
+    }
+  }, [reportType, handlingStatus]);
 
   useEffect(() => {
     if (!isLoading && currentPage > totalPages) {
@@ -374,6 +402,27 @@ export default function AdminDailyReportsPage() {
                     isNullableSelect
                   />
                 </div>
+                {reportType === 'INCIDENT' && (
+                  <div className="space-y-2 min-w-[180px]">
+                    <Label className="text-xs">Trạng thái xử lý</Label>
+                    <Select
+                      value={handlingStatus}
+                      onValueChange={(v) => setHandlingStatus(v as IncidentHandlingStatus | 'ALL')}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">Tất cả</SelectItem>
+                        <SelectItem value="PENDING">{INCIDENT_HANDLING_LABEL.PENDING}</SelectItem>
+                        <SelectItem value="IN_PROGRESS">
+                          {INCIDENT_HANDLING_LABEL.IN_PROGRESS}
+                        </SelectItem>
+                        <SelectItem value="RESOLVED">{INCIDENT_HANDLING_LABEL.RESOLVED}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label className={`text-xs ${onlyToday ? 'text-muted-foreground' : ''}`}>Từ ngày</Label>
                   <Input

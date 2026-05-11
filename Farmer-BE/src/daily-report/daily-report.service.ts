@@ -7,8 +7,10 @@ import {
 import {
   AssignStatus,
   ContractStatus,
+  IncidentHandlingStatus,
   Prisma,
   ReportStatus,
+  ReportType,
   Role,
   InventoryLotStatus,
 } from '@prisma/client';
@@ -17,6 +19,7 @@ import { PaginatedResponse } from '../common/dto/pagination.dto';
 import { CreateDailyReportDto } from './dto/create-daily-report.dto';
 import { UpdateDailyReportDto } from './dto/update-daily-report.dto';
 import { QueryDailyReportDto } from './dto/query-daily-report.dto';
+import { UpdateIncidentHandlingDto } from './dto/update-incident-handling.dto';
 
 const MAX_IMAGES = 10;
 const MAX_IMAGE_ENTRY_CHARS = 7_000_000;
@@ -300,9 +303,15 @@ export class DailyReportService {
       await this.assertHarvestUniqueness(existing.plotId, actor.adminId, actor.supervisorProfileId, existing.id);
     }
 
+    // Báo cáo Sự cố: tự động mở workflow xử lý ở trạng thái Chờ xử lý.
+    const incidentInit =
+      existing.type === ReportType.INCIDENT && !existing.incidentHandlingStatus
+        ? { incidentHandlingStatus: IncidentHandlingStatus.PENDING }
+        : {};
+
     return this.prisma.dailyReport.update({
       where: { id },
-      data: { status: ReportStatus.SUBMITTED },
+      data: { status: ReportStatus.SUBMITTED, ...incidentInit },
       include: reportListInclude,
     });
   }
@@ -366,6 +375,12 @@ export class DailyReportService {
 
     if (query.type?.trim()) {
       where.type = query.type.trim() as any;
+    }
+
+    if (query.incidentHandlingStatus) {
+      where.incidentHandlingStatus = query.incidentHandlingStatus;
+      // Đảm bảo chỉ lấy báo cáo Sự cố khi lọc theo trạng thái xử lý.
+      where.type = ReportType.INCIDENT;
     }
 
     if (query.search?.trim()) {
@@ -544,5 +559,47 @@ export class DailyReportService {
     }
 
     return result;
+  }
+
+  /**
+   * Admin cập nhật trạng thái xử lý sự cố cho 1 báo cáo loại INCIDENT.
+   * Lưu lần cập nhật cuối cùng vào incidentHandlingStatus/Note/At — không lưu lịch sử đầy đủ.
+   */
+  async updateIncidentHandling(
+    id: string,
+    dto: UpdateIncidentHandlingDto,
+    userId: string,
+  ) {
+    const actor = await this.resolveActorContext(userId);
+    if (actor?.role !== Role.ADMIN || !actor.adminId) {
+      throw new ForbiddenException('Chỉ quản trị viên mới được cập nhật trạng thái xử lý sự cố');
+    }
+
+    const existing = await this.prisma.dailyReport.findFirst({
+      where: { id, adminId: actor.adminId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Không tìm thấy báo cáo');
+    }
+    if (existing.type !== ReportType.INCIDENT) {
+      throw new BadRequestException(
+        'Chỉ áp dụng cập nhật trạng thái xử lý cho báo cáo sự cố',
+      );
+    }
+    if (existing.status === ReportStatus.DRAFT) {
+      throw new BadRequestException(
+        'Báo cáo chưa được gửi, không thể cập nhật trạng thái xử lý',
+      );
+    }
+
+    return this.prisma.dailyReport.update({
+      where: { id },
+      data: {
+        incidentHandlingStatus: dto.status,
+        incidentHandlingNote: dto.note?.trim() || null,
+        incidentHandledAt: new Date(),
+      },
+      include: reportListInclude,
+    });
   }
 }

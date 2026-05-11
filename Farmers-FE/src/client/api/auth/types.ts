@@ -4,7 +4,7 @@ export interface AuthUserResponse {
   email: string;
   fullName: string;
   phone: string | null;
-  role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
+  role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'SHIPPER' | 'CLIENT';
   profileId: string | null;
   adminId: string | null;
 }
@@ -16,7 +16,7 @@ export interface MeResponse {
   fullName: string;
   phone: string | null;
   avatar: string | null;
-  role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
+  role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'SHIPPER' | 'CLIENT';
   createdAt: string;
   adminProfile: {
     id: string;
@@ -52,6 +52,14 @@ export interface MeResponse {
     id: string;
     employeeCode: string;
     adminId: string;
+  } | null;
+  shipperProfile?: {
+    id: string;
+    employeeCode: string;
+    adminId: string;
+    vehicleType: string | null;
+    licensePlate: string | null;
+    status: string;
   } | null;
 }
 

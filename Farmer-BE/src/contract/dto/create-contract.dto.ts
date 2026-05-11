@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -47,7 +48,10 @@ export class CreateContractDto {
   @IsString()
   variety?: string;
 
-  @IsEnum(QualityGrade, { message: 'Phân hạng chất lượng không hợp lệ' })
+  @IsEnum(QualityGrade, { message: 'Phân khúc cây trồng không hợp lệ' })
+  @IsIn([QualityGrade.STANDARD, QualityGrade.PREMIUM], {
+    message: 'Hợp đồng chỉ được chọn phân khúc Tiêu chuẩn hoặc Cao cấp',
+  })
   grade: QualityGrade;
 
   @IsOptional()

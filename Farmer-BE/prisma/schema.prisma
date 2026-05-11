@@ -613,6 +613,8 @@ enum ContractStatus {
 }
 
 enum QualityGrade {
+  STANDARD
+  PREMIUM
   A
   B
   C

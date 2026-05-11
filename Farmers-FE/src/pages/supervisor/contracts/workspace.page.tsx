@@ -58,7 +58,7 @@ const defaultForm: FormState = {
   plotDraftCoordinates: [['', '']],
   cropType: '',
   variety: '',
-  grade: 'A',
+  grade: 'STANDARD',
   harvestDue: '',
 };
 
@@ -279,7 +279,7 @@ function SupervisorContractCreateWorkspace() {
             </div>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Grade: {form.grade}</span>
+            <span>Phân khúc: {form.grade === 'PREMIUM' ? 'Cao cấp' : 'Tiêu chuẩn'}</span>
             <span className="h-1 w-1 rounded-full bg-primary/50" />
             <span>{getCropLabel(form.cropType)}</span>
           </div>
@@ -572,7 +572,7 @@ function SupervisorContractCreateWorkspace() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Grade</Label>
+              <Label>Phân khúc cây trồng</Label>
               <select
                 value={form.grade}
                 onChange={(e) =>
@@ -580,10 +580,8 @@ function SupervisorContractCreateWorkspace() {
                 }
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="REJECT">REJECT</option>
+                <option value="STANDARD">Tiêu chuẩn</option>
+                <option value="PREMIUM">Cao cấp</option>
               </select>
             </div>
           </div>

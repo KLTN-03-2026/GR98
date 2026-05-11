@@ -140,19 +140,19 @@ function CategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl border-none shadow-2xl rounded-[2rem] overflow-hidden p-0 font-manrope">
+      <DialogContent className="sm:max-w-2xl p-0 font-manrope shadow-2xl gap-0">
         <form onSubmit={handleSubmit} className="flex flex-col max-h-[90vh]">
-          <DialogHeader className="p-0 border-b border-slate-50 relative overflow-hidden shrink-0 h-32 flex flex-col justify-end">
-            <div className="absolute inset-0 bg-linear-to-b from-primary/[0.07] via-background to-background" />
-            <div className="p-8 relative flex items-center gap-4">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-                <Layers className="size-7" />
+          {/* HEADER */}
+          <DialogHeader className="shrink-0 border-b bg-gradient-to-b from-primary/[0.06] to-transparent px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
+                <Layers className="size-5" />
               </div>
-              <div className="space-y-1">
-                <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight">
-                  {mode === 'create' ? 'Thêm danh mục mới' : 'Chỉnh sửa danh mục'}
+              <div className="min-w-0">
+                <DialogTitle className="text-xl font-bold text-foreground">
+                  {mode === 'create' ? 'Thêm danh mục' : 'Chỉnh sửa danh mục'}
                 </DialogTitle>
-                <DialogDescription className="text-xs font-bold text-primary/80 uppercase tracking-widest">
+                <DialogDescription className="text-xs text-muted-foreground">
                   {mode === 'create'
                     ? 'Thiết lập phân loại hàng hóa mới'
                     : 'Cập nhật thông tin phân loại'}
@@ -161,12 +161,25 @@ function CategoryDialog({
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-6 custom-scrollbar">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Basic Info Section */}
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="cat-name" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">
+          {/* BODY */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              {/* Cột trái — Thông tin cơ bản */}
+              <section className="rounded-xl border bg-card p-4 space-y-4">
+                <header className="flex items-center gap-2">
+                  <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Layers className="size-3.5" />
+                  </div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    Thông tin cơ bản
+                  </h3>
+                </header>
+
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="cat-name"
+                    className="text-[11px] font-medium text-muted-foreground"
+                  >
                     Tên danh mục <span className="text-rose-500">*</span>
                   </Label>
                   <Input
@@ -174,29 +187,36 @@ function CategoryDialog({
                     value={form.name}
                     onChange={(e) => handleNameChange(e.target.value)}
                     placeholder="Ví dụ: Trái cây nhiệt đới"
-                    className="rounded-2xl border-slate-200 h-12 focus-visible:ring-primary/20 focus-visible:border-primary font-bold text-slate-700 bg-slate-50/30 transition-all hover:bg-white"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="cat-slug" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="cat-slug"
+                    className="text-[11px] font-medium text-muted-foreground"
+                  >
                     Định danh (Slug)
                   </Label>
-                  <div className="relative group">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-slate-300 font-mono group-focus-within:text-primary transition-colors">/</div>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono text-muted-foreground">
+                      /
+                    </span>
                     <Input
                       id="cat-slug"
                       value={form.slug}
                       onChange={(e) => setForm({ ...form, slug: e.target.value })}
                       placeholder="trai-cay-nhiet-doi"
-                      className="rounded-2xl border-slate-200 bg-slate-50/50 font-mono text-xs pl-8 h-12 transition-all"
+                      className="pl-6 font-mono text-xs"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="cat-order" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="cat-order"
+                      className="text-[11px] font-medium text-muted-foreground"
+                    >
                       Thứ tự
                     </Label>
                     <Input
@@ -207,37 +227,55 @@ function CategoryDialog({
                       onChange={(e) =>
                         setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })
                       }
-                      className="rounded-2xl border-slate-200 h-12 font-mono font-bold text-center bg-slate-50/30"
+                      className="font-mono"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Trạng thái</Label>
-                    <div
-                      className={cn(
-                        "flex items-center gap-3 h-12 px-4 rounded-2xl border transition-all cursor-pointer select-none",
-                        form.isActive
-                          ? "bg-primary/[0.04] border-primary/20 text-primary"
-                          : "bg-slate-50 border-slate-200 text-slate-400"
-                      )}
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-medium text-muted-foreground">
+                      Trạng thái
+                    </Label>
+                    <button
+                      type="button"
                       onClick={() => setForm({ ...form, isActive: !form.isActive })}
+                      className={cn(
+                        'flex h-9 w-full items-center gap-2 rounded-md border px-3 text-xs font-medium transition-colors select-none',
+                        form.isActive
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-slate-50 text-slate-500',
+                      )}
                     >
                       <Checkbox
                         checked={form.isActive}
-                        onCheckedChange={(checked) => setForm({ ...form, isActive: !!checked })}
-                        className={cn("border-primary/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary")}
+                        onCheckedChange={(checked) =>
+                          setForm({ ...form, isActive: !!checked })
+                        }
+                        className={cn(
+                          'pointer-events-none',
+                          form.isActive &&
+                            'border-emerald-500 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500',
+                        )}
                       />
-                      <span className="text-xs font-bold uppercase tracking-widest">
-                        {form.isActive ? 'Hoạt động' : 'Tạm dừng'}
-                      </span>
-                    </div>
+                      <span>{form.isActive ? 'Hoạt động' : 'Tạm dừng'}</span>
+                    </button>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Media & Description Section */}
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Ảnh đại diện</Label>
+              {/* Cột phải — Ảnh & Mô tả */}
+              <section className="rounded-xl border bg-card p-4 space-y-4">
+                <header className="flex items-center gap-2">
+                  <div className="flex size-7 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+                    <ImageIcon className="size-3.5" />
+                  </div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    Hình ảnh & mô tả
+                  </h3>
+                </header>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-medium text-muted-foreground">
+                    Ảnh đại diện
+                  </Label>
                   <FileUpload
                     acceptedFileTypes={['image/*']}
                     onFileSelect={async (file) => {
@@ -253,91 +291,111 @@ function CategoryDialog({
                     }}
                   />
                   {isUploading && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
-                      <RefreshCw className="h-3 w-3 animate-spin" />
+                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <RefreshCw className="size-3 animate-spin" />
                       Đang tải ảnh lên...
                     </div>
                   )}
                   {form.imageUrl && !isUploading && (
-                    <img src={form.imageUrl} alt="category" className="mt-2 h-20 w-20 rounded-xl object-cover border" />
+                    <div className="mt-2 inline-flex">
+                      <img
+                        src={form.imageUrl}
+                        alt="category"
+                        className="size-20 rounded-lg border object-cover"
+                      />
+                    </div>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="cat-desc" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Mô tả danh mục</Label>
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="cat-desc"
+                    className="text-[11px] font-medium text-muted-foreground"
+                  >
+                    Mô tả danh mục
+                  </Label>
                   <textarea
                     id="cat-desc"
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     placeholder="Nhập mô tả ngắn gọn về nhóm sản phẩm này..."
-                    className="w-full min-h-[100px] rounded-2xl border border-slate-200 bg-slate-50/30 px-4 py-3 text-sm font-medium placeholder:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-all resize-none"
+                    className="w-full min-h-[96px] resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   />
                 </div>
-              </div>
+              </section>
             </div>
 
-            {/* Premium Preview Section */}
+            {/* Preview */}
             {(form.name || form.imageUrl) && (
-              <div className="relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-primary/50 rounded-3xl blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
-                <div className="relative p-6 rounded-3xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-                  <div className="flex items-center gap-5">
-                    <div className="h-16 w-24 rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 shrink-0 shadow-inner">
-                      {form.imageUrl ? (
-                        <img
-                          src={form.imageUrl}
-                          alt="preview"
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Xem trước
+                </p>
+                <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
+                  <div className="size-14 shrink-0 overflow-hidden rounded-md border bg-slate-50">
+                    {form.imageUrl ? (
+                      <img
+                        src={form.imageUrl}
+                        alt="preview"
+                        className="size-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="flex size-full items-center justify-center">
+                        <ImageIcon className="size-5 text-muted-foreground/40" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {form.name || 'Tên danh mục'}
+                      </p>
+                      {form.isActive ? (
+                        <Badge className="h-4 border-emerald-200 bg-emerald-50 px-1.5 text-[9px] font-semibold text-emerald-700">
+                          ACTIVE
+                        </Badge>
                       ) : (
-                        <div className="h-full w-full flex items-center justify-center">
-                          <ImageIcon className="h-6 w-6 text-slate-200" />
-                        </div>
+                        <Badge
+                          variant="outline"
+                          className="h-4 px-1.5 text-[9px] font-semibold text-muted-foreground"
+                        >
+                          INACTIVE
+                        </Badge>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-lg font-bold text-slate-900 truncate">{form.name || 'Tên danh mục'}</p>
-                        {form.isActive && (
-                          <Badge className="bg-primary/10 text-primary border-none text-[8px] px-1.5 h-4 font-bold">ACTIVE</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400 font-medium line-clamp-2 italic leading-relaxed">
-                        {form.description || 'Chưa có mô tả chi tiết cho danh mục này...'}
-                      </p>
-                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground leading-relaxed">
+                      {form.description || 'Chưa có mô tả chi tiết cho danh mục này.'}
+                    </p>
                   </div>
-                  <div className="absolute right-0 top-0 h-full w-1.5 bg-primary/10"></div>
                 </div>
               </div>
             )}
           </div>
 
-          <DialogFooter className="px-8 py-6 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between shrink-0">
+          {/* FOOTER */}
+          <DialogFooter className="shrink-0 border-t bg-background px-6 py-3 gap-2 sm:justify-end">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="rounded-full h-11 px-8 font-bold text-slate-400 hover:bg-white hover:text-slate-600 transition-all uppercase tracking-widest text-[10px]"
+              disabled={isUploading}
             >
               Hủy bỏ
             </Button>
-            <Button
-              type="submit"
-              disabled={isUploading}
-              className="rounded-full h-11 px-10 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xl shadow-slate-200 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={isUploading} className="gap-1.5">
               {isUploading ? (
                 <RefreshCw className="size-4 animate-spin" />
               ) : (
                 <ShoppingBag className="size-4" />
               )}
-              <span className="text-[10px] uppercase tracking-[0.15em]">
-                {isUploading ? 'Đang tải ảnh...' : mode === 'create' ? 'Tạo danh mục mới' : 'Lưu thay đổi'}
-              </span>
+              {isUploading
+                ? 'Đang tải ảnh...'
+                : mode === 'create'
+                  ? 'Tạo danh mục'
+                  : 'Lưu thay đổi'}
             </Button>
           </DialogFooter>
         </form>
@@ -361,51 +419,49 @@ function DeleteConfirmDialog({
   category,
   onConfirm,
 }: DeleteConfirmProps) {
+  const hasProducts = !!category?.productCount && category.productCount > 0;
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl font-manrope overflow-hidden p-0">
-        <div className="p-8 space-y-6">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-black text-slate-900 tracking-tight">Xác nhận xóa danh mục</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-6 mt-4">
-                <p className="text-sm font-bold text-slate-500 leading-relaxed">
-                  Bạn có chắc chắn muốn xóa danh mục{' '}
-                  <span className="font-black text-slate-900 underline decoration-rose-500/30 underline-offset-4 px-1">{category?.name}</span>?
-                </p>
-                {category && category.productCount && category.productCount > 0 ? (
-                  <div className="p-5 bg-rose-50/50 rounded-2xl border border-rose-100/50 flex gap-4 animate-pulse-subtle">
-                    <div className="size-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0 shadow-sm">
-                      <Trash2 className="size-5" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-rose-800 uppercase tracking-[0.2em]">Cảnh báo dữ liệu</p>
-                      <p className="text-xs font-bold text-rose-600/80 leading-relaxed">
-                        Danh mục này đang chứa <strong className="text-rose-700">{category.productCount} sản phẩm</strong>.
-                        Việc xóa danh mục sẽ khiến các sản phẩm này bị mất phân loại.
-                      </p>
-                    </div>
+      <AlertDialogContent className="font-manrope sm:max-w-md">
+        <AlertDialogHeader>
+          <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+            <Trash2 className="size-5" />
+          </div>
+          <AlertDialogTitle className="text-lg font-bold text-foreground">
+            Xác nhận xoá danh mục
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 pt-1">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Bạn có chắc chắn muốn xoá danh mục{' '}
+                <span className="font-semibold text-foreground">
+                  "{category?.name}"
+                </span>
+                ? Hành động này không thể hoàn tác.
+              </p>
+              {hasProducts && (
+                <div className="flex items-start gap-2.5 rounded-md border border-rose-200 bg-rose-50/60 p-3">
+                  <Trash2 className="mt-0.5 size-4 shrink-0 text-rose-600" />
+                  <div className="text-xs text-rose-700 leading-relaxed">
+                    Danh mục này đang chứa{' '}
+                    <strong>{category!.productCount} sản phẩm</strong>. Khi xoá,
+                    các sản phẩm này sẽ bị mất phân loại.
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <div className="h-px flex-1 bg-slate-100" />
-                    <span className="text-[9px] font-black uppercase tracking-widest italic">Hành động không thể hoàn tác</span>
-                    <div className="h-px flex-1 bg-slate-100" />
-                  </div>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex items-center gap-3 mt-2">
-            <AlertDialogCancel className="flex-1 rounded-2xl h-12 font-black text-slate-400 border-none hover:bg-slate-50 uppercase tracking-widest text-[10px]">Hủy bỏ</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={onConfirm}
-              className="flex-[2] rounded-2xl h-12 bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-rose-500/20"
-            >
-              Xác nhận xóa ngay
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </div>
+                </div>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Hủy bỏ</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className="bg-rose-600 hover:bg-rose-700 text-white"
+          >
+            Xoá danh mục
+          </AlertDialogAction>
+        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );

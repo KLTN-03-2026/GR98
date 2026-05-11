@@ -1,6 +1,6 @@
 import { ContractStatus, QualityGrade } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class QueryContractDto {
   @IsOptional()
@@ -29,7 +29,10 @@ export class QueryContractDto {
   cropType?: string;
 
   @IsOptional()
-  @IsEnum(QualityGrade, { message: 'Phân hạng chất lượng không hợp lệ' })
+  @IsEnum(QualityGrade, { message: 'Phân khúc cây trồng không hợp lệ' })
+  @IsIn([QualityGrade.STANDARD, QualityGrade.PREMIUM], {
+    message: 'Hợp đồng chỉ lọc theo phân khúc Tiêu chuẩn hoặc Cao cấp',
+  })
   grade?: QualityGrade;
 
   @IsOptional()

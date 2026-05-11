@@ -1,7 +1,5 @@
 import axios from 'axios';
 
-const AI_VISION_API_URL = import.meta.env.VITE_AI_VISION_API_URL || 'http://localhost:8000';
-
 // Luôn dùng proxy /api/ai-vision trong dev để tránh CORS
 const API_BASE = '/api/ai-vision';
 

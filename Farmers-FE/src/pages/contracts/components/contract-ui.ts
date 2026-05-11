@@ -26,10 +26,17 @@ export function getContractStatusBadgeVariant(status: ContractStatus) {
 }
 
 export function getGradeBadgeVariant(grade: QualityGrade) {
-  if (grade === 'A') return 'soft-success' as const;
-  if (grade === 'B') return 'soft-warning' as const;
-  if (grade === 'REJECT') return 'soft-destructive' as const;
+  if (grade === 'PREMIUM') return 'soft-success' as const;
+  if (grade === 'STANDARD') return 'soft-info' as const;
   return 'soft-info' as const;
+}
+
+export function getContractGradeLabel(grade: QualityGrade | string) {
+  const map: Record<string, string> = {
+    STANDARD: 'Tiêu chuẩn',
+    PREMIUM: 'Cao cấp',
+  };
+  return map[grade] ?? grade;
 }
 
 export function getCropBadgeVariant(cropType?: string | null) {
@@ -42,4 +49,3 @@ export function getCropBadgeVariant(cropType?: string | null) {
   }
   return 'dashed' as const;
 }
-

@@ -15,7 +15,6 @@ import {
     Warehouse,
     Layers,
     ArrowRightLeft,
-    PieChart,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -77,12 +76,10 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
         { icon: Warehouse, label: 'Quản lý Kho', category: 'management', path: `${basePath}/warehouses` },
         { icon: Layers, label: 'Quản lý Lô hàng', category: 'management', path: `${basePath}/lots` },
         { icon: ArrowRightLeft, label: 'Ghi nhận Xuất/Nhập', category: 'management', path: `${basePath}/transactions` },
-        { icon: PieChart, label: 'Quản lý Cung cầu', category: 'management', path: `${basePath}/supply-demand` },
 
         { icon: Package, label: 'Sản phẩm (ECM)', category: 'system', path: `${basePath}/products` },
         { icon: Boxes, label: 'Danh mục', category: 'system', path: `${basePath}/categories` },
         { icon: ReceiptText, label: 'Đơn hàng & Thanh toán', category: 'system', path: `${basePath}/orders` },
-        { icon: BookOpenCheck, label: 'Bảng giá', category: 'system', path: `${basePath}/price-boards` },
         { icon: BookOpenCheck, label: 'Reviews', category: 'system', path: `${basePath}/reviews` },
         { icon: Users, label: 'Khách hàng (ECM)', category: 'system', path: `${basePath}/clients` },
     ];

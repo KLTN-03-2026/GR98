@@ -11,7 +11,7 @@ export type ContractStatus =
   | 'SETTLED'
   | 'TERMINATED';
 
-export type QualityGrade = 'A' | 'B' | 'C' | 'REJECT';
+export type QualityGrade = 'STANDARD' | 'PREMIUM';
 
 export interface ContractResponse {
   id: string;

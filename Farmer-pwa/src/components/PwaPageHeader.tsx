@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 
@@ -10,6 +11,7 @@ interface PwaPageHeaderProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   showLogout?: boolean;
+  actions?: ReactNode;
 }
 
 export default function PwaPageHeader({
@@ -20,6 +22,7 @@ export default function PwaPageHeader({
   onRefresh,
   isRefreshing = false,
   showLogout = false,
+  actions,
 }: PwaPageHeaderProps) {
   const logout = useAuthStore((state) => state.logout);
   const isDark = tone === 'dark';
@@ -49,8 +52,9 @@ export default function PwaPageHeader({
           </div>
         </div>
 
-        {(onRefresh || showLogout) && (
+        {(actions || onRefresh || showLogout) && (
           <div className="flex shrink-0 items-center gap-2">
+            {actions}
             {onRefresh && (
               <button
                 type="button"

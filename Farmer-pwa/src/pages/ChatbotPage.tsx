@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Send, Bot, User, Loader2, Trash2
+  Send, Bot, User, Loader2, Trash2, MessageSquareText
 } from 'lucide-react';
 import apiClient from '../services/apiClient';
+import PwaPageHeader from '../components/PwaPageHeader';
+import PwaTabMenu from '../components/PwaTabMenu';
 
 interface Message {
   id: string;
@@ -13,7 +14,6 @@ interface Message {
 }
 
 export default function ChatbotPage() {
-  const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -61,7 +61,7 @@ export default function ChatbotPage() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -97,34 +97,21 @@ export default function ChatbotPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/')}
-              className="p-2 -ml-2 text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Bot className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <h1 className="font-semibold text-gray-900">RAG Chatbot</h1>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#f6f8f5] flex flex-col pb-24">
+      <PwaPageHeader
+        title="Trợ lý canh tác"
+        subtitle="Hỏi đáp kỹ thuật mùa vụ"
+        icon={MessageSquareText}
+        actions={
           <button
             onClick={clearChat}
-            className="p-2 text-gray-500 hover:text-red-500 transition"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-500 transition hover:bg-red-50 hover:text-red-500"
             title="Xóa cuộc trò chuyện"
           >
             <Trash2 className="w-5 h-5" />
           </button>
-        </div>
-      </header>
+        }
+      />
 
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 overflow-y-auto">
         <div className="space-y-4">
@@ -182,7 +169,7 @@ export default function ChatbotPage() {
         </div>
       </main>
 
-      <div className="bg-white border-t border-gray-200 p-4">
+      <div className="bg-white border-t border-gray-200 p-4 pb-3">
         <div className="max-w-lg mx-auto">
           <div className="flex gap-3">
             <textarea
@@ -207,6 +194,7 @@ export default function ChatbotPage() {
           </p>
         </div>
       </div>
+      <PwaTabMenu />
     </div>
   );
 }

@@ -3,15 +3,14 @@ import {
   AlertCircle,
   Camera,
   CheckCircle2,
+  ClipboardCheck,
   Clock3,
   Image,
   Loader2,
-  LogOut,
   MapPin,
   Navigation,
   Package,
   Phone,
-  RefreshCw,
   Truck,
   UserRound,
   Wallet,
@@ -26,14 +25,16 @@ import {
   type ShipperOrder,
   type ShipperOrderStatus,
 } from '../services/shipper';
+import PwaPageHeader from '../components/PwaPageHeader';
+import PwaTabMenu from '../components/PwaTabMenu';
 
 const statusTabs: Array<{
   value: ShipperOrderStatus;
   label: string;
   icon: typeof Package;
 }> = [
-  { value: 'SHIPPED', label: 'Đang giao', icon: Package },
-  { value: 'DELIVERED', label: 'Đã giao', icon: CheckCircle2 },
+  { value: 'SHIPPED', label: 'Cần giao', icon: Navigation },
+  { value: 'DELIVERED', label: 'Hoàn tất', icon: ClipboardCheck },
 ];
 
 function formatPrice(value: number) {
@@ -246,7 +247,7 @@ function OrderCard({
 }
 
 export default function ShipperPage() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [filter, setFilter] = useState<ShipperOrderStatus>('SHIPPED');
   const [orders, setOrders] = useState<ShipperOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -310,53 +311,29 @@ export default function ShipperPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f8f5] pb-8 text-neutral-900">
-      <header className="sticky top-0 z-20 border-b border-white/40 bg-secondary text-white shadow-lg shadow-secondary/10">
-        <div className="mx-auto max-w-lg px-4 pb-5 pt-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15">
-                <Truck className="h-6 w-6" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="truncate text-lg font-bold">Giao hàng</h1>
-                <p className="truncate text-sm text-white/75">{user?.fullName ?? 'Shipper'}</p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void loadOrders(filter, true)}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 transition hover:bg-white/20"
-                aria-label="Làm mới đơn hàng"
-              >
-                <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </button>
-              <button
-                type="button"
-                onClick={logout}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 transition hover:bg-white/20"
-                aria-label="Đăng xuất"
-              >
-                <LogOut className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-3xl bg-white/12 p-4">
-              <p className="text-xs font-medium text-white/70">Số đơn</p>
-              <p className="mt-1 text-2xl font-bold">{orders.length}</p>
-            </div>
-            <div className="rounded-3xl bg-white/12 p-4">
-              <p className="text-xs font-medium text-white/70">Giá trị</p>
-              <p className="mt-1 truncate text-lg font-bold">{formatPrice(activeTotal)}</p>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#f6f8f5] pb-24 text-neutral-900">
+      <PwaPageHeader
+        title="Lộ trình giao hàng"
+        subtitle={user?.fullName ?? 'Nhân viên giao hàng'}
+        icon={Truck}
+        tone="dark"
+        onRefresh={() => void loadOrders(filter, true)}
+        isRefreshing={isRefreshing}
+        showLogout
+      />
 
       <main className="mx-auto max-w-lg px-4 py-5">
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div className="rounded-3xl bg-secondary p-4 text-white shadow-sm">
+            <p className="text-xs font-medium text-white/70">Số đơn</p>
+            <p className="mt-1 text-2xl font-bold">{orders.length}</p>
+          </div>
+          <div className="rounded-3xl bg-white p-4 text-neutral-900 shadow-sm">
+            <p className="text-xs font-medium text-neutral-500">Giá trị</p>
+            <p className="mt-1 truncate text-lg font-bold text-primary">{formatPrice(activeTotal)}</p>
+          </div>
+        </div>
+
         <div className="mb-4 grid grid-cols-2 gap-2 rounded-3xl bg-white p-1 shadow-sm">
           {statusTabs.map((tab) => {
             const Icon = tab.icon;
@@ -426,6 +403,7 @@ export default function ShipperPage() {
           </div>
         )}
       </main>
+      <PwaTabMenu />
     </div>
   );
 }

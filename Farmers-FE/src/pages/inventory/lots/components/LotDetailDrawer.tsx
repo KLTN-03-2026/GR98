@@ -29,6 +29,8 @@ import { WeightAdjustmentDialog } from './WeightAdjustmentDialog';
 import { QualityGradingDialog } from './QualityGradingDialog';
 import { ExpiryUpdateDialog } from './ExpiryUpdateDialog';
 import { ConfirmReceiptDialog } from './ConfirmReceiptDialog';
+import { GoodsReceiptInvoiceDialog } from './GoodsReceiptInvoiceDialog';
+import { parseReceiptMetadata } from './receipt-metadata';
 import { Button } from '@/components/ui/button';
 import { Edit2, Scale, RefreshCw, CheckCircle2 } from 'lucide-react';
 
@@ -46,10 +48,21 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
   const [isUpdatingGrade, setIsUpdatingGrade] = React.useState(false);
   const [isUpdatingExpiry, setIsUpdatingExpiry] = React.useState(false);
   const [isConfirmingReceipt, setIsConfirmingReceipt] = React.useState(false);
+  const [isViewingReceipt, setIsViewingReceipt] = React.useState(false);
 
   const lot = currentLot || initialLot;
   const isUpcoming = lot?.status === 'SCHEDULED';
   const isReceived = lot?.status === 'RECEIVED';
+
+  // Tìm giao dịch RECEIPT gần nhất + decode metadata Phiếu nhập kho (nếu có).
+  const receiptTransaction = React.useMemo(
+    () => timeline?.find((tx) => tx.action === 'RECEIPT'),
+    [timeline],
+  );
+  const receiptMetadata = React.useMemo(
+    () => parseReceiptMetadata(receiptTransaction?.note),
+    [receiptTransaction],
+  );
 
 
 
@@ -311,13 +324,25 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
             )}
 
             {isReceived && (
-              <Button 
-                className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-xl shadow-slate-200 transition-all active:scale-95 text-sm uppercase tracking-wider"
-                onClick={() => setIsAdjustingWeight(true)}
-              >
-                <Scale className="size-5 mr-2" />
-                Hiệu chỉnh tồn kho
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-xl shadow-slate-200 transition-all active:scale-95 text-sm uppercase tracking-wider"
+                  onClick={() => setIsAdjustingWeight(true)}
+                >
+                  <Scale className="size-5 mr-2" />
+                  Hiệu chỉnh tồn kho
+                </Button>
+                {receiptMetadata && (
+                  <Button
+                    variant="outline"
+                    className="w-full h-11 rounded-2xl border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100/70 font-bold text-sm"
+                    onClick={() => setIsViewingReceipt(true)}
+                  >
+                    <FileText className="size-4 mr-2" />
+                    Phiếu nhập kho
+                  </Button>
+                )}
+              </div>
             )}
             
             {isUpcoming && (
@@ -359,6 +384,16 @@ export function LotDetailDrawer({ lot: initialLot, isOpen, onClose }: LotDetailD
         isOpen={isConfirmingReceipt}
         onClose={() => setIsConfirmingReceipt(false)}
       />
+
+      {receiptMetadata && receiptTransaction && (
+        <GoodsReceiptInvoiceDialog
+          lot={lot}
+          receipt={receiptMetadata}
+          actualWeight={receiptTransaction.quantityKg}
+          isOpen={isViewingReceipt}
+          onClose={() => setIsViewingReceipt(false)}
+        />
+      )}
     </>
   );
 }

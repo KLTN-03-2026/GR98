@@ -1,14 +1,16 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { 
-  ArrowDownLeft, 
-  ArrowUpRight, 
-  Settings2 
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Settings2,
+  FileText,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DataTableColumnHeader } from '@/components/data-table';
 import type { WarehouseTransaction } from '../api/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { parseReceiptMetadata } from '@/pages/inventory/lots/components/receipt-metadata';
 
 export const createTransactionColumns = () => {
   const columns: ColumnDef<WarehouseTransaction>[] = [
@@ -108,12 +110,45 @@ export const createTransactionColumns = () => {
     },
     {
       accessorKey: 'note',
-      header: "Ghi chú",
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground truncate max-w-[200px] block" title={row.original.note || ''}>
-          {row.original.note || '—'}
-        </span>
-      ),
+      header: 'Ghi chú',
+      cell: ({ row }) => {
+        const note = row.original.note;
+        const receipt = parseReceiptMetadata(note);
+
+        // Nếu là Phiếu nhập kho (JSON metadata) → hiển thị gọn, không đổ JSON thô ra UI.
+        if (receipt) {
+          const summaryParts = [
+            `Phiếu ${receipt.receiptNo}`,
+            receipt.deliverer.name ? `Giao: ${receipt.deliverer.name}` : null,
+            receipt.comment ? receipt.comment : null,
+          ].filter(Boolean);
+          const tooltip = summaryParts.join(' • ');
+          return (
+            <div className="flex items-center gap-1.5 max-w-[260px]" title={tooltip}>
+              <FileText className="size-3.5 shrink-0 text-emerald-600" />
+              <div className="flex flex-col min-w-0">
+                <span className="font-mono text-xs font-semibold text-emerald-700 truncate">
+                  {receipt.receiptNo}
+                </span>
+                {receipt.comment && (
+                  <span className="text-xs text-muted-foreground truncate">
+                    {receipt.comment}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <span
+            className="text-sm text-muted-foreground truncate max-w-[240px] block"
+            title={note || ''}
+          >
+            {note || '—'}
+          </span>
+        );
+      },
     },
   ];
   return columns;

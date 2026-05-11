@@ -43,6 +43,10 @@ export class CreateContractDto {
   @IsString()
   cropType: string;
 
+  @IsOptional()
+  @IsString()
+  variety?: string;
+
   @IsEnum(QualityGrade, { message: 'Phân hạng chất lượng không hợp lệ' })
   grade: QualityGrade;
 

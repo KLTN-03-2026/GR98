@@ -32,10 +32,15 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ example: 'Sầu riêng', description: 'Loại nông sản' })
+  @ApiProperty({ example: 'sau-rieng', description: 'Loại nông sản' })
   @IsString()
   @IsNotEmpty()
   cropType: string;
+
+  @ApiPropertyOptional({ example: 'Ri 6', description: 'Giống cây (Arabica, Ri 6, Monthong...)' })
+  @IsOptional()
+  @IsString()
+  variety?: string;
 
   @ApiProperty({ enum: QualityGrade, example: QualityGrade.A })
   @IsEnum(QualityGrade)
@@ -129,6 +134,12 @@ export class ProductQueryDto {
   @IsString()
   cropType?: string;
 
+  @ApiPropertyOptional({ example: 'Arabica', description: 'Lọc theo giống cây' })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsString()
+  variety?: string;
+
   @ApiPropertyOptional({ enum: QualityGrade })
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : value))
@@ -212,6 +223,11 @@ export class CreateProductFromLotDto {
   @IsEnum(ProductStatus)
   @ApiPropertyOptional({ enum: ProductStatus, default: ProductStatus.DRAFT })
   status?: ProductStatus;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ example: 'Ri 6', description: 'Giống cây' })
+  variety?: string;
 }
 
 export class CreateProductFromContractDto {
@@ -256,4 +272,9 @@ export class CreateProductFromContractDto {
   @IsString()
   @ApiPropertyOptional({ description: 'URL ảnh đại diện' })
   thumbnailUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ example: 'Arabica', description: 'Giống cây' })
+  variety?: string;
 }

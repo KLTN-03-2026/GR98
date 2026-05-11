@@ -42,6 +42,7 @@ export interface MeResponse {
       addressLine: string;
       district: string | null;
       province: string;
+      addressType: 'HOME' | 'OFFICE';
       isDefault: boolean;
       createdAt: string;
       updatedAt: string;
@@ -62,5 +63,8 @@ export type CreateShippingAddressPayload = {
   addressLine: string;
   district?: string;
   province: string;
+  addressType?: 'HOME' | 'OFFICE';
   isDefault?: boolean;
 };
+
+export type UpdateShippingAddressPayload = Partial<CreateShippingAddressPayload>;

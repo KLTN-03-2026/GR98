@@ -66,7 +66,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'sau-rieng-ri6-a-trai-chin-cay',
     description:
       'Sầu Riêng Ri 6 hạng A, trồng tại Đắk Lắk, thu hoạch từ vườn đạt chuẩn VietGAP. Trái chín tự nhiên trên cây, không chất bảo quản. Cơm vàng hạt, béo ngậy, hương thơm đặc trưng Tây Nguyên.\n\n**Xuất xứ:** Đắk Lắk\n**Giống:** Ri 6\n**Hạng:** A - ≥2.5kg/trái\n**Cách chọn:** Trái có mùi thơm nhẹ, cầm nặng tay, gõ nhẹ có tiếng kẽo.',
-    cropType: 'SAU_RIENG',
+    cropType: 'sau-rieng',
     grade: 'A',
     pricePerKg: 89000,
     stockKg: 150,
@@ -91,7 +91,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'sau-rieng-monthong-a-nhap-khau-thai-lan',
     description:
       'Sầu Riêng Monthong (Crown Princess) hạng A, nhập khẩu chính ngạch từ Thái Lan. Thịt cơm dày màu vàng kem đậm, vị ngọt dịu, ít hơi gas hơn Ri 6. Phù hợp cho người thích vị ngọt nhẹ và béo mượt.\n\n**Xuất xứ:** Thái Lan\n**Giống:** Monthong\n**Hạng:** A\n**Quy cách:** Trái 3-5kg',
-    cropType: 'SAU_RIENG',
+    cropType: 'sau-rieng',
     grade: 'A',
     pricePerKg: 145000,
     stockKg: 80,
@@ -115,7 +115,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'sau-rieng-ri6-b-trai-chin-vuon',
     description:
       'Sầu Riêng Ri 6 hạng B, chất lượng tốt, thích hợp cho gia đình. Trái có trọng lượng 1.8-2.5kg, cơm vàng vừa, hương thơm đặc trưng.\n\n**Xuất xứ:** Đắk Lắk\n**Giống:** Ri 6\n**Hạng:** B',
-    cropType: 'SAU_RIENG',
+    cropType: 'sau-rieng',
     grade: 'B',
     pricePerKg: 68000,
     stockKg: 200,
@@ -139,7 +139,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'sau-rieng-dong-lanh-ri6-bao-quan-6-thang',
     description:
       'Sầu Riêng Ri 6 đông lạnh IQF, bảo quản tại -18°C, giữ trọn 100% hương vị tươi ngon trong 6 tháng. Phù hợp chế biến kem, sinh tố, bánh. Đóng gói khay 500g tiện lợi.\n\n**Công nghệ:** IQF (Individual Quick Frozen)\n**Đóng gói:** Khay 500g\n**Bảo quản:** -18°C, 6 tháng',
-    cropType: 'SAU_RIENG',
+    cropType: 'sau-rieng',
     grade: 'A',
     pricePerKg: 120000,
     stockKg: 300,
@@ -161,7 +161,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'sau-rieng-cat-san-dong-lanh-tien-loi',
     description:
       'Sầu Riêng Ri 6 cắt sẵn từng miếng, đông lạnh đóng gói. Không chất bảo quản, không đường hóa học. Rã đông nhanh trong 15 phút, thích hợp ăn trực tiếp hoặc chế biến.\n\n**Trọng lượng:** 500g/gói\n**Quy cách:** 10-15 miếng/gói\n**Đã rã đông:** Có thể ăn ngay',
-    cropType: 'SAU_RIENG',
+    cropType: 'sau-rieng',
     grade: 'B',
     pricePerKg: 95000,
     stockKg: 180,
@@ -183,7 +183,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'sau-rieng-monthong-b-nhap-khau-chinh-ngach',
     description:
       'Sầu Riêng Monthong hạng B, nhập khẩu từ Thái Lan. Chất lượng tốt, giá hợp lý hơn hạng A. Thịt màu vàng nhạt, vị ngọt dịu, độ béo vừa phải.\n\n**Xuất xứ:** Thái Lan\n**Hạng:** B',
-    cropType: 'SAU_RIENG',
+    cropType: 'sau-rieng',
     grade: 'B',
     pricePerKg: 110000,
     stockKg: 120,
@@ -207,7 +207,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'ca-phe-arabica-dak-lak-hat-rang-moc',
     description:
       'Cà phê Arabica Cầu Đất Đắk Lắk, rang mộc 100%, không tẩm hương nhân tạo. Hạt rang vừa, giữ trọn vị chua thanh, hậu ngọt tự nhiên đặc trưng của vùng Tây Nguyên.\n\n**Vùng:** Đắk Lắk\n**Giống:** Arabica Cầu Đất\n**Rang:** Medium (vừa phải)\n**Xử lý:** Ướt',
-    cropType: 'CA_PHE',
+    cropType: 'ca-phe',
     grade: 'A',
     pricePerKg: 180000,
     stockKg: 200,
@@ -229,7 +229,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'ca-phe-robusta-buon-ma-thuot-hat-rang-moc',
     description:
       'Cà phê Robusta Buôn Ma Thuột, rang mộc đậm đà. Đây là loại cà phê nổi tiếng nhất Việt Nam với hương vị đắng mạnh, thơm nồng, không chất phụ gia.\n\n**Vùng:** Buôn Ma Thuột, Đắk Lắk\n**Giống:** Robusta\n**Rang:** Dark (đậm)\n**Xử lý:** Ướt',
-    cropType: 'CA_PHE',
+    cropType: 'ca-phe',
     grade: 'A',
     pricePerKg: 125000,
     stockKg: 350,
@@ -251,7 +251,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'ca-phe-arabica-dak-lak-bot-xay-san',
     description:
       'Cà phê Arabica Đắk Lắk xay sẵn mịn, phù hợp pha máy, pha phin hoặc French Press. Rang mộc 100%, đóng gói hút chân không giữ độ tươi.\n\n**Độ mịn:** Phù hợp nhiều phương pháp pha\n**Đóng gói:** Túi 250g, hút chân không\n**Bảo quản:** Nơi khô ráo, tránh ánh sáng',
-    cropType: 'CA_PHE',
+    cropType: 'ca-phe',
     grade: 'A',
     pricePerKg: 200000,
     stockKg: 150,
@@ -273,7 +273,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'ca-phe-cau-dat-dac-san-single-origin',
     description:
       'Cà phê đặc sản Cầu Đất, trồng ở độ cao 1.500m. Đây là loại cà phê premium với hương vị tinh tế: chua thanh dịu, hậu ngọt caramel, hương trái cây và một chút chocolate.\n\n**Độ cao:** 1.500m\n**Xử lý:** Ướt (Washed)\n**Điểm cupping:** 84+\n**Suitable for:** Pour over, Chemex, AeroPress',
-    cropType: 'CA_PHE',
+    cropType: 'ca-phe',
     grade: 'A',
     pricePerKg: 350000,
     stockKg: 50,
@@ -295,7 +295,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'ca-phe-moka-lam-dong-hat-rang-vua',
     description:
       'Cà phê Moka Lâm Đồng nổi tiếng với hương vị thơm ngát, chua dịu và đắng nhẹ. Được mệnh danh là "vàng đỏ" của Tây Nguyên.\n\n**Vùng:** Lâm Đồng\n**Giống:** Moka\n**Rang:** Medium\n**Xử lý:** Ướt',
-    cropType: 'CA_PHE',
+    cropType: 'ca-phe',
     grade: 'B',
     pricePerKg: 160000,
     stockKg: 100,
@@ -317,7 +317,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'ca-phe-robusta-buon-ma-thuot-rang-dark',
     description:
       'Cà phê Robusta Buôn Ma Thuột rang đậm (Dark Roast), hạt giãn nở, dầu tự nhiên trên bề mặt. Vị đắng đậm đà, thơm nồng, phù hợp pha máy pha cà phê hoặc phin.\n\n**Rang:** Dark (rất đậm)\n**Phù hợp:** Máy pha, phin\n**Không chất phụ gia:** 100% rang mộc',
-    cropType: 'CA_PHE',
+    cropType: 'ca-phe',
     grade: 'B',
     pricePerKg: 135000,
     stockKg: 250,
@@ -341,7 +341,7 @@ export const MOCK_PRODUCTS: Product[] = [
     slug: 'combo-qua-tang-cao-cap-sau-rieng-ca-phe',
     description:
       'Bộ quà tặng cao cấp gồm: 1kg Sầu Riêng Ri 6 A đông lạnh + 500g Cà phê Arabica Đắk Lắk hạt rang mộc. Bao bì quà tặng sang trọng, phù hợp biếu bố mẹ, người yêu, đối tác.\n\n**Bao bì:** Hộp quà cao cấp\n**Thẻ chúc:** Đi kèm thẻ chúc viết tay\n**Giao hàng:** Giao tận nơi, đảm bảo chất lượng',
-    cropType: 'SAU_RIENG',
+    cropType: 'sau-rieng',
     grade: 'A',
     pricePerKg: 0,
     stockKg: 50,
@@ -573,8 +573,8 @@ export const MOCK_ORDERS: Order[] = [
 // FILTER OPTIONS
 // ============================================================
 export const CROP_TYPE_OPTIONS = [
-  { value: 'SAU_RIENG', label: 'Sầu Riêng' },
-  { value: 'CA_PHE', label: 'Cà Phê' },
+  { value: 'ca-phe', label: 'Cà Phê' },
+  { value: 'sau-rieng', label: 'Sầu Riêng' },
 ];
 
 export const GRADE_OPTIONS = [
@@ -604,10 +604,10 @@ export const PRICE_RANGES = [
 export function getProductsByCategory(categorySlug: string): Product[] {
   const cat = MOCK_CATEGORIES.find((c) => c.slug === categorySlug);
   if (!cat) return [];
-  return MOCK_PRODUCTS.filter((p) => p.cropType === 'SAU_RIENG' && categorySlug.includes('sau'))
+  return MOCK_PRODUCTS.filter((p) => p.cropType === 'sau-rieng' && categorySlug.includes('sau'))
     .concat(
       MOCK_PRODUCTS.filter(
-        (p) => p.cropType === 'CA_PHE' && categorySlug.includes('ca-phe'),
+        (p) => p.cropType === 'ca-phe' && categorySlug.includes('ca-phe'),
       ),
     );
 }

@@ -19,6 +19,7 @@ export interface ContractResponse {
   supervisorId: string;
   contractNo: string;
   cropType: string;
+  variety: string | null;
   grade: QualityGrade;
   status: ContractStatus;
   plotDraftProvince: string | null;
@@ -95,6 +96,7 @@ export interface CreateContractPayload {
   plotDraftAreaHa?: number;
   plotDraftCoordinatesText?: string;
   cropType: string;
+  variety?: string;
   grade: QualityGrade;
   signedAt?: string;
   harvestDue?: string;

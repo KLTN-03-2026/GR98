@@ -75,6 +75,7 @@ export type ContractLegalViewModel = {
   plotDraftDistrict: string;
   plotDraftAreaHa: string;
   cropType: string;
+  variety: string;
   materialDebtVnd: string;
   termLabel: string;
   termFromTo: string;
@@ -174,6 +175,7 @@ export function buildContractLegalViewModel(c: ContractResponse): ContractLegalV
     plotDraftDistrict: c.plotDraftDistrict || '—',
     plotDraftAreaHa: c.plotDraftAreaHa ? `${c.plotDraftAreaHa} ha` : '—',
     cropType: c.cropType,
+    variety: c.variety?.trim() || '—',
     materialDebtVnd: 'Chưa khai báo trên hệ thống',
     termLabel: 'Theo thời hạn ghi nhận trên hệ thống / thỏa thuận bổ sung',
     termFromTo: `${formatDateVi(c.signedAt)} — ${formatDateVi(c.harvestDue)}`,
@@ -198,6 +200,7 @@ export type DraftLegalFormInput = {
   plotDraftAreaHa: string;
   plotDraftCoordinates: Array<[string, string]>; // [lat, lng]
   cropType: string;
+  variety: string;
   grade: QualityGrade;
   signedAt: string;
   harvestDue: string;
@@ -260,6 +263,7 @@ export function buildContractLegalViewModelFromDraft(input: {
     plotDraftAreaHa:
       Number.isFinite(areaHa) && areaHa > 0 ? `${areaHa.toLocaleString('vi-VN')} ha` : '—',
     cropType: input.form.cropType.trim() || '—',
+    variety: input.form.variety?.trim() || '—',
     materialDebtVnd: 'Chưa khai báo trên hệ thống',
     termLabel: 'Theo ngày ký và ngày kết thúc hợp đồng đã nhập',
     termFromTo: `${formatDateVi(signed || null)} — ${formatDateVi(harvest || null)}`,

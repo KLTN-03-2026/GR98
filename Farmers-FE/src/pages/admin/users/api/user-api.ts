@@ -12,7 +12,7 @@ export const userApi = {
     page?: number;
     limit?: number;
     search?: string;
-    role?: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
+    role?: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'SHIPPER' | 'CLIENT';
     status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
     excludeClient?: boolean;
   }) => apiGet<ApiSuccessResponse<PaginatedUsersResponse>>('/users', { params }),
@@ -25,11 +25,13 @@ export const userApi = {
     password: string;
     fullName: string;
     phone?: string;
-    role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
+    role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'SHIPPER' | 'CLIENT';
     avatar?: string;
     province?: string;
     businessName?: string;
     defaultAddress?: string;
+    vehicleType?: 'MOTORBIKE' | 'TRUCK' | 'VAN';
+    licensePlate?: string;
   }) => apiPost<ApiSuccessResponse<UserResponse>>('/users', data),
 
   update: (
@@ -39,7 +41,7 @@ export const userApi = {
       password: string;
       fullName: string;
       phone: string;
-      role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
+      role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'SHIPPER' | 'CLIENT';
       status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
       avatar: string;
       clearAvatar: boolean;

@@ -36,6 +36,7 @@ import {
   buildContractLegalViewModelFromDraft,
 } from '@/pages/contracts/contract-legal-view-model';
 import '@/pages/contracts/contract-print.css';
+import { CROP_CONFIG, getVarietiesForCrop } from '@/client/data/crop-config';
 
 type CoordinatePair = [string, string]; // [lat, lng]
 
@@ -45,6 +46,7 @@ type FormState = {
   plotDraftAreaHa: string;
   plotDraftCoordinates: CoordinatePair[];
   cropType: string;
+  variety: string;
   grade: QualityGrade;
   harvestDue: string;
 };
@@ -55,6 +57,7 @@ const defaultForm: FormState = {
   plotDraftAreaHa: '',
   plotDraftCoordinates: [['', '']],
   cropType: '',
+  variety: '',
   grade: 'A',
   harvestDue: '',
 };
@@ -79,13 +82,8 @@ function formatIsoDateVi(iso: string) {
   return `${day}/${m}/${y}`;
 }
 
-const CROP_OPTIONS = [
-  { value: 'ca-phe', label: 'Cà phê' },
-  { value: 'sau-rieng', label: 'Sầu riêng' },
-] as const;
-
 function getCropLabel(value: string) {
-  return CROP_OPTIONS.find((item) => item.value === value)?.label ?? 'Chưa chọn loại cây';
+  return CROP_CONFIG.find((item) => item.value === value)?.label ?? 'Chưa chọn loại cây';
 }
 
 function toPayload(form: FormState, farmerId: string | undefined): CreateContractPayload {
@@ -104,6 +102,7 @@ function toPayload(form: FormState, farmerId: string | undefined): CreateContrac
     plotDraftAreaHa: form.plotDraftAreaHa ? Number(form.plotDraftAreaHa) : undefined,
     plotDraftCoordinatesText: coordinateLines.length ? coordinateLines.join('\n') : undefined,
     cropType: form.cropType.trim(),
+    variety: form.variety.trim() || undefined,
     grade: form.grade,
     signedAt: getTodayLocalIsoDate(),
     harvestDue: form.harvestDue || undefined,
@@ -157,6 +156,7 @@ function SupervisorContractCreateWorkspace() {
           plotDraftAreaHa: form.plotDraftAreaHa,
           plotDraftCoordinates: form.plotDraftCoordinates,
           cropType: form.cropType,
+          variety: form.variety,
           grade: form.grade,
           signedAt: signedAtToday,
           harvestDue: form.harvestDue,
@@ -560,11 +560,11 @@ function SupervisorContractCreateWorkspace() {
               <Label>Loại cây trồng</Label>
               <select
                 value={form.cropType}
-                onChange={(e) => setForm((prev) => ({ ...prev, cropType: e.target.value }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, cropType: e.target.value, variety: '' }))}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="">Chọn loại cây trồng</option>
-                {CROP_OPTIONS.map((item) => (
+                {CROP_CONFIG.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
                   </option>
@@ -585,6 +585,29 @@ function SupervisorContractCreateWorkspace() {
                 <option value="C">C</option>
                 <option value="REJECT">REJECT</option>
               </select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Giống cây <span className="text-muted-foreground text-xs">(tuỳ chọn)</span></Label>
+            <div className="flex gap-2">
+              <select
+                value={form.variety}
+                onChange={(e) => setForm((prev) => ({ ...prev, variety: e.target.value }))}
+                disabled={!form.cropType}
+                className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+              >
+                <option value="">-- Chọn giống --</option>
+                {getVarietiesForCrop(form.cropType).map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={form.variety}
+                onChange={(e) => setForm((prev) => ({ ...prev, variety: e.target.value }))}
+                placeholder="Hoặc gõ tên giống..."
+                className="h-10 w-44 rounded-md border border-input bg-background px-3 text-sm"
+              />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

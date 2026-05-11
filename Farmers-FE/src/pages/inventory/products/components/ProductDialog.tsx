@@ -28,6 +28,7 @@ import {
   type Product,
   type ProductStatus,
 } from '@/client/types';
+import { CROP_CONFIG, getVarietiesForCrop } from '@/client/data/crop-config';
 
 import {
   Tabs,
@@ -60,6 +61,7 @@ export function ProductDialog({
   const [form, setForm] = useState({
     name: '',
     description: '',
+    variety: '',
     minOrderKg: 1,
     unit: 'kg',
     status: 'DRAFT' as ProductStatus,
@@ -75,6 +77,7 @@ export function ProductDialog({
         setForm({
           name: product.name,
           description: product.description || '',
+          variety: product.variety || '',
           minOrderKg: product.minOrderKg,
           unit: product.unit || 'kg',
           status: product.status,
@@ -86,6 +89,7 @@ export function ProductDialog({
         setForm({
           name: '',
           description: '',
+          variety: '',
           minOrderKg: 1,
           unit: 'kg',
           status: 'DRAFT',
@@ -203,6 +207,30 @@ export function ProductDialog({
                         placeholder="Ví dụ: Sầu riêng Ri6 Chín Hóa (Loại 1)"
                         className="h-14 rounded-[2rem] border-slate-200 bg-white px-8 text-base font-bold text-slate-900 placeholder:text-slate-300 focus-visible:ring-emerald-500/5 focus-visible:border-emerald-500 transition-all shadow-sm"
                       />
+                    </div>
+
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Giống cây</Label>
+                      <div className="flex gap-2">
+                        <select
+                          value={form.variety}
+                          onChange={(e) => setForm({ ...form, variety: e.target.value })}
+                          className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm"
+                        >
+                          <option value="">-- Chọn giống --</option>
+                          {product?.cropType && getVarietiesForCrop(product.cropType).map((v) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                          {product?.cropType && CROP_CONFIG.length === 0 && null}
+                        </select>
+                        <input
+                          type="text"
+                          value={form.variety}
+                          onChange={(e) => setForm({ ...form, variety: e.target.value })}
+                          placeholder="Hoặc gõ trực tiếp..."
+                          className="h-12 w-40 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm"
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-3">

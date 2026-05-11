@@ -1,21 +1,22 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Camera, Upload, Leaf, AlertTriangle, CheckCircle,
-  XCircle, Loader2, ArrowLeft, RotateCcw, HelpCircle, X, FlipHorizontal, MapPin
+  XCircle, Loader2, RotateCcw, HelpCircle, X, FlipHorizontal, MapPin, ScanSearch
 } from 'lucide-react';
 import { analyzeLeafImage, type AIVisionResult } from '../services/aiVision';
 import { saveScanResult, mapAIResultToPayload } from '../services/plantScan';
 import { fetchMyPlots, formatCropType, type PlotItem } from '../services/plots';
+import PwaPageHeader from '../components/PwaPageHeader';
+import PwaTabMenu from '../components/PwaTabMenu';
 
 
 type InputMode = 'upload' | 'camera';
 
 export default function AIVisionPage() {
-  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const [inputMode, setInputMode] = useState<InputMode>('upload');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -34,11 +35,11 @@ export default function AIVisionPage() {
   // Cleanup camera stream on unmount
   useEffect(() => {
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [stream]);
+  }, []);
 
   // Load danh sách lô đất
   useEffect(() => {
@@ -56,8 +57,9 @@ export default function AIVisionPage() {
       setCameraError(null);
 
       // Stop existing stream if any
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
         setStream(null);
       }
 
@@ -78,6 +80,7 @@ export default function AIVisionPage() {
       };
 
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = mediaStream;
       setStream(mediaStream);
 
       // Wait for video element to be ready
@@ -87,16 +90,17 @@ export default function AIVisionPage() {
         }
       }, 100);
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('Camera error:', err);
+      const errorName = err instanceof DOMException ? err.name : '';
 
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
         setCameraError('Quyền camera bị từ chối. Vui lòng cho phép truy cập camera trong cài đặt trình duyệt.');
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
         setCameraError('Không tìm thấy camera. Vui lòng kết nối webcam vào máy tính.');
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
         setCameraError('Camera đang được sử dụng bởi ứng dụng khác. Vui lòng đóng ứng dụng khác đang dùng camera.');
-      } else if (err.name === 'OverconstrainedError') {
+      } else if (errorName === 'OverconstrainedError') {
         setCameraError('Camera không hỗ trợ độ phân giải yêu cầu. Đang thử lại...');
         // Retry with lower resolution
         try {
@@ -104,6 +108,7 @@ export default function AIVisionPage() {
             video: facingMode === 'environment' ? { facingMode: 'user' } : true,
             audio: false
           });
+          streamRef.current = fallbackStream;
           setStream(fallbackStream);
           if (videoRef.current) {
             videoRef.current.srcObject = fallbackStream;
@@ -116,16 +121,17 @@ export default function AIVisionPage() {
         setCameraError('Không thể truy cập camera. Vui lòng sử dụng tab Upload để tải ảnh.');
       }
     }
-  }, [facingMode, stream]);
+  }, [facingMode]);
 
   // Stop camera
   const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
       setStream(null);
     }
     setCameraError(null);
-  }, [stream]);
+  }, []);
 
   // Toggle camera mode
   const handleToggleMode = (mode: InputMode) => {
@@ -144,15 +150,14 @@ export default function AIVisionPage() {
     if (inputMode === 'camera') {
       startCamera();
     }
-  }, [inputMode]);
+  }, [inputMode, startCamera]);
 
   // Cleanup on mode change
   useEffect(() => {
-    if (inputMode !== 'camera' && stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+    if (inputMode !== 'camera') {
+      stopCamera();
     }
-  }, [inputMode, stream]);
+  }, [inputMode, stopCamera]);
 
   // Toggle front/back camera
   const toggleCamera = () => {
@@ -161,10 +166,10 @@ export default function AIVisionPage() {
 
   // Restart camera when facing mode changes
   useEffect(() => {
-    if (inputMode === 'camera' && stream) {
+    if (inputMode === 'camera' && streamRef.current) {
       startCamera();
     }
-  }, [facingMode]);
+  }, [facingMode, inputMode, startCamera]);
 
   // Capture photo from camera
   const handleCapture = () => {
@@ -198,8 +203,7 @@ export default function AIVisionPage() {
     }, 'image/jpeg', 0.9);
   };
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processImageFile = useCallback((file: File) => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
@@ -223,19 +227,18 @@ export default function AIVisionPage() {
     reader.readAsDataURL(file);
   }, []);
 
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file);
+  }, [processImageFile]);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      const input = fileInputRef.current;
-      if (input) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        input.files = dt.files;
-        handleFileSelect({ target: input } as any);
-      }
+      processImageFile(file);
     }
-  }, [handleFileSelect]);
+  }, [processImageFile]);
 
   const handleAnalyze = async () => {
     if (!imageFile) return;
@@ -252,8 +255,9 @@ export default function AIVisionPage() {
       void saveScanResult(mapAIResultToPayload(data, {
         plotId: selectedPlotId || undefined,
       }));
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Không thể phân tích hình ảnh. Vui lòng thử lại.');
+    } catch (err) {
+      const apiError = err as { response?: { data?: { message?: string } } };
+      setError(apiError.response?.data?.message || 'Không thể phân tích hình ảnh. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -282,24 +286,14 @@ export default function AIVisionPage() {
   const dangerInfo = result ? getDangerLevel(result.benh?.do_nguy_hiem) : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-[#f6f8f5] pb-24">
       <canvas ref={canvasRef} className="hidden" />
 
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/')}
-              className="p-2 -ml-2 text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-2">
-              <Camera className="w-5 h-5 text-primary" />
-              <h1 className="font-semibold text-gray-900">AI Vision</h1>
-            </div>
-          </div>
-
+      <PwaPageHeader
+        title="Quét bệnh cây"
+        subtitle="Nhận diện qua ảnh lá"
+        icon={ScanSearch}
+        actions={
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => handleToggleMode('upload')}
@@ -320,8 +314,8 @@ export default function AIVisionPage() {
               Camera
             </button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <main className="max-w-lg mx-auto px-4 py-6">
         {/* Camera Mode */}
@@ -621,6 +615,7 @@ export default function AIVisionPage() {
         onChange={handleFileSelect}
         className="hidden"
       />
+      <PwaTabMenu />
     </div>
   );
 }

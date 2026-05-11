@@ -1,7 +1,11 @@
 import apiClient from './apiClient';
 
+export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'SHIPPER' | 'CLIENT';
+export type PwaUserRole = 'SUPERVISOR' | 'SHIPPER';
+
 export interface LoginRequest {
-  email: string;
+  email?: string;
+  phone?: string;
   password: string;
 }
 
@@ -12,10 +16,13 @@ export interface User {
   fullName: string;
   phone?: string | null;
   avatar?: string | null;
-  role: 'ADMIN' | 'SUPERVISOR' | 'INVENTORY' | 'CLIENT';
+  role: UserRole;
   createdAt: string;
+  profileId?: string | null;
+  adminId?: string | null;
   adminProfile?: AdminProfile | null;
   supervisorProfile?: SupervisorProfile | null;
+  shipperProfile?: ShipperProfile | null;
   clientProfile?: ClientProfile | null;
 }
 
@@ -34,6 +41,15 @@ export interface SupervisorProfile {
   zoneId?: string | null;
 }
 
+export interface ShipperProfile {
+  id: string;
+  employeeCode: string;
+  adminId: string;
+  vehicleType?: 'MOTORBIKE' | 'CAR' | 'TRUCK' | null;
+  licensePlate?: string | null;
+  status?: 'AVAILABLE' | 'BUSY' | 'OFFLINE' | null;
+}
+
 export interface ClientProfile {
   id: string;
   province?: string;
@@ -46,7 +62,7 @@ export interface LoginResponse {
 }
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
-  const response = await apiClient.post<LoginResponse>('/auth/login', data);
+  const response = await apiClient.post('/auth/login', data);
   // Backend wraps in { success: true, data: {...} } via TransformResponseInterceptor
   const payload = response.data.data ?? response.data;
 
@@ -61,10 +77,23 @@ export const login = async (data: LoginRequest): Promise<LoginResponse> => {
   return payload as LoginResponse;
 };
 
-export const logout = () => {
+export const getRoleHomePath = (role?: UserRole): string => {
+  if (role === 'SHIPPER') return '/shipper';
+  return '/';
+};
+
+export const canAccessPwa = (role?: UserRole): role is PwaUserRole => {
+  return role === 'SUPERVISOR' || role === 'SHIPPER';
+};
+
+export const clearAuthStorage = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   localStorage.removeItem('supervisorProfile');
+};
+
+export const logout = () => {
+  clearAuthStorage();
   window.location.href = '/login';
 };
 

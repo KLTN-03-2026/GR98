@@ -5,6 +5,8 @@ import HomePage from './pages/HomePage';
 import AIVisionPage from './pages/AIVisionPage';
 import ChatbotPage from './pages/ChatbotPage';
 import ProfilePage from './pages/ProfilePage';
+import ShipperPage from './pages/ShipperPage';
+import { getRoleHomePath, type UserRole } from './services/auth';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -18,11 +20,33 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
   
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getRoleHomePath(user?.role)} replace />;
   }
   
+  return <>{children}</>;
+}
+
+function RoleRoute({
+  children,
+  allowedRoles,
+}: {
+  children: React.ReactNode;
+  allowedRoles: UserRole[];
+}) {
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.role && !allowedRoles.includes(user.role)) {
+    return <Navigate to={getRoleHomePath(user.role)} replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -39,7 +63,9 @@ const router = createBrowserRouter([
     path: '/',
     element: (
       <ProtectedRoute>
-        <HomePage />
+        <RoleRoute allowedRoles={['SUPERVISOR']}>
+          <HomePage />
+        </RoleRoute>
       </ProtectedRoute>
     ),
   },
@@ -47,7 +73,9 @@ const router = createBrowserRouter([
     path: '/ai-vision',
     element: (
       <ProtectedRoute>
-        <AIVisionPage />
+        <RoleRoute allowedRoles={['SUPERVISOR']}>
+          <AIVisionPage />
+        </RoleRoute>
       </ProtectedRoute>
     ),
   },
@@ -55,7 +83,9 @@ const router = createBrowserRouter([
     path: '/chatbot',
     element: (
       <ProtectedRoute>
-        <ChatbotPage />
+        <RoleRoute allowedRoles={['SUPERVISOR']}>
+          <ChatbotPage />
+        </RoleRoute>
       </ProtectedRoute>
     ),
   },
@@ -63,9 +93,25 @@ const router = createBrowserRouter([
     path: '/profile',
     element: (
       <ProtectedRoute>
-        <ProfilePage />
+        <RoleRoute allowedRoles={['SUPERVISOR', 'SHIPPER']}>
+          <ProfilePage />
+        </RoleRoute>
       </ProtectedRoute>
     ),
+  },
+  {
+    path: '/shipper',
+    element: (
+      <ProtectedRoute>
+        <RoleRoute allowedRoles={['SHIPPER']}>
+          <ShipperPage />
+        </RoleRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '*',
+    element: <Navigate to="/" replace />,
   },
 ]);
 

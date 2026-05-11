@@ -26,6 +26,7 @@ import {
   setRefreshTokenCookie,
 } from "@/lib/cookie-utils";
 import { AuthSplitShell } from "@/pages/auth/auth-split-shell";
+import { getRoleHomePage } from "@/router/guards/auth-guards";
 
 // ============================================================
 // VALIDATION SCHEMA — hỗ trợ cả email và phone
@@ -96,16 +97,7 @@ export default function LoginPage() {
       );
 
       toast.success("Đăng nhập thành công!");
-
-      if (user.role === "ADMIN") {
-        navigate("/dashboard");
-      } else if (user.role === "SUPERVISOR") {
-        navigate("/supervisor");
-      } else if (user.role === "INVENTORY") {
-        navigate("/inventory");
-      } else {
-        navigate("/");
-      }
+      navigate(getRoleHomePage(user.role as AuthUser["role"]), { replace: true });
     } catch (err) {
       const apiErr = err as ApiError;
       toast.error(apiErr.message || 'Tài khoản hoặc mật khẩu không chính xác');

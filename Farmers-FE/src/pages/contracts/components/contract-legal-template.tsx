@@ -1,4 +1,5 @@
 import type { ContractLegalViewModel } from '@/pages/contracts/contract-legal-view-model';
+import { getContractGradeLabel } from '@/pages/contracts/components/contract-ui';
 
 type Props = {
   vm: ContractLegalViewModel;
@@ -128,8 +129,8 @@ export function ContractLegalTemplate({ vm }: Props) {
               <td className="border border-black px-2 py-1">Dùng để tạo plot sau khi Admin duyệt</td>
             </tr>
             <tr>
-              <td className="border border-black px-2 py-1 font-semibold">Phân hạng (grade)</td>
-              <td className="border border-black px-2 py-1 font-semibold">{vm.grade}</td>
+              <td className="border border-black px-2 py-1 font-semibold">Phân khúc cây trồng</td>
+              <td className="border border-black px-2 py-1 font-semibold">{getContractGradeLabel(vm.grade)}</td>
               <td className="border border-black px-2 py-1">Theo hồ sơ hợp đồng</td>
             </tr>
             <tr>

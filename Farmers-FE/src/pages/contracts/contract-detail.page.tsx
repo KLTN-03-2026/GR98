@@ -29,6 +29,7 @@ import {
 import {
   getContractStatusBadgeVariant,
   getContractStatusLabel,
+  getContractGradeLabel,
   getCropBadgeVariant,
   getGradeBadgeVariant,
 } from '@/pages/contracts/components/contract-ui';
@@ -410,7 +411,9 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
           </p>
           <div className="flex flex-wrap gap-1.5">
             <Badge variant={getCropBadgeVariant(contract.cropType)}>{contract.cropType}</Badge>
-            <Badge variant={getGradeBadgeVariant(contract.grade)}>Grade {contract.grade}</Badge>
+            <Badge variant={getGradeBadgeVariant(contract.grade)}>
+              Phân khúc {getContractGradeLabel(contract.grade)}
+            </Badge>
             <Badge variant="outline">Diện tích chuẩn: {contract.plotDraftAreaHa ?? '—'} ha</Badge>
           </div>
         </div>
@@ -499,8 +502,8 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
               <span className="font-medium">{contract.contractNo}</span>
               <span className="text-muted-foreground">Ngày tạo</span>
               <span className="font-medium">{formatDate(contract.createdAt)}</span>
-              <span className="text-muted-foreground">Grade</span>
-              <span className="font-medium">{contract.grade}</span>
+              <span className="text-muted-foreground">Phân khúc</span>
+              <span className="font-medium">{getContractGradeLabel(contract.grade)}</span>
               <span className="text-muted-foreground">Diện tích chuẩn</span>
               <span className="font-medium">{contract.plotDraftAreaHa ?? '—'} ha</span>
               <span className="text-muted-foreground">Gửi duyệt</span>
@@ -818,7 +821,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Grade</Label>
+              <Label>Phân khúc cây trồng</Label>
               <select
                 value={draftForm.grade}
                 onChange={(e) =>
@@ -828,10 +831,8 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
                 }
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="REJECT">REJECT</option>
+                <option value="STANDARD">Tiêu chuẩn</option>
+                <option value="PREMIUM">Cao cấp</option>
               </select>
             </div>
             <div className="space-y-2">

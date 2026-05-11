@@ -5,8 +5,11 @@ import {
   Trash2,
   ShoppingBag,
   Info,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import FileUpload from '@/components/custom/file-upload';
+import { uploadImage, uploadImages } from '@/client/api/upload';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +28,7 @@ import {
   type Product,
   type ProductStatus,
 } from '@/client/types';
+import { CROP_CONFIG, getVarietiesForCrop } from '@/client/data/crop-config';
 
 import {
   Tabs,
@@ -53,9 +57,11 @@ export function ProductDialog({
   categories,
 }: ProductDialogProps) {
   const [activeTab, setActiveTab] = useState('marketing');
+  const [isUploading, setIsUploading] = useState(false);
   const [form, setForm] = useState({
     name: '',
     description: '',
+    variety: '',
     minOrderKg: 1,
     unit: 'kg',
     status: 'DRAFT' as ProductStatus,
@@ -64,15 +70,14 @@ export function ProductDialog({
     categoryIds: [] as string[],
   });
 
-  const [imageUrlInput, setImageUrlInput] = useState('');
-
   useEffect(() => {
     if (open) {
-      setActiveTab('marketing'); 
+      setActiveTab('marketing');
       if (product && mode === 'edit') {
         setForm({
           name: product.name,
           description: product.description || '',
+          variety: product.variety || '',
           minOrderKg: product.minOrderKg,
           unit: product.unit || 'kg',
           status: product.status,
@@ -84,6 +89,7 @@ export function ProductDialog({
         setForm({
           name: '',
           description: '',
+          variety: '',
           minOrderKg: 1,
           unit: 'kg',
           status: 'DRAFT',
@@ -95,12 +101,23 @@ export function ProductDialog({
     }
   }, [product, mode, open]);
 
-
-
-  const handleAddImage = () => {
-    if (imageUrlInput && !form.imageUrls.includes(imageUrlInput)) {
-      setForm({ ...form, imageUrls: [...form.imageUrls, imageUrlInput] });
-      setImageUrlInput('');
+  const handleMultiFileUpload = async (files: File[]) => {
+    setIsUploading(true);
+    try {
+      const uploaded = await uploadImages(files, 'products');
+      const newUrls = uploaded.map((u) => u.url);
+      const newImages = [...form.imageUrls, ...newUrls];
+      setForm({
+        ...form,
+        imageUrls: newImages,
+        thumbnailUrl: form.thumbnailUrl || newImages[0],
+      });
+      toast.success(`Đã tải lên ${newUrls.length} ảnh`);
+    } catch (error) {
+      toast.error('Lỗi khi tải ảnh');
+      console.error(error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -190,6 +207,30 @@ export function ProductDialog({
                         placeholder="Ví dụ: Sầu riêng Ri6 Chín Hóa (Loại 1)"
                         className="h-14 rounded-[2rem] border-slate-200 bg-white px-8 text-base font-bold text-slate-900 placeholder:text-slate-300 focus-visible:ring-emerald-500/5 focus-visible:border-emerald-500 transition-all shadow-sm"
                       />
+                    </div>
+
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Giống cây</Label>
+                      <div className="flex gap-2">
+                        <select
+                          value={form.variety}
+                          onChange={(e) => setForm({ ...form, variety: e.target.value })}
+                          className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm"
+                        >
+                          <option value="">-- Chọn giống --</option>
+                          {product?.cropType && getVarietiesForCrop(product.cropType).map((v) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                          {product?.cropType && CROP_CONFIG.length === 0 && null}
+                        </select>
+                        <input
+                          type="text"
+                          value={form.variety}
+                          onChange={(e) => setForm({ ...form, variety: e.target.value })}
+                          placeholder="Hoặc gõ trực tiếp..."
+                          className="h-12 w-40 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm"
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-3">
@@ -284,25 +325,17 @@ export function ProductDialog({
 
                     <div className="space-y-4">
                       <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Album hình ảnh thực tế (Click ảnh để chọn làm ảnh đại diện)</Label>
-                      <div className="flex gap-4">
-                        <div className="relative flex-1 group">
-                          <ImageIcon className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 transition-colors group-focus-within:text-emerald-500" />
-                          <Input
-                            value={imageUrlInput}
-                            onChange={(e) => setImageUrlInput(e.target.value)}
-                            placeholder="Dán URL hình ảnh..."
-                            className="h-12 rounded-2xl border-slate-200 bg-white pl-14 focus-visible:ring-emerald-500/5 text-sm shadow-sm"
-                          />
+                      <FileUpload
+                        multiple
+                        acceptedFileTypes={['image/*']}
+                        onFilesSelect={handleMultiFileUpload}
+                      />
+                      {isUploading && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                          Đang tải ảnh lên...
                         </div>
-                        <Button 
-                          type="button" 
-                          onClick={handleAddImage} 
-                          className="h-12 px-8 rounded-2xl font-black bg-slate-900 hover:bg-black text-white shadow-xl shadow-slate-900/10 transition-all text-[10px] uppercase tracking-widest"
-                        >
-                          THÊM ẢNH
-                        </Button>
-                      </div>
-                      
+                      )}
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 p-8 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm min-h-[140px]">
                         {form.imageUrls.map((url, i) => (
                           <div 
@@ -357,11 +390,16 @@ export function ProductDialog({
               </Button>
 
               <div className="flex items-center gap-3">
-                <Button 
-                  type="submit" 
-                  className="rounded-full h-11 px-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xl shadow-emerald-500/20 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0"
+                <Button
+                  type="submit"
+                  disabled={isUploading}
+                  className="rounded-full h-11 px-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xl shadow-emerald-500/20 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
                 >
-                  <ShoppingBag className="size-4" />
+                  {isUploading ? (
+                    <RefreshCw className="size-4 animate-spin" />
+                  ) : (
+                    <ShoppingBag className="size-4" />
+                  )}
                   <span className="text-xs uppercase tracking-widest">
                     {mode === 'create' ? 'Phát hành niêm yết' : 'Lưu thay đổi'}
                   </span>

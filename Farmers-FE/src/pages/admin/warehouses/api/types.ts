@@ -8,6 +8,8 @@ export interface AdminWarehouseRow {
   name: string;
   locationAddress: string | null;
   isActive: boolean;
+  capacityKg: number | null;
+  currentStock: number;
   /**
    * Số **lô hàng kho** (bản ghi `InventoryLot` gắn `warehouseId`):
    * mỗi lô là một dòng tồn theo sản phẩm (số kg, phân hạng, ngày thu hoạch/hết hạn…)
@@ -28,6 +30,8 @@ export interface AdminWarehouseDetail {
   name: string;
   locationAddress: string | null;
   isActive: boolean;
+  capacityKg: number | null;
+  currentStock: number;
   managedBy: string | null;
   createdAt: string;
   adminId: string;
@@ -43,6 +47,7 @@ export interface AdminWarehouseDetail {
 export type CreateWarehousePayload = {
   name: string;
   locationAddress?: string;
+  capacityKg?: number | null;
   isActive?: boolean;
   managedBy?: string | null;
 };

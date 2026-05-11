@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsIn } from 'class-validator';
+import { AddressType } from './create-shipping-address.dto';
 
 export class UpdateShippingAddressDto {
   @IsOptional()
@@ -20,6 +21,10 @@ export class UpdateShippingAddressDto {
   @IsOptional()
   @IsString()
   province?: string;
+
+  @IsOptional()
+  @IsIn(['HOME', 'OFFICE'], { message: 'Loại địa chỉ không hợp lệ' })
+  addressType?: AddressType;
 
   @IsOptional()
   @IsBoolean()

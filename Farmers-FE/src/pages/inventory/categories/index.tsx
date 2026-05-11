@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { CategoryFilters } from './CategoryFilters';
 import {
   Plus,
   Pencil,
   Trash2,
-  Image as ImageIcon,
   GripVertical,
   Layers,
-  FilterX,
+  ImageIcon,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCategories, type CategoryResponse } from '@/client/api';
@@ -21,15 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/data-table';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +42,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import type { ColumnDef } from '@tanstack/react-table';
+import FileUpload from '@/components/custom/file-upload';
+import { uploadImage } from '@/client/api/upload';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -102,6 +97,7 @@ function CategoryDialog({
     sortOrder: 0,
     isActive: true,
   });
+  const [isUploading, setIsUploading] = useState(false);
 
   // Sync form when category changes (edit mode)
   useEffect(() => {
@@ -241,17 +237,30 @@ function CategoryDialog({
               {/* Media & Description Section */}
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="cat-image" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Ảnh đại diện (URL)</Label>
-                  <div className="relative group">
-                    <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-primary transition-colors" />
-                    <Input
-                      id="cat-image"
-                      value={form.imageUrl}
-                      onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                      placeholder="https://..."
-                      className="pl-10 rounded-2xl border-slate-200 h-12 text-xs bg-slate-50/30 transition-all hover:bg-white"
-                    />
-                  </div>
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Ảnh đại diện</Label>
+                  <FileUpload
+                    acceptedFileTypes={['image/*']}
+                    onFileSelect={async (file) => {
+                      setIsUploading(true);
+                      try {
+                        const uploaded = await uploadImage(file, 'categories');
+                        setForm({ ...form, imageUrl: uploaded.url });
+                      } catch {
+                        toast.error('Lỗi tải ảnh danh mục');
+                      } finally {
+                        setIsUploading(false);
+                      }
+                    }}
+                  />
+                  {isUploading && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      Đang tải ảnh lên...
+                    </div>
+                  )}
+                  {form.imageUrl && !isUploading && (
+                    <img src={form.imageUrl} alt="category" className="mt-2 h-20 w-20 rounded-xl object-cover border" />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -318,11 +327,16 @@ function CategoryDialog({
             </Button>
             <Button
               type="submit"
-              className="rounded-full h-11 px-10 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xl shadow-slate-200 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0"
+              disabled={isUploading}
+              className="rounded-full h-11 px-10 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xl shadow-slate-200 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
             >
-              <ShoppingBag className="size-4" />
+              {isUploading ? (
+                <RefreshCw className="size-4 animate-spin" />
+              ) : (
+                <ShoppingBag className="size-4" />
+              )}
               <span className="text-[10px] uppercase tracking-[0.15em]">
-                {mode === 'create' ? 'Tạo danh mục mới' : 'Lưu thay đổi'}
+                {isUploading ? 'Đang tải ảnh...' : mode === 'create' ? 'Tạo danh mục mới' : 'Lưu thay đổi'}
               </span>
             </Button>
           </DialogFooter>
@@ -410,10 +424,10 @@ export default function CategoriesAdminPage() {
 
   const { data, isLoading } = useCategories({ search: search || undefined, limit: 100 });
   const categoriesRaw = data?.data ?? [];
-  const filteredCategories = categoriesRaw.filter(cat => {
+  const filteredCategories = useMemo(() => categoriesRaw.filter(cat => {
     const statusOk = statusFilter === 'all' || (statusFilter === 'active' ? cat.isActive : !cat.isActive);
     return statusOk;
-  });
+  }), [categoriesRaw, statusFilter]);
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
@@ -434,25 +448,23 @@ export default function CategoriesAdminPage() {
     setStatusFilter(value);
   };
 
-  const handleOpenEdit = (cat: CategoryResponse) => {
+  const handleOpenEdit = useCallback((cat: CategoryResponse) => {
     setMode('edit');
     setSelected(cat);
     setDialogOpen(true);
-  };
+  }, []);
 
-  const handleOpenDelete = (cat: CategoryResponse) => {
+  const handleOpenDelete = useCallback((cat: CategoryResponse) => {
     setSelected(cat);
     setDeleteOpen(true);
-  };
+  }, []);
 
   const handleSubmit = async (formData: CategoryFormData) => {
     try {
       if (mode === 'create') {
         await createCategory.mutateAsync(formData);
-        toast.success('Đã tạo danh mục mới');
       } else if (selected) {
         await updateCategory.mutateAsync({ id: selected.id, data: formData });
-        toast.success('Đã cập nhật danh mục');
       }
       setDialogOpen(false);
     } catch {
@@ -506,17 +518,135 @@ export default function CategoriesAdminPage() {
     await reorderCategories.mutateAsync(orders);
   };
 
+  const sortedCategories = useMemo(
+    () => [...filteredCategories].sort((a, b) => a.sortOrder - b.sortOrder),
+    [filteredCategories],
+  );
+
+  const columns = useMemo<ColumnDef<CategoryResponse>[]>(
+    () => [
+      {
+        id: 'drag',
+        header: '',
+        enableSorting: false,
+        cell: () => (
+          <div className="flex items-center justify-center">
+            <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground/50 transition-colors group-hover:text-primary/60 active:cursor-grabbing" />
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'imageUrl',
+        header: 'Hình ảnh',
+        cell: ({ row }) => (
+          <div className="relative h-10 w-14 overflow-hidden rounded-lg border bg-muted">
+            {row.original.imageUrl ? (
+              <img
+                src={row.original.imageUrl}
+                alt={row.original.name}
+                className="h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <ImageIcon className="h-4 w-4 text-muted-foreground/40" />
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'name',
+        header: 'Tên danh mục',
+        cell: ({ row }) => (
+          <div className="space-y-0.5">
+            <p className="text-sm font-semibold">{row.original.name}</p>
+            {row.original.description && (
+              <p className="line-clamp-1 max-w-[300px] text-xs text-muted-foreground">
+                {row.original.description}
+              </p>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'slug',
+        header: 'Slug',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">/{row.original.slug}</span>
+        ),
+      },
+      {
+        accessorKey: 'isActive',
+        header: () => <div className="text-center">Trạng thái</div>,
+        cell: ({ row }) => (
+          <div className="flex justify-center">
+            {row.original.isActive ? (
+              <Badge className="border-none bg-emerald-500/10 text-[10px] font-bold text-emerald-600 hover:bg-emerald-500/15">
+                Hoạt động
+              </Badge>
+            ) : (
+              <Badge className="border-none bg-muted text-[10px] font-bold text-muted-foreground">
+                Tạm dừng
+              </Badge>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'productCount',
+        header: () => <div className="text-center">Sản phẩm</div>,
+        cell: ({ row }) => (
+          <div className="text-center text-sm font-medium">{row.original.productCount ?? 0}</div>
+        ),
+      },
+      {
+        accessorKey: 'sortOrder',
+        header: () => <div className="text-center">Thứ tự</div>,
+        cell: ({ row }) => (
+          <div className="text-center text-sm font-medium">{row.original.sortOrder}</div>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => <div className="text-right">Thao tác</div>,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              onClick={() => handleOpenEdit(row.original)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-muted-foreground hover:bg-rose-50 hover:text-rose-600"
+              onClick={() => handleOpenDelete(row.original)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [handleOpenDelete, handleOpenEdit],
+  );
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-5 p-4 sm:p-6 font-manrope">
-      {/* Header Section - EXACT Lots Style */}
+    <div className="space-y-6 p-4 md:p-6">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
             <Layers className="size-4 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Quản lý danh mục
           </h1>
         </div>
@@ -531,188 +661,53 @@ export default function CategoriesAdminPage() {
       </div>
 
       <Card>
-        <CardContent className="pt-6 px-0">
-          <div className="px-6 mb-6 flex flex-wrap items-center justify-between gap-4">
-            <CategoryFilters
-              search={search}
-              onSearchChange={setSearch}
-              status={statusFilter}
-              onStatusChange={handleStatusChange}
-            />
-            <Button
-              onClick={handleOpenCreate}
-              className="h-10 rounded-full px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95"
-            >
-              <Plus className="size-4" />
-              <span className="text-sm">Thêm mới</span>
-            </Button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-12" />
-                  <TableHead className="w-24 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hình ảnh</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Tên danh mục</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Slug</TableHead>
-                  <TableHead className="w-24 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Trạng thái</TableHead>
-                  <TableHead className="w-32 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Sản phẩm</TableHead>
-                  <TableHead className="w-24 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Thứ tự</TableHead>
-                  <TableHead className="w-32 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground pr-6">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i} className="border-b-slate-50">
-                      <TableCell><Skeleton className="h-4 w-4 rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-10 w-16 rounded-xl" /></TableCell>
-                      <TableCell>
-                        <div className="space-y-1.5">
-                          <Skeleton className="h-4 w-40" />
-                          <Skeleton className="h-3 w-24" />
-                        </div>
-                      </TableCell>
-                      <TableCell><Skeleton className="h-5 w-24 rounded-lg" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-10 mx-auto rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-8 mx-auto rounded-md" /></TableCell>
-                      <TableCell><Skeleton className="h-9 w-20 ml-auto rounded-full" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : filteredCategories.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-96 text-center">
-                      <div className="flex flex-col items-center justify-center py-20">
-                        <div className="mb-6 rounded-2xl bg-slate-50 p-8 border border-dashed border-slate-200">
-                          <Layers className="h-12 w-12 text-slate-300" />
-                        </div>
-                        <h3 className="text-xl font-bold text-slate-900 tracking-tight">Chưa có danh mục nào</h3>
-                        <p className="text-sm text-muted-foreground mt-2 max-w-[320px] mx-auto italic">
-                          Bắt đầu thiết lập hệ thống phân loại sản phẩm.
-                        </p>
-                        <Button
-                          variant="outline"
-                          onClick={handleOpenCreate}
-                          className="mt-8 rounded-full px-8 h-10 border-primary/20 text-primary hover:bg-primary/5 font-bold"
-                        >
-                          Khởi tạo danh mục đầu tiên
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredCategories
-                    .sort((a, b) => a.sortOrder - b.sortOrder)
-                    .map((cat) => (
-                      <TableRow
-                        key={cat.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, cat.id)}
-                        onDragEnd={handleDragEnd}
-                        onDragOver={handleDragOverRow}
-                        onDrop={(e) => void handleDropOnRow(e, cat.id)}
-                        className={cn(
-                          'group transition-all hover:bg-slate-50/50',
-                          dragId === cat.id && 'opacity-50 bg-slate-100 scale-[0.99] border-y-primary/20',
-                        )}
-                      >
-                        {/* Drag Handle */}
-                        <TableCell>
-                          <div className="flex items-center justify-center">
-                            <GripVertical className="h-4 w-4 text-slate-300 group-hover:text-primary/50 transition-colors cursor-grab active:cursor-grabbing" />
-                          </div>
-                        </TableCell>
-
-                        {/* Image */}
-                        <TableCell>
-                          <div className="relative h-10 w-14 rounded-lg overflow-hidden border border-slate-100 bg-slate-50">
-                            {cat.imageUrl ? (
-                              <img
-                                src={cat.imageUrl}
-                                alt={cat.name}
-                                className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <div className="h-full w-full flex items-center justify-center">
-                                <ImageIcon className="h-4 w-4 text-slate-200" />
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-
-                        {/* Name */}
-                        <TableCell>
-                          <div className="space-y-0.5">
-                            <p className="font-semibold text-slate-600 group-hover:text-primary transition-colors text-sm">{cat.name}</p>
-                            {cat.description && (
-                              <p className="text-xs text-slate-400 line-clamp-1 max-w-[300px]">
-                                {cat.description}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
-
-                        {/* Slug */}
-                        <TableCell>
-                          <span className="text-[11px] font-mono text-slate-500">
-                            /{cat.slug}
-                          </span>
-                        </TableCell>
-
-                        {/* Status */}
-                        <TableCell className="text-center">
-                          {cat.isActive ? (
-                            <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15 border-none text-[10px] font-bold px-2 py-0.5">Hoạt động</Badge>
-                          ) : (
-                            <Badge className="bg-slate-100 text-slate-400 border-none text-[10px] font-bold px-2 py-0.5">Tạm dừng</Badge>
-                          )}
-                        </TableCell>
-
-                        {/* Product Count */}
-                        <TableCell className="text-center">
-                          <span className="text-sm font-medium text-slate-600">
-                            {cat.productCount ?? 0}
-                          </span>
-                        </TableCell>
-
-                        {/* Sort Order */}
-                        <TableCell className="text-center">
-                          <span className="text-sm font-medium text-slate-600">
-                            {cat.sortOrder}
-                          </span>
-                        </TableCell>
-
-                        {/* Actions */}
-                        <TableCell className="text-right pr-6">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 rounded-full text-slate-400 hover:text-primary hover:bg-primary/5 transition-all"
-                              onClick={() => handleOpenEdit(cat)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
-                              onClick={() => handleOpenDelete(cat)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+        <CardContent className="pt-6">
+          <DataTable
+            columns={columns}
+            data={sortedCategories}
+            isLoading={isLoading}
+            hiddenSearch
+            enableSorting={false}
+            filterToolbar={
+              <div className="flex w-full flex-wrap items-end justify-between gap-3">
+                <CategoryFilters
+                  search={search}
+                  onSearchChange={setSearch}
+                  status={statusFilter}
+                  onStatusChange={handleStatusChange}
+                />
+                <Button onClick={handleOpenCreate} className="h-9 shrink-0">
+                  <Plus className="size-4 mr-2" />
+                  Thêm mới
+                </Button>
+              </div>
+            }
+            noResults={
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="mb-3 rounded-full bg-muted p-3">
+                  <Layers className="size-6 text-muted-foreground" />
+                </div>
+                <p className="font-medium">Chưa có danh mục nào</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Bắt đầu thiết lập hệ thống phân loại sản phẩm.
+                </p>
+                <Button variant="outline" onClick={handleOpenCreate} className="mt-4">
+                  Khởi tạo danh mục đầu tiên
+                </Button>
+              </div>
+            }
+            getRowProps={(cat) => ({
+              draggable: true,
+              onDragStart: (event) => handleDragStart(event, cat.id),
+              onDragEnd: handleDragEnd,
+              onDragOver: handleDragOverRow,
+              onDrop: (event) => void handleDropOnRow(event, cat.id),
+              className: cn(
+                'group transition-all',
+                dragId === cat.id && 'opacity-50 bg-muted scale-[0.99] border-y-primary/20',
+              ),
+            })}
+          />
         </CardContent>
       </Card>
 

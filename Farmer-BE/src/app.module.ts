@@ -21,6 +21,10 @@ import { DailyReportModule } from './daily-report/daily-report.module';
 import { PlantScanModule } from './plant-scan/plant-scan.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { CartModule } from './cart/cart.module';
+import { ShipperModule } from './shipper/shipper.module';
+import { PaymentModule } from './payment/payment.module';
+import { UploadModule } from './upload/upload.module';
 // import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
@@ -44,6 +48,10 @@ import { ReviewsModule } from './reviews/reviews.module';
     PlantScanModule,
     DashboardModule,
     ReviewsModule,
+    CartModule,
+    ShipperModule,
+    PaymentModule,
+    UploadModule,
   ],
 
   controllers: [AppController],

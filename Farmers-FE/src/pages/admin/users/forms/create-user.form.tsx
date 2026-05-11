@@ -1,17 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { Truck, Hash } from 'lucide-react';
 import type { AxiosError } from 'axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
-async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+import { uploadImage } from '@/client/api/upload';
 import {
   FileUserIcon,
   VoicemailIcon,
@@ -79,6 +73,8 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
       province: '',
       businessName: '',
       defaultAddress: '',
+      vehicleType: undefined,
+      licensePlate: '',
       avatar: undefined,
     },
   });
@@ -94,22 +90,27 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
   async function onSubmit(values: UserCreateFormInput) {
     setIsSubmitting(true);
     try {
-      // Convert File to Base64 data URL
-      let avatarBase64: string | undefined;
+      // Upload avatar to Cloudinary
+      let avatarUrl: string | undefined;
       if (values.avatar instanceof File) {
-        avatarBase64 = await fileToBase64(values.avatar);
+        const uploaded = await uploadImage(values.avatar, 'avatars');
+        avatarUrl = uploaded.url;
       }
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         email: values.email,
         password: values.password,
         fullName: values.fullName,
         phone: values.phone || undefined,
-        role: values.role as 'SUPERVISOR' | 'INVENTORY',
-        ...(avatarBase64 && { avatar: avatarBase64 }),
+        role: values.role as 'SUPERVISOR' | 'INVENTORY' | 'SHIPPER',
+        ...(avatarUrl && { avatar: avatarUrl }),
       };
+      if (values.role === 'SHIPPER') {
+        if (values.vehicleType) payload.vehicleType = values.vehicleType;
+        if (values.licensePlate) payload.licensePlate = values.licensePlate;
+      }
 
-      await userApi.create(payload);
+      await userApi.create(payload as Parameters<typeof userApi.create>[0]);
       toast.success('Tạo người dùng thành công!');
       onSuccess?.();
       setShouldRestoreSheet(false);
@@ -274,6 +275,7 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
                           <SelectContent>
                             <SelectItem value="SUPERVISOR">Giám sát viên (Supervisor)</SelectItem>
                             <SelectItem value="INVENTORY">Nhân viên kho (Inventory)</SelectItem>
+                            <SelectItem value="SHIPPER">Shipper (Giao hàng)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -304,6 +306,54 @@ export default function CreateUserForm({ open, onOpenChange, onSuccess }: Create
                       </FormItem>
                     )}
                   />
+
+                  {/* SHIPPER-only fields */}
+                  {form.watch('role') === 'SHIPPER' && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="vehicleType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1.5">
+                              <Truck className="size-3.5" />
+                              Phương tiện
+                            </FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Chọn phương tiện" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="MOTORBIKE">Xe máy</SelectItem>
+                                <SelectItem value="TRUCK">Xe tải</SelectItem>
+                                <SelectItem value="VAN">Van</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="licensePlate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1.5">
+                              <Hash className="size-3.5" />
+                              Biển số xe
+                            </FormLabel>
+                            <FormControl>
+                              <Input placeholder="59A1-12345" autoComplete="off" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
 

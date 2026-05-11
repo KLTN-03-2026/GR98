@@ -5,16 +5,14 @@ import {
   Menu,
   Search,
   X,
-  ChevronDown,
   LogOut,
   Settings,
 } from 'lucide-react';
 import { AppLogo } from '@/components/global/app-logo';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { useCartStore } from '@/client/store';
 import { useAuthStore } from '@/client/store';
-import { useLogout } from '@/client/api';
+import { useLogout, useCategories, useCart } from '@/client/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -27,26 +25,34 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ModeToggle } from '@/components/custom/mode-toggle';
 
-const CATEGORIES_NAV = [
-  {
-    label: 'Sầu Riêng',
-    href: '/categories/sau-rieng-tuoi',
-    children: [
-      { label: 'Sầu Riêng Tươi', href: '/categories/sau-rieng-tuoi' },
-      { label: 'Sầu Riêng Đông Lạnh', href: '/categories/sau-rieng-dong-lanh' },
-    ],
-  },
-  {
-    label: 'Cà Phê',
-    href: '/categories/ca-phe-hat',
-    children: [
-      { label: 'Cà Phê Hạt', href: '/categories/ca-phe-hat' },
-      { label: 'Cà Phê Bột', href: '/categories/ca-phe-bot' },
-      { label: 'Cà Phê Đặc Sản', href: '/categories/ca-phe-dac-san' },
-    ],
-  },
-  { label: 'Combo Quà', href: '/categories/combo-qua-tang', children: [] },
-];
+interface CategoryNavItem {
+  label: string;
+  href: string;
+}
+
+/**
+ * Build navbar từ danh sách Category của DB.
+ */
+function buildCategoriesNav(
+  cats: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    sortOrder: number;
+    productCount?: number;
+  }>,
+  topN = 5,
+): CategoryNavItem[] {
+  if (!cats || cats.length === 0) return [];
+
+  return [...cats]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .slice(0, Math.max(0, topN))
+    .map((c) => ({
+      label: c.name,
+      href: `/categories/${c.slug}`,
+    }));
+}
 
 const TOPBAR_LINKS = [
   { label: 'Về Chúng Tôi', href: '/about' },
@@ -56,10 +62,24 @@ const TOPBAR_LINKS = [
 
 export default function ClientNavbar() {
   const location = useLocation();
-  const { getItemCount } = useCartStore();
   const { isAuthenticated, user } = useAuthStore();
   const { mutate: logoutMutate } = useLogout();
-  const cartCount = getItemCount();
+
+  // Categories động từ API
+  const { data: categoriesData } = useCategories({ limit: 100 });
+  const categoriesNav = useMemo(() => {
+    const list = Array.isArray(categoriesData)
+      ? categoriesData
+      : (categoriesData as { data?: unknown[] } | undefined)?.data ?? [];
+    return buildCategoriesNav(
+      list as Array<{ id: string; name: string; slug: string; sortOrder: number; productCount?: number }>,
+      4,
+    );
+  }, [categoriesData]);
+
+  // Cart count từ API (chỉ fetch khi đã đăng nhập)
+  const { data: cart } = useCart(isAuthenticated);
+  const cartCount = cart?.items?.length ?? 0;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -125,44 +145,16 @@ export default function ClientNavbar() {
                 Tất Cả Sản Phẩm
                 <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-foreground/70 transition-all duration-300 group-hover:w-full" />
               </Link>
-              {CATEGORIES_NAV.map((cat) =>
-                cat.children.length > 0 ? (
-                  <DropdownMenu key={cat.href}>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className={cn(
-                          'text-sm font-medium transition-colors duration-300 relative group inline-flex items-center gap-1.5',
-                          location.pathname.startsWith(cat.href)
-                            ? 'text-foreground'
-                            : 'text-foreground/70 hover:text-foreground',
-                        )}
-                      >
-                        {cat.label}
-                        <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-foreground/70 transition-all duration-300 group-hover:w-full" />
-                        <ChevronDown className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48">
-                      {cat.children.map((child) => (
-                        <DropdownMenuItem key={child.href} asChild>
-                          <Link to={child.href} className="cursor-pointer">
-                            {child.label}
-                          </Link>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <Link
-                    key={cat.href}
-                    to={cat.href}
-                    className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors duration-300 relative group"
-                  >
-                    {cat.label}
-                    <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-foreground/70 transition-all duration-300 group-hover:w-full" />
-                  </Link>
-                ),
-              )}
+              {categoriesNav.map((cat) => (
+                <Link
+                  key={cat.href}
+                  to={cat.href}
+                  className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors duration-300 relative group"
+                >
+                  {cat.label}
+                  <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-foreground/70 transition-all duration-300 group-hover:w-full" />
+                </Link>
+              ))}
             </nav>
 
             {/* Search Bar - Desktop */}
@@ -340,7 +332,7 @@ export default function ClientNavbar() {
                 >
                   Tất Cả Sản Phẩm
                 </Link>
-                {CATEGORIES_NAV.map((cat) => (
+                {categoriesNav.map((cat) => (
                   <div key={cat.href}>
                     <Link
                       to={cat.href}
@@ -349,20 +341,6 @@ export default function ClientNavbar() {
                     >
                       {cat.label}
                     </Link>
-                    {cat.children.length > 0 && (
-                      <div className="mt-2 ml-2 space-y-1">
-                        {cat.children.map((child) => (
-                          <Link
-                            key={child.href}
-                            to={child.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="block text-base text-foreground/50 hover:text-foreground/80 transition-colors duration-300 py-1"
-                          >
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 ))}
                 {TOPBAR_LINKS.map((link) => (

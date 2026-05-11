@@ -7,8 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatPrice } from '@/lib/utils';
 import type { Product } from '@/client/types';
 import { toast } from 'sonner';
-import { useCartStore } from '@/client/store';
 import { useAuthStore } from '@/client/store';
+import { useAddToCart, useCart } from '@/client/api';
 import { GRADE_LABELS, CROP_TYPES } from '@/client/types';
 
 interface ProductCardProps {
@@ -30,9 +30,10 @@ const itemVariants = {
 
 export function ProductCard({ product }: ProductCardProps) {
   const navigate = useNavigate();
-  const { addItem, isInCart } = useCartStore();
   const { isAuthenticated } = useAuthStore();
-  const inCart = isInCart(product.id);
+  const { data: cart } = useCart(isAuthenticated);
+  const addMutation = useAddToCart();
+  const inCart = !!cart?.items?.some((i) => i.productId === product.id);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -44,8 +45,10 @@ export function ProductCard({ product }: ProductCardProps) {
       return;
     }
 
-    addItem(product, product.minOrderKg);
-    toast.success(`Đã thêm "${product.name}" vào giỏ hàng!`);
+    addMutation.mutate({
+      productId: product.id,
+      quantityKg: product.minOrderKg || 1,
+    });
   };
 
   const gradeColor =
@@ -68,7 +71,7 @@ export function ProductCard({ product }: ProductCardProps) {
           {/* Image Container */}
           <div className="relative aspect-square overflow-hidden bg-muted/30">
             <img
-              src={product.imageUrls[0]}
+              src={product.thumbnailUrl || product.imageUrls?.[0] || ''}
               alt={product.name}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"

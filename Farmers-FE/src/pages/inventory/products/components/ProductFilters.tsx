@@ -25,7 +25,7 @@ interface ProductFiltersProps {
     categoryId?: string;
   };
   categories: Category[];
-  onFilterChange: (key: string, value: any) => void;
+  onFilterChange: (key: string, value: string | undefined) => void;
   onClear: () => void;
 }
 
@@ -36,14 +36,13 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
   onClear,
 }) => {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-6 space-y-4 animate-in slide-in-from-top duration-300">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="flex w-full flex-wrap items-end gap-3">
         {/* Search */}
-        <div className="relative group">
+        <div className="relative min-w-[220px] flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 group-focus-within:text-primary transition-colors" />
           <Input
             placeholder="Tìm theo tên, SKU..."
-            className="pl-10 h-10 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
+            className="h-9 pl-9"
             value={filters.search || ''}
             onChange={(e) => onFilterChange('search', e.target.value)}
           />
@@ -54,7 +53,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
           value={filters.status || 'ALL'}
           onValueChange={(val) => onFilterChange('status', val === 'ALL' ? undefined : val)}
         >
-          <SelectTrigger className="h-10 bg-slate-50/50 border-slate-200">
+          <SelectTrigger className="h-9 min-w-[170px]">
             <div className="flex items-center gap-2">
               <Info className="size-4 text-slate-400" />
               <SelectValue placeholder="Trạng thái" />
@@ -75,7 +74,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
           value={filters.categoryId || 'ALL'}
           onValueChange={(val) => onFilterChange('categoryId', val === 'ALL' ? undefined : val)}
         >
-          <SelectTrigger className="h-10 bg-slate-50/50 border-slate-200">
+          <SelectTrigger className="h-9 min-w-[170px]">
             <div className="flex items-center gap-2">
               <Layers className="size-4 text-slate-400" />
               <SelectValue placeholder="Danh mục" />
@@ -96,7 +95,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
           value={filters.grade || 'ALL'}
           onValueChange={(val) => onFilterChange('grade', val === 'ALL' ? undefined : val)}
         >
-          <SelectTrigger className="h-10 bg-slate-50/50 border-slate-200">
+          <SelectTrigger className="h-9 min-w-[150px]">
             <div className="flex items-center gap-2">
               <Star className="size-4 text-slate-400" />
               <SelectValue placeholder="Phẩm cấp" />
@@ -113,12 +112,12 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
         </Select>
 
         {/* Crop Type */}
-        <div className="flex gap-2">
+        <div className="flex min-w-[180px] gap-2">
           <Select
             value={filters.cropType || 'ALL'}
             onValueChange={(val) => onFilterChange('cropType', val === 'ALL' ? undefined : val)}
           >
-            <SelectTrigger className="h-10 bg-slate-50/50 border-slate-200 flex-1">
+            <SelectTrigger className="h-9 flex-1">
               <div className="flex items-center gap-2">
                 <Tag className="size-4 text-slate-400" />
                 <SelectValue placeholder="Loại cây" />
@@ -127,7 +126,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
             <SelectContent>
               <SelectItem value="ALL">Tất cả loại cây</SelectItem>
               {Object.entries(CROP_TYPES).map(([key, label]) => (
-                <SelectItem key={key} value={label}>
+                <SelectItem key={key} value={key}>
                   {label}
                 </SelectItem>
               ))}
@@ -137,14 +136,13 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            className="h-10 w-10 shrink-0 text-slate-400 hover:text-rose-500 hover:bg-rose-50"
+            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
             onClick={onClear}
             title="Xóa lọc"
           >
             <FilterX className="size-4" />
           </Button>
         </div>
-      </div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Filter,
@@ -31,12 +31,33 @@ import {
   SORT_OPTIONS,
   PRICE_RANGES,
 } from '@/client/data/mock-data';
+import { getVarietiesForCrop } from '@/client/data/crop-config';
 
 const ITEMS_PER_PAGE = 12;
 
+interface ClientCategory {
+  id: string;
+  name: string;
+  slug: string;
+  productCount?: number;
+}
+
+interface ClientCategoriesData {
+  data: ClientCategory[];
+}
+
 interface FilterContentProps {
-  filters: any;
-  categoriesData: any;
+  filters: {
+    search: string;
+    cropType: string;
+    variety: string;
+    grade: string;
+    priceRange: string;
+    categoryId: string;
+    sortBy: string;
+    page: number;
+  };
+  categoriesData?: ClientCategoriesData;
   updateFilter: (key: string, value: string) => void;
   clearFilters: () => void;
   activeFiltersCount: number;
@@ -94,7 +115,7 @@ const FilterContent = ({
     <div className="space-y-3">
       <label className="text-sm font-medium">Danh mục</label>
       <div className="space-y-2">
-        {categoriesData?.data.map((cat: any) => (
+        {categoriesData?.data.map((cat) => (
           <label
             key={cat.id}
             className="flex items-center gap-2 cursor-pointer group"
@@ -142,7 +163,7 @@ const FilterContent = ({
               name="cropType"
               value={opt.value}
               checked={filters.cropType === opt.value}
-              onChange={() => updateFilter('cropType', opt.value)}
+              onChange={() => { updateFilter('cropType', opt.value); updateFilter('variety', ''); }}
               className="accent-primary"
             />
             <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
@@ -152,7 +173,7 @@ const FilterContent = ({
         ))}
         {filters.cropType && (
           <button
-            onClick={() => updateFilter('cropType', '')}
+            onClick={() => { updateFilter('cropType', ''); updateFilter('variety', ''); }}
             className="text-xs text-primary hover:underline"
           >
             Bỏ chọn
@@ -160,6 +181,36 @@ const FilterContent = ({
         )}
       </div>
     </div>
+
+    {/* Variety — only show when cropType is selected */}
+    {filters.cropType && getVarietiesForCrop(filters.cropType).length > 0 && (
+      <>
+        <Separator />
+        <div className="space-y-3">
+          <label className="text-sm font-medium">Giống</label>
+          <div className="space-y-2">
+            {getVarietiesForCrop(filters.cropType).map((v) => (
+              <label key={v} className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="variety"
+                  value={v}
+                  checked={filters.variety === v}
+                  onChange={() => updateFilter('variety', v)}
+                  className="accent-primary"
+                />
+                <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{v}</span>
+              </label>
+            ))}
+            {filters.variety && (
+              <button onClick={() => updateFilter('variety', '')} className="text-xs text-primary hover:underline">
+                Bỏ chọn
+              </button>
+            )}
+          </div>
+        </div>
+      </>
+    )}
 
     <Separator />
 
@@ -230,21 +281,35 @@ const FilterContent = ({
 
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { slug: categorySlugParam } = useParams<{ slug?: string }>();
   const [gridCols, setGridCols] = useState<2 | 3 | 4>(4);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const { data: categoriesData } = useCategories({ limit: 100 });
+  const categories = useMemo(
+    () => (categoriesData as ClientCategoriesData | undefined)?.data ?? [],
+    [categoriesData],
+  );
 
   // Read filters from URL
   const filters = {
     search: searchParams.get('search') || '',
     cropType: searchParams.get('cropType') || '',
+    variety: searchParams.get('variety') || '',
     grade: searchParams.get('grade') || '',
     priceRange: searchParams.get('priceRange') || '',
     categoryId: searchParams.get('categoryId') || '',
     sortBy: searchParams.get('sortBy') || 'newest',
     page: parseInt(searchParams.get('page') || '1'),
   };
+
+  // If route is /categories/:slug, map slug -> categoryId and override
+  const effectiveCategoryId = useMemo(() => {
+    const slug = categorySlugParam || '';
+    if (!slug) return filters.categoryId;
+    const found = categories.find((c) => c.slug === slug);
+    return found?.id || filters.categoryId;
+  }, [categorySlugParam, categories, filters.categoryId]);
 
   // Transform price range for API
   const { minPrice, maxPrice } = useMemo(() => {
@@ -267,10 +332,11 @@ export default function ProductsPage() {
     limit: ITEMS_PER_PAGE,
     search: filters.search,
     cropType: filters.cropType,
+    variety: filters.variety,
     grade: filters.grade,
     minPrice,
     maxPrice,
-    categoryId: filters.categoryId,
+    categoryId: effectiveCategoryId,
     sortBy: filters.sortBy,
   });
 
@@ -278,7 +344,7 @@ export default function ProductsPage() {
   const totalPages = productsData?.totalPages || 1;
 
   // Active filters count
-  const activeFiltersCount = [filters.cropType, filters.grade, filters.priceRange, filters.categoryId].filter(
+  const activeFiltersCount = [filters.cropType, filters.variety, filters.grade, filters.priceRange, effectiveCategoryId].filter(
     Boolean,
   ).length;
 
@@ -324,7 +390,7 @@ export default function ProductsPage() {
               </SheetHeader>
               <div className="mt-6">
                 <FilterContent
-                  filters={filters}
+                  filters={{ ...filters, categoryId: effectiveCategoryId }}
                   categoriesData={categoriesData}
                   updateFilter={updateFilter}
                   clearFilters={clearFilters}
@@ -336,9 +402,9 @@ export default function ProductsPage() {
 
           {/* Active Filter Tags */}
           <div className="hidden lg:flex items-center gap-2 flex-1">
-            {filters.categoryId && (
+            {effectiveCategoryId && (
               <Badge variant="secondary" className="gap-1 rounded-lg">
-                {categoriesData?.data.find((c: any) => c.id === filters.categoryId)?.name}
+                {categories.find((c) => c.id === effectiveCategoryId)?.name}
                 <X
                   className="h-3 w-3 cursor-pointer"
                   onClick={() => updateFilter('categoryId', '')}
@@ -350,7 +416,16 @@ export default function ProductsPage() {
                 {CROP_TYPE_OPTIONS.find((o) => o.value === filters.cropType)?.label}
                 <X
                   className="h-3 w-3 cursor-pointer"
-                  onClick={() => updateFilter('cropType', '')}
+                  onClick={() => { updateFilter('cropType', ''); updateFilter('variety', ''); }}
+                />
+              </Badge>
+            )}
+            {filters.variety && (
+              <Badge variant="secondary" className="gap-1 rounded-lg">
+                {filters.variety}
+                <X
+                  className="h-3 w-3 cursor-pointer"
+                  onClick={() => updateFilter('variety', '')}
                 />
               </Badge>
             )}

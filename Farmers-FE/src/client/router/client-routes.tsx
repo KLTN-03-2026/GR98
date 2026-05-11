@@ -7,10 +7,14 @@ import ClientLayout from '@/client/layouts/client-layout';
 import HomePage from '@/client/pages/home.page';
 import ProductsPage from '@/client/pages/products.page';
 import ProductDetailPage from '@/client/pages/product-detail.page';
+import TraceabilityPage from '@/client/pages/traceability.page';
+import TraceabilityDetailPage from '@/client/pages/traceability-detail.page';
 import CartPage from '@/client/pages/cart.page';
 import CheckoutPage from '@/client/pages/checkout.page';
 import OrdersPage from '@/client/pages/orders.page';
 import ProfilePage from '@/client/pages/profile.page';
+import PaymentSimulatePage from '@/client/pages/payment-simulate.page';
+import PaymentResultPage from '@/client/pages/payment-result.page';
 
 // Route guards
 import { ProtectedRoute } from '@/router/guards';
@@ -53,6 +57,14 @@ const clientLayoutRoute: RouteObject = {
       path: 'categories/:slug',
       element: <ProductsPage />,
     },
+    {
+      path: 'traceability',
+      element: <TraceabilityPage />,
+    },
+    {
+      path: 'traceability/:slug',
+      element: <TraceabilityDetailPage />,
+    },
 
     // Protected routes — cần đăng nhập
     {
@@ -84,6 +96,22 @@ const clientLayoutRoute: RouteObject = {
       element: (
         <ProtectedRoute>
           <ProfilePage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: 'payment/simulate',
+      element: (
+        <ProtectedRoute>
+          <PaymentSimulatePage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: 'payment/result',
+      element: (
+        <ProtectedRoute>
+          <PaymentResultPage />
         </ProtectedRoute>
       ),
     },

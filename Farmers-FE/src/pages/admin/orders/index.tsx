@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { PaginationState, Updater } from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
-import { Eye, Search, Package, CheckCircle2, Truck, Clock, XCircle, RefreshCw } from 'lucide-react';
-import { useOrders, useOrder, useUpdateOrder } from '@/client/api';
+import { Eye, Search, Package, CheckCircle2, Truck, Clock, XCircle, ImageIcon } from 'lucide-react';
+import { useOrders, useOrder } from '@/client/api';
 import { formatPrice } from '@/client/data/mock-data';
 import {
   PAYMENT_STATUS_LABELS,
@@ -23,15 +23,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DataTable } from '@/components/data-table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import {
   Sheet,
   SheetContent,
@@ -91,112 +82,7 @@ function getImageUrl(item: Order['orderItems'][0]): string | null {
   return null;
 }
 
-// ─── Update Dialog ────────────────────────────────────────────────────────
-
-function UpdateOrderDialog({ orderId }: { orderId: string }) {
-  const [open, setOpen] = useState(false);
-  const { data: order } = useOrder(orderId);
-  const [fulfillStatus, setFulfillStatus] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState('');
-  const [trackingCode, setTrackingCode] = useState('');
-  const updateMutation = useUpdateOrder();
-
-  const handleOpen = () => {
-    if (order) {
-      setFulfillStatus(order.fulfillStatus);
-      setPaymentStatus(order.paymentStatus);
-      setTrackingCode(order.trackingCode ?? '');
-    }
-    setOpen(true);
-  };
-
-  const handleSubmit = async () => {
-    const data: Record<string, any> = {};
-    if (order && fulfillStatus !== order.fulfillStatus) data.fulfillStatus = fulfillStatus;
-    if (order && paymentStatus !== order.paymentStatus) data.paymentStatus = paymentStatus;
-    if (trackingCode !== (order?.trackingCode ?? '')) data.trackingCode = trackingCode || undefined;
-
-    if (Object.keys(data).length === 0) {
-      setOpen(false);
-      return;
-    }
-
-    try {
-      await updateMutation.mutateAsync({ orderId, data });
-      setOpen(false);
-    } catch {
-      // toast handled in hook
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1" onClick={handleOpen}>
-          <RefreshCw className="h-3.5 w-3.5" />
-          Cập nhật
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Cập nhật đơn hàng</DialogTitle>
-          <DialogDescription>
-            Thay đổi trạng thái và thông tin đơn hàng #{order?.orderNo}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label>Trạng thái giao hàng</Label>
-            <Select value={fulfillStatus} onValueChange={setFulfillStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PENDING">Chờ xử lý</SelectItem>
-                <SelectItem value="PACKING">Đang đóng gói</SelectItem>
-                <SelectItem value="SHIPPED">Đang giao hàng</SelectItem>
-                <SelectItem value="DELIVERED">Đã giao hàng</SelectItem>
-                <SelectItem value="CANCELLED">Đã hủy</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Trạng thái thanh toán</Label>
-            <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PENDING">Chờ thanh toán</SelectItem>
-                <SelectItem value="PAID">Đã thanh toán</SelectItem>
-                <SelectItem value="FAILED">Thanh toán thất bại</SelectItem>
-                <SelectItem value="REFUNDED">Đã hoàn tiền</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Mã vận đơn</Label>
-            <Input
-              placeholder="GHTK-1234567890"
-              value={trackingCode}
-              onChange={(e) => setTrackingCode(e.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={updateMutation.isPending}>
-            Hủy
-          </Button>
-          <Button onClick={handleSubmit} isLoading={updateMutation.isPending}>
-            Lưu thay đổi
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Order Detail Sheet ─────────────────────────────────────────────────
+// ─── Order Detail Sheet (read-only) ─────────────────────────────────────
 
 function OrderDetailSheet({ orderId }: { orderId: string }) {
   const { data: order, isLoading } = useOrder(orderId);
@@ -324,6 +210,28 @@ function OrderDetailSheet({ orderId }: { orderId: string }) {
               </div>
             </div>
 
+            {/* Delivery Proof */}
+            {order.deliveryProofUrl && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-emerald-600" />
+                  Ảnh chứng minh giao hàng
+                </h4>
+                <a
+                  href={order.deliveryProofUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-xl overflow-hidden border border-slate-200 hover:border-emerald-300 transition-colors"
+                >
+                  <img
+                    src={order.deliveryProofUrl}
+                    alt="Chứng minh giao hàng"
+                    className="w-full h-40 object-cover"
+                  />
+                </a>
+              </div>
+            )}
+
             {/* Payment Method */}
             <div className="bg-muted/30 rounded-xl p-4 text-sm">
               <h4 className="font-medium mb-1">Phương thức</h4>
@@ -334,12 +242,9 @@ function OrderDetailSheet({ orderId }: { orderId: string }) {
               </p>
             </div>
 
-            {/* Admin Actions */}
-            {order.fulfillStatus !== 'CANCELLED' && order.fulfillStatus !== 'DELIVERED' && (
-              <div className="flex gap-2 pt-2">
-                <UpdateOrderDialog orderId={order.id} />
-              </div>
-            )}
+            <div className="rounded-xl border border-dashed border-muted-foreground/20 bg-muted/20 p-3 text-xs text-muted-foreground">
+              Các thao tác xác nhận đơn, gán shipper, đánh dấu đã giao và huỷ đơn được thực hiện bởi bộ phận <span className="font-semibold text-foreground">Quản lý kho (Inventory)</span>.
+            </div>
           </div>
         ) : null}
       </SheetContent>
@@ -385,10 +290,7 @@ export default function AdminOrdersPage() {
         renderPaymentStatus: (status) => <PaymentStatusBadge status={status} />,
         renderFulfillStatus: (status) => <FulfillStatusBadge status={status} />,
         renderActions: (order) => (
-          <>
-            <OrderDetailSheet orderId={order.id} />
-            <UpdateOrderDialog orderId={order.id} />
-          </>
+          <OrderDetailSheet orderId={order.id} />
         ),
       }),
     [],
@@ -422,6 +324,15 @@ export default function AdminOrdersPage() {
             onPaginationChange={handlePaginationChange}
             state={{ pagination: paginationState }}
             pageSizeOptions={[10, 20, 30, 50, 100]}
+            initialColumnVisibility={{
+              phone: false,
+              subtotal: false,
+              shippingFee: false,
+              itemCount: false,
+              shippingAddress: false,
+              trackingCode: false,
+              note: false,
+            }}
             onReload={() => queryClient.invalidateQueries({ queryKey: ['orders'] })}
             noResults={
               <div className="flex flex-col items-center justify-center py-12 text-center">

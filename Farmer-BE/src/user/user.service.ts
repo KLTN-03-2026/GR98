@@ -59,6 +59,7 @@ export class UserService {
           { supervisorProfile: { adminId } },
           { inventoryProfile: { adminId } },
           { clientProfile: { adminId } },
+          { shipperProfile: { adminId } },
         ],
       };
     }
@@ -69,6 +70,7 @@ export class UserService {
           { supervisorProfile: { adminId } },
           { inventoryProfile: { adminId } },
           { clientProfile: { adminId } },
+          { shipperProfile: { adminId } },
         ],
       };
     }
@@ -163,6 +165,19 @@ export class UserService {
             employeeCode: `IV-${createdUser.id.slice(-6).toUpperCase()}`,
           },
         });
+      } else if (dto.role === Role.SHIPPER) {
+        if (!creatorAdminId) {
+          throw new ForbiddenException('Không xác định được Admin quản lý');
+        }
+        await tx.shipperProfile.create({
+          data: {
+            userId: createdUser.id,
+            adminId: creatorAdminId,
+            employeeCode: `SHP-${createdUser.id.slice(-6).toUpperCase()}`,
+            vehicleType: dto.vehicleType ?? 'MOTORBIKE',
+            licensePlate: dto.licensePlate ?? null,
+          },
+        });
       } else if (dto.role === Role.CLIENT) {
         await tx.clientProfile.create({
           data: {
@@ -248,6 +263,9 @@ export class UserService {
           clientProfile: {
             select: { id: true, province: true },
           },
+          shipperProfile: {
+            select: { id: true, employeeCode: true, adminId: true },
+          },
         },
       }),
       this.prisma.user.count({ where }),
@@ -314,6 +332,14 @@ export class UserService {
         },
         clientProfile: {
           select: { id: true, province: true },
+        },
+        shipperProfile: {
+          select: {
+            id: true,
+            employeeCode: true,
+            adminId: true,
+            hiredAt: true,
+          },
         },
       },
     });
@@ -484,6 +510,22 @@ export class UserService {
                 userId: id,
                 adminId: currentAdminId,
                 province: dto.province ?? null,
+              },
+            });
+          }
+        }
+
+        if (nextRole === Role.SHIPPER) {
+          const profile = await tx.shipperProfile.findUnique({
+            where: { userId: id },
+          });
+          if (!profile) {
+            await tx.shipperProfile.create({
+              data: {
+                userId: id,
+                adminId: currentAdminId,
+                employeeCode: `SHP-${id.slice(-6).toUpperCase()}`,
+                vehicleType: 'MOTORBIKE',
               },
             });
           }

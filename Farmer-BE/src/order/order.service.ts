@@ -10,13 +10,27 @@ import {
   UpdateOrderDto,
   OrderQueryDto,
   CancelOrderDto,
+  AssignShipperDto,
+  ConfirmOrderDto,
+  MarkDeliveredDto,
 } from './dto/create-order.dto';
-import { PaymentStatus, FulfillStatus, Role } from '@prisma/client';
+import {
+  PaymentStatus,
+  FulfillStatus,
+  Role,
+  TransactionType,
+  TransactionAction,
+  ShipperStatus,
+} from '@prisma/client';
 import { PaginatedResponse } from '../common/dto/pagination.dto';
+import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
 export class OrderService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private paymentService: PaymentService,
+  ) {}
 
   // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -69,7 +83,10 @@ export class OrderService {
   private generateOrderNo(adminId: string): string {
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    return `EC-${dateStr}-${adminId.slice(-4).toUpperCase()}`;
+    const random = Math.floor(Math.random() * 99999)
+      .toString()
+      .padStart(5, '0');
+    return `EC-${dateStr}-${adminId.slice(-4).toUpperCase()}-${random}`;
   }
 
   // ─── create ────────────────────────────────────────────────────────────────
@@ -108,11 +125,20 @@ export class OrderService {
       }
     }
 
-    // Tính tổng từ items
+    // Tính tổng từ items + check stock
     const productIds = dto.items.map((i) => i.productId);
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, pricePerKg: true, name: true, imageUrls: true },
+      select: {
+        id: true,
+        pricePerKg: true,
+        name: true,
+        imageUrls: true,
+        stockKg: true,
+        reservedKg: true,
+        minOrderKg: true,
+        status: true,
+      },
     });
 
     const productMap = new Map(products.map((p) => [p.id, p]));
@@ -133,9 +159,20 @@ export class OrderService {
           `Sản phẩm "${item.productId}" không tồn tại`,
         );
       }
-      if (item.quantityKg < 0.25) {
+      if (product.status !== 'PUBLISHED') {
         throw new BadRequestException(
-          `Số lượng tối thiểu là 0.25kg cho "${product.name}"`,
+          `Sản phẩm "${product.name}" hiện không được bán`,
+        );
+      }
+      if (item.quantityKg < product.minOrderKg) {
+        throw new BadRequestException(
+          `Số lượng tối thiểu là ${product.minOrderKg}kg cho "${product.name}"`,
+        );
+      }
+      const available = product.stockKg - product.reservedKg;
+      if (available < item.quantityKg) {
+        throw new BadRequestException(
+          `"${product.name}" chỉ còn ${available}kg (yêu cầu ${item.quantityKg}kg)`,
         );
       }
       const itemSubtotal = product.pricePerKg * item.quantityKg;
@@ -157,7 +194,7 @@ export class OrderService {
     const orderNo = this.generateOrderNo(adminIdForOrder);
     const orderCode = this.generateOrderCode();
 
-    // Tạo order trong transaction
+    // Tạo order + reserve stock trong transaction
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
@@ -184,6 +221,14 @@ export class OrderService {
         })),
       });
 
+      // Reserve stock: tăng reservedKg
+      for (const item of orderItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { reservedKg: { increment: item.quantityKg } },
+        });
+      }
+
       return created;
     });
 
@@ -193,6 +238,9 @@ export class OrderService {
   // ─── findAll (admin) ─────────────────────────────────────────────────────
 
   async findAll(query: OrderQueryDto, currentUserId: string) {
+    // Tự động huỷ các đơn VNPAY hết hạn (>15 phút) trước khi list
+    await this.paymentService.sweepExpiredVnpayOrders().catch(() => 0);
+
     const currentUser = await this.prisma.user.findUnique({
       where: { id: currentUserId },
     });
@@ -301,6 +349,26 @@ export class OrderService {
         admin: {
           select: { id: true, businessName: true },
         },
+        shipper: {
+          select: {
+            id: true,
+            employeeCode: true,
+            vehicleType: true,
+            licensePlate: true,
+            status: true,
+            lat: true,
+            lng: true,
+            lastSeenAt: true,
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                avatar: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -361,27 +429,299 @@ export class OrderService {
 
     const order = await this.prisma.order.findFirst({
       where: { id, clientId: clientProfile.id },
+      include: { orderItems: true },
     });
     if (!order) throw new NotFoundException('Đơn hàng không tồn tại');
 
-    // Chỉ hủy được nếu: chưa thanh toán và chưa giao
-    if (order.fulfillStatus !== FulfillStatus.PENDING) {
+    // Chỉ hủy được khi PENDING hoặc PACKING
+    if (
+      order.fulfillStatus !== FulfillStatus.PENDING &&
+      order.fulfillStatus !== FulfillStatus.PACKING
+    ) {
       throw new BadRequestException(
-        `Không thể hủy đơn hàng ở trạng thái "${order.fulfillStatus}". Vui lòng liên hệ hỗ trợ.`,
+        `Không thể hủy đơn ở trạng thái "${order.fulfillStatus}". Vui lòng liên hệ hỗ trợ.`,
       );
     }
 
-    const updated = await this.prisma.order.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id },
+        data: {
+          fulfillStatus: FulfillStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelReason: dto.reason ?? null,
+        },
+      });
+
+      // Hoàn lại reservedKg
+      for (const item of order.orderItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { reservedKg: { decrement: item.quantityKg } },
+        });
+      }
+    });
+
+    return this.formatOrder(id, currentUserId);
+  }
+
+  // ─── state machine (admin) ────────────────────────────────────────────────
+
+  /**
+   * PENDING → PACKING
+   * Admin xác nhận đơn, bắt đầu đóng gói.
+   */
+  async confirmPacking(
+    id: string,
+    dto: ConfirmOrderDto,
+    currentUserId: string,
+  ) {
+    const order = await this.ensureAdminAccess(id, currentUserId);
+    if (order.fulfillStatus !== FulfillStatus.PENDING) {
+      throw new BadRequestException(
+        `Chỉ xác nhận được đơn ở trạng thái PENDING (hiện: ${order.fulfillStatus})`,
+      );
+    }
+
+    await this.prisma.order.update({
       where: { id },
       data: {
-        fulfillStatus: FulfillStatus.CANCELLED,
-        note: dto.reason
-          ? `${order.note ? order.note + '\n' : ''}[HỦY] ${dto.reason}`
+        fulfillStatus: FulfillStatus.PACKING,
+        packedAt: new Date(),
+        note: dto.note
+          ? `${order.note ? order.note + '\n' : ''}[PACKING] ${dto.note}`
           : order.note,
       },
     });
 
-    return this.formatOrder(updated.id, currentUserId);
+    return this.formatOrder(id, currentUserId);
+  }
+
+  /**
+   * PACKING → SHIPPED (gán shipper)
+   */
+  async assignShipper(
+    id: string,
+    dto: AssignShipperDto,
+    currentUserId: string,
+  ) {
+    const order = await this.ensureAdminAccess(id, currentUserId);
+    if (order.fulfillStatus !== FulfillStatus.PACKING) {
+      throw new BadRequestException(
+        `Chỉ giao shipper khi đơn đang PACKING (hiện: ${order.fulfillStatus})`,
+      );
+    }
+
+    const shipper = await this.prisma.shipperProfile.findUnique({
+      where: { id: dto.shipperId },
+    });
+    if (!shipper) throw new NotFoundException('Shipper không tồn tại');
+    if (shipper.adminId !== order.adminId) {
+      throw new ForbiddenException('Shipper không thuộc đơn vị của bạn');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id },
+        data: {
+          fulfillStatus: FulfillStatus.SHIPPED,
+          shippedAt: new Date(),
+          shipperId: dto.shipperId,
+        },
+      });
+      await tx.shipperProfile.update({
+        where: { id: dto.shipperId },
+        data: { status: ShipperStatus.BUSY },
+      });
+    });
+
+    return this.formatOrder(id, currentUserId);
+  }
+
+  /**
+   * SHIPPED → DELIVERED
+   * Trừ kho thật (stockKg), tạo WarehouseTransaction SALE, set PAID nếu COD.
+   */
+  async markDelivered(
+    id: string,
+    dto: MarkDeliveredDto,
+    currentUserId: string,
+    asShipper = false,
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { orderItems: true },
+    });
+    if (!order) throw new NotFoundException('Đơn hàng không tồn tại');
+
+    // Permission check
+    if (asShipper) {
+      const shipper = await this.prisma.shipperProfile.findUnique({
+        where: { userId: currentUserId },
+      });
+      if (!shipper || order.shipperId !== shipper.id) {
+        throw new ForbiddenException('Đơn này không thuộc về bạn');
+      }
+    } else {
+      await this.ensureAdminAccess(id, currentUserId);
+    }
+
+    if (order.fulfillStatus !== FulfillStatus.SHIPPED) {
+      throw new BadRequestException(
+        `Chỉ đánh dấu giao khi đơn đang SHIPPED (hiện: ${order.fulfillStatus})`,
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Tìm 1 warehouse mặc định của admin để ghi giao dịch SALE
+      const warehouse = await tx.warehouse.findFirst({
+        where: { adminId: order.adminId, isActive: true },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      for (const item of order.orderItems) {
+        // Giảm stock thật + giảm reserved
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stockKg: { decrement: item.quantityKg },
+            reservedKg: { decrement: item.quantityKg },
+          },
+        });
+
+        // Ghi WarehouseTransaction OUTBOUND/SALE nếu có warehouse
+        if (warehouse) {
+          // Tìm 1 inventory lot còn hàng của product này
+          const lot = await tx.inventoryLot.findFirst({
+            where: {
+              warehouseId: warehouse.id,
+              productId: item.productId,
+              quantityKg: { gt: 0 },
+            },
+            orderBy: { createdAt: 'asc' },
+          });
+
+          if (lot) {
+            await tx.inventoryLot.update({
+              where: { id: lot.id },
+              data: { quantityKg: { decrement: item.quantityKg } },
+            });
+            await tx.warehouseTransaction.create({
+              data: {
+                warehouseId: warehouse.id,
+                productId: item.productId,
+                inventoryLotId: lot.id,
+                quantityKg: -item.quantityKg,
+                type: TransactionType.OUTBOUND,
+                action: TransactionAction.SALE,
+                note: `Bán online - Đơn ${order.orderNo}`,
+                createdBy: currentUserId,
+              },
+            });
+          }
+        }
+      }
+
+      // Update order
+      const updateData: any = {
+        fulfillStatus: FulfillStatus.DELIVERED,
+        deliveredAt: new Date(),
+      };
+      if (dto.deliveryProofUrl) {
+        updateData.deliveryProofUrl = dto.deliveryProofUrl;
+      }
+      if (dto.note) {
+        updateData.note = `${order.note ? order.note + '\n' : ''}[GIAO] ${dto.note}`;
+      }
+      // Nếu COD: tự set PAID
+      if (
+        order.paymentMethod === 'COD' &&
+        order.paymentStatus === PaymentStatus.PENDING
+      ) {
+        updateData.paymentStatus = PaymentStatus.PAID;
+        updateData.paidAt = new Date();
+      }
+
+      await tx.order.update({ where: { id }, data: updateData });
+
+      // Giải phóng shipper nếu có
+      if (order.shipperId) {
+        await tx.shipperProfile.update({
+          where: { id: order.shipperId },
+          data: { status: ShipperStatus.AVAILABLE },
+        });
+      }
+    });
+
+    return this.formatOrder(id, currentUserId);
+  }
+
+  /**
+   * Admin huỷ đơn (bất kỳ trạng thái nào trừ DELIVERED).
+   */
+  async adminCancel(
+    id: string,
+    dto: CancelOrderDto,
+    currentUserId: string,
+  ) {
+    const order = await this.ensureAdminAccess(id, currentUserId);
+    if (order.fulfillStatus === FulfillStatus.DELIVERED) {
+      throw new BadRequestException('Không thể huỷ đơn đã giao');
+    }
+    if (order.fulfillStatus === FulfillStatus.CANCELLED) {
+      throw new BadRequestException('Đơn đã huỷ rồi');
+    }
+
+    const items = await this.prisma.orderItem.findMany({
+      where: { orderId: id },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id },
+        data: {
+          fulfillStatus: FulfillStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelReason: dto.reason ?? 'Huỷ bởi quản trị',
+        },
+      });
+      // Hoàn reserved
+      for (const item of items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { reservedKg: { decrement: item.quantityKg } },
+        });
+      }
+      // Giải phóng shipper nếu đơn đang được giao
+      if (order.shipperId) {
+        await tx.shipperProfile.update({
+          where: { id: order.shipperId },
+          data: { status: ShipperStatus.AVAILABLE },
+        });
+      }
+    });
+
+    return this.formatOrder(id, currentUserId);
+  }
+
+  private async ensureAdminAccess(orderId: string, currentUserId: string) {
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
+    if (!currentUser) throw new NotFoundException('Người dùng không tồn tại');
+    if (currentUser.role === Role.CLIENT) {
+      throw new ForbiddenException('Không có quyền');
+    }
+    const adminId = await this.resolveAdminId(currentUserId);
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, adminId: adminId as string },
+    });
+    if (!order) {
+      throw new NotFoundException(
+        'Đơn hàng không tồn tại hoặc không thuộc đơn vị của bạn',
+      );
+    }
+    return order;
   }
 
   // ─── format ───────────────────────────────────────────────────────────────
@@ -401,6 +741,26 @@ export class OrderService {
           select: {
             id: true,
             user: { select: { fullName: true, email: true, phone: true } },
+          },
+        },
+        shipper: {
+          select: {
+            id: true,
+            employeeCode: true,
+            vehicleType: true,
+            licensePlate: true,
+            status: true,
+            lat: true,
+            lng: true,
+            lastSeenAt: true,
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                avatar: true,
+              },
+            },
           },
         },
       },

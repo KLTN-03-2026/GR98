@@ -77,6 +77,7 @@ export default function AdminWarehousesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
+  const [capacityKg, setCapacityKg] = useState<string>("");
   const [isActive, setIsActive] = useState(true);
   const [managedBy, setManagedBy] = useState<string>(UNASSIGNED);
 
@@ -122,6 +123,7 @@ export default function AdminWarehousesPage() {
     setEditingId(null);
     setName("");
     setLocationAddress("");
+    setCapacityKg("");
     setIsActive(true);
     setManagedBy(UNASSIGNED);
     setStaffSearch("");
@@ -133,6 +135,7 @@ export default function AdminWarehousesPage() {
     setEditingId(row.id);
     setName(row.name);
     setLocationAddress(row.locationAddress ?? "");
+    setCapacityKg(row.capacityKg ? String(row.capacityKg) : "");
     setIsActive(row.isActive);
     setManagedBy(row.managedBy ?? UNASSIGNED);
     setStaffSearch("");
@@ -163,6 +166,7 @@ export default function AdminWarehousesPage() {
     const payload = {
       name: trimmed,
       locationAddress: locationAddress.trim() || undefined,
+      capacityKg: capacityKg ? Number(capacityKg) : null,
       isActive,
       managedBy:
         managedBy === UNASSIGNED ? null : managedBy,
@@ -265,6 +269,17 @@ export default function AdminWarehousesPage() {
                 placeholder="Tùy chọn"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="wh-capacity">Sức chứa tối đa (kg)</Label>
+              <Input
+                id="wh-capacity"
+                type="number"
+                value={capacityKg}
+                onChange={(e) => setCapacityKg(e.target.value)}
+                placeholder="Bỏ trống nếu không giới hạn"
+                min={0}
+              />
+            </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="space-y-0.5">
                 <Label htmlFor="wh-active">Đang hoạt động</Label>
@@ -336,6 +351,11 @@ export default function AdminWarehousesPage() {
                   <div className="font-semibold text-lg">{detail.name}</div>
                   <div className="text-muted-foreground text-sm">
                     {detail.locationAddress ?? "Không có địa chỉ"}
+                  </div>
+                  <div className="text-muted-foreground text-sm font-medium">
+                    Sức chứa: {detail.capacityKg 
+                      ? `${detail.currentStock.toLocaleString("vi-VN")} / ${detail.capacityKg.toLocaleString("vi-VN")} kg` 
+                      : `${detail.currentStock.toLocaleString("vi-VN")} kg (Không giới hạn)`}
                   </div>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {detail.isActive ? (

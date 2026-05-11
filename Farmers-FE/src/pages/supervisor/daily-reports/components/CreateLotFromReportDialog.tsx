@@ -42,25 +42,25 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
   const [warehouseId, setWarehouseId] = useState('');
   const [actualWeight, setActualWeight] = useState('');
   const [note, setNote] = useState('');
+  const [totalYield, setTotalYield] = useState<number | null>(null);
   const [remainingBalance, setRemainingBalance] = useState<number | null>(null);
 
   // Get active contract from report - Memoize to prevent effect loops
   const activeContract = React.useMemo(() => report?.plot?.contracts?.[0], [report]);
-
   useEffect(() => {
     console.log('Dialog Effect - Open:', open, 'Report:', report?.id, 'Contract:', activeContract?.id);
     if (open) {
       loadWarehouses();
       if (activeContract) {
         loadRemainingBalance();
-      }
-      if (report?.yieldEstimateKg) {
+      } else if (report?.yieldEstimateKg) {
         setActualWeight(report.yieldEstimateKg.toString());
       }
     } else {
       setWarehouseId('');
       setNote('');
       setRemainingBalance(null);
+      setTotalYield(null);
     }
   }, [open, activeContract, report]);
 
@@ -76,24 +76,20 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
   const loadRemainingBalance = async () => {
     if (!activeContract) return;
     try {
-      // Lấy tất cả lots của contract này
-      const res = await lotApi.getLots({ contractId: activeContract.id });
-      const lots = extractData<InventoryLot[]>(res);
-      const totalIssued = lots.reduce((sum, lot) => sum + (lot.status !== 'REJECTED' ? lot.quantityKg : 0), 0);
-
-      // Frontend: dùng yieldEstimateKg của report hiện tại làm "tổng thu hoạch" hiển thị
-      // Backend sẽ tính chính xác bằng tổng tất cả harvest reports
-      // Remaining = yield hiện tại (nếu chưa xuất lô nào từ report này)
-      const currentYield = report?.yieldEstimateKg || 0;
-      
-      // Ước lượng: nếu tổng lots > tổng các báo cáo trước → remaining chỉ là currentYield
-      // Nếu chưa có lot nào → remaining = currentYield
-      // Backend sẽ validate chính xác, FE chỉ hiển thị estimate
-      const remaining = Math.max(0, currentYield);
-      setRemainingBalance(remaining);
-      setActualWeight(currentYield.toString());
+      // Gọi API Backend để lấy số liệu chính xác
+      const res = await lotApi.getRemainingBalance(activeContract.id);
+      const data = extractData<{ totalYield: number; alreadyIssued: number; remaining: number }>(res);
+      setTotalYield(data.totalYield);
+      setRemainingBalance(data.remaining);
+      setActualWeight(data.remaining > 0 ? data.remaining.toString() : '');
     } catch (error) {
       console.error('Failed to load balance', error);
+      // Fallback: dùng yieldEstimateKg từ report
+      if (report?.yieldEstimateKg) {
+        setTotalYield(report.yieldEstimateKg);
+        setRemainingBalance(report.yieldEstimateKg);
+        setActualWeight(report.yieldEstimateKg.toString());
+      }
     }
   };
 
@@ -128,7 +124,7 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Không thể tạo lô hàng');
+      toast.error(error?.message || 'Không thể tạo lô hàng');
     } finally {
       setLoading(false);
     }
@@ -177,7 +173,7 @@ export const CreateLotFromReportDialog: React.FC<CreateLotFromReportDialogProps>
                     <Weight className="h-3 w-3" /> Tổng thu hoạch
                   </div>
                   <div className="text-lg font-bold text-slate-900">
-                    {(report.yieldEstimateKg ?? 0).toLocaleString()} <span className="text-xs font-normal opacity-60">kg</span>
+                    {(totalYield ?? report.yieldEstimateKg ?? 0).toLocaleString()} <span className="text-xs font-normal opacity-60">kg</span>
                   </div>
                 </div>
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">

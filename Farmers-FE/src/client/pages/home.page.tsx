@@ -3,9 +3,37 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, Leaf, Star, ShoppingBag, Sprout, MapPin, Truck, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMockBanners } from '@/client/hooks/use-mock-queries';
 import { formatPrice } from '@/client/data/mock-data';
-import { MOCK_PRODUCTS } from '@/client/data/mock-data';
+import { useFeaturedProducts, useCategories } from '@/client/api';
+import type { Product } from '@/client/types';
+
+// ============================================================
+// STATIC BANNERS — có thể move vào BE banner module sau
+// ============================================================
+const STATIC_BANNERS = [
+  {
+    id: 'banner-1',
+    title: 'Sầu Riêng Ri 6 A',
+    subtitle: 'Trái chín cây từ Đắk Lắk - Chất lượng VietGAP',
+    cta: 'Mua Ngay',
+    ctaLink: '/products',
+    imageUrl:
+      'https://images.unsplash.com/photo-1553531384-cc64ac80f931?w=1400&q=85',
+  },
+  {
+    id: 'banner-2',
+    title: 'Cà Phê Đắk Lắk',
+    subtitle: '100% rang mộc - Hương vị Tây Nguyên đậm đà',
+    cta: 'Khám Phá',
+    ctaLink: '/products?cropType=ca-phe',
+    imageUrl:
+      'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=1400&q=85',
+  },
+];
+
+function useMockBanners() {
+  return { data: STATIC_BANNERS, isLoading: false };
+}
 
 // ============================================================
 // DASHED CARD — Wrapper cho các section card với dashed border
@@ -125,44 +153,16 @@ function HeroCarousel() {
 // CATEGORIES SECTION — với dashed card grid
 // ============================================================
 function CategoriesSection() {
-  const categories = [
-    {
-      name: 'Sầu Riêng Tươi',
-      slug: 'sau-rieng-tuoi',
-      image: 'https://images.unsplash.com/photo-1553531384-cc64ac80f931?w=600&q=80',
-      description: 'Trái chín cây, đạt chuẩn VietGAP',
-    },
-    {
-      name: 'Sầu Riêng Đông Lạnh',
-      slug: 'sau-rieng-dong-lanh',
-      image: 'https://images.unsplash.com/photo-1528825871115-3581a5387919?w=600&q=80',
-      description: 'Công nghệ IQF, bảo quản 6 tháng',
-    },
-    {
-      name: 'Cà Phê Hạt',
-      slug: 'ca-phe-hat',
-      image: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=600&q=80',
-      description: '100% rang mộc, không tẩm hương',
-    },
-    {
-      name: 'Cà Phê Bột',
-      slug: 'ca-phe-bot',
-      image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=600&q=80',
-      description: 'Xay sẵn, tiện lợi pha ngay',
-    },
-    {
-      name: 'Cà Phê Đặc Sản',
-      slug: 'ca-phe-dac-san',
-      image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80',
-      description: 'Single origin, điểm cupping 84+',
-    },
-    {
-      name: 'Combo Quà Tặng',
-      slug: 'combo-qua-tang',
-      image: 'https://images.unsplash.com/photo-1519996529931-28324d5a630e?w=600&q=80',
-      description: 'Quà tặng cao cấp, ý nghĩa',
-    },
-  ];
+  const { data: categoriesData } = useCategories({ limit: 12 });
+  const FALLBACK_IMAGE =
+    'https://images.unsplash.com/photo-1553531384-cc64ac80f931?w=600&q=80';
+  const list = (categoriesData as { data?: Array<{ id: string; name: string; slug: string; imageUrl?: string | null }> } | undefined)?.data ?? [];
+  const categories = list.map((c) => ({
+    name: c.name,
+    slug: c.slug,
+    image: c.imageUrl || FALLBACK_IMAGE,
+    description: '',
+  }));
 
   return (
     <section className="py-20 md:py-28 border-t border-white/10">
@@ -223,11 +223,8 @@ function CategoriesSection() {
 // FEATURED PRODUCTS SECTION — với dashed cards
 // ============================================================
 function FeaturedProductsSection() {
-  const featured = MOCK_PRODUCTS.filter(
-    (p) => p.status === 'PUBLISHED' && p.stockKg > 0,
-  )
-    .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0))
-    .slice(0, 8);
+  const { data: featuredRaw } = useFeaturedProducts(8);
+  const featured: Product[] = Array.isArray(featuredRaw) ? featuredRaw : [];
 
   return (
     <section className="py-16">
@@ -271,7 +268,7 @@ function FeaturedProductsSection() {
                   {/* Image */}
                   <div className="relative aspect-square overflow-hidden bg-muted/30">
                     <img
-                      src={product.imageUrls[0]}
+                      src={product.thumbnailUrl || product.imageUrls?.[0] || ''}
                       alt={product.name}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"

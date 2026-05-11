@@ -296,6 +296,7 @@ export class ContractService {
       supervisorId: true,
       contractNo: true,
       cropType: true,
+      variety: true,
       grade: true,
       status: true,
       plotDraftProvince: true,
@@ -386,6 +387,7 @@ export class ContractService {
       supervisorId: item.supervisorId,
       contractNo: item.contractNo,
       cropType: item.cropType,
+      variety: item.variety,
       grade: item.grade,
       status: item.status,
       plotDraftProvince: item.plotDraftProvince,
@@ -508,6 +510,7 @@ export class ContractService {
         plotId: normalizedPlotId,
         contractNo,
         cropType: dto.cropType.trim(),
+        variety: dto.variety?.trim() || null,
         plotDraftProvince: hasPlot ? null : draftPlotInput.plotDraftProvince,
         plotDraftDistrict: hasPlot ? null : draftPlotInput.plotDraftDistrict,
         plotDraftAreaHa: hasPlot ? null : draftPlotInput.plotDraftAreaHa,
@@ -760,6 +763,7 @@ export class ContractService {
     updateData.plotDraftAreaHa = nextPlotId ? null : nextPlotDraftAreaHa;
     updateData.plotDraftCoordinatesText = nextPlotId ? null : nextCoordinatesText;
     if (dto.cropType !== undefined) updateData.cropType = dto.cropType.trim();
+    if (dto.variety !== undefined) updateData.variety = dto.variety?.trim() || null;
     if (dto.grade !== undefined) updateData.grade = dto.grade;
     const nextSignedAt =
       dto.signedAt !== undefined

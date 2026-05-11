@@ -9,6 +9,7 @@ export const productApi = {
     limit?: number;
     search?: string;
     cropType?: string;
+    variety?: string;
     grade?: string;
     minPrice?: number;
     maxPrice?: number;
@@ -27,4 +28,7 @@ export const productApi = {
 
   getRelated: (productId: string, limit = 4) =>
     apiGet<unknown>(`/products/${productId}/related`, { params: { limit } }),
+
+  getTraceability: (slug: string) =>
+    apiGet<unknown>(`/products/slug/${slug}/trace`),
 };

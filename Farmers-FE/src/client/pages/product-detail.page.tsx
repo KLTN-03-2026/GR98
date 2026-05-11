@@ -16,18 +16,22 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  Sprout,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useCartStore } from '@/client/store';
+import { useAuthStore } from '@/client/store';
 import { formatPrice } from '@/lib/utils';
 import {
   useProductBySlug,
   useRelatedProducts,
   useProductReviews,
+  useAddToCart,
+  useCart,
 } from '@/client/api';
 import { GRADE_LABELS, CROP_TYPES } from '@/client/types';
 import { toast } from 'sonner';
@@ -37,7 +41,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { addItem, isInCart } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
+  const { data: cart } = useCart(isAuthenticated);
+  const addMutation = useAddToCart();
+  const isInCart = (productId: string) =>
+    !!cart?.items?.some((i) => i.productId === productId);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -56,6 +64,7 @@ export default function ProductDetailPage() {
   const reviews = reviewsData?.items || [];
   const related = relatedData || [];
   const inCart = product ? isInCart(product.id) : false;
+
 
   if (isLoading) {
     return (
@@ -90,8 +99,12 @@ export default function ProductDetailPage() {
   }
 
   const handleAddToCart = () => {
-    addItem(product, quantity);
-    toast.success(`Đã thêm ${quantity}kg "${product.name}" vào giỏ hàng!`);
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để mua hàng');
+      navigate('/auth/login');
+      return;
+    }
+    addMutation.mutate({ productId: product.id, quantityKg: quantity });
   };
 
   const gradeColor =
@@ -305,6 +318,27 @@ export default function ProductDetailPage() {
                 </span>
               </div>
             </div>
+
+            {/* Traceability CTA */}
+            <Link
+              to={`/traceability/${product.slug}`}
+              className="flex items-center justify-between gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400">
+                  <Sprout className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                    Truy xuất nguồn gốc
+                  </p>
+                  <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80">
+                    Xem hành trình từ lô đất đến sản phẩm
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400 group-hover:translate-x-1 transition-transform" />
+            </Link>
 
             {/* Action Buttons */}
             <div className="flex gap-3">

@@ -49,15 +49,7 @@ import {
 import { userApi, type UserResponse } from '@/pages/admin/users/api';
 import { userUpdateFormSchema, type UserUpdateFormInput } from '@/pages/admin/users/validation/create-user.validation';
 import FileUpload from '@/components/custom/file-upload';
-
-async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+import { uploadImage } from '@/client/api/upload';
 
 interface UpdateUserFormProps {
   open: boolean;
@@ -130,9 +122,10 @@ export default function UpdateUserForm({
         }
         if (values.status && values.status !== user.status) payload.status = values.status;
 
-        // Handle avatar
+        // Handle avatar — upload to Cloudinary
         if (values.avatar instanceof File) {
-          payload.avatar = await fileToBase64(values.avatar);
+          const uploaded = await uploadImage(values.avatar, 'avatars');
+          payload.avatar = uploaded.url;
         } else if (values.avatar === null && user.avatar) {
           // User removed avatar
           payload.clearAvatar = true;

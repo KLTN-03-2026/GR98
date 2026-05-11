@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Package, Plus, RefreshCw, FileText } from 'lucide-react';
+import { Package, FileText } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { inventoryProductApi } from './api/product-api';
 import { productColumns } from './components/product-columns';
 import { extractData } from '@/client/lib/api-client';
@@ -92,15 +93,14 @@ export default function ProductsManagementPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6 animate-in fade-in duration-500">
-      {/* Header Section */}
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8 text-primary">
               <Package className="size-4" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="text-2xl font-semibold tracking-tight">
               Quản lý Sản phẩm
             </h1>
           </div>
@@ -111,18 +111,8 @@ export default function ProductsManagementPage() {
 
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
             size="sm"
             className="h-9"
-            onClick={() => refetch()}
-            disabled={isLoading || isFetching}
-          >
-            <RefreshCw className={`size-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-            Làm mới
-          </Button>
-          <Button
-            size="sm"
-            className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 font-bold border-none transition-all active:scale-95"
             onClick={() => setIsContractDialogOpen(true)}
           >
             <FileText className="size-4 mr-2" />
@@ -131,33 +121,31 @@ export default function ProductsManagementPage() {
         </div>
       </div>
 
-      <ProductFilters
-        filters={filters}
-        categories={categories}
-        onFilterChange={handleFilterChange}
-        onClear={handleClearFilters}
-      />
-
-      {/* Main Table Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-        <div className="max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-hide">
+      <Card>
+        <CardContent className="pt-6">
           <DataTable
             columns={productColumns}
             data={products}
             isLoading={isLoading || isFetching}
             onReload={() => refetch()}
             onRowClick={handleView}
-            searchPlaceholder="Tìm kiếm tên sản phẩm, SKU..."
+            hiddenSearch={true}
+            filterToolbar={
+              <ProductFilters
+                filters={filters}
+                categories={categories}
+                onFilterChange={handleFilterChange}
+                onClear={handleClearFilters}
+              />
+            }
             meta={{
               onView: handleView,
               onEdit: handleEdit,
               onDelete: handleDelete
             }}
           />
-        </div>
-      </div>
-
-
+        </CardContent>
+      </Card>
 
       <CreateProductFromContractDialog
         open={isContractDialogOpen}
@@ -174,17 +162,6 @@ export default function ProductsManagementPage() {
         onUpdate={handleUpdate}
         isUpdating={updateProduct.isPending}
       />
-
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}} />
     </div>
   );
 }

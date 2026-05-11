@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { extractData } from '@/client/lib/api-client';
 import { profileApi } from './profile-api';
-import type { ShippingAddressApi, CreateShippingAddressPayload } from './types';
+import type { ShippingAddressApi, CreateShippingAddressPayload, UpdateShippingAddressPayload } from './types';
 
 export function useCreateShippingAddress() {
   const queryClient = useQueryClient();
@@ -34,6 +34,23 @@ export function useDeleteShippingAddress() {
     },
     onError: (error: { message?: string }) => {
       toast.error(error.message || 'Không xóa được địa chỉ');
+    },
+  });
+}
+
+export function useUpdateShippingAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateShippingAddressPayload }) => {
+      const res = await profileApi.updateAddress(id, data);
+      return extractData<ShippingAddressApi>(res);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+      toast.success('Đã cập nhật địa chỉ');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không cập nhật được địa chỉ');
     },
   });
 }

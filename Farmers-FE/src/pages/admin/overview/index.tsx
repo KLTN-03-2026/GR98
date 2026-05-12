@@ -148,7 +148,6 @@ export default function AdminOverviewPage() {
               contractStatusDistribution={data?.contractStatusDistribution}
               isLoading={isLoading}
             />
-
             <OverviewActivityTable activities={data?.recentActivity} isLoading={isLoading} />
           </div>
         </OverviewErrorBoundary>

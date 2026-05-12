@@ -99,7 +99,6 @@ export default function SupervisorPlotsPage() {
   const [filter, setFilter] = useState<"all" | CropType>("all");
   const [supervisorFilterId, setSupervisorFilterId] = useState("all");
   const [mapFilter, setMapFilter] = useState<"all" | "mapped" | "unmapped">("all");
-  const [isNearHarvest, setIsNearHarvest] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -146,22 +145,9 @@ export default function SupervisorPlotsPage() {
           if (!mapMatch) return false;
         }
 
-        // Filter by Near Harvest (within 14 days)
-        if (isNearHarvest) {
-          if (!plot.expectedHarvest) return false;
-          const harvestDate = new Date(plot.expectedHarvest);
-          const now = new Date();
-          const fourteenDaysLater = new Date();
-          fourteenDaysLater.setDate(now.getDate() + 14);
-          
-          if (harvestDate < now || harvestDate > fourteenDaysLater) {
-            return false;
-          }
-        }
-
         return true;
       }),
-    [plots, mapFilter, isNearHarvest],
+    [plots, mapFilter],
   );
 
   const supervisors = useMemo<SupervisorOption[]>(() => {
@@ -431,62 +417,37 @@ export default function SupervisorPlotsPage() {
               </span>
               <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                 <Button
+                  size="sm"
                   variant={filter === "all" ? "primary" : "outline"}
-                  className="rounded-full"
+                  className={cn(
+                    "h-8 rounded-full border px-4 text-xs font-semibold shadow-xs",
+                    filter === "all" ? "border-primary" : "border-border/80",
+                  )}
                   onClick={() => setFilter("all")}
                 >
                   Tất cả
                 </Button>
                 <Button
+                  size="sm"
                   variant={filter === "ca-phe" ? "primary" : "outline"}
-                  className="rounded-full"
+                  className={cn(
+                    "h-8 rounded-full border px-4 text-xs font-semibold shadow-xs",
+                    filter === "ca-phe" ? "border-primary" : "border-border/80",
+                  )}
                   onClick={() => setFilter("ca-phe")}
                 >
                   Cà phê
                 </Button>
                 <Button
+                  size="sm"
                   variant={filter === "sau-rieng" ? "primary" : "outline"}
-                  className="rounded-full"
+                  className={cn(
+                    "h-8 rounded-full border px-4 text-xs font-semibold shadow-xs",
+                    filter === "sau-rieng" ? "border-primary" : "border-border/80",
+                  )}
                   onClick={() => setFilter("sau-rieng")}
                 >
                   Sầu riêng
-                </Button>
-                <Button
-                  variant={isNearHarvest ? "primary" : "outline"}
-                  className="rounded-full border-orange-200 text-orange-700 hover:bg-orange-50"
-                  onClick={() => setIsNearHarvest(!isNearHarvest)}
-                >
-                  🌾 Gần thu hoạch
-                </Button>
-              </div>
-              <div
-                className="inline-flex max-w-full shrink-0 flex-wrap items-center gap-1.5 rounded-full border border-border/60 bg-white px-2 py-1"
-                title="Lọc theo bản đồ"
-              >
-                <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <Button
-                  size="sm"
-                  variant={mapFilter === "all" ? "primary" : "outline"}
-                  className="rounded-full"
-                  onClick={() => setMapFilter("all")}
-                >
-                  Tất cả
-                </Button>
-                <Button
-                  size="sm"
-                  variant={mapFilter === "mapped" ? "primary" : "outline"}
-                  className="rounded-full"
-                  onClick={() => setMapFilter("mapped")}
-                >
-                  Đã thêm vào bản đồ
-                </Button>
-                <Button
-                  size="sm"
-                  variant={mapFilter === "unmapped" ? "primary" : "outline"}
-                  className="rounded-full"
-                  onClick={() => setMapFilter("unmapped")}
-                >
-                  Chưa thêm vào bản đồ
                 </Button>
               </div>
             </>
@@ -506,6 +467,57 @@ export default function SupervisorPlotsPage() {
             </>
           ),
         }}
+        contentHeader={
+          <div className="flex w-full flex-col gap-3 rounded-2xl border border-border/70 bg-white p-3 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 text-emerald-700">
+                <MapPin className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">Trạng thái bản đồ</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Lọc các lô đã có hoặc chưa có tọa độ bản đồ
+                </p>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <Button
+                size="sm"
+                variant={mapFilter === "all" ? "primary" : "outline"}
+                className={cn(
+                  "h-8 rounded-full border px-4 text-xs font-semibold shadow-xs",
+                  mapFilter === "all" ? "border-primary" : "border-border/80",
+                )}
+                onClick={() => setMapFilter("all")}
+              >
+                Tất cả
+              </Button>
+              <Button
+                size="sm"
+                variant={mapFilter === "mapped" ? "primary" : "outline"}
+                className={cn(
+                  "h-8 rounded-full border px-4 text-xs font-semibold shadow-xs",
+                  mapFilter === "mapped" ? "border-primary" : "border-border/80",
+                )}
+                onClick={() => setMapFilter("mapped")}
+              >
+                Đã thêm vào bản đồ
+              </Button>
+              <Button
+                size="sm"
+                variant={mapFilter === "unmapped" ? "primary" : "outline"}
+                className={cn(
+                  "h-8 rounded-full border px-4 text-xs font-semibold shadow-xs",
+                  mapFilter === "unmapped" ? "border-primary" : "border-border/80",
+                )}
+                onClick={() => setMapFilter("unmapped")}
+              >
+                Chưa thêm vào bản đồ
+              </Button>
+            </div>
+          </div>
+        }
         emptyState={{
           description: "Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.",
         }}

@@ -151,6 +151,12 @@ export interface TraceTimelineItem {
   description: string;
   imageUrls?: string[];
   meta?: Record<string, unknown>;
+  /** Tag nguồn gốc — có khi sản phẩm gộp từ nhiều nông trại */
+  source?: {
+    plotCode: string | null;
+    farmerName: string | null;
+    contractNo: string | null;
+  } | null;
 }
 
 export interface TracePlot {
@@ -207,15 +213,24 @@ export interface TraceStats {
   reportTypeCounts: Record<string, number>;
   scanCategoryCounts: Record<string, number>;
   totalInventoryKg: number;
+  contributingFarmCount: number;
+}
+
+export interface TracePlotSummary {
+  id: string;
+  plotCode: string;
+  areaHa: number;
+  plantingDate?: string | null;
+  farmer?: { fullName: string; province?: string } | null;
+  zone?: { name: string; province: string; district?: string } | null;
 }
 
 export interface ProductTraceability {
   product: Product & { averageRating: number; reviewCount: number };
   plot: TracePlot | null;
+  contributingPlots: TracePlotSummary[];
   contract: TraceContract | null;
   timeline: TraceTimelineItem[];
-  reports: unknown[];
-  scans: unknown[];
   inventoryLots: TraceInventoryLot[];
   reviews: TraceReview[];
   stats: TraceStats;

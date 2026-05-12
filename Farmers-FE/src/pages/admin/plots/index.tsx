@@ -372,6 +372,7 @@ export default function PlotsPage() {
         isLoading={isLoading}
         isAwaitingResults={isFetching && !isLoading}
         manualPagination
+        manualFiltering
         pagination={{
           page: currentPage,
           pageSize: itemsPerPage,

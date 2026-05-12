@@ -30,11 +30,16 @@ import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { ReviewsService } from '../reviews/reviews.service';
+import { CreateReviewDto } from '../reviews/dto/create-review.dto';
 
 @ApiTags('products')
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly reviewsService: ReviewsService,
+  ) {}
 
   // ─── PUBLIC ────────────────────────────────────────────────────────────────
 
@@ -78,6 +83,31 @@ export class ProductsController {
   @ApiOperation({ summary: 'Danh sách sản phẩm liên quan' })
   findRelated(@Param('id') id: string, @Query('limit') limit?: string) {
     return this.productsService.findRelated(id, parseInt(limit || '4', 10));
+  }
+
+  // ─── REVIEWS (PUBLIC GET / CLIENT POST) ────────────────────────────────────
+
+  @Get(':id/reviews')
+  @ApiOperation({ summary: 'Danh sách đánh giá đã duyệt của sản phẩm' })
+  listReviews(
+    @Param('id') id: string,
+    @Query() query: { page?: string; limit?: string },
+  ) {
+    return this.reviewsService.listByProduct(id, query);
+  }
+
+  @Post(':id/reviews')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.CLIENT)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Gửi đánh giá sản phẩm (khách hàng đã mua)' })
+  createReview(
+    @Param('id') id: string,
+    @Body() dto: CreateReviewDto,
+    @Request() req: any,
+  ) {
+    return this.reviewsService.create(req.user.id, id, dto);
   }
 
   // ─── INTERNAL MANAGEMENT ───────────────────────────────────────────────────

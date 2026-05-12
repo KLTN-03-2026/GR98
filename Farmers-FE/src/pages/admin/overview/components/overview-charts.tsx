@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type {
@@ -58,12 +59,19 @@ function StatusPie({
   const total = pieData.reduce((a, b) => a + b.value, 0);
 
   return (
-    <Card className="overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-b from-card to-primary/[0.03] shadow-sm dark:to-primary/[0.06]">
-      <CardHeader className="pb-2 pt-4">
-        <CardTitle className="text-base font-semibold tracking-tight">{title}</CardTitle>
-        <p className="text-sm text-muted-foreground">{description}</p>
+    <Card className="overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/75 py-0 shadow-[0_18px_56px_rgba(47,93,80,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-card/75">
+      <CardHeader className="px-5 pb-2 pt-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle className="text-base font-semibold tracking-tight">{title}</CardTitle>
+            <p className="text-sm text-muted-foreground">{description}</p>
+          </div>
+          <Badge variant="outline" className="rounded-full bg-primary/5 text-xs text-primary">
+            {total.toLocaleString('vi-VN')}
+          </Badge>
+        </div>
       </CardHeader>
-      <CardContent className="h-[240px] pt-0">
+      <CardContent className="h-[260px] px-3 pb-5 pt-0 sm:px-5">
         {isLoading ? (
           <Skeleton className="h-full w-full rounded-xl" />
         ) : total === 0 ? (
@@ -131,16 +139,25 @@ export function OverviewCharts({
 
   return (
     <div className="space-y-5">
-      <Card className="overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-b from-card to-primary/[0.03] shadow-sm dark:to-primary/[0.06]">
-        <CardHeader className="pb-2 pt-4">
-          <CardTitle className="text-lg font-semibold tracking-tight">
-            Xu hướng đơn hàng, doanh thu, hợp đồng
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Dữ liệu theo bộ lọc thời gian đang chọn
-          </p>
+      <Card className="overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/75 py-0 shadow-[0_18px_56px_rgba(47,93,80,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-card/75">
+        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/[0.08] via-transparent to-secondary/[0.08] px-5 py-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <CardTitle className="text-xl font-bold tracking-[-0.02em]">
+                Xu hướng đơn hàng, doanh thu, hợp đồng
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Dữ liệu theo bộ lọc thời gian đang chọn
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge className="rounded-full bg-primary/10 text-primary shadow-none hover:bg-primary/10">Đơn hàng</Badge>
+              <Badge className="rounded-full bg-secondary/10 text-secondary shadow-none hover:bg-secondary/10">Hợp đồng</Badge>
+              <Badge className="rounded-full bg-emerald-500/10 text-emerald-700 shadow-none hover:bg-emerald-500/10 dark:text-emerald-300">Doanh thu</Badge>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="h-[260px] pt-0">
+        <CardContent className="h-[340px] px-2 pb-5 pt-4 sm:px-5">
           {isLoading ? (
             <Skeleton className="h-full w-full rounded-xl" />
           ) : chartData.length === 0 ? (
@@ -215,7 +232,7 @@ export function OverviewCharts({
         </CardContent>
       </Card>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 xl:grid-cols-3">
         <StatusPie
           title="Đơn hàng theo trạng thái xử lý"
           description="Phân bổ fulfill status"

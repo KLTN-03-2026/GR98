@@ -12,12 +12,14 @@ import {
   Eye,
   X,
   AlertTriangle,
+  Star,
 } from 'lucide-react';
 import {
   useOrders,
   useOrder,
   useCancelOrder,
 } from '@/client/api';
+import { ReviewDialog } from '@/client/components/ReviewDialog';
 import {
   PAYMENT_STATUS_LABELS,
   FULFILL_STATUS_LABELS,
@@ -164,6 +166,9 @@ function CancelOrderDialog({ orderId }: { orderId: string }) {
 function OrderDetailSheet({ orderId }: { orderId: string }) {
   const [open, setOpen] = useState(false);
   const { data: order, isLoading } = useOrder(orderId);
+  // Track which productIds the customer has already reviewed in this session
+  const [reviewedProductIds, setReviewedProductIds] = useState<Set<string>>(new Set());
+  const [reviewTarget, setReviewTarget] = useState<{ productId: string; productName: string } | null>(null);
 
   const getImageUrl = (item: Order['orderItems'][0]) => {
     if (item.product?.imageUrls?.length) return item.product.imageUrls[0];
@@ -254,6 +259,8 @@ function OrderDetailSheet({ orderId }: { orderId: string }) {
               <h4 className="font-medium text-sm">Sản phẩm</h4>
               {order.orderItems.map((item) => {
                 const imgUrl = getImageUrl(item);
+                const canReview = order.fulfillStatus === 'DELIVERED' && !!item.productId;
+                const hasReviewed = item.productId ? reviewedProductIds.has(item.productId) : false;
                 return (
                   <div key={item.id} className="flex gap-3">
                     <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
@@ -270,9 +277,34 @@ function OrderDetailSheet({ orderId }: { orderId: string }) {
                       <p className="text-xs text-muted-foreground">
                         {item.quantityKg}kg × {formatPrice(item.priceSnapshot)}
                       </p>
-                      <p className="text-sm font-semibold text-primary mt-1">
-                        {formatPrice(item.subtotal)}
-                      </p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-sm font-semibold text-primary">
+                          {formatPrice(item.subtotal)}
+                        </p>
+                        {canReview && (
+                          hasReviewed ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Đã đánh giá
+                            </span>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1 border-amber-200 text-amber-700 hover:bg-amber-50"
+                              onClick={() =>
+                                setReviewTarget({
+                                  productId: item.productId!,
+                                  productName: item.nameSnapshot,
+                                })
+                              }
+                            >
+                              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                              Đánh giá
+                            </Button>
+                          )
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -323,6 +355,20 @@ function OrderDetailSheet({ orderId }: { orderId: string }) {
           </div>
         ) : null}
       </SheetContent>
+
+      {/* Review Dialog — mounted outside SheetContent to avoid z-index issues */}
+      {reviewTarget && (
+        <ReviewDialog
+          open={!!reviewTarget}
+          onOpenChange={(isOpen) => { if (!isOpen) setReviewTarget(null); }}
+          productId={reviewTarget.productId}
+          productName={reviewTarget.productName}
+          onSuccess={() => {
+            setReviewedProductIds((prev) => new Set([...prev, reviewTarget.productId]));
+            setReviewTarget(null);
+          }}
+        />
+      )}
     </Sheet>
   );
 }

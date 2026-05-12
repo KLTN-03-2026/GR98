@@ -157,7 +157,7 @@ export default function ContractsManagementView({
   };
 
   const filterOptions = mode === 'supervisor' ? SUPERVISOR_STATUS_FILTERS : STATUS_FILTERS;
-
+  
   return (
     <DataGrid<ContractResponse>
       items={contracts}

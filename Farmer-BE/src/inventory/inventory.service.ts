@@ -624,7 +624,18 @@ export class InventoryService {
       }),
       this.prisma.contract.findUnique({
         where: { id: contractId },
-        select: { id: true, adminId: true, status: true, product: { select: { id: true } } }
+        select: {
+          id: true,
+          adminId: true,
+          status: true,
+          cropType: true,
+          grade: true,
+          farmerId: true,
+          plotId: true,
+          plotDraftProvince: true,
+          plotDraftDistrict: true,
+          product: { select: { id: true } },
+        },
       })
     ]);
 
@@ -636,20 +647,90 @@ export class InventoryService {
       throw new NotFoundException('Hợp đồng không tồn tại');
     }
 
-    if (!contract.product) {
+    // Nếu hợp đồng không có product riêng (đã được gộp vào product của hợp đồng khác
+    // cùng cropType + grade + vùng địa lý), tra cứu product dùng chung thay thế.
+    // Dùng 2 bước tường minh thay vì OR lồng relation để tránh lỗi Prisma.
+    let resolvedProductId: string | undefined = contract.product?.id;
+    if (!resolvedProductId) {
+      let sharedProductId: string | undefined;
+
+      // ── Nhánh A: so qua zone của plot ──
+      if (contract.plotId) {
+        const plotInfo = await this.prisma.plot.findUnique({
+          where: { id: contract.plotId },
+          include: { zone: { select: { province: true, district: true } } },
+        });
+
+        if (plotInfo?.zone?.province) {
+          const samePlotIds = await this.prisma.plot.findMany({
+            where: {
+              zone: {
+                province: plotInfo.zone.province,
+                ...(plotInfo.zone.district ? { district: plotInfo.zone.district } : {}),
+              },
+            },
+            select: { id: true },
+          });
+
+          if (samePlotIds.length > 0) {
+            const found = await this.prisma.product.findFirst({
+              where: {
+                adminId,
+                cropType: contract.cropType,
+                grade: contract.grade,
+                status: { notIn: ['ARCHIVED'] },
+                plotId: { in: samePlotIds.map((p) => p.id) },
+              },
+              select: { id: true },
+              orderBy: { createdAt: 'asc' },
+            });
+            sharedProductId = found?.id;
+          }
+        }
+      }
+
+      // ── Nhánh B: so qua contract.plotDraftProvince/District ──
+      // (dùng khi plot không có zone trong DB hoặc plot chưa được gán)
+      if (!sharedProductId && contract.plotDraftProvince) {
+        const sameAreaContracts = await this.prisma.contract.findMany({
+          where: {
+            adminId,
+            plotDraftProvince: contract.plotDraftProvince,
+            ...(contract.plotDraftDistrict
+              ? { plotDraftDistrict: contract.plotDraftDistrict }
+              : {}),
+          },
+          select: { id: true },
+        });
+
+        if (sameAreaContracts.length > 0) {
+          const found = await this.prisma.product.findFirst({
+            where: {
+              adminId,
+              cropType: contract.cropType,
+              grade: contract.grade,
+              status: { notIn: ['ARCHIVED'] },
+              contractId: { in: sameAreaContracts.map((c) => c.id) },
+            },
+            select: { id: true },
+            orderBy: { createdAt: 'asc' },
+          });
+          sharedProductId = found?.id;
+        }
+      }
+
+      resolvedProductId = sharedProductId;
+    }
+
+    if (!resolvedProductId) {
       throw new BadRequestException('Hợp đồng này chưa được liên kết với sản phẩm thương mại');
     }
 
     // 3. Yield Balance Logic (Cumulative across all harvest reports for this contract)
     // Tổng sản lượng từ TẤT CẢ báo cáo thu hoạch đã duyệt cho contract này
-    const contract_ = await this.prisma.contract.findUnique({
-      where: { id: contractId },
-      select: { plotId: true },
-    });
-
     const totalYieldResult = await this.prisma.dailyReport.aggregate({
       where: {
-        plotId: contract_?.plotId ?? report.plotId,
+        plotId: contract.plotId ?? report.plotId,
         type: 'HARVEST',
         status: { notIn: ['DRAFT', 'REJECTED'] },
       },
@@ -729,7 +810,7 @@ export class InventoryService {
         lot = await tx.inventoryLot.create({
           data: {
             warehouseId,
-            productId: contract.product!.id,
+            productId: resolvedProductId!,
             contractId,
             quantityKg: actualWeight,
             qualityGrade,

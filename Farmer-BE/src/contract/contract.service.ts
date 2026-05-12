@@ -880,6 +880,7 @@ export class ContractService {
           plotId: true,
           contractNo: true,
           cropType: true,
+          variety: true,
           grade: true,
           farmerId: true,
           supervisorId: true,
@@ -996,15 +997,107 @@ export class ContractService {
       // ── Auto-create DRAFT product khi hợp đồng được duyệt ──────────
       // Giải quyết chicken-and-egg: receiveHarvest cần product tồn tại,
       // nên tạo sẵn product DRAFT ngay khi HĐ ACTIVE.
+      //
+      // Deduplication: cùng cropType + grade + zone (province/district)
+      // → tái sử dụng product hiện có thay vì tạo thêm bản sao.
+      // KHÔNG phân biệt nông dân: nhiều nông dân khác nhau trong cùng vùng,
+      // cùng giống cây, cùng hạng → 1 sản phẩm duy nhất.
+      // Ví dụ: "Cà phê Ariba Di Linh" thay vì "ca-phe - HDLK-..."
       const existingProduct = await tx.product.findUnique({
         where: { contractId: id },
         select: { id: true },
       });
 
+      // Lấy thông tin zone của lô đất vừa xác định để so khớp vùng địa lý
+      const plotWithZone = !existingProduct && nextPlotId
+        ? await tx.plot.findUnique({
+            where: { id: nextPlotId },
+            include: { zone: { select: { province: true, district: true } } },
+          })
+        : null;
+
+      // Fallback: nếu plot chưa có zone, dùng draftDistrict/draftProvince từ hợp đồng
+      const zoneProvince =
+        plotWithZone?.zone?.province ?? existing.plotDraftProvince ?? null;
+      const zoneDistrict =
+        plotWithZone?.zone?.district ?? existing.plotDraftDistrict ?? null;
+
+      // ── Dedup: tìm sản phẩm cùng (cropType + grade + vùng địa lý) ──
+      // Không cần farmerId — nhiều nông dân cùng vùng vẫn gộp chung.
+      // Dùng 2 query riêng (tránh Prisma nested-OR bug với relation filter):
+      //   Bước 1: tìm danh sách contractId/plotId có cùng vùng địa lý
+      //   Bước 2: tìm product gắn với các contractId/plotId đó
+
+      let duplicateProduct: { id: string; name: string } | null = null;
+
       if (!existingProduct) {
+        // ── Nhánh A: so qua plotId có cùng zone ──
+        if (plotWithZone?.zone?.province) {
+          const samePlotIds = await tx.plot.findMany({
+            where: {
+              zone: {
+                province: plotWithZone.zone.province,
+                ...(plotWithZone.zone.district
+                  ? { district: plotWithZone.zone.district }
+                  : {}),
+              },
+            },
+            select: { id: true },
+          });
+          if (samePlotIds.length > 0) {
+            duplicateProduct = await tx.product.findFirst({
+              where: {
+                adminId: actor.adminId,
+                cropType: existing.cropType,
+                grade: existing.grade,
+                status: { notIn: ['ARCHIVED'] },
+                plotId: { in: samePlotIds.map((p) => p.id) },
+              },
+              select: { id: true, name: true },
+            });
+          }
+        }
+
+        // ── Nhánh B: so qua contract.plotDraftProvince/District ──
+        // (dùng khi plot không có zone trong DB)
+        if (!duplicateProduct && existing.plotDraftProvince) {
+          const sameAreaContracts = await tx.contract.findMany({
+            where: {
+              adminId: actor.adminId,
+              id: { not: id }, // loại trừ chính hợp đồng này
+              plotDraftProvince: existing.plotDraftProvince,
+              ...(existing.plotDraftDistrict
+                ? { plotDraftDistrict: existing.plotDraftDistrict }
+                : {}),
+            },
+            select: { id: true },
+          });
+          if (sameAreaContracts.length > 0) {
+            duplicateProduct = await tx.product.findFirst({
+              where: {
+                adminId: actor.adminId,
+                cropType: existing.cropType,
+                grade: existing.grade,
+                status: { notIn: ['ARCHIVED'] },
+                contractId: { in: sameAreaContracts.map((c) => c.id) },
+              },
+              select: { id: true, name: true },
+            });
+          }
+        }
+      }
+
+      if (!existingProduct && !duplicateProduct) {
         const cropType = existing.cropType;
         const grade = existing.grade;
-        const defaultName = `${cropType} - ${existing.contractNo}`;
+
+        // Tên sản phẩm: "{cropType} {variety} {district/province}"
+        // Ví dụ: "Cà phê Ariba Di Linh" hoặc "Cà phê Lâm Đồng"
+        const varietyPart = existing.variety ? ` ${existing.variety}` : '';
+        const locationPart = zoneDistrict ?? zoneProvince ?? '';
+        const defaultName = locationPart
+          ? `${cropType}${varietyPart} ${locationPart}`
+          : `${cropType}${varietyPart} - ${existing.contractNo}`;
 
         // Generate slug
         const baseSlug = defaultName

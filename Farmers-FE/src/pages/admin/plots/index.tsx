@@ -2,8 +2,10 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  Coffee,
   Edit3,
   Layers3,
+  Leaf,
   MapPin,
   Save,
   Sprout,
@@ -296,8 +298,8 @@ export default function PlotsPage() {
             type="button"
             onClick={() => openSheet(plot)}
             className={cn(
-              "flex h-full w-full flex-col rounded-2xl border border-l-4 border-l-emerald-500 bg-gradient-to-br from-white to-emerald-50/40 p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-l-emerald-600 hover:shadow-md",
-              editingId === plot.id && "ring-2 ring-emerald-200",
+              "group flex h-full w-full flex-col rounded-2xl border border-l-4 border-l-primary bg-gradient-to-br from-white to-primary/5 p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-l-primary/80 hover:shadow-md",
+              editingId === plot.id && "ring-2 ring-primary/20",
             )}
           >
             {/* Header */}
@@ -357,7 +359,7 @@ export default function PlotsPage() {
             </div>
 
             {/* Footer */}
-            <div className="mt-3 flex shrink-0 flex-wrap items-center gap-1.5 border-t border-dashed border-emerald-100 pt-3">
+            <div className="mt-3 flex shrink-0 flex-wrap items-center gap-1.5 border-t border-dashed border-primary/20 pt-3">
               <Badge variant="outline" className={getCropBadgeClass(plot.cropType)}>
                 {getCropLabel(plot.cropType)}
               </Badge>
@@ -370,6 +372,7 @@ export default function PlotsPage() {
         isLoading={isLoading}
         isAwaitingResults={isFetching && !isLoading}
         manualPagination
+        manualFiltering
         pagination={{
           page: currentPage,
           pageSize: itemsPerPage,
@@ -377,6 +380,20 @@ export default function PlotsPage() {
           totalPages: Math.max(1, totalPages),
           onPageChange: setCurrentPage,
         }}
+        titleRight={
+          <>
+            <div className="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800">
+              <Layers3 className="h-3.5 w-3.5 shrink-0" />
+              <span>Tổng lô:</span>
+              <span className="font-bold">{total}</span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800">
+              <Sprout className="h-3.5 w-3.5 shrink-0" />
+              <span>Diện tích:</span>
+              <span className="font-bold">{totalArea.toFixed(1)} ha</span>
+            </div>
+          </>
+        }
         toolbar={{
           search: {
             value: keyword,
@@ -386,60 +403,45 @@ export default function PlotsPage() {
           },
           filters: (
             <>
-              {/* Crop type segment */}
-              <div className="flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-muted/50 p-1">
-                {([
-                  { value: "all", label: "Tất cả" },
-                  { value: "ca-phe", label: "☕ Cà phê" },
-                  { value: "sau-rieng", label: "🌿 Sầu riêng" },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setFilter(opt.value)}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 whitespace-nowrap",
-                      filter === opt.value
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Supervisor filter */}
-              <div className="relative flex shrink-0 items-center">
-                <Users className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-emerald-600 z-10" />
-                <select
-                  value={supervisorFilterId}
-                  onChange={(event) => setSupervisorFilterId(event.target.value)}
-                  disabled={isLoadingSupervisors}
-                  className="h-9 appearance-none rounded-full border border-border/60 bg-background pl-8 pr-4 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-70 min-w-[11rem]"
+              <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/50 bg-white p-1 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setFilter("all")}
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
+                    filter === "all"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  )}
                 >
-                  <option value="all">Tất cả giám sát viên</option>
-                  {supervisors.map((item) => (
-                    <option key={`plot-filter-supervisor-${item.id}`} value={item.id}>
-                      {item.name}
-                      {item.employeeCode ? ` (${item.employeeCode})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </>
-          ),
-          quickStats: (
-            <>
-              <div className="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-sky-800">
-                <Layers3 className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-medium">Tổng lô:</span>
-                <span className="font-bold">{total}</span>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
-                <Sprout className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-medium">Diện tích:</span>
-                <span className="font-bold">{totalArea.toFixed(1)} ha</span>
+                  Tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter("ca-phe")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
+                    filter === "ca-phe"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  <Coffee className="h-3 w-3" />
+                  Cà phê
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter("sau-rieng")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
+                    filter === "sau-rieng"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  <Leaf className="h-3 w-3" />
+                  Sầu riêng
+                </button>
               </div>
             </>
           ),
@@ -450,6 +452,45 @@ export default function PlotsPage() {
             </>
           ),
         }}
+        contentHeader={
+          <div className="flex w-full flex-col gap-3 rounded-2xl border border-border/60 bg-white p-3 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-100 bg-white text-emerald-700 shadow-xs">
+                <Users className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">
+                  Lọc theo giám sát viên
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Thu hẹp danh sách lô đất theo người đang phụ trách
+                </p>
+              </div>
+            </div>
+
+            <div className="relative w-full sm:w-[18rem]">
+              <Users className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-emerald-600" />
+              <select
+                aria-label="Lọc theo giám sát viên"
+                value={supervisorFilterId}
+                onChange={(event) => setSupervisorFilterId(event.target.value)}
+                disabled={isLoadingSupervisors}
+                className="h-10 w-full appearance-none rounded-full border border-border/70 bg-white pl-9 pr-9 text-sm font-semibold text-slate-800 shadow-xs outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <option value="all">Tất cả giám sát viên</option>
+                {supervisors.map((item) => (
+                  <option key={`plot-filter-supervisor-${item.id}`} value={item.id}>
+                    {item.name}
+                    {item.employeeCode ? ` (${item.employeeCode})` : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500">
+                ▼
+              </span>
+            </div>
+          </div>
+        }
         emptyState={{
           description: "Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.",
         }}

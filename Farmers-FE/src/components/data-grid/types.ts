@@ -67,6 +67,7 @@ export type DataGridSkeletonConfig = {
 export type DataGridClassNames = {
   root?: string;
   header?: string;
+  headerRight?: string;
   toolbar?: string;
   toolbarShell?: string;
   content?: string;
@@ -83,6 +84,7 @@ export type DataGridProps<TItem> = {
   renderCard: (item: TItem, index: number) => React.ReactNode;
   keyExtractor: (item: TItem, index: number) => string;
   title?: string;
+  titleRight?: React.ReactNode;
   /** Icon Lucide hoặc node — hiển thị trong ô bo góc cạnh tiêu đề (cùng pattern trang kho). */
   titleIcon?: React.ReactNode;
   description?: string;
@@ -114,4 +116,6 @@ export type DataGridProps<TItem> = {
   emptyState?: DataGridEmptyState;
   classNames?: DataGridClassNames;
   appearance?: DataGridAppearance;
+  /** Slot renders between the toolbar card and the grid — ideal for secondary filters. */
+  contentHeader?: React.ReactNode;
 };

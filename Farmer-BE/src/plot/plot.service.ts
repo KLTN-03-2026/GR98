@@ -859,10 +859,22 @@ export class PlotService {
     }
 
     if (query.cropType?.trim()) {
-      where.cropType = {
-        contains: this.normalizeCropType(query.cropType),
-        mode: 'insensitive',
+      const slug = query.cropType.trim().toLowerCase();
+      const viText = this.normalizeCropType(query.cropType);
+      // Use AND to avoid polluting the search OR block
+      const cropCondition: Prisma.PlotWhereInput = {
+        OR: [
+          { cropType: { equals: slug, mode: 'insensitive' } },
+          { cropType: { equals: viText, mode: 'insensitive' } },
+          { cropType: { contains: slug, mode: 'insensitive' } },
+          { cropType: { contains: viText, mode: 'insensitive' } },
+        ],
       };
+      if (where.AND) {
+        (where.AND as Prisma.PlotWhereInput[]).push(cropCondition);
+      } else {
+        where.AND = [cropCondition];
+      }
     }
 
     if (query.id_suppervisor?.trim()) {

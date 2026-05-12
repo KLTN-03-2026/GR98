@@ -77,8 +77,8 @@ export function DataGridToolbar({
         {searchConfig && !hideSearch && (
           <div
             className={cn(
-              "relative w-full sm:max-w-sm",
-              quickStatsInline && "max-w-sm shrink-0",
+              "relative w-full sm:max-w-lg",
+              quickStatsInline && "max-w-lg shrink-0",
             )}
           >
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

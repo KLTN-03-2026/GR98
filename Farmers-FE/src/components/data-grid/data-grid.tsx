@@ -13,6 +13,7 @@ export function DataGrid<TItem>({
   renderCard,
   keyExtractor,
   title,
+  titleRight,
   titleIcon,
   description,
   isLoading = false,
@@ -39,6 +40,7 @@ export function DataGrid<TItem>({
   emptyState,
   classNames,
   appearance = "management",
+  contentHeader,
 }: DataGridProps<TItem>) {
   const sourceData = data ?? items ?? [];
   const initialPageIndex = initialState?.pagination?.pageIndex ?? 0;
@@ -183,16 +185,23 @@ export function DataGrid<TItem>({
         classNames?.root,
       )}
     >
-      {(title || description) && (
+      {(title || description || titleRight) && (
         <div className={cn("space-y-1", classNames?.header)}>
-          {title && (
-            <div className="flex items-center gap-2">
-              {titleIcon && (
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
-                  {titleIcon}
+          {(title || titleRight) && (
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                {titleIcon && (
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
+                    {titleIcon}
+                  </div>
+                )}
+                {title && <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>}
+              </div>
+              {titleRight && (
+                <div className={cn("flex shrink-0 flex-wrap items-center gap-2", classNames?.headerRight)}>
+                  {titleRight}
                 </div>
               )}
-              <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
             </div>
           )}
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
@@ -215,6 +224,12 @@ export function DataGrid<TItem>({
             />
           </CardContent>
         </Card>
+      )}
+
+      {contentHeader && (
+        <div className="flex flex-wrap items-center gap-2">
+          {contentHeader}
+        </div>
       )}
 
       <div className={cn("flex flex-col", classNames?.content)}>

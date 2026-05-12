@@ -6,7 +6,6 @@ import {
   Layers3,
   MapPin,
   Save,
-  SlidersHorizontal,
   Sprout,
   Trash2,
   Users,
@@ -387,49 +386,37 @@ export default function PlotsPage() {
           },
           filters: (
             <>
-              <span
-                className="inline-flex shrink-0 items-center gap-1.5 text-muted-foreground"
-                title="Bộ lọc nhanh"
-              >
-                <SlidersHorizontal className="h-4 w-4 shrink-0" />
-                <span className="hidden text-xs font-medium sm:inline">Bộ lọc</span>
-              </span>
-              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                <Button
-                  variant={filter === "all" ? "primary" : "outline"}
-                  className="rounded-full"
-                  onClick={() => setFilter("all")}
-                >
-                  Tất cả
-                </Button>
-                <Button
-                  variant={filter === "ca-phe" ? "primary" : "outline"}
-                  className="rounded-full"
-                  onClick={() => setFilter("ca-phe")}
-                >
-                  Cà phê
-                </Button>
-                <Button
-                  variant={filter === "sau-rieng" ? "primary" : "outline"}
-                  className="rounded-full"
-                  onClick={() => setFilter("sau-rieng")}
-                >
-                  Sầu riêng
-                </Button>
+              {/* Crop type segment */}
+              <div className="flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-muted/50 p-1">
+                {([
+                  { value: "all", label: "Tất cả" },
+                  { value: "ca-phe", label: "☕ Cà phê" },
+                  { value: "sau-rieng", label: "🌿 Sầu riêng" },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFilter(opt.value)}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 whitespace-nowrap",
+                      filter === opt.value
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-              <div
-                className="inline-flex max-w-full shrink-0 items-center gap-2 rounded-full border border-emerald-200 bg-white px-2.5 py-1"
-                title="Lọc theo giám sát viên"
-              >
-                <Users className="h-4 w-4 shrink-0 text-emerald-700" />
-                <span className="hidden whitespace-nowrap text-xs font-medium text-emerald-800 lg:inline">
-                  Giám sát
-                </span>
+
+              {/* Supervisor filter */}
+              <div className="relative flex shrink-0 items-center">
+                <Users className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-emerald-600 z-10" />
                 <select
                   value={supervisorFilterId}
                   onChange={(event) => setSupervisorFilterId(event.target.value)}
                   disabled={isLoadingSupervisors}
-                  className="h-8 min-w-[10rem] max-w-[14rem] rounded-md border border-emerald-200 bg-white px-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="h-9 appearance-none rounded-full border border-border/60 bg-background pl-8 pr-4 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-70 min-w-[11rem]"
                 >
                   <option value="all">Tất cả giám sát viên</option>
                   {supervisors.map((item) => (
@@ -444,16 +431,22 @@ export default function PlotsPage() {
           ),
           quickStats: (
             <>
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm text-sky-800">
-                <Layers3 className="h-4 w-4" />
+              <div className="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-sky-800">
+                <Layers3 className="h-3.5 w-3.5 shrink-0" />
                 <span className="font-medium">Tổng lô:</span>
-                <span className="font-semibold">{total}</span>
+                <span className="font-bold">{total}</span>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-800">
-                <Sprout className="h-4 w-4" />
-                <span className="font-medium">Tổng diện tích:</span>
-                <span className="font-semibold">{totalArea.toFixed(1)} ha</span>
+              <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
+                <Sprout className="h-3.5 w-3.5 shrink-0" />
+                <span className="font-medium">Diện tích:</span>
+                <span className="font-bold">{totalArea.toFixed(1)} ha</span>
               </div>
+            </>
+          ),
+          summary: (
+            <>
+              <span>Hiển thị {plots.length} / {total} lô đất.</span>
+              <span>Giới hạn mỗi trang: {itemsPerPage}</span>
             </>
           ),
         }}

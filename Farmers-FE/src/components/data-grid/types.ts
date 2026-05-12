@@ -116,4 +116,6 @@ export type DataGridProps<TItem> = {
   emptyState?: DataGridEmptyState;
   classNames?: DataGridClassNames;
   appearance?: DataGridAppearance;
+  /** Slot renders between the toolbar card and the grid — ideal for secondary filters. */
+  contentHeader?: React.ReactNode;
 };

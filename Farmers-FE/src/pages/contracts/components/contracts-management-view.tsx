@@ -263,7 +263,7 @@ export default function ContractsManagementView({
         filters: (
           <>
             {/* Status segment control */}
-            <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/60 bg-muted/50 p-1">
+            <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/50 bg-white p-1">
               {filterOptions.map((opt) => (
                 <button
                   key={opt.value}
@@ -273,7 +273,7 @@ export default function ContractsManagementView({
                     'rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap',
                     statusFilter === opt.value
                       ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
+                      : 'text-slate-500 hover:text-slate-700',
                   )}
                 >
                   {opt.label}

@@ -40,6 +40,7 @@ export function DataGrid<TItem>({
   emptyState,
   classNames,
   appearance = "management",
+  contentHeader,
 }: DataGridProps<TItem>) {
   const sourceData = data ?? items ?? [];
   const initialPageIndex = initialState?.pagination?.pageIndex ?? 0;
@@ -223,6 +224,12 @@ export function DataGrid<TItem>({
             />
           </CardContent>
         </Card>
+      )}
+
+      {contentHeader && (
+        <div className="flex flex-wrap items-center gap-2">
+          {contentHeader}
+        </div>
       )}
 
       <div className={cn("flex flex-col", classNames?.content)}>

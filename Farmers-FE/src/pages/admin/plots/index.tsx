@@ -404,7 +404,7 @@ export default function PlotsPage() {
           filters: (
             <>
               {/* Crop type segment control */}
-              <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/60 bg-muted/50 p-1">
+              <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/50 bg-white p-1">
                 <button
                   type="button"
                   onClick={() => setFilter("all")}
@@ -412,7 +412,7 @@ export default function PlotsPage() {
                     "rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
                     filter === "all"
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-slate-500 hover:text-slate-700"
                   )}
                 >
                   Tất cả
@@ -424,7 +424,7 @@ export default function PlotsPage() {
                     "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
                     filter === "ca-phe"
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-slate-500 hover:text-slate-700"
                   )}
                 >
                   <Coffee className="h-3 w-3" />
@@ -437,31 +437,12 @@ export default function PlotsPage() {
                     "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
                     filter === "sau-rieng"
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-slate-500 hover:text-slate-700"
                   )}
                 >
                   <Leaf className="h-3 w-3" />
                   Sầu riêng
                 </button>
-              </div>
-
-              {/* Supervisor filter */}
-              <div className="relative flex shrink-0 items-center">
-                <Users className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-emerald-600 z-10" />
-                <select
-                  value={supervisorFilterId}
-                  onChange={(event) => setSupervisorFilterId(event.target.value)}
-                  disabled={isLoadingSupervisors}
-                  className="h-9 appearance-none rounded-full border border-border/60 bg-background pl-8 pr-5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-70 min-w-[14rem]"
-                >
-                  <option value="all">Tất cả giám sát viên</option>
-                  {supervisors.map((item) => (
-                    <option key={`plot-filter-supervisor-${item.id}`} value={item.id}>
-                      {item.name}
-                      {item.employeeCode ? ` (${item.employeeCode})` : ""}
-                    </option>
-                  ))}
-                </select>
               </div>
             </>
           ),
@@ -472,6 +453,31 @@ export default function PlotsPage() {
             </>
           ),
         }}
+        contentHeader={
+          <div className="flex w-full items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
+              <Users className="h-4 w-4 text-emerald-600" />
+              Lọc theo giám sát viên
+            </span>
+            <div className="relative flex items-center">
+              <Users className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-emerald-600 z-10" />
+              <select
+                value={supervisorFilterId}
+                onChange={(event) => setSupervisorFilterId(event.target.value)}
+                disabled={isLoadingSupervisors}
+                className="h-9 appearance-none rounded-full border border-border/60 bg-white pl-8 pr-5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-70 min-w-[16rem] shadow-xs"
+              >
+                <option value="all">Tất cả giám sát viên</option>
+                {supervisors.map((item) => (
+                  <option key={`plot-filter-supervisor-${item.id}`} value={item.id}>
+                    {item.name}
+                    {item.employeeCode ? ` (${item.employeeCode})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        }
         emptyState={{
           description: "Không tìm thấy lô đất phù hợp với bộ lọc hiện tại.",
         }}

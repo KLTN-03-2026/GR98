@@ -1,6 +1,23 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { PaginationState, Updater } from '@tanstack/react-table';
-import { ScanSearch, Bug, Leaf, AlertTriangle, RefreshCw, Camera } from 'lucide-react';
+import {
+  Activity,
+  BadgeAlert,
+  Biohazard,
+  Bug,
+  Circle,
+  Leaf,
+  Microscope,
+  RefreshCw,
+  ScanLine,
+  ScanSearch,
+  ShieldCheck,
+  Siren,
+  Sparkles,
+  Sprout,
+  TriangleAlert,
+  Waves,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data-table';
@@ -103,8 +120,8 @@ export default function SupervisorAIAnalysisPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
-              <ScanSearch className="size-4 text-primary" />
+            <div className="flex size-9 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+              <Microscope className="size-4" />
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">Giám sát bệnh cây trồng AI</h1>
           </div>
@@ -119,7 +136,7 @@ export default function SupervisorAIAnalysisPage() {
             className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
             onClick={() => window.open('http://localhost:5174', '_blank')}
           >
-            <Camera className="h-4 w-4 mr-2" />
+            <ScanLine className="h-4 w-4 mr-2" />
             Máy quét AI thực địa
           </Button>
           <Button
@@ -139,28 +156,28 @@ export default function SupervisorAIAnalysisPage() {
         <StatCard
           label="Tổng lượt quét"
           value={meta?.totalScans}
-          icon={<ScanSearch className="h-5 w-5 text-purple-600" />}
-          colorClass="bg-purple-100"
+          icon={<Activity className="h-5 w-5 text-violet-600" />}
+          colorClass="bg-violet-100"
           isLoading={isLoading}
         />
         <StatCard
           label="Phát hiện bệnh"
           value={meta?.diseaseCount}
-          icon={<Bug className="h-5 w-5 text-red-600" />}
+          icon={<Biohazard className="h-5 w-5 text-red-600" />}
           colorClass="bg-red-100"
           isLoading={isLoading}
         />
         <StatCard
           label="Cây khỏe mạnh"
           value={meta?.healthyCount}
-          icon={<Leaf className="h-5 w-5 text-green-600" />}
+          icon={<ShieldCheck className="h-5 w-5 text-green-600" />}
           colorClass="bg-green-100"
           isLoading={isLoading}
         />
         <StatCard
           label="Cảnh báo nghiêm trọng"
           value={meta?.dangerHighCount}
-          icon={<AlertTriangle className="h-5 w-5 text-orange-600" />}
+          icon={<Siren className="h-5 w-5 text-orange-600" />}
           colorClass="bg-orange-100"
           isLoading={isLoading}
         />
@@ -198,46 +215,54 @@ export default function SupervisorAIAnalysisPage() {
                 {/* Category filters */}
                 {(
                   [
-                    { key: 'ALL' as const, label: 'Tất cả' },
-                    { key: 'fungal' as const, label: 'Nấm' },
-                    { key: 'bacterial' as const, label: 'Vi khuẩn' },
-                    { key: 'viral' as const, label: 'Virus' },
-                    { key: 'healthy' as const, label: 'Khỏe mạnh' },
-                  ] satisfies { key: CategoryFilter; label: string }[]
-                ).map((t) => (
-                  <Button
-                    key={t.key}
-                    type="button"
-                    variant={categoryFilter === t.key ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => { setCategoryFilter(t.key); setCurrentPage(1); }}
-                  >
-                    {t.label}
-                  </Button>
-                ))}
+                    { key: 'ALL' as const, label: 'Tất cả', icon: Sparkles },
+                    { key: 'fungal' as const, label: 'Nấm', icon: Sprout },
+                    { key: 'bacterial' as const, label: 'Vi khuẩn', icon: Bug },
+                    { key: 'viral' as const, label: 'Virus', icon: Biohazard },
+                    { key: 'healthy' as const, label: 'Khỏe mạnh', icon: ShieldCheck },
+                  ] satisfies { key: CategoryFilter; label: string; icon: React.ElementType }[]
+                ).map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <Button
+                      key={t.key}
+                      type="button"
+                      variant={categoryFilter === t.key ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => { setCategoryFilter(t.key); setCurrentPage(1); }}
+                    >
+                      <Icon className="mr-1.5 h-3.5 w-3.5" />
+                      {t.label}
+                    </Button>
+                  );
+                })}
 
                 <span className="text-muted-foreground text-xs px-1">|</span>
 
                 {/* Danger level filters */}
                 {(
                   [
-                    { key: 'ALL' as const, label: 'Tất cả mức' },
-                    { key: 'Cao' as const, label: '🔴 Cao' },
-                    { key: 'Rất cao' as const, label: '🚨 Rất cao' },
-                    { key: 'Trung bình' as const, label: '🟡 Trung bình' },
-                    { key: 'Thấp' as const, label: '🟢 Thấp' },
-                  ] satisfies { key: DangerFilter; label: string }[]
-                ).map((t) => (
-                  <Button
-                    key={t.key}
-                    type="button"
-                    variant={dangerFilter === t.key ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => { setDangerFilter(t.key); setCurrentPage(1); }}
-                  >
-                    {t.label}
-                  </Button>
-                ))}
+                    { key: 'ALL' as const, label: 'Tất cả mức', icon: Circle },
+                    { key: 'Cao' as const, label: 'Cao', icon: BadgeAlert },
+                    { key: 'Rất cao' as const, label: 'Rất cao', icon: TriangleAlert },
+                    { key: 'Trung bình' as const, label: 'Trung bình', icon: Waves },
+                    { key: 'Thấp' as const, label: 'Thấp', icon: Leaf },
+                  ] satisfies { key: DangerFilter; label: string; icon: React.ElementType }[]
+                ).map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <Button
+                      key={t.key}
+                      type="button"
+                      variant={dangerFilter === t.key ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => { setDangerFilter(t.key); setCurrentPage(1); }}
+                    >
+                      <Icon className="mr-1.5 h-3.5 w-3.5" />
+                      {t.label}
+                    </Button>
+                  );
+                })}
 
                 {(dangerFilter !== 'ALL' || categoryFilter !== 'ALL') && (
                   <Button

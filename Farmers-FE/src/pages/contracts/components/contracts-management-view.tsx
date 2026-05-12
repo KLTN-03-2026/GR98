@@ -17,6 +17,7 @@ import {
   getContractStatusLabel,
   getContractGradeLabel,
   getCropBadgeVariant,
+  getCropTypeLabel,
   getGradeBadgeVariant,
 } from '@/pages/contracts/components/contract-ui';
 
@@ -143,7 +144,7 @@ export default function ContractsManagementView({
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge variant={getCropBadgeVariant(contract.cropType)}>
-                {contract.cropType}
+                {getCropTypeLabel(contract.cropType)}
               </Badge>
               <Badge variant={getGradeBadgeVariant(contract.grade)}>
                 {getContractGradeLabel(contract.grade)}

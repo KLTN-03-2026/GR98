@@ -49,3 +49,12 @@ export function getCropBadgeVariant(cropType?: string | null) {
   }
   return 'dashed' as const;
 }
+
+export function getCropTypeLabel(cropType?: string | null): string {
+  const key = (cropType || '').toLowerCase();
+  if (key === 'ca-phe' || key === 'ca phe') return 'Cà phê';
+  if (key === 'sau-rieng' || key === 'durian') return 'Sầu riêng';
+  if (key.includes('cà phê') || key.includes('ca-phe')) return 'Cà phê';
+  if (key.includes('sầu') || key.includes('sau-rieng')) return 'Sầu riêng';
+  return cropType ?? '—';
+}

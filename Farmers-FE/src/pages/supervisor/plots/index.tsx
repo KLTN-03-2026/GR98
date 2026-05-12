@@ -313,7 +313,7 @@ export default function SupervisorPlotsPage() {
   }, [harvestReportsData, editingPlot]);
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-6 p-0 sm:p-0">
+    <div className="flex flex-col gap-0">
       <DataGrid<PlotItem>
         items={displayedPlots}
         title="Quản lý lô đất"
@@ -324,53 +324,55 @@ export default function SupervisorPlotsPage() {
           const hasGis =
             plot.hasGis ?? (Number.isFinite(plot.lat) && Number.isFinite(plot.lng));
           return (
-            <div
-              role="button"
-              tabIndex={0}
+            <button
+              type="button"
               onClick={() => openSheet(plot)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openSheet(plot);
-                }
-              }}
               className={cn(
-                "group flex h-full min-h-0 w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:border-emerald-300 hover:shadow-md",
-                editingId === plot.id && "border-emerald-500 ring-2 ring-emerald-200",
+                "flex h-full w-full flex-col rounded-2xl border border-l-4 border-l-emerald-500 bg-gradient-to-br from-white to-emerald-50/40 p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-l-emerald-600 hover:shadow-md",
+                editingId === plot.id && "ring-2 ring-emerald-200",
               )}
             >
+              {/* Header */}
               <div className="flex shrink-0 items-start justify-between gap-3">
-                <div>
-                  <p className="text-base font-semibold text-slate-900 group-hover:text-emerald-900">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-base font-semibold text-slate-900">
                     {plot.plotName}
                   </p>
-                  <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {plot.lotCode}
+                  </p>
                 </div>
-                <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                <Badge variant="secondary" className="shrink-0 bg-slate-100 text-slate-700">
                   Chỉ xem
                 </Badge>
               </div>
 
-              <div className="mt-4 min-h-0 flex-1 grid gap-2 text-sm text-muted-foreground">
-                <p className="inline-flex items-center gap-2">
-                  <UserRound className="h-4 w-4 shrink-0" />
-                  {plot.farmerName}
+              {/* Body */}
+              <div className="mt-3 flex-1 space-y-1.5 text-sm text-muted-foreground">
+                <p className="flex items-center gap-2">
+                  <UserRound className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <span className="truncate">{plot.farmerName}</span>
                 </p>
-                <p className="inline-flex items-center gap-2">
-                  <UserRound className="h-4 w-4 shrink-0" />
-                  GS: {plot.name_suppervisor || "Chưa phân công"}
+                <p className="flex items-center gap-2">
+                  <Users className="h-4 w-4 shrink-0 text-sky-500" />
+                  <span className="truncate">
+                    {plot.name_suppervisor || (
+                      <span className="italic text-muted-foreground/60">Chưa phân công</span>
+                    )}
+                  </span>
                 </p>
-                <p className="inline-flex items-center gap-2">
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  {plot.district}, {plot.province}
+                <p className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 shrink-0 text-rose-400" />
+                  <span className="truncate">{plot.district}, {plot.province}</span>
                 </p>
               </div>
 
-              <div className="mt-auto flex shrink-0 flex-wrap items-center gap-2 border-t border-dashed border-primary/30 pt-3">
+              {/* Footer */}
+              <div className="mt-3 flex shrink-0 flex-wrap items-center gap-1.5 border-t border-dashed border-emerald-100 pt-3">
                 <Badge variant="outline" className={getCropBadgeClass(plot.cropType)}>
                   {getCropLabel(plot.cropType)}
                 </Badge>
-                <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">
                   {plot.areaHa} ha
                 </Badge>
                 <Button
@@ -397,7 +399,7 @@ export default function SupervisorPlotsPage() {
                   {hasGis ? "Sửa bản đồ" : "Thêm vào bản đồ"}
                 </Button>
               </div>
-            </div>
+            </button>
           );
         }}
         isLoading={isLoading}
@@ -513,7 +515,7 @@ export default function SupervisorPlotsPage() {
           equalHeightCards: true,
           itemWrapperClassName: "items-stretch",
         }}
-        classNames={{ root: "h-full min-h-0", content: "min-h-0 flex-1" }}
+        classNames={{ root: "", content: "" }}
       />
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

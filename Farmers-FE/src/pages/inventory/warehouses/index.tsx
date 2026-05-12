@@ -66,7 +66,7 @@ export default function InventoryWarehousesPage() {
   }, [warehouses]);
 
   return (
-    <div className="h-full min-h-0">
+    <div className="flex flex-col gap-0">
       <DataGrid<Warehouse>
         items={filteredWarehouses}
         title="Quản lý Kho hàng"
@@ -74,18 +74,11 @@ export default function InventoryWarehousesPage() {
         description="Danh sách các kho hàng được phân công. Theo dõi tồn kho và vận hành từng chi nhánh."
         keyExtractor={(warehouse) => warehouse.id}
         renderCard={(warehouse) => (
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             onClick={() => navigate(`/inventory/warehouses/${warehouse.id}`)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                navigate(`/inventory/warehouses/${warehouse.id}`);
-              }
-            }}
             className={cn(
-              "group flex h-full min-h-0 w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:border-emerald-300 hover:shadow-md",
+              "group flex h-full w-full flex-col rounded-2xl border border-l-4 border-l-primary bg-gradient-to-br from-white to-slate-50 p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-l-emerald-500 hover:shadow-md",
             )}
           >
             <div className="flex shrink-0 items-start justify-between gap-3">
@@ -167,7 +160,7 @@ export default function InventoryWarehousesPage() {
                 </>
               );
             })()}
-          </div>
+          </button>
         )}
         isLoading={isLoading}
         isAwaitingResults={isRefetching && !isLoading}
@@ -248,7 +241,7 @@ export default function InventoryWarehousesPage() {
           minCardWidth: 300,
           equalHeightCards: true,
         }}
-        classNames={{ root: "h-full min-h-0", content: "min-h-0 flex-1" }}
+        classNames={{ root: "", content: "" }}
       />
     </div>
   );

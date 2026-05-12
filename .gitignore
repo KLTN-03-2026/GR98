@@ -3,3 +3,23 @@
 
 # Local product spec / user stories (keep on disk, not in repo)
 32_User_Stories_Chi_Tiet.md
+
+# ── miokit (https://github.com/auroraphtgrp01/auroraphtgrp-coding-kit) ──
+# MioKit files - managed by miokit CLI
+.cursor
+.github/agents
+.github/instructions
+.github/prompts
+.github/copilot-instructions.md
+.github/skills-index.md
+.agents
+.codex
+.claude
+skills
+AGENTS.md
+CLAUDE.md
+ARCHITECTURE.md
+README-AK-ALIASES.md
+.agent-kit-version
+.agent-kit-backup-*
+# ── End miokit ──

@@ -2,8 +2,10 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  Coffee,
   Edit3,
   Layers3,
+  Leaf,
   MapPin,
   Save,
   Sprout,
@@ -377,6 +379,20 @@ export default function PlotsPage() {
           totalPages: Math.max(1, totalPages),
           onPageChange: setCurrentPage,
         }}
+        titleRight={
+          <>
+            <div className="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800">
+              <Layers3 className="h-3.5 w-3.5 shrink-0" />
+              <span>Tổng lô:</span>
+              <span className="font-bold">{total}</span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800">
+              <Sprout className="h-3.5 w-3.5 shrink-0" />
+              <span>Diện tích:</span>
+              <span className="font-bold">{totalArea.toFixed(1)} ha</span>
+            </div>
+          </>
+        }
         toolbar={{
           search: {
             value: keyword,
@@ -386,27 +402,46 @@ export default function PlotsPage() {
           },
           filters: (
             <>
-              {/* Crop type segment */}
-              <div className="flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-muted/50 p-1">
-                {([
-                  { value: "all", label: "Tất cả" },
-                  { value: "ca-phe", label: "☕ Cà phê" },
-                  { value: "sau-rieng", label: "🌿 Sầu riêng" },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setFilter(opt.value)}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 whitespace-nowrap",
-                      filter === opt.value
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              {/* Crop type segment control */}
+              <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/60 bg-muted/50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setFilter("all")}
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
+                    filter === "all"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter("ca-phe")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
+                    filter === "ca-phe"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Coffee className="h-3 w-3" />
+                  Cà phê
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter("sau-rieng")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
+                    filter === "sau-rieng"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Leaf className="h-3 w-3" />
+                  Sầu riêng
+                </button>
               </div>
 
               {/* Supervisor filter */}
@@ -416,7 +451,7 @@ export default function PlotsPage() {
                   value={supervisorFilterId}
                   onChange={(event) => setSupervisorFilterId(event.target.value)}
                   disabled={isLoadingSupervisors}
-                  className="h-9 appearance-none rounded-full border border-border/60 bg-background pl-8 pr-4 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-70 min-w-[11rem]"
+                  className="h-9 appearance-none rounded-full border border-border/60 bg-background pl-8 pr-5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-70 min-w-[14rem]"
                 >
                   <option value="all">Tất cả giám sát viên</option>
                   {supervisors.map((item) => (
@@ -426,20 +461,6 @@ export default function PlotsPage() {
                     </option>
                   ))}
                 </select>
-              </div>
-            </>
-          ),
-          quickStats: (
-            <>
-              <div className="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-sky-800">
-                <Layers3 className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-medium">Tổng lô:</span>
-                <span className="font-bold">{total}</span>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
-                <Sprout className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-medium">Diện tích:</span>
-                <span className="font-bold">{totalArea.toFixed(1)} ha</span>
               </div>
             </>
           ),

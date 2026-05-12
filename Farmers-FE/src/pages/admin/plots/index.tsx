@@ -285,7 +285,7 @@ export default function PlotsPage() {
   const editingPlot = plots.find((item) => item.id === editingId) ?? null;
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-6 p-0 sm:p-0">
+    <div className="flex flex-col gap-0">
       <DataGrid<PlotItem>
         items={plots}
         title="Quản lý lô đất"
@@ -304,8 +304,10 @@ export default function PlotsPage() {
               }
             }}
             className={cn(
-              "group flex h-full min-h-0 w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-l-4 border-border/70 border-l-primary bg-linear-to-br from-white to-slate-50 p-4 text-left shadow-xs transition duration-200 hover:border-emerald-300 hover:shadow-md",
-              editingId === plot.id && "border-emerald-500 ring-2 ring-emerald-200",
+              "group flex h-full min-h-0 w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-white to-slate-50 p-4 text-left shadow-sm transition-all duration-200 ease-out",
+              "shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
+              "hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-100/60 hover:shadow-[inset_3px_0_0_0_hsl(var(--primary)),0_8px_20px_-4px_rgba(16,185,129,0.15)]",
+              editingId === plot.id && "border-emerald-500 ring-2 ring-emerald-200 shadow-[inset_3px_0_0_0_hsl(142,71%,45%)]",
             )}
           >
             <div className="flex shrink-0 items-start justify-between gap-3">
@@ -464,7 +466,7 @@ export default function PlotsPage() {
           equalHeightCards: true,
           itemWrapperClassName: "items-stretch",
         }}
-        classNames={{ root: "h-full min-h-0", content: "min-h-0 flex-1" }}
+        classNames={{ root: "", content: "" }}
       />
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -541,7 +543,7 @@ export default function PlotsPage() {
                     value={sheet.plotName}
                     className={cn(
                       formErrors.plotName &&
-                        "border-destructive focus-visible:ring-destructive/20",
+                      "border-destructive focus-visible:ring-destructive/20",
                     )}
                     onChange={(event) =>
                       setSheet((prev) => ({
@@ -561,7 +563,7 @@ export default function PlotsPage() {
                     value={sheet.farmerName}
                     className={cn(
                       formErrors.farmerName &&
-                        "border-destructive focus-visible:ring-destructive/20",
+                      "border-destructive focus-visible:ring-destructive/20",
                     )}
                     onChange={(event) =>
                       setSheet((prev) => ({
@@ -597,7 +599,7 @@ export default function PlotsPage() {
                     value={sheet.areaHa}
                     className={cn(
                       formErrors.areaHa &&
-                        "border-destructive focus-visible:ring-destructive/20",
+                      "border-destructive focus-visible:ring-destructive/20",
                     )}
                     onChange={(event) =>
                       setSheet((prev) => ({

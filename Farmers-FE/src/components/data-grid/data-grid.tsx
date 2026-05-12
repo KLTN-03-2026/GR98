@@ -178,7 +178,7 @@ export function DataGrid<TItem>({
   return (
     <div
       className={cn(
-        "h-full min-h-0 flex flex-col",
+        "flex flex-col",
         useManagementAppearance ? "gap-4 p-4 sm:gap-5 sm:p-6" : "gap-3",
         classNames?.root,
       )}
@@ -217,8 +217,8 @@ export function DataGrid<TItem>({
         </Card>
       )}
 
-      <div className={cn("min-h-0 flex-1 flex flex-col", classNames?.content)}>
-        <div className={cn("min-h-0 flex-1 overflow-y-auto pr-1", classNames?.gridScroll)}>
+      <div className={cn("flex flex-col", classNames?.content)}>
+        <div className={cn("overflow-y-auto", classNames?.gridScroll)}>
           {error ? (
             <Card>
               <CardContent className="flex items-center justify-center gap-2 py-10">
@@ -238,12 +238,17 @@ export function DataGrid<TItem>({
               gapClassName={gapClassName}
             />
           ) : pageItems.length === 0 ? (
-            <Card>
-              <CardContent className="space-y-1 py-10 text-center">
-                <p className="text-sm font-medium">
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center gap-2 py-14 text-center">
+                <div className="flex size-12 items-center justify-center rounded-full bg-muted/60">
+                  <svg className="size-6 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-foreground">
                   {emptyState?.title || "Không có dữ liệu"}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="max-w-xs text-xs text-muted-foreground">
                   {emptyState?.description || "Không có bản ghi phù hợp với bộ lọc hiện tại."}
                 </p>
                 {emptyState?.action && <div className="pt-2">{emptyState.action}</div>}
@@ -266,7 +271,7 @@ export function DataGrid<TItem>({
                   key={keyExtractor(item, index)}
                   className={cn(
                     "min-w-0",
-                    equalHeightCards && "flex h-full min-h-0",
+                    equalHeightCards && "flex",
                     layout?.itemWrapperClassName,
                   )}
                 >
@@ -278,7 +283,7 @@ export function DataGrid<TItem>({
         </div>
 
         {resolvedPaginationConfig && (
-          <div className={cn("mt-2 border-t bg-background pt-2", classNames?.pagination)}>
+          <div className={cn("mt-3 shrink-0 rounded-xl border bg-card px-4 py-3 shadow-xs", classNames?.pagination)}>
             <DataGridPagination config={resolvedPaginationConfig} />
           </div>
         )}

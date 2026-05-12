@@ -15,7 +15,7 @@ import type { AdminDashboardSection } from '../api/types';
 import { StatsCard } from './stats-card';
 
 const kpiGridClass =
-  'grid w-full gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr))]';
+  'grid w-full gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,12.5rem),1fr))]';
 
 const iconMap: Record<string, typeof Users> = {
   contracts: FileText,
@@ -64,14 +64,15 @@ export function OverviewKpiCards({
       {sections.map((section) => (
         <Card
           key={section.id}
-          className="rounded-2xl border border-primary/15 bg-card shadow-sm dark:border-primary/20"
+          className="overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/75 py-0 shadow-[0_18px_56px_rgba(47,93,80,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-card/75"
         >
-          <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-primary">
+          <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/[0.08] via-transparent to-secondary/[0.08] px-5 py-4">
+            <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+              <span className="size-2 rounded-full bg-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.12)]" />
               {section.title}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="p-4 sm:p-5">
             <div className={kpiGridClass}>
               {section.cards.map((kpi) => {
                 const Icon = iconMap[kpi.id] ?? Users;

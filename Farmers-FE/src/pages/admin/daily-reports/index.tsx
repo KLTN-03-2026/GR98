@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Search, Scale } from 'lucide-react';
+import { CalendarDays, Search } from 'lucide-react';
 import type { PaginationState, Updater } from '@tanstack/react-table';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminDailyReportDetailDialog } from './admin-daily-report-detail-dialog';
+import { cn } from '@/lib/utils';
 import { getLocalDayEndIso, getLocalDayStartIso, getTodayLocalIsoDate } from '@/lib/local-day-range';
 import { createAdminDailyReportColumns } from './daily-reports-columns';
 
@@ -260,106 +261,36 @@ export default function AdminDailyReportsPage() {
   );
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/12 bg-primary/8">
-            <CalendarDays className="size-4 text-primary" />
+    <div className="space-y-5 p-4 md:p-6">
+      <div className="rounded-2xl border border-border/70 bg-white p-4 shadow-xs md:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-10 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary shadow-xs">
+                <CalendarDays className="size-4" />
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Báo cáo hàng ngày</h1>
+            </div>
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              Danh sách báo cáo đã gửi từ giám sát viên. Mở chi tiết để xem nội dung và ảnh đính kèm.
+            </p>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Báo cáo hàng ngày</h1>
-        </div>
-        <p className="text-muted-foreground text-sm">
-          Danh sách báo cáo đã gửi từ giám sát viên. Mở chi tiết để xem nội dung và ảnh đính kèm.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">
-            {isSummaryTodayMode
-              ? `Đã nộp hôm nay: ${summaryData?.submittedCount ?? 0}`
-              : `Đã nộp trong khoảng: ${summaryData?.submittedCount ?? 0}`}
-          </Badge>
-          <Badge variant="destructive">
-            {isSummaryTodayMode
-              ? `Chưa gửi hôm nay: ${summaryData?.missingPlots ?? 0} lô`
-              : `Chưa gửi (lô): ${summaryData?.missingPlots ?? 0}`}
-          </Badge>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
+            <Badge variant="secondary" className="rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-primary">
+              {isSummaryTodayMode
+                ? `Đã nộp hôm nay: ${summaryData?.submittedCount ?? 0}`
+                : `Đã nộp trong khoảng: ${summaryData?.submittedCount ?? 0}`}
+            </Badge>
+            <Badge variant="destructive" className="rounded-full px-3 py-1">
+              {isSummaryTodayMode
+                ? `Chưa gửi hôm nay: ${summaryData?.missingPlots ?? 0} lô`
+                : `Chưa gửi (lô): ${summaryData?.missingPlots ?? 0}`}
+            </Badge>
+          </div>
         </div>
       </div>
-
-      <Tabs
-        value={reportType}
-        onValueChange={(v) => setReportType(v as DailyReportType | 'ALL')}
-        className="w-full"
-      >
-        <TabsList className="grid w-full grid-cols-2 md:w-auto md:flex gap-1 bg-transparent p-0 h-auto">
-          <TabsTrigger
-            value="ALL"
-            className="rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            Tất cả
-          </TabsTrigger>
-          <TabsTrigger
-            value="ROUTINE"
-            className="relative rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            Định kỳ
-            {!!countsData?.ROUTINE && countsData.ROUTINE > 0 && (
-              <Badge
-                variant="destructive"
-                className="absolute -top-2 -right-2 px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] shadow-sm border-2 border-background"
-              >
-                {countsData.ROUTINE}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="INCIDENT"
-            className="relative rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            Sự cố
-            {!!countsData?.INCIDENT && countsData.INCIDENT > 0 && (
-              <Badge
-                variant="destructive"
-                className="absolute -top-2 -right-2 px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] shadow-sm border-2 border-background"
-              >
-                {countsData.INCIDENT}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="HARVEST"
-            className="relative rounded-lg border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            Thu hoạch
-            {!!countsData?.HARVEST && countsData.HARVEST > 0 && (
-              <Badge
-                variant="destructive"
-                className="absolute -top-2 -right-2 px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] shadow-sm border-2 border-background"
-              >
-                {countsData.HARVEST}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {reportType === 'HARVEST' && (
-        <Card className="border-emerald-100 bg-emerald-50/50">
-          <CardContent className="flex items-center gap-4 py-4">
-            <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-              <Scale className="size-5" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-emerald-900/70">Tổng sản lượng thu hoạch dự kiến</p>
-              <p className="text-2xl font-bold text-emerald-700">
-                {(listData?.meta?.totalYield ?? 0).toLocaleString('vi-VN')} <span className="text-sm font-normal text-emerald-600/80">kg</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="rounded-2xl border-border/70 bg-white shadow-xs">
+        <CardContent className="p-4 md:p-5">
           <DataTable
             columns={columns}
             data={rows}
@@ -376,102 +307,169 @@ export default function AdminDailyReportsPage() {
             onReload={() => queryClient.invalidateQueries({ queryKey: ['daily-reports'] })}
             noResults={<span className="text-muted-foreground">Chưa có báo cáo phù hợp.</span>}
             filterToolbar={
-              <div className="flex flex-wrap items-end gap-4 w-full">
-                <div className="space-y-2 min-w-[200px] flex-1">
-                  <Label className="text-xs">Tìm theo nội dung</Label>
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      className="pl-8 h-9"
-                      placeholder="Từ khóa..."
-                      value={keyword}
-                      onChange={(e) => setKeyword(e.target.value)}
-                    />
+              <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+                <div
+                  className={cn(
+                    "grid min-w-0 flex-1 gap-3 md:grid-cols-2 xl:items-end",
+                    reportType === 'INCIDENT'
+                      ? "xl:grid-cols-[minmax(200px,1.1fr)_minmax(200px,0.85fr)_minmax(150px,0.7fr)_repeat(2,minmax(140px,0.55fr))_auto]"
+                      : "xl:grid-cols-[minmax(220px,1.2fr)_minmax(220px,0.9fr)_repeat(2,minmax(150px,0.55fr))_auto]",
+                  )}
+                >
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-slate-600">Tìm theo nội dung</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        className="h-9 rounded-lg border-border/70 bg-white pl-9 shadow-xs focus-visible:ring-primary/20"
+                        placeholder="Từ khóa..."
+                        value={keyword}
+                        onChange={(e) => setKeyword(e.target.value)}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2 min-w-[220px] flex-1 max-w-xs">
-                  <Label className="text-xs">Giám sát viên</Label>
-                  <Combobox
-                    label="Tất cả GSV"
-                    dataArr={supervisorOptions}
-                    value={supervisorId}
-                    onChange={(v) => {
-                      if (typeof v !== 'string' || v === 'null') setSupervisorId('');
-                      else setSupervisorId(v);
-                    }}
-                    isNullableSelect
-                  />
-                </div>
-                {reportType === 'INCIDENT' && (
-                  <div className="space-y-2 min-w-[180px]">
-                    <Label className="text-xs">Trạng thái xử lý</Label>
-                    <Select
-                      value={handlingStatus}
-                      onValueChange={(v) => setHandlingStatus(v as IncidentHandlingStatus | 'ALL')}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">Tất cả</SelectItem>
-                        <SelectItem value="PENDING">{INCIDENT_HANDLING_LABEL.PENDING}</SelectItem>
-                        <SelectItem value="IN_PROGRESS">
-                          {INCIDENT_HANDLING_LABEL.IN_PROGRESS}
-                        </SelectItem>
-                        <SelectItem value="RESOLVED">{INCIDENT_HANDLING_LABEL.RESOLVED}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label className={`text-xs ${onlyToday ? 'text-muted-foreground' : ''}`}>Từ ngày</Label>
-                  <Input
-                    type="date"
-                    className={`h-9 w-[150px] ${isInvalidDateRange ? 'border-destructive' : ''}`}
-                    value={from}
-                    max={to || undefined}
-                    disabled={onlyToday}
-                    onChange={(e) => setFrom(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className={`text-xs ${onlyToday ? 'text-muted-foreground' : ''}`}>Đến ngày</Label>
-                  <Input
-                    type="date"
-                    className={`h-9 w-[150px] ${isInvalidDateRange ? 'border-destructive' : ''}`}
-                    value={to}
-                    min={from || undefined}
-                    disabled={onlyToday}
-                    onChange={(e) => setTo(e.target.value)}
-                  />
-                </div>
-                <div className="flex items-end gap-2 pb-0.5">
-                  <div className="flex items-center gap-2 rounded-md border px-3 h-9 bg-background">
-                    <Checkbox
-                      id="admin-daily-reports-only-today"
-                      checked={onlyToday}
-                      onCheckedChange={(checked) => {
-                        if (checked === true) {
-                          const t = getTodayLocalIsoDate();
-                          setFrom(t);
-                          setTo(t);
-                          setOnlyToday(true);
-                          setCurrentPage(1);
-                        } else {
-                          setFrom('');
-                          setTo('');
-                          setOnlyToday(false);
-                          setCurrentPage(1);
-                        }
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-slate-600">Giám sát viên</Label>
+                    <Combobox
+                      label="Tất cả GSV"
+                      dataArr={supervisorOptions}
+                      value={supervisorId}
+                      onChange={(v) => {
+                        if (typeof v !== 'string' || v === 'null') setSupervisorId('');
+                        else setSupervisorId(v);
                       }}
+                      isNullableSelect
                     />
-                    <Label htmlFor="admin-daily-reports-only-today" className="text-xs cursor-pointer">
-                      Chỉ hôm nay
-                    </Label>
+                  </div>
+                  {reportType === 'INCIDENT' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-slate-600">Trạng thái xử lý</Label>
+                      <Select
+                        value={handlingStatus}
+                        onValueChange={(v) => setHandlingStatus(v as IncidentHandlingStatus | 'ALL')}
+                      >
+                        <SelectTrigger className="h-9 rounded-lg border-border/70 bg-white shadow-xs focus:ring-primary/20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">Tất cả</SelectItem>
+                          <SelectItem value="PENDING">{INCIDENT_HANDLING_LABEL.PENDING}</SelectItem>
+                          <SelectItem value="IN_PROGRESS">
+                            {INCIDENT_HANDLING_LABEL.IN_PROGRESS}
+                          </SelectItem>
+                          <SelectItem value="RESOLVED">{INCIDENT_HANDLING_LABEL.RESOLVED}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label className={`text-xs font-medium ${onlyToday ? 'text-muted-foreground' : 'text-slate-600'}`}>Từ ngày</Label>
+                    <Input
+                      type="date"
+                      className={`h-9 rounded-lg border-border/70 bg-white shadow-xs focus-visible:ring-primary/20 ${isInvalidDateRange ? 'border-destructive' : ''}`}
+                      value={from}
+                      max={to || undefined}
+                      disabled={onlyToday}
+                      onChange={(e) => setFrom(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className={`text-xs font-medium ${onlyToday ? 'text-muted-foreground' : 'text-slate-600'}`}>Đến ngày</Label>
+                    <Input
+                      type="date"
+                      className={`h-9 rounded-lg border-border/70 bg-white shadow-xs focus-visible:ring-primary/20 ${isInvalidDateRange ? 'border-destructive' : ''}`}
+                      value={to}
+                      min={from || undefined}
+                      disabled={onlyToday}
+                      onChange={(e) => setTo(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <div className="flex h-9 items-center gap-2 rounded-lg border border-border/70 bg-white px-3 shadow-xs">
+                      <Checkbox
+                        id="admin-daily-reports-only-today"
+                        checked={onlyToday}
+                        onCheckedChange={(checked) => {
+                          if (checked === true) {
+                            const t = getTodayLocalIsoDate();
+                            setFrom(t);
+                            setTo(t);
+                            setOnlyToday(true);
+                            setCurrentPage(1);
+                          } else {
+                            setFrom('');
+                            setTo('');
+                            setOnlyToday(false);
+                            setCurrentPage(1);
+                          }
+                        }}
+                      />
+                      <Label htmlFor="admin-daily-reports-only-today" className="cursor-pointer whitespace-nowrap text-xs font-medium text-slate-700">
+                        Chỉ hôm nay
+                      </Label>
+                    </div>
                   </div>
                 </div>
+
+                <Tabs
+                  value={reportType}
+                  onValueChange={(v) => setReportType(v as DailyReportType | 'ALL')}
+                  className="flex w-full shrink-0 justify-start xl:w-auto xl:justify-end"
+                >
+                  <TabsList className="grid h-9 w-full grid-cols-2 gap-1 rounded-lg border border-border/70 bg-white p-1 shadow-xs sm:flex xl:w-auto">
+                    <TabsTrigger
+                      value="ALL"
+                      className="rounded-md border border-transparent px-3 py-1 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+                    >
+                      Tất cả
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="ROUTINE"
+                      className="relative rounded-md border border-transparent px-3 py-1 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+                    >
+                      Định kỳ
+                      {!!countsData?.ROUTINE && countsData.ROUTINE > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-background px-1.5 py-0 text-[10px] shadow-sm"
+                        >
+                          {countsData.ROUTINE}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="INCIDENT"
+                      className="relative rounded-md border border-transparent px-3 py-1 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+                    >
+                      Sự cố
+                      {!!countsData?.INCIDENT && countsData.INCIDENT > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-background px-1.5 py-0 text-[10px] shadow-sm"
+                        >
+                          {countsData.INCIDENT}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="HARVEST"
+                      className="relative rounded-md border border-transparent px-3 py-1 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+                    >
+                      Thu hoạch
+                      {!!countsData?.HARVEST && countsData.HARVEST > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-background px-1.5 py-0 text-[10px] shadow-sm"
+                        >
+                          {countsData.HARVEST}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
                 {isInvalidDateRange && (
-                  <div className="text-xs text-destructive pb-1">
+                  <div className="w-full rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive xl:basis-full">
                     Khoảng ngày không hợp lệ: &quot;Từ ngày&quot; phải nhỏ hơn hoặc bằng &quot;Đến ngày&quot;.
                   </div>
                 )}

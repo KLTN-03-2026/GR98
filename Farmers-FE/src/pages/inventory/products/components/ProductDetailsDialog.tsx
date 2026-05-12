@@ -280,14 +280,19 @@ export function ProductDetailsDialog({
                   className="h-8 text-sm font-semibold"
                 />
               ) : (
-                <p className="text-lg font-bold tabular-nums text-foreground">
+                <p className={cn(
+                  'text-lg font-bold tabular-nums',
+                  product.stockKg <= 0 ? 'text-muted-foreground' : 'text-foreground',
+                )}>
                   {product.stockKg.toLocaleString('vi-VN')}{' '}
                   <span className="text-xs font-medium text-muted-foreground">
                     {product.unit || 'kg'}
                   </span>
                 </p>
               )}
-              <p className="mt-0.5 text-[10px] text-muted-foreground">Khả dụng trong kho</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {product.stockKg <= 0 ? 'Chưa có hàng — nhập kho để đăng bán' : 'Khả dụng trong kho'}
+              </p>
             </StatCard>
 
             <StatCard icon={Activity} label="Trạng thái" tone="blue">
@@ -300,11 +305,17 @@ export function ProductDetailsDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(PRODUCT_STATUS_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
+                    {Object.entries(PRODUCT_STATUS_LABELS).map(([key, label]) => {
+                      const noStock = product.stockKg <= 0 && key === 'PUBLISHED';
+                      return (
+                        <SelectItem key={key} value={key} disabled={noStock}>
+                          <span className={noStock ? 'text-muted-foreground' : undefined}>
+                            {label}
+                            {noStock && ' — chưa có hàng trong kho'}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               ) : (

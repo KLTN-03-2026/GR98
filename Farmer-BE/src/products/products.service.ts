@@ -237,36 +237,33 @@ export class ProductsService {
   }
 
   async findTraceability(slug: string) {
+    // ── Query 1: product + primary contract info + lots (với contract/plot metadata) + reviews
     const product = await this.prisma.product.findUnique({
       where: { slug, status: ProductStatus.PUBLISHED },
       include: {
         categories: { include: { category: true } },
-        plot: {
-          include: {
-            farmer: true,
-            zone: true,
-            dailyReports: {
-              include: { supervisor: { include: { user: { select: { fullName: true, avatar: true } } } } },
-              orderBy: { reportedAt: 'asc' },
-            },
-            plantScanRecords: {
-              include: { supervisor: { include: { user: { select: { fullName: true, avatar: true } } } } },
-              orderBy: { scannedAt: 'asc' },
-            },
-          },
-        },
         contract: {
           include: {
             farmer: true,
             supervisor: { include: { user: { select: { fullName: true, avatar: true } } } },
-            inventoryLots: {
-              include: {
-                warehouse: true,
-                transactions: { orderBy: { createdAt: 'asc' } },
+          },
+        },
+        // Lấy TẤT CẢ inventory lots của product (bao gồm lots từ các hợp đồng gộp chung)
+        inventoryLots: {
+          include: {
+            warehouse: true,
+            transactions: { orderBy: { createdAt: 'asc' } },
+            // Lấy contract + farmer của từng lot để gắn tag nguồn trên timeline
+            contract: {
+              select: {
+                id: true,
+                contractNo: true,
+                plotId: true,
+                farmer: { select: { fullName: true } },
               },
-              orderBy: { createdAt: 'asc' },
             },
           },
+          orderBy: { createdAt: 'asc' },
         },
         reviews: {
           where: { status: 'APPROVED' },
@@ -281,57 +278,123 @@ export class ProductsService {
 
     if (!product) throw new NotFoundException('Sản phẩm không tồn tại');
 
-    // Build unified timeline
+    // ── Query 2: thu thập tất cả plotIds đóng góp vào product này
+    const contributingPlotIds = [
+      ...new Set([
+        ...(product.plotId ? [product.plotId] : []),
+        ...product.inventoryLots
+          .map((l) => l.contract?.plotId)
+          .filter((id): id is string => Boolean(id)),
+      ]),
+    ];
+
+    // ── Query 3: fetch tất cả plots đóng góp với đầy đủ dữ liệu canh tác
+    const contributingPlots = contributingPlotIds.length > 0
+      ? await this.prisma.plot.findMany({
+          where: { id: { in: contributingPlotIds } },
+          include: {
+            farmer: true,
+            zone: true,
+            dailyReports: {
+              include: { supervisor: { include: { user: { select: { fullName: true, avatar: true } } } } },
+              orderBy: { reportedAt: 'asc' },
+            },
+            plantScanRecords: {
+              include: { supervisor: { include: { user: { select: { fullName: true, avatar: true } } } } },
+              orderBy: { scannedAt: 'asc' },
+            },
+          },
+        })
+      : [];
+
+    // Map plotId → { contractNo, farmerName } từ lots để dùng cho source tag
+    const plotToLotMeta = new Map<string, { contractNo: string; farmerName: string | null }>();
+    for (const lot of product.inventoryLots) {
+      if (lot.contract?.plotId && !plotToLotMeta.has(lot.contract.plotId)) {
+        plotToLotMeta.set(lot.contract.plotId, {
+          contractNo: lot.contract.contractNo ?? '',
+          farmerName: lot.contract.farmer?.fullName ?? null,
+        });
+      }
+    }
+
+    // ── Build unified timeline (Hướng A: gộp tất cả plots, kèm source tag)
     const timeline: any[] = [];
 
-    if (product.plot?.plantingDate) {
-      timeline.push({
-        date: product.plot.plantingDate,
-        type: 'planting',
-        title: 'Gieo trồng',
-        description: `Gieo trồng ${product.cropType} trên lô ${product.plot.plotCode}`,
-      });
+    for (const plot of contributingPlots) {
+      const lotMeta = plotToLotMeta.get(plot.id);
+      // Source tag gắn vào từng event để FE phân biệt nguồn gốc
+      const source = {
+        plotCode: plot.plotCode,
+        farmerName: plot.farmer?.fullName ?? lotMeta?.farmerName ?? null,
+        contractNo: lotMeta?.contractNo ?? null,
+      };
+
+      if (plot.plantingDate) {
+        timeline.push({
+          date: plot.plantingDate,
+          type: 'planting',
+          title: 'Gieo trồng',
+          description: `Gieo trồng ${product.cropType} trên lô ${plot.plotCode}`,
+          source,
+        });
+      }
+
+      if (plot.expectedHarvest) {
+        timeline.push({
+          date: plot.expectedHarvest,
+          type: 'expected_harvest',
+          title: 'Dự kiến thu hoạch',
+          description: `Lô ${plot.plotCode} dự kiến thu hoạch vào ${plot.expectedHarvest.toISOString().split('T')[0]}`,
+          source,
+        });
+      }
+
+      for (const report of plot.dailyReports) {
+        timeline.push({
+          date: report.reportedAt,
+          type: report.type === 'ROUTINE' ? 'report' : report.type === 'INCIDENT' ? 'incident' : 'harvest',
+          title: report.type === 'ROUTINE' ? 'Báo cáo định kỳ' : report.type === 'INCIDENT' ? 'Sự cố' : 'Báo cáo thu hoạch',
+          description: report.content,
+          imageUrls: report.imageUrls,
+          meta: {
+            yieldEstimateKg: report.yieldEstimateKg,
+            supervisorName: report.supervisor?.user?.fullName,
+          },
+          source,
+        });
+      }
+
+      for (const scan of plot.plantScanRecords) {
+        timeline.push({
+          date: scan.scannedAt,
+          type: 'scan',
+          title: `Phát hiện: ${scan.diseaseVi}`,
+          description: scan.symptoms,
+          meta: {
+            dangerLevel: scan.dangerLevel,
+            confidence: scan.confidence,
+            treatment: scan.treatment,
+            supervisorName: scan.supervisor?.user?.fullName,
+          },
+          source,
+        });
+      }
     }
 
-    if (product.plot?.expectedHarvest) {
-      timeline.push({
-        date: product.plot.expectedHarvest,
-        type: 'expected_harvest',
-        title: 'Dự kiến thu hoạch',
-        description: `Dự kiến thu hoạch vào ${product.plot.expectedHarvest.toISOString().split('T')[0]}`,
-      });
-    }
+    // Warehouse events — mỗi lot kèm source tag riêng
+    for (const lot of product.inventoryLots) {
+      const plotCode = lot.contract?.plotId
+        ? contributingPlots.find((p) => p.id === lot.contract?.plotId)?.plotCode ?? null
+        : null;
+      const lotSource = lot.contract
+        ? {
+            plotCode,
+            farmerName: lot.contract.farmer?.fullName ?? null,
+            contractNo: lot.contract.contractNo ?? null,
+          }
+        : null;
 
-    for (const report of product.plot?.dailyReports ?? []) {
-      timeline.push({
-        date: report.reportedAt,
-        type: report.type === 'ROUTINE' ? 'report' : report.type === 'INCIDENT' ? 'incident' : 'harvest',
-        title: report.type === 'ROUTINE' ? 'Báo cáo định kỳ' : report.type === 'INCIDENT' ? 'Sự cố' : 'Báo cáo thu hoạch',
-        description: report.content,
-        imageUrls: report.imageUrls,
-        meta: {
-          yieldEstimateKg: report.yieldEstimateKg,
-          supervisorName: report.supervisor?.user?.fullName,
-        },
-      });
-    }
-
-    for (const scan of product.plot?.plantScanRecords ?? []) {
-      timeline.push({
-        date: scan.scannedAt,
-        type: 'scan',
-        title: `Phát hiện: ${scan.diseaseVi}`,
-        description: scan.symptoms,
-        meta: {
-          dangerLevel: scan.dangerLevel,
-          confidence: scan.confidence,
-          treatment: scan.treatment,
-          supervisorName: scan.supervisor?.user?.fullName,
-        },
-      });
-    }
-
-    for (const lot of product.contract?.inventoryLots ?? []) {
       timeline.push({
         date: lot.harvestDate ?? lot.createdAt,
         type: 'warehouse',
@@ -342,7 +405,9 @@ export class ProductsService {
           qualityGrade: lot.qualityGrade,
           warehouseName: lot.warehouse?.name,
         },
+        source: lotSource,
       });
+
       for (const tx of lot.transactions ?? []) {
         timeline.push({
           date: tx.createdAt,
@@ -365,27 +430,31 @@ export class ProductsService {
 
     timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // Stats for charts
-    const reports = product.plot?.dailyReports ?? [];
-    const scans = product.plot?.plantScanRecords ?? [];
-    const lots = product.contract?.inventoryLots ?? [];
+    // ── Stats: tổng hợp từ TẤT CẢ plots đóng góp
+    const allReports = contributingPlots.flatMap((p) => p.dailyReports);
+    const allScans = contributingPlots.flatMap((p) => p.plantScanRecords);
+    const lots = product.inventoryLots;
 
     const reportTypeCounts: Record<string, number> = {};
-    for (const r of reports) {
+    for (const r of allReports) {
       reportTypeCounts[r.type] = (reportTypeCounts[r.type] || 0) + 1;
     }
 
     const scanCategoryCounts: Record<string, number> = {};
-    for (const s of scans) {
+    for (const s of allScans) {
       scanCategoryCounts[s.category] = (scanCategoryCounts[s.category] || 0) + 1;
     }
 
-    const yieldHistory = reports
+    const yieldHistory = allReports
       .filter((r) => r.yieldEstimateKg != null)
       .map((r) => ({ date: r.reportedAt, value: r.yieldEstimateKg! }));
 
     const totalYieldEstimate = yieldHistory.reduce((sum, y) => sum + y.value, 0);
     const avgYieldEstimate = yieldHistory.length > 0 ? totalYieldEstimate / yieldHistory.length : 0;
+
+    // Primary plot cho backward compat (Farm tab single-plot view)
+    const primaryPlot =
+      contributingPlots.find((p) => p.id === product.plotId) ?? contributingPlots[0] ?? null;
 
     return {
       product: {
@@ -409,30 +478,37 @@ export class ProductsService {
           : 0,
         reviewCount: product.reviews?.length ?? 0,
       },
-      plot: product.plot
+      // Primary plot — cho Farm tab (giữ backward compat)
+      plot: primaryPlot
         ? {
-            id: product.plot.id,
-            plotCode: product.plot.plotCode,
-            cropType: product.plot.cropType,
-            areaHa: product.plot.areaHa,
-            plantingDate: product.plot.plantingDate,
-            expectedHarvest: product.plot.expectedHarvest,
-            estimatedYieldKg: product.plot.estimatedYieldKg,
-            farmer: product.plot.farmer
-              ? {
-                  fullName: product.plot.farmer.fullName,
-                  province: product.plot.farmer.province,
-                }
+            id: primaryPlot.id,
+            plotCode: primaryPlot.plotCode,
+            cropType: primaryPlot.cropType,
+            areaHa: primaryPlot.areaHa,
+            plantingDate: primaryPlot.plantingDate,
+            expectedHarvest: primaryPlot.expectedHarvest,
+            estimatedYieldKg: primaryPlot.estimatedYieldKg,
+            farmer: primaryPlot.farmer
+              ? { fullName: primaryPlot.farmer.fullName, province: primaryPlot.farmer.province }
               : null,
-            zone: product.plot.zone
-              ? {
-                  name: product.plot.zone.name,
-                  province: product.plot.zone.province,
-                  district: product.plot.zone.district,
-                }
+            zone: primaryPlot.zone
+              ? { name: primaryPlot.zone.name, province: primaryPlot.zone.province, district: primaryPlot.zone.district }
               : null,
           }
         : null,
+      // TẤT CẢ plots đóng góp — cho multi-farm display
+      contributingPlots: contributingPlots.map((p) => ({
+        id: p.id,
+        plotCode: p.plotCode,
+        areaHa: p.areaHa,
+        plantingDate: p.plantingDate,
+        farmer: p.farmer
+          ? { fullName: p.farmer.fullName, province: p.farmer.province }
+          : null,
+        zone: p.zone
+          ? { name: p.zone.name, province: p.zone.province, district: p.zone.district }
+          : null,
+      })),
       contract: product.contract
         ? {
             id: product.contract.id,
@@ -452,8 +528,6 @@ export class ProductsService {
           }
         : null,
       timeline,
-      reports,
-      scans,
       inventoryLots: lots.map((lot) => ({
         id: lot.id,
         quantityKg: lot.quantityKg,
@@ -472,15 +546,16 @@ export class ProductsService {
         createdAt: r.createdAt,
       })),
       stats: {
-        totalReports: reports.length,
-        totalIncidents: reports.filter((r) => r.type === 'INCIDENT').length,
-        totalHarvestReports: reports.filter((r) => r.type === 'HARVEST').length,
-        totalScans: scans.length,
+        totalReports: allReports.length,
+        totalIncidents: allReports.filter((r) => r.type === 'INCIDENT').length,
+        totalHarvestReports: allReports.filter((r) => r.type === 'HARVEST').length,
+        totalScans: allScans.length,
         avgYieldEstimate,
         yieldHistory,
         reportTypeCounts,
         scanCategoryCounts,
         totalInventoryKg: lots.reduce((sum, l) => sum + l.quantityKg, 0),
+        contributingFarmCount: contributingPlots.length,
       },
     };
   }
@@ -646,14 +721,23 @@ export class ProductsService {
       if (duplicate) throw new ConflictException('Mã SKU này đã tồn tại');
     }
 
-    // 3. Phân tách dữ liệu: Loại bỏ các trường Traceability khỏi DTO để bảo vệ dữ liệu gốc
+    // 3. Kiểm tra tồn kho trước khi cho phép đăng bán
+    if (dto.status === 'PUBLISHED' && existing.status !== 'PUBLISHED') {
+      if (existing.stockKg <= 0) {
+        throw new BadRequestException(
+          'Sản phẩm chưa có hàng trong kho (tồn kho = 0kg). Vui lòng nhập hàng trước khi đăng bán.',
+        );
+      }
+    }
+
+    // 4. Phân tách dữ liệu: Loại bỏ các trường Traceability khỏi DTO để bảo vệ dữ liệu gốc
     const { categoryIds, ...updateData } = dto;
-    
+
     // Loại bỏ các trường không được phép sửa (frozen fields)
     const forbiddenFields = ['plotId', 'contractId', 'cropType', 'grade', 'qrCode', 'adminId', 'stockKg'];
     forbiddenFields.forEach(f => delete (updateData as any)[f]);
 
-    // 4. Thực hiện cập nhật trong Transaction
+    // 5. Thực hiện cập nhật trong Transaction
     return this.prisma.$transaction(async (tx) => {
       // Cập nhật quan hệ danh mục nếu có
       if (categoryIds) {

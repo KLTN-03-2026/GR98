@@ -174,7 +174,7 @@ export default function TraceabilityDetailPage() {
     );
   }
 
-  const { product, plot, contract, timeline, inventoryLots, reviews, stats } = data;
+  const { product, plot, contract, timeline, contributingPlots, inventoryLots, reviews, stats } = data;
 
   const yieldData = stats.yieldHistory.map((y: { date: string; value: number }) => ({
     date: new Date(y.date).toLocaleDateString('vi-VN', {
@@ -197,8 +197,14 @@ export default function TraceabilityDetailPage() {
   const heroBg = product.thumbnailUrl || product.imageUrls?.[0];
   const cropTypeLabel =
     CROP_TYPES[product.cropType as keyof typeof CROP_TYPES] ?? product.cropType;
-  const farmerName =
-    plot?.farmer?.fullName ?? contract?.farmer?.fullName ?? 'Chưa xác định';
+
+  // Multi-farm: nếu có nhiều plots đóng góp, hiển thị số lượng nông dân
+  const allPlots: any[] = contributingPlots ?? (plot ? [plot] : []);
+  const farmCount = allPlots.length;
+  const farmerName = farmCount > 1
+    ? `${farmCount} nông trại`
+    : (plot?.farmer?.fullName ?? contract?.farmer?.fullName ?? 'Chưa xác định');
+
   const supervisorName = contract?.supervisor?.fullName ?? null;
   const locationLabel = plot?.zone
     ? [plot.zone.district, plot.zone.province].filter(Boolean).join(', ') ||
@@ -441,13 +447,23 @@ export default function TraceabilityDetailPage() {
             value={`${stats.totalInventoryKg.toFixed(0)}`}
             sub="kg đã nhập kho"
           />
-          <StatCard
-            tone="amber"
-            icon={<TrendingUp className="h-5 w-5" />}
-            label="Năng suất ước tính"
-            value={`${stats.avgYieldEstimate.toFixed(0)}`}
-            sub="kg trung bình / báo cáo"
-          />
+          {stats.contributingFarmCount > 1 ? (
+            <StatCard
+              tone="amber"
+              icon={<Tractor className="h-5 w-5" />}
+              label="Nông trại đóng góp"
+              value={stats.contributingFarmCount}
+              sub="cùng vùng địa lý"
+            />
+          ) : (
+            <StatCard
+              tone="amber"
+              icon={<TrendingUp className="h-5 w-5" />}
+              label="Năng suất ước tính"
+              value={`${stats.avgYieldEstimate.toFixed(0)}`}
+              sub="kg trung bình / báo cáo"
+            />
+          )}
         </motion.div>
       </section>
 
@@ -531,6 +547,23 @@ export default function TraceabilityDetailPage() {
                                   {item.description}
                                 </p>
                               )}
+                              {/* Source tag — hiển thị khi sản phẩm gộp nhiều nông trại */}
+                              {item.source && (item.source.plotCode || item.source.farmerName) && (
+                                <div className="mt-1.5 flex flex-wrap gap-1">
+                                  {item.source.plotCode && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                      <MapPin className="h-2.5 w-2.5" />
+                                      {item.source.plotCode}
+                                    </span>
+                                  )}
+                                  {item.source.farmerName && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                      <User className="h-2.5 w-2.5" />
+                                      {item.source.farmerName}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                               {item.imageUrls && item.imageUrls.length > 0 && (
                                 <div className="mt-2 flex gap-1.5 overflow-x-auto">
                                   {item.imageUrls.slice(0, 4).map((url: string, i: number) => (
@@ -559,6 +592,64 @@ export default function TraceabilityDetailPage() {
 
           {/* ----- Farm tab ----- */}
           <TabsContent value="farm" className="mt-6 space-y-6">
+
+            {/* Multi-farm banner — hiện khi sản phẩm gộp từ nhiều nông trại */}
+            {farmCount > 1 && (
+              <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900 px-4 py-3">
+                <Sprout className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                    Sản phẩm từ {farmCount} nông trại
+                  </p>
+                  <p className="text-xs text-emerald-700/80 dark:text-emerald-400/70 mt-0.5">
+                    Cùng vùng địa lý, cùng giống cây và phẩm cấp — được gộp chung để đảm bảo tính đồng nhất.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Danh sách tất cả plots đóng góp */}
+            {farmCount > 1 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {allPlots.map((p: any, idx: number) => (
+                  <Card key={p.id ?? idx} className="rounded-2xl">
+                    <CardContent className="pt-5 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 text-xs font-bold">
+                          {idx + 1}
+                        </span>
+                        <span className="font-mono text-sm font-semibold">{p.plotCode}</span>
+                      </div>
+                      {p.farmer?.fullName && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <User className="h-3.5 w-3.5 shrink-0" />
+                          {p.farmer.fullName}
+                        </div>
+                      )}
+                      {p.zone && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          {[p.zone.district, p.zone.province].filter(Boolean).join(', ') || p.zone.name}
+                        </div>
+                      )}
+                      {p.areaHa && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Ruler className="h-3.5 w-3.5 shrink-0" />
+                          {p.areaHa} ha
+                        </div>
+                      )}
+                      {p.plantingDate && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="h-3.5 w-3.5 shrink-0" />
+                          Trồng: {formatDate(p.plantingDate)}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Plot info */}
               <Card className="rounded-2xl lg:col-span-2">
@@ -646,6 +737,8 @@ export default function TraceabilityDetailPage() {
                 </CardContent>
               </Card>
             </div>
+
+            )} {/* end single-farm else */}
           </TabsContent>
 
           {/* ----- Quality tab ----- */}

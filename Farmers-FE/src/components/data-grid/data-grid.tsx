@@ -218,7 +218,7 @@ export function DataGrid<TItem>({
       )}
 
       <div className={cn("flex flex-col", classNames?.content)}>
-        <div className={cn("overflow-y-auto", classNames?.gridScroll)}>
+        <div className={cn("overflow-y-auto py-1", classNames?.gridScroll)}>
           {error ? (
             <Card>
               <CardContent className="flex items-center justify-center gap-2 py-10">

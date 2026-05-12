@@ -293,80 +293,80 @@ export default function PlotsPage() {
         description="Danh sách lô đất đang quản lý. Mở chi tiết để chỉnh sửa thông tin lô, giám sát viên phụ trách và dữ liệu liên quan."
         keyExtractor={(plot) => plot.id}
         renderCard={(plot) => (
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             onClick={() => openSheet(plot)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openSheet(plot);
-              }
-            }}
             className={cn(
-              "group flex h-full min-h-0 w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-white to-slate-50 p-4 text-left shadow-sm transition-all duration-200 ease-out",
-              "shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
-              "hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-100/60 hover:shadow-[inset_3px_0_0_0_hsl(var(--primary)),0_8px_20px_-4px_rgba(16,185,129,0.15)]",
-              editingId === plot.id && "border-emerald-500 ring-2 ring-emerald-200 shadow-[inset_3px_0_0_0_hsl(142,71%,45%)]",
+              "flex h-full w-full flex-col rounded-2xl border border-l-4 border-l-emerald-500 bg-gradient-to-br from-white to-emerald-50/40 p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-l-emerald-600 hover:shadow-md",
+              editingId === plot.id && "ring-2 ring-emerald-200",
             )}
           >
+            {/* Header */}
             <div className="flex shrink-0 items-start justify-between gap-3">
-              <div>
-                <p className="text-base font-semibold text-slate-900 group-hover:text-emerald-900">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-semibold text-slate-900">
                   {plot.plotName}
                 </p>
-                <p className="text-sm text-muted-foreground">{plot.lotCode}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {plot.lotCode}
+                </p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-8 rounded-full"
+                  className="h-7 w-7 rounded-full text-slate-500 hover:bg-emerald-50 hover:text-emerald-700"
                   onClick={(event) => {
                     event.stopPropagation();
                     openSheet(plot);
                   }}
                 >
-                  <Edit3 className="h-4 w-4" />
+                  <Edit3 className="h-3.5 w-3.5" />
                 </Button>
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-8 rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  className="h-7 w-7 rounded-full text-rose-400 hover:bg-rose-50 hover:text-rose-600"
                   onClick={(event) => {
                     event.stopPropagation();
                     requestDelete(plot);
                   }}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
 
-            <div className="mt-4 min-h-0 flex-1 grid gap-2 text-sm text-muted-foreground">
-              <p className="inline-flex items-center gap-2">
-                <UserRound className="h-4 w-4 shrink-0" />
-                {plot.farmerName}
+            {/* Body */}
+            <div className="mt-3 flex-1 space-y-1.5 text-sm text-muted-foreground">
+              <p className="flex items-center gap-2">
+                <UserRound className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span className="truncate">{plot.farmerName}</span>
               </p>
-              <p className="inline-flex items-center gap-2">
-                <UserRound className="h-4 w-4 shrink-0" />
-                GS: {plot.name_suppervisor || "Chưa phân công"}
+              <p className="flex items-center gap-2">
+                <Users className="h-4 w-4 shrink-0 text-sky-500" />
+                <span className="truncate">
+                  {plot.name_suppervisor || (
+                    <span className="italic text-muted-foreground/60">Chưa phân công</span>
+                  )}
+                </span>
               </p>
-              <p className="inline-flex items-center gap-2">
-                <MapPin className="h-4 w-4 shrink-0" />
-                {plot.district}, {plot.province}
+              <p className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 shrink-0 text-rose-400" />
+                <span className="truncate">{plot.district}, {plot.province}</span>
               </p>
             </div>
 
-            <div className="mt-auto flex shrink-0 flex-wrap items-center gap-2 border-t border-dashed border-primary/30 pt-3">
+            {/* Footer */}
+            <div className="mt-3 flex shrink-0 flex-wrap items-center gap-1.5 border-t border-dashed border-emerald-100 pt-3">
               <Badge variant="outline" className={getCropBadgeClass(plot.cropType)}>
                 {getCropLabel(plot.cropType)}
               </Badge>
-              <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">
                 {plot.areaHa} ha
               </Badge>
             </div>
-          </div>
+          </button>
         )}
         isLoading={isLoading}
         isAwaitingResults={isFetching && !isLoading}

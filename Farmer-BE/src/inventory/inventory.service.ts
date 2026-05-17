@@ -19,6 +19,31 @@ interface InventoryUser {
   role: Role;
 }
 
+/**
+ * Số ngày bảo quản mặc định theo cropType. Dùng để tự tính `expiryDate` khi
+ * nhân viên kho không truyền tay lúc tạo InventoryLot. Áp dụng cho cà phê
+ * nhân (chưa rang) và sầu riêng tươi — là dạng phổ biến nhất trong hệ thống.
+ * Với các dạng đã chế biến (cà phê rang/xay, sầu riêng đông lạnh/sấy),
+ * nhân viên kho phải override thủ công lúc tạo lot.
+ */
+const DEFAULT_SHELF_LIFE_DAYS: Record<string, number> = {
+  'ca-phe': 365,
+  'sau-rieng': 7,
+};
+
+function computeDefaultExpiry(
+  cropType: string | undefined | null,
+  harvestDate: Date,
+): Date {
+  const days =
+    cropType && DEFAULT_SHELF_LIFE_DAYS[cropType] !== undefined
+      ? DEFAULT_SHELF_LIFE_DAYS[cropType]
+      : 30;
+  const expiry = new Date(harvestDate);
+  expiry.setDate(expiry.getDate() + days);
+  return expiry;
+}
+
 @Injectable()
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) { }
@@ -539,6 +564,19 @@ export class InventoryService {
 
       const lotStatus = harvestDate && harvestDate > now ? InventoryLotStatus.SCHEDULED : InventoryLotStatus.ARRIVED;
 
+      // Nếu DTO không truyền expiryDate, tự tính theo cropType + harvestDate.
+      // Logic FEFO khi bán hàng (order.service) dựa vào field này nên cần đảm
+      // bảo mỗi lot mới đều có expiry hợp lý. Nhân viên kho vẫn có thể truyền
+      // tay để override (vd. cà phê rang xay có hạn ngắn hơn cà phê nhân).
+      let expiryDate: Date | null = dto.expiryDate ? new Date(dto.expiryDate) : null;
+      if (!expiryDate) {
+        const product = await tx.product.findUnique({
+          where: { id: dto.productId },
+          select: { cropType: true },
+        });
+        expiryDate = computeDefaultExpiry(product?.cropType, harvestDate ?? now);
+      }
+
       const lot = await tx.inventoryLot.create({
         data: {
           warehouseId: dto.warehouseId,
@@ -547,7 +585,7 @@ export class InventoryService {
           quantityKg: dto.quantityKg,
           qualityGrade: dto.qualityGrade,
           harvestDate: harvestDate,
-          expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
+          expiryDate,
           status: lotStatus,
         },
       });
@@ -806,7 +844,14 @@ export class InventoryService {
           },
         });
       } else {
-        // Fallback: Tạo mới lô hàng ARRIVED (nếu chưa có SCHEDULED)
+        // Fallback: Tạo mới lô hàng ARRIVED (nếu chưa có SCHEDULED).
+        // Auto-tính expiryDate theo cropType (giống createLot) — FEFO sort khi
+        // bán hàng cần field này.
+        const product = await tx.product.findUnique({
+          where: { id: resolvedProductId! },
+          select: { cropType: true },
+        });
+        const harvestNow = new Date();
         lot = await tx.inventoryLot.create({
           data: {
             warehouseId,
@@ -814,7 +859,8 @@ export class InventoryService {
             contractId,
             quantityKg: actualWeight,
             qualityGrade,
-            harvestDate: new Date(),
+            harvestDate: harvestNow,
+            expiryDate: computeDefaultExpiry(product?.cropType, harvestNow),
             status: InventoryLotStatus.ARRIVED,
           },
         });

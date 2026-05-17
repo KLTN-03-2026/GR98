@@ -627,14 +627,8 @@ export class OrderService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      // Tìm 1 warehouse mặc định của admin để ghi giao dịch SALE
-      const warehouse = await tx.warehouse.findFirst({
-        where: { adminId: order.adminId, isActive: true },
-        orderBy: { createdAt: 'asc' },
-      });
-
       for (const item of order.orderItems) {
-        // Giảm stock thật + giảm reserved
+        // Giảm stock thật + giảm reserved trên Product
         await tx.product.update({
           where: { id: item.productId },
           data: {
@@ -643,36 +637,63 @@ export class OrderService {
           },
         });
 
-        // Ghi WarehouseTransaction OUTBOUND/SALE nếu có warehouse
-        if (warehouse) {
-          // Tìm 1 inventory lot còn hàng của product này
-          const lot = await tx.inventoryLot.findFirst({
-            where: {
-              warehouseId: warehouse.id,
-              productId: item.productId,
-              quantityKg: { gt: 0 },
-            },
-            orderBy: { createdAt: 'asc' },
-          });
+        // Phân bổ qty cần trừ qua nhiều inventory lot theo FIFO (lot cũ nhất
+        // trừ trước), không giới hạn warehouse. Mỗi lot chỉ trừ tối đa lượng
+        // còn lại của lot đó để tránh quantityKg bị âm.
+        //
+        // Mỗi lần trừ trên 1 lot → tạo 1 WarehouseTransaction OUTBOUND/SALE
+        // riêng để audit từng phần đã lấy ra ở warehouse nào, lot nào.
+        // FEFO (First-Expired-First-Out): bán lot có ngày hết hạn sớm nhất
+        // trước để tránh tồn quá hạn phải hủy. Prisma sort `expiryDate asc`
+        // mặc định đẩy NULL xuống cuối (Postgres NULLS LAST), nên lot không
+        // có expiry sẽ được bán cuối cùng — hợp lý vì không rõ hạn = không
+        // ưu tiên xử lý.
+        const lots = await tx.inventoryLot.findMany({
+          where: {
+            productId: item.productId,
+            quantityKg: { gt: 0 },
+          },
+          orderBy: [
+            { expiryDate: 'asc' },
+            { harvestDate: 'asc' },
+            { createdAt: 'asc' },
+          ],
+        });
 
-          if (lot) {
-            await tx.inventoryLot.update({
-              where: { id: lot.id },
-              data: { quantityKg: { decrement: item.quantityKg } },
-            });
-            await tx.warehouseTransaction.create({
-              data: {
-                warehouseId: warehouse.id,
-                productId: item.productId,
-                inventoryLotId: lot.id,
-                quantityKg: -item.quantityKg,
-                type: TransactionType.OUTBOUND,
-                action: TransactionAction.SALE,
-                note: `Bán online - Đơn ${order.orderNo}`,
-                createdBy: currentUserId,
-              },
-            });
-          }
+        let remaining = item.quantityKg;
+        for (const lot of lots) {
+          if (remaining <= 0) break;
+          const deduct = Math.min(lot.quantityKg, remaining);
+          await tx.inventoryLot.update({
+            where: { id: lot.id },
+            data: { quantityKg: { decrement: deduct } },
+          });
+          await tx.warehouseTransaction.create({
+            data: {
+              warehouseId: lot.warehouseId,
+              productId: item.productId,
+              inventoryLotId: lot.id,
+              quantityKg: -deduct,
+              type: TransactionType.OUTBOUND,
+              action: TransactionAction.SALE,
+              note: `Bán online - Đơn ${order.orderNo}`,
+              createdBy: currentUserId,
+            },
+          });
+          remaining -= deduct;
+        }
+
+        // Trường hợp này không nên xảy ra vì atomic reserve check (createOrder)
+        // đã đảm bảo `Product.stockKg - Product.reservedKg >= qty` trước khi
+        // tạo đơn. Nếu vẫn vào nhánh này → dữ liệu inventory không khớp với
+        // Product.stockKg, log lại để admin kiểm tra.
+        if (remaining > 0) {
+          console.error(
+            `[order.confirmDelivery] Đơn ${order.orderNo}: thiếu ${remaining}kg ` +
+              `khi phân bổ qua inventory lots của product ${item.productId}. ` +
+              `Stock tổng (Products.stockKg) đã trừ đủ, nhưng tổng quantityKg ` +
+              `trong InventoryLots không khớp.`,
+          );
         }
       }
 

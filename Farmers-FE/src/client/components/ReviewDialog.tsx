@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Star, X, Upload, Loader2 } from 'lucide-react';
+import { Star, Upload, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useCreateReview } from '@/client/api/reviews';
-import { uploadImages } from '@/client/api/upload';
+import { useImageUploader } from '@/client/hooks/use-image-uploader';
+import { ImageUploadTile } from '@/client/components/image-upload-tile';
 import { toast } from 'sonner';
 
 interface ReviewDialogProps {
@@ -35,8 +36,7 @@ export function ReviewDialog({
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
   const [comment, setComment] = useState('');
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const uploader = useImageUploader({ folder: 'reviews', maxImages: MAX_IMAGES });
 
   const createReview = useCreateReview(productId);
 
@@ -44,32 +44,13 @@ export function ReviewDialog({
     setRating(0);
     setHovered(0);
     setComment('');
-    setImageUrls([]);
+    uploader.clear();
   };
 
   const handleClose = () => {
-    if (!createReview.isPending && !isUploading) {
+    if (!createReview.isPending && !uploader.isUploading) {
       reset();
       onOpenChange(false);
-    }
-  };
-
-  const handleImageUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const remaining = MAX_IMAGES - imageUrls.length;
-    if (remaining <= 0) {
-      toast.warning(`Tối đa ${MAX_IMAGES} ảnh`);
-      return;
-    }
-    const filesToUpload = Array.from(files).slice(0, remaining);
-    setIsUploading(true);
-    try {
-      const uploaded = await uploadImages(filesToUpload, 'reviews');
-      setImageUrls((prev) => [...prev, ...uploaded.map((u) => u.url)]);
-    } catch {
-      toast.error('Không thể tải ảnh lên, vui lòng thử lại');
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -79,7 +60,11 @@ export function ReviewDialog({
       return;
     }
     try {
-      await createReview.mutateAsync({ rating, comment: comment.trim() || undefined, imageUrls });
+      await createReview.mutateAsync({
+        rating,
+        comment: comment.trim() || undefined,
+        imageUrls: uploader.urls,
+      });
       reset();
       onOpenChange(false);
       onSuccess?.();
@@ -154,41 +139,34 @@ export function ReviewDialog({
               <span className="font-normal text-muted-foreground">(tùy chọn, tối đa {MAX_IMAGES} ảnh)</span>
             </Label>
 
-            <div className="flex flex-wrap gap-2">
-              {imageUrls.map((url, i) => (
-                <div key={i} className="relative size-16 rounded-lg overflow-hidden border bg-muted shrink-0">
-                  <img src={url} alt={`review-${i}`} className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="absolute top-0.5 right-0.5 size-4 rounded-full bg-black/60 text-white flex items-center justify-center"
-                  >
-                    <X className="size-2.5" />
-                  </button>
-                </div>
+            <div className="grid grid-cols-4 gap-2">
+              {uploader.items.map((item) => (
+                <ImageUploadTile
+                  key={item.id}
+                  item={item}
+                  onRemove={() => uploader.remove(item.id)}
+                  onRetry={() => void uploader.retry(item.id)}
+                  className="aspect-square"
+                />
               ))}
 
-              {imageUrls.length < MAX_IMAGES && (
+              {uploader.items.length < MAX_IMAGES && (
                 <label
                   className={cn(
-                    'size-16 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer shrink-0 hover:border-primary/40 hover:bg-primary/5 transition-colors',
-                    isUploading && 'opacity-50 pointer-events-none',
+                    'aspect-square rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors',
                   )}
                 >
-                  {isUploading ? (
-                    <Loader2 className="size-5 text-muted-foreground animate-spin" />
-                  ) : (
-                    <>
-                      <Upload className="size-4 text-muted-foreground mb-0.5" />
-                      <span className="text-[9px] text-muted-foreground font-medium">Thêm ảnh</span>
-                    </>
-                  )}
+                  <Upload className="size-4 text-muted-foreground mb-0.5" />
+                  <span className="text-[9px] text-muted-foreground font-medium">Thêm ảnh</span>
                   <input
                     type="file"
                     accept="image/*"
                     multiple
                     className="sr-only"
-                    onChange={(e) => handleImageUpload(e.target.files)}
+                    onChange={(e) => {
+                      void uploader.addFiles(e.target.files);
+                      e.target.value = '';
+                    }}
                   />
                 </label>
               )}
@@ -198,18 +176,23 @@ export function ReviewDialog({
 
         {/* Footer */}
         <DialogFooter className="px-6 py-4 border-t gap-2">
-          <Button variant="outline" onClick={handleClose} disabled={createReview.isPending || isUploading}>
+          <Button variant="outline" onClick={handleClose} disabled={createReview.isPending || uploader.isUploading}>
             Hủy
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={rating === 0 || createReview.isPending || isUploading}
+            disabled={rating === 0 || createReview.isPending || uploader.isUploading}
             className="min-w-[120px]"
           >
             {createReview.isPending ? (
               <>
                 <Loader2 className="size-4 mr-2 animate-spin" />
                 Đang gửi...
+              </>
+            ) : uploader.isUploading ? (
+              <>
+                <Loader2 className="size-4 mr-2 animate-spin" />
+                Đang tải ảnh...
               </>
             ) : (
               'Gửi đánh giá'

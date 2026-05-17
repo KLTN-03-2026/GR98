@@ -14,7 +14,6 @@ import {
   Tag,
   Image as ImageIcon,
   Pencil,
-  Trash2,
   Save,
   X,
   Activity,
@@ -55,7 +54,11 @@ import {
 } from '@/client/types';
 import { toast } from 'sonner';
 import FileUpload from '@/components/custom/file-upload';
-import { uploadImage, uploadImages } from '@/client/api/upload';
+import {
+  useImageUploader,
+  useSingleImageUploader,
+} from '@/client/hooks/use-image-uploader';
+import { ImageUploadTile } from '@/client/components/image-upload-tile';
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
@@ -80,6 +83,10 @@ export function ProductDetailsDialog({
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+  const gallery = useImageUploader({ folder: 'products', maxImages: 12 });
+  const thumb = useSingleImageUploader({ folder: 'products' });
+  const isUploadingGallery = gallery.isUploading;
+  const isUploadingThumbnail = thumb.isUploading;
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -122,41 +129,41 @@ export function ProductDetailsDialog({
         contractId: product.contractId || '',
         sku: product.sku || '',
       });
+      gallery.setFromUrls(product.imageUrls || []);
+      thumb.setFromUrl(product.thumbnailUrl || product.imageUrls?.[0] || null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, product]);
+
+  // Đồng bộ urls từ uploader → form (form là source of truth khi onUpdate gửi BE).
+  useEffect(() => {
+    setForm((prev) =>
+      prev.imageUrls.join('|') === gallery.urls.join('|')
+        ? prev
+        : {
+            ...prev,
+            imageUrls: gallery.urls,
+            thumbnailUrl: prev.thumbnailUrl || gallery.urls[0] || '',
+          },
+    );
+  }, [gallery.urls]);
+
+  useEffect(() => {
+    if (thumb.url && thumb.url !== form.thumbnailUrl) {
+      setForm((prev) => ({ ...prev, thumbnailUrl: thumb.url! }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thumb.url]);
 
   if (!product) return null;
 
   const handleMultiFileUpload = async (files: File[]) => {
-    try {
-      const uploaded = await uploadImages(files, 'products');
-      const newUrls = uploaded.map((u) => u.url);
-      const newImages = [...form.imageUrls, ...newUrls];
-      setForm({
-        ...form,
-        imageUrls: newImages,
-        thumbnailUrl: form.thumbnailUrl || newImages[0],
-      });
-      toast.success(`Đã tải lên ${newUrls.length} ảnh vào Album`);
-    } catch (error) {
-      toast.error('Lỗi khi tải ảnh lên Album');
-      console.error(error);
-    }
+    await gallery.addFiles(files);
   };
 
   const handleThumbnailUpload = async (file: File) => {
-    try {
-      const uploaded = await uploadImage(file, 'products');
-      setForm({ ...form, thumbnailUrl: uploaded.url });
-      toast.success('Đã cập nhật ảnh đại diện');
-    } catch (error) {
-      toast.error('Lỗi khi tải ảnh đại diện');
-      console.error(error);
-    }
-  };
-
-  const handleRemoveImage = (url: string) => {
-    setForm({ ...form, imageUrls: form.imageUrls.filter((u) => u !== url) });
+    await thumb.upload(file);
+    // toast success is shown after BE save; uploader already toasts errors
   };
 
   const toggleCategory = (id: string) => {
@@ -172,6 +179,10 @@ export function ProductDetailsDialog({
     e.preventDefault();
     if (!form.name.trim()) {
       toast.error('Vui lòng nhập tên sản phẩm');
+      return;
+    }
+    if (isUploadingGallery || isUploadingThumbnail) {
+      toast.error('Vui lòng đợi ảnh tải lên xong');
       return;
     }
 
@@ -522,39 +533,85 @@ export function ProductDetailsDialog({
 
                   {/* Truy xuất nguồn gốc */}
                   <Section title="Truy xuất nguồn gốc" icon={Fingerprint} tone="emerald">
-                    <div className="space-y-2.5">
-                      <TraceRow
-                        icon={Calendar}
-                        label="Ngày thu hoạch"
-                        value={
-                          product.harvestDate
-                            ? new Date(product.harvestDate).toLocaleDateString('vi-VN', {
-                                dateStyle: 'long',
-                              })
-                            : 'Chưa cập nhật'
-                        }
-                      />
-                      <TraceRow
-                        icon={MapPin}
-                        label="Vùng canh tác (Plot)"
-                        value={
-                          (product.plot?.plotCode as string | undefined) ||
-                          product.plotId ||
-                          '—'
-                        }
-                        mono
-                      />
-                      <TraceRow
-                        icon={FileText}
-                        label="Mã hợp đồng liên kết"
-                        value={
-                          (product.contract?.contractNo as string | undefined) ||
-                          product.contractId ||
-                          '—'
-                        }
-                        mono
-                      />
-                    </div>
+                    {(product.contributingFarmCount ?? 0) > 1 ? (
+                      // Sản phẩm gộp từ nhiều plot/hợp đồng → một plot/contract đơn
+                      // không phản ánh đúng nguồn gốc. Hiển thị tổng quan + link sang
+                      // trang truy xuất để xem chi tiết từng nông trại.
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                          <Sprout className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-semibold text-emerald-800">
+                              Sản phẩm gộp từ {product.contributingFarmCount} nông trại
+                            </p>
+                            <p className="text-xs text-emerald-700/80">
+                              Cùng loại, cùng giống và phẩm cấp. Xem hành trình chi
+                              tiết của từng nông trại ở trang truy xuất nguồn gốc.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-2.5">
+                          <TraceRow
+                            icon={Calendar}
+                            label="Ngày thu hoạch"
+                            value={
+                              product.harvestDate
+                                ? new Date(product.harvestDate).toLocaleDateString(
+                                    'vi-VN',
+                                    { dateStyle: 'long' },
+                                  )
+                                : 'Nhiều đợt thu hoạch'
+                            }
+                          />
+                        </div>
+                        {product.slug && (
+                          <a
+                            href={`/traceability/${product.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
+                          >
+                            <Fingerprint className="h-3.5 w-3.5" />
+                            Xem chi tiết truy xuất
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        <TraceRow
+                          icon={Calendar}
+                          label="Ngày thu hoạch"
+                          value={
+                            product.harvestDate
+                              ? new Date(product.harvestDate).toLocaleDateString(
+                                  'vi-VN',
+                                  { dateStyle: 'long' },
+                                )
+                              : 'Chưa cập nhật'
+                          }
+                        />
+                        <TraceRow
+                          icon={MapPin}
+                          label="Vùng canh tác (Plot)"
+                          value={
+                            (product.plot?.plotCode as string | undefined) ||
+                            product.plotId ||
+                            '—'
+                          }
+                          mono
+                        />
+                        <TraceRow
+                          icon={FileText}
+                          label="Mã hợp đồng liên kết"
+                          value={
+                            (product.contract?.contractNo as string | undefined) ||
+                            product.contractId ||
+                            '—'
+                          }
+                          mono
+                        />
+                      </div>
+                    )}
                   </Section>
 
                   {/* AI Confidence */}
@@ -623,40 +680,34 @@ export function ProductDetailsDialog({
                 <>
                   <Section title="Ảnh đại diện (Thumbnail)" icon={ImageIcon} tone="primary">
                     <FileUpload multiple={false} onFileSelect={handleThumbnailUpload} />
-                    {form.thumbnailUrl && (
-                      <div className="mt-3 aspect-video w-full overflow-hidden rounded-lg border bg-slate-50">
-                        <img
-                          src={form.thumbnailUrl}
-                          alt="thumbnail"
-                          className="size-full object-cover"
+                    {thumb.item && (
+                      <div className="mt-3">
+                        <ImageUploadTile
+                          item={thumb.item}
+                          onRemove={thumb.clear}
+                          onRetry={() => void thumb.retry()}
+                          className="aspect-video"
                         />
                       </div>
                     )}
                   </Section>
 
                   <Section
-                    title={`Album hình ảnh (${form.imageUrls.length})`}
+                    title={`Album hình ảnh (${gallery.items.length})`}
                     icon={ImageIcon}
                     tone="blue"
                   >
                     <FileUpload multiple onFilesSelect={handleMultiFileUpload} />
-                    {form.imageUrls.length > 0 && (
+                    {gallery.items.length > 0 && (
                       <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                        {form.imageUrls.map((url, i) => (
-                          <div
-                            key={i}
-                            className="group relative aspect-square overflow-hidden rounded-lg border bg-slate-50"
-                          >
-                            <img src={url} alt="album" className="size-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveImage(url)}
-                              className="absolute inset-0 flex items-center justify-center bg-rose-500/85 opacity-0 transition-opacity group-hover:opacity-100"
-                              aria-label="Xoá ảnh"
-                            >
-                              <Trash2 className="size-5 text-white" />
-                            </button>
-                          </div>
+                        {gallery.items.map((item) => (
+                          <ImageUploadTile
+                            key={item.id}
+                            item={item}
+                            onRemove={() => gallery.remove(item.id)}
+                            onRetry={() => void gallery.retry(item.id)}
+                            className="aspect-square"
+                          />
                         ))}
                       </div>
                     )}
@@ -730,10 +781,10 @@ export function ProductDetailsDialog({
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={isUpdating}
+              disabled={isUpdating || isUploadingGallery || isUploadingThumbnail}
               className="gap-1.5"
             >
-              {isUpdating ? (
+              {isUpdating || isUploadingGallery || isUploadingThumbnail ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <Save className="size-4" />

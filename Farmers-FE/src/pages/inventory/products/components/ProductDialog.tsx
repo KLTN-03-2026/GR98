@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react';
 import {
   ImageIcon,
   CheckCircle2,
-  Trash2,
   ShoppingBag,
   Info,
   RefreshCw,
+  Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import FileUpload from '@/components/custom/file-upload';
-import { uploadImage, uploadImages } from '@/client/api/upload';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +27,8 @@ import {
   type ProductStatus,
 } from '@/client/types';
 import { CROP_CONFIG, getVarietiesForCrop } from '@/client/data/crop-config';
+import { useImageUploader } from '@/client/hooks/use-image-uploader';
+import { ImageUploadTile } from '@/client/components/image-upload-tile';
 
 import {
   Tabs,
@@ -46,7 +46,7 @@ interface ProductDialogProps {
   categories: any[];
 }
 
-
+const MAX_GALLERY_IMAGES = 12;
 
 export function ProductDialog({
   open,
@@ -57,7 +57,7 @@ export function ProductDialog({
   categories,
 }: ProductDialogProps) {
   const [activeTab, setActiveTab] = useState('marketing');
-  const [isUploading, setIsUploading] = useState(false);
+  const gallery = useImageUploader({ folder: 'products', maxImages: MAX_GALLERY_IMAGES });
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -65,7 +65,6 @@ export function ProductDialog({
     minOrderKg: 1,
     unit: 'kg',
     status: 'DRAFT' as ProductStatus,
-    imageUrls: [] as string[],
     thumbnailUrl: '',
     categoryIds: [] as string[],
   });
@@ -81,10 +80,10 @@ export function ProductDialog({
           minOrderKg: product.minOrderKg,
           unit: product.unit || 'kg',
           status: product.status,
-          imageUrls: product.imageUrls || [],
           thumbnailUrl: (product as any).thumbnailUrl || product.imageUrls?.[0] || '',
           categoryIds: product.categories?.map((c) => c.id) || [],
         });
+        gallery.setFromUrls(product.imageUrls || []);
       } else {
         setForm({
           name: '',
@@ -93,37 +92,14 @@ export function ProductDialog({
           minOrderKg: 1,
           unit: 'kg',
           status: 'DRAFT',
-          imageUrls: [],
           thumbnailUrl: '',
           categoryIds: [],
         });
+        gallery.clear();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product, mode, open]);
-
-  const handleMultiFileUpload = async (files: File[]) => {
-    setIsUploading(true);
-    try {
-      const uploaded = await uploadImages(files, 'products');
-      const newUrls = uploaded.map((u) => u.url);
-      const newImages = [...form.imageUrls, ...newUrls];
-      setForm({
-        ...form,
-        imageUrls: newImages,
-        thumbnailUrl: form.thumbnailUrl || newImages[0],
-      });
-      toast.success(`Đã tải lên ${newUrls.length} ảnh`);
-    } catch (error) {
-      toast.error('Lỗi khi tải ảnh');
-      console.error(error);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleRemoveImage = (url: string) => {
-    setForm({ ...form, imageUrls: form.imageUrls.filter((u) => u !== url) });
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,15 +107,21 @@ export function ProductDialog({
       toast.error('Vui lòng nhập tên sản phẩm');
       return;
     }
-    onSubmit(form);
+    if (gallery.isUploading) {
+      toast.error('Vui lòng đợi ảnh tải lên xong');
+      return;
+    }
+    const imageUrls = gallery.urls;
+    const thumbnailUrl = form.thumbnailUrl || imageUrls[0] || '';
+    onSubmit({ ...form, imageUrls, thumbnailUrl });
   };
 
   const toggleCategory = (id: string) => {
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
       categoryIds: prev.categoryIds.includes(id)
-        ? prev.categoryIds.filter(cid => cid !== id)
-        : [...prev.categoryIds, id]
+        ? prev.categoryIds.filter((cid) => cid !== id)
+        : [...prev.categoryIds, id],
     }));
   };
 
@@ -147,7 +129,7 @@ export function ProductDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl h-[85vh] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] bg-white font-manrope flex flex-col">
         <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
-          
+
           <DialogHeader className="px-10 pt-8 pb-4 border-b border-slate-50 bg-white shrink-0">
             <div className="flex items-center justify-between mb-6">
               <div className="space-y-1.5">
@@ -161,7 +143,7 @@ export function ProductDialog({
                   Chỉnh sửa các thông số hiển thị và truyền thông cho sản phẩm.
                 </DialogDescription>
               </div>
-              
+
               <div className="hidden md:flex items-center gap-2">
                 <div className={cn(
                   "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border flex items-center gap-2",
@@ -324,49 +306,64 @@ export function ProductDialog({
                     </div>
 
                     <div className="space-y-4">
-                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Album hình ảnh thực tế (Click ảnh để chọn làm ảnh đại diện)</Label>
-                      <FileUpload
-                        multiple
-                        acceptedFileTypes={['image/*']}
-                        onFilesSelect={handleMultiFileUpload}
-                      />
-                      {isUploading && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                          Đang tải ảnh lên...
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                          Album hình ảnh thực tế ({gallery.items.length}/{MAX_GALLERY_IMAGES}) — Click ảnh để chọn làm ảnh đại diện
+                        </Label>
+                        {gallery.items.length < MAX_GALLERY_IMAGES && (
+                          <label className="inline-flex items-center gap-2 rounded-full bg-emerald-500 text-white px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest cursor-pointer hover:bg-emerald-600 transition-colors">
+                            <Upload className="size-3.5" />
+                            Thêm ảnh
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="sr-only"
+                              onChange={(e) => {
+                                void gallery.addFiles(e.target.files);
+                                e.target.value = '';
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 p-8 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm min-h-[140px]">
-                        {form.imageUrls.map((url, i) => (
-                          <div 
-                            key={i} 
-                            onClick={() => setForm({ ...form, thumbnailUrl: url })}
-                            className={cn(
-                              "group relative aspect-square rounded-[1.5rem] overflow-hidden border transition-all cursor-pointer hover:scale-[1.05] hover:z-20",
-                              form.thumbnailUrl === url ? "border-emerald-500 ring-4 ring-emerald-500/10 shadow-lg" : "border-slate-100 bg-slate-50"
-                            )}
-                          >
-                            <img src={url} alt="product" className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-[2px]">
-                              <button
-                                type="button"
-                                className="h-8 w-8 rounded-full bg-rose-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-xl shadow-rose-500/40"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRemoveImage(url);
+                        {gallery.items.map((item) => {
+                          const isThumb = item.status === 'done' && item.url === form.thumbnailUrl;
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={() => {
+                                if (item.status === 'done' && item.url) {
+                                  setForm((prev) => ({ ...prev, thumbnailUrl: item.url! }));
+                                }
+                              }}
+                              className={cn(
+                                'relative cursor-pointer transition-all hover:scale-[1.05] hover:z-10',
+                                isThumb && 'ring-4 ring-emerald-500/20 rounded-[1.5rem]',
+                              )}
+                            >
+                              <ImageUploadTile
+                                item={item}
+                                onRemove={() => {
+                                  gallery.remove(item.id);
+                                  if (item.url === form.thumbnailUrl) {
+                                    setForm((prev) => ({ ...prev, thumbnailUrl: '' }));
+                                  }
                                 }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                                onRetry={() => void gallery.retry(item.id)}
+                                className="aspect-square rounded-[1.5rem]"
+                              />
+                              {isThumb && (
+                                <div className="absolute top-3 left-3 px-2 py-0.5 bg-emerald-500 text-white text-[7px] font-black uppercase tracking-tighter rounded-md shadow-lg flex items-center gap-1">
+                                  <CheckCircle2 className="size-2" /> ẢNH ĐẠI DIỆN
+                                </div>
+                              )}
                             </div>
-                            {form.thumbnailUrl === url && (
-                              <div className="absolute top-3 left-3 px-2 py-0.5 bg-emerald-500 text-white text-[7px] font-black uppercase tracking-tighter rounded-md shadow-lg flex items-center gap-1">
-                                <CheckCircle2 className="size-2" /> ẢNH ĐẠI DIỆN
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                        {form.imageUrls.length === 0 && (
+                          );
+                        })}
+                        {gallery.items.length === 0 && (
                           <div className="col-span-full h-24 flex flex-col items-center justify-center text-slate-200 gap-3">
                              <ImageIcon className="h-8 w-8 opacity-20" />
                              <span className="text-[10px] font-bold uppercase tracking-widest opacity-30 italic">Chưa có hình ảnh nào được tải lên</span>
@@ -380,10 +377,10 @@ export function ProductDialog({
             </div>
 
             <DialogFooter className="px-10 py-6 border-t border-slate-50 bg-white flex items-center justify-between shrink-0">
-              <Button 
-                type="button" 
-                variant="ghost" 
-                onClick={() => onOpenChange(false)} 
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
                 className="rounded-full h-11 px-8 font-bold text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all uppercase tracking-widest text-[10px]"
               >
                 Hủy bỏ
@@ -392,16 +389,20 @@ export function ProductDialog({
               <div className="flex items-center gap-3">
                 <Button
                   type="submit"
-                  disabled={isUploading}
+                  disabled={gallery.isUploading}
                   className="rounded-full h-11 px-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xl shadow-emerald-500/20 flex items-center gap-3 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
                 >
-                  {isUploading ? (
+                  {gallery.isUploading ? (
                     <RefreshCw className="size-4 animate-spin" />
                   ) : (
                     <ShoppingBag className="size-4" />
                   )}
                   <span className="text-xs uppercase tracking-widest">
-                    {mode === 'create' ? 'Phát hành niêm yết' : 'Lưu thay đổi'}
+                    {gallery.isUploading
+                      ? 'Đang tải ảnh...'
+                      : mode === 'create'
+                        ? 'Phát hành niêm yết'
+                        : 'Lưu thay đổi'}
                   </span>
                 </Button>
               </div>

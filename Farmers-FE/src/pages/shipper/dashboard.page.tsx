@@ -26,9 +26,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { apiGet } from '@/client/lib/api-client';
-import { uploadImage } from '@/client/api/upload';
 import { useMarkDelivered } from '@/client/api';
 import FileUpload from '@/components/custom/file-upload';
+import { useSingleImageUploader } from '@/client/hooks/use-image-uploader';
+import { ImageUploadTile } from '@/client/components/image-upload-tile';
 import { useAuthStore } from '@/client/store';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -63,34 +64,30 @@ interface ShipperOrder {
 
 function ShipperOrderCard({ order }: { order: ShipperOrder }) {
   const markDelivered = useMarkDelivered();
-  const [proofFile, setProofFile] = useState<File | null>(null);
+  const proofUploader = useSingleImageUploader({ folder: 'delivery-proofs' });
   const [note, setNote] = useState('');
   const [open, setOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const isUploading = proofUploader.isUploading;
 
   const isDelivered = order.fulfillStatus === 'DELIVERED';
   const addr = order.shippingAddr;
 
   const handleDeliver = async () => {
-    setIsUploading(true);
+    if (isUploading) {
+      toast.error('Đợi ảnh tải lên xong rồi mới xác nhận');
+      return;
+    }
     try {
-      let proofUrl: string | undefined;
-      if (proofFile) {
-        const uploaded = await uploadImage(proofFile, 'delivery-proofs');
-        proofUrl = uploaded.url;
-      }
       await markDelivered.mutateAsync({
         orderId: order.id,
-        deliveryProofUrl: proofUrl,
+        deliveryProofUrl: proofUploader.url ?? undefined,
         note: note || undefined,
       });
       setOpen(false);
-      setProofFile(null);
+      proofUploader.clear();
       setNote('');
     } catch {
       /* toast shown by mutation */
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -179,13 +176,20 @@ function ShipperOrderCard({ order }: { order: ShipperOrder }) {
                     Ảnh chứng minh (optional)
                   </Label>
                   <FileUpload
-                    onFileSelect={(file) => setProofFile(file)}
+                    onFileSelect={(file) => void proofUploader.upload(file)}
                     onFileError={(error) => {
                       toast.error(error || 'Ảnh không hợp lệ');
                     }}
-                    currentFile={proofFile}
                     maxFileSize={5 * 1024 * 1024}
                   />
+                  {proofUploader.item && (
+                    <ImageUploadTile
+                      item={proofUploader.item}
+                      onRemove={proofUploader.clear}
+                      onRetry={() => void proofUploader.retry()}
+                      className="aspect-video"
+                    />
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Ghi chú (optional)</Label>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { uploadImage } from '@/client/api/upload';
+import { useSingleImageUploader } from '@/client/hooks/use-image-uploader';
+import { ImageUploadTile } from '@/client/components/image-upload-tile';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -201,6 +202,15 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
   const [draftForm, setDraftForm] = useState<DraftForm | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [pendingCoordinateRow, setPendingCoordinateRow] = useState<number | null>(null);
+  const signatureUploader = useSingleImageUploader({
+    folder: 'signatures',
+    onChange: async (url) => {
+      if (!url || !contract) return;
+      await updateMutation.mutateAsync({ id: contract.id, data: { signatureUrl: url } });
+      void refetch();
+    },
+  });
+  const isUploadingSignature = signatureUploader.isUploading;
   const coordinateInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
 
   const submitMutation = useSubmitContractForApproval();
@@ -316,9 +326,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
 
   const persistSignatureFromFile = async (file: File) => {
     if (!contract || mode !== 'supervisor' || contract.status !== 'ACTIVE') return;
-    const uploaded = await uploadImage(file, 'signatures');
-    await updateMutation.mutateAsync({ id: contract.id, data: { signatureUrl: uploaded.url } });
-    void refetch();
+    await signatureUploader.upload(file);
   };
 
   if (!id) {
@@ -892,7 +900,15 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
             <CardTitle className="text-base">Ảnh xác nhận bản cứng</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {contract.signatureUrl ? (
+            {signatureUploader.item ? (
+              <ImageUploadTile
+                item={signatureUploader.item}
+                onRemove={signatureUploader.clear}
+                onRetry={() => void signatureUploader.retry()}
+                readOnly={mode !== 'supervisor' || contract.status !== 'ACTIVE'}
+                className="max-h-64 w-full aspect-auto"
+              />
+            ) : contract.signatureUrl ? (
               <img
                 src={contract.signatureUrl}
                 alt="Ảnh hợp đồng"
@@ -907,7 +923,7 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
                 <Input
                   type="file"
                   accept="image/*"
-                  disabled={isSaving}
+                  disabled={isSaving || isUploadingSignature}
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;

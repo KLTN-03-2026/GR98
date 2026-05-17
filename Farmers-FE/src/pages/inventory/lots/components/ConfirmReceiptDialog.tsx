@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -32,12 +32,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   ImagePlus,
-  X,
   FileSignature,
 } from 'lucide-react';
 import type { InventoryLot } from '../api/types';
 import { cn } from '@/lib/utils';
-import { uploadImage } from '@/client/api/upload/upload-api';
+import { useImageUploader } from '@/client/hooks/use-image-uploader';
+import { ImageUploadTile } from '@/client/components/image-upload-tile';
 import {
   generateReceiptNo,
   serializeReceiptMetadata,
@@ -76,8 +76,13 @@ export function ConfirmReceiptDialog({ lot, isOpen, onClose }: ConfirmReceiptDia
   const confirmMutation = useConfirmReceipt();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const uploader = useImageUploader({
+    folder: 'goods-receipts',
+    maxImages: MAX_PHOTOS,
+    maxFileBytes: MAX_PHOTO_SIZE,
+  });
+  const photos = uploader.urls;
+  const isUploading = uploader.isUploading;
 
   const receiptNo = useMemo(() => generateReceiptNo(lot.id), [lot.id]);
 
@@ -112,48 +117,13 @@ export function ConfirmReceiptDialog({ lot, isOpen, onClose }: ConfirmReceiptDia
         condition: 'OK',
         note: '',
       });
-      setPhotos([]);
+      uploader.clear();
     }
-  }, [isOpen, lot, form]);
+  }, [isOpen, lot, form, uploader.clear]);
 
   const handlePickPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
-
-    if (photos.length + files.length > MAX_PHOTOS) {
-      toast.error(`Tối đa ${MAX_PHOTOS} ảnh`);
-      e.target.value = '';
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const uploaded: string[] = [];
-      for (const file of files) {
-        if (!file.type.startsWith('image/')) {
-          toast.error(`"${file.name}" không phải file ảnh`);
-          continue;
-        }
-        if (file.size > MAX_PHOTO_SIZE) {
-          toast.error(`Ảnh "${file.name}" vượt quá 5MB`);
-          continue;
-        }
-        const res = await uploadImage(file, 'goods-receipts');
-        uploaded.push(res.url);
-      }
-      if (uploaded.length > 0) {
-        setPhotos((prev) => [...prev, ...uploaded]);
-      }
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Tải ảnh thất bại');
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleRemovePhoto = (url: string) => {
-    setPhotos((prev) => prev.filter((p) => p !== url));
+    await uploader.addFiles(e.target.files);
+    e.target.value = '';
   };
 
   const onSubmit = (values: FormValues) => {
@@ -427,37 +397,24 @@ export function ConfirmReceiptDialog({ lot, isOpen, onClose }: ConfirmReceiptDia
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {photos.map((url) => (
-                    <div
-                      key={url}
-                      className="relative size-20 rounded-lg overflow-hidden border bg-slate-100"
-                    >
-                      <img src={url} alt="" className="size-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePhoto(url)}
-                        className="absolute -top-1 -right-1 size-5 rounded-full bg-rose-500 text-white flex items-center justify-center shadow"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </div>
+                  {uploader.items.map((item) => (
+                    <ImageUploadTile
+                      key={item.id}
+                      item={item}
+                      onRemove={() => uploader.remove(item.id)}
+                      onRetry={() => void uploader.retry(item.id)}
+                      className="size-20 aspect-square"
+                    />
                   ))}
 
-                  {photos.length < MAX_PHOTOS && (
+                  {uploader.items.length < MAX_PHOTOS && (
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="size-20 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-emerald-400 hover:text-emerald-500 transition-colors disabled:opacity-50"
+                      className="size-20 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-emerald-400 hover:text-emerald-500 transition-colors"
                     >
-                      {isUploading ? (
-                        <Loader2 className="size-5 animate-spin" />
-                      ) : (
-                        <>
-                          <ImagePlus className="size-5" />
-                          <span className="text-[10px] mt-1 font-semibold">Thêm ảnh</span>
-                        </>
-                      )}
+                      <ImagePlus className="size-5" />
+                      <span className="text-[10px] mt-1 font-semibold">Thêm ảnh</span>
                     </button>
                   )}
                 </div>

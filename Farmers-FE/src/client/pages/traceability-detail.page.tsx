@@ -150,6 +150,37 @@ function formatDate(d: string | Date) {
   });
 }
 
+/**
+ * Gộp inventory lots theo (harvestDate quy về YYYY-MM-DD) + qualityGrade.
+ * Để FE hiển thị "Đợt thu hoạch ngày X — Hạng Y" thay vì liệt kê từng lot
+ * (mỗi lot = 1 dòng InventoryLot trong DB). Ẩn warehouse và số kg để bảo vệ
+ * dữ liệu vận hành.
+ */
+function groupLotsByHarvestAndGrade(lots: TraceInventoryLot[]) {
+  const map = new Map<
+    string,
+    { key: string; harvestDate: string | null; qualityGrade: string }
+  >();
+  for (const lot of lots) {
+    const dayKey = lot.harvestDate
+      ? new Date(lot.harvestDate).toISOString().slice(0, 10)
+      : 'unknown';
+    const key = `${dayKey}::${lot.qualityGrade}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        harvestDate: lot.harvestDate ?? null,
+        qualityGrade: lot.qualityGrade,
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    if (!a.harvestDate) return 1;
+    if (!b.harvestDate) return -1;
+    return new Date(b.harvestDate).getTime() - new Date(a.harvestDate).getTime();
+  });
+}
+
 export default function TraceabilityDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data, isLoading } = useProductTraceability(slug ?? '');
@@ -205,7 +236,14 @@ export default function TraceabilityDetailPage() {
     ? `${farmCount} nông trại`
     : (plot?.farmer?.fullName ?? contract?.farmer?.fullName ?? 'Chưa xác định');
 
-  const supervisorName = contract?.supervisor?.fullName ?? null;
+  // Card "Người canh tác → Giám sát viên" hiển thị NGƯỜI ĐANG PHỤ TRÁCH plot
+  // (Assignment ACTIVE) — có thể khác với người ký hợp đồng nếu plot đã được
+  // bàn giao. Fallback về contract.supervisor (signer) khi BE chưa kịp trả
+  // currentSupervisor.
+  const supervisorName =
+    (plot as any)?.currentSupervisor?.fullName ??
+    contract?.supervisor?.fullName ??
+    null;
   const locationLabel = plot?.zone
     ? [plot.zone.district, plot.zone.province].filter(Boolean).join(', ') ||
       plot.zone.name
@@ -838,49 +876,49 @@ export default function TraceabilityDetailPage() {
             </div>
 
             {/* Inventory */}
+            {/* "Đợt thu hoạch & phân hạng" — gộp các lot có cùng ngày thu hoạch
+                + phân hạng thành 1 thẻ. Ẩn warehouse name và số kg tồn hiện
+                tại vì đó là dữ liệu vận hành nội bộ, không có giá trị cho
+                khách hàng và có rủi ro lộ thông tin kinh doanh. Chỉ hiển thị
+                ngày thu hoạch + phân hạng + dấu xác nhận "Đã nhập kho". */}
             <Card className="rounded-2xl">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Warehouse className="h-5 w-5 text-primary" />
-                  Lô hàng đã nhập kho
+                  Đợt thu hoạch & phân hạng
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {inventoryLots.length === 0 ? (
-                  <EmptyState text="Chưa có lô hàng nào trong kho." />
+                  <EmptyState text="Chưa có dữ liệu thu hoạch." />
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {inventoryLots.map((lot: TraceInventoryLot) => (
+                    {groupLotsByHarvestAndGrade(inventoryLots).map((group) => (
                       <div
-                        key={lot.id}
+                        key={group.key}
                         className="rounded-xl border bg-card p-4 space-y-3 hover:shadow-md transition-shadow"
                       >
                         <div className="flex items-center justify-between">
                           <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-400">
-                            Hạng {lot.qualityGrade}
+                            Hạng {group.qualityGrade}
                           </Badge>
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         </div>
                         <div>
-                          <p className="text-2xl font-bold">
-                            {lot.quantityKg.toLocaleString('vi-VN')}
-                            <span className="text-sm font-normal text-muted-foreground ml-1">
-                              kg
-                            </span>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                            Đợt thu hoạch
                           </p>
-                          {lot.warehouseName && (
-                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                              <Warehouse className="h-3 w-3" />
-                              {lot.warehouseName}
-                            </p>
-                          )}
+                          <p className="text-lg font-bold mt-0.5 flex items-center gap-1.5">
+                            <Calendar className="h-4 w-4 text-primary" />
+                            {group.harvestDate
+                              ? formatDate(group.harvestDate)
+                              : 'Chưa cập nhật'}
+                          </p>
                         </div>
-                        {lot.harvestDate && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Thu hoạch: {formatDate(lot.harvestDate)}
-                          </p>
-                        )}
+                        <p className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Đã qua kiểm định và nhập kho
+                        </p>
                       </div>
                     ))}
                   </div>

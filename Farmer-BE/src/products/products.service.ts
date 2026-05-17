@@ -13,7 +13,7 @@ import {
   CreateProductFromLotDto,
   CreateProductFromContractDto,
 } from './dto/create-product.dto';
-import { Role, InventoryLotStatus, ProductStatus } from '@prisma/client';
+import { Role, InventoryLotStatus, ProductStatus, AssignStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -304,12 +304,26 @@ export class ProductsService {
     ];
 
     // ── Query 3: fetch tất cả plots đóng góp với đầy đủ dữ liệu canh tác
+    // Kèm Assignment ACTIVE để biết supervisor hiện tại của plot (có thể khác
+    // với supervisor đã ký hợp đồng nếu lô đã được bàn giao). Audit data
+    // (DailyReport.supervisor, PlantScanRecord.supervisor) giữ supervisor đã
+    // thực hiện hành động đó tại thời điểm đó — không bao giờ đổi.
     const contributingPlots = contributingPlotIds.length > 0
       ? await this.prisma.plot.findMany({
           where: { id: { in: contributingPlotIds } },
           include: {
             farmer: true,
             zone: true,
+            assignments: {
+              where: { status: AssignStatus.ACTIVE },
+              include: {
+                supervisor: {
+                  include: { user: { select: { fullName: true, avatar: true } } },
+                },
+              },
+              orderBy: { assignedAt: 'desc' },
+              take: 1,
+            },
             dailyReports: {
               include: { supervisor: { include: { user: { select: { fullName: true, avatar: true } } } } },
               orderBy: { reportedAt: 'asc' },
@@ -509,21 +523,35 @@ export class ProductsService {
             zone: primaryPlot.zone
               ? { name: primaryPlot.zone.name, province: primaryPlot.zone.province, district: primaryPlot.zone.district }
               : null,
+            // Supervisor đang phụ trách plot này (Assignment ACTIVE). Khác với
+            // contract.supervisor (người ký) — dùng để hiển thị "Người canh
+            // tác hiện tại" trên trang traceability.
+            currentSupervisor: primaryPlot.assignments?.[0]?.supervisor?.user?.fullName
+              ? { fullName: primaryPlot.assignments[0].supervisor.user.fullName }
+              : null,
           }
         : null,
       // TẤT CẢ plots đóng góp — cho multi-farm display
-      contributingPlots: contributingPlots.map((p) => ({
-        id: p.id,
-        plotCode: p.plotCode,
-        areaHa: p.areaHa,
-        plantingDate: p.plantingDate,
-        farmer: p.farmer
-          ? { fullName: p.farmer.fullName, province: p.farmer.province }
-          : null,
-        zone: p.zone
-          ? { name: p.zone.name, province: p.zone.province, district: p.zone.district }
-          : null,
-      })),
+      contributingPlots: contributingPlots.map((p) => {
+        const activeAsg = p.assignments?.[0];
+        return {
+          id: p.id,
+          plotCode: p.plotCode,
+          areaHa: p.areaHa,
+          plantingDate: p.plantingDate,
+          farmer: p.farmer
+            ? { fullName: p.farmer.fullName, province: p.farmer.province }
+            : null,
+          zone: p.zone
+            ? { name: p.zone.name, province: p.zone.province, district: p.zone.district }
+            : null,
+          // Supervisor đang phụ trách plot này (có Assignment ACTIVE). Có thể
+          // khác với supervisor đã ký hợp đồng nếu plot đã được bàn giao.
+          currentSupervisor: activeAsg?.supervisor?.user?.fullName
+            ? { fullName: activeAsg.supervisor.user.fullName }
+            : null,
+        };
+      }),
       contract: product.contract
         ? {
             id: product.contract.id,

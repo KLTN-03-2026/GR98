@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowRightLeft,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -43,8 +44,25 @@ import {
   useCreateSupervisor,
   useUpdateSupervisor,
   useDeleteSupervisor,
+  useTransferFarmers,
+  useAllSupervisors,
   type SupervisorResponse,
 } from "./api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type SupervisorStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
@@ -115,8 +133,14 @@ export default function AdminSupervisorsPage() {
   const createMutation = useCreateSupervisor();
   const updateMutation = useUpdateSupervisor();
   const deleteMutation = useDeleteSupervisor();
+  const transferMutation = useTransferFarmers();
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const isDeleting = deleteMutation.isPending;
+  const isTransferring = transferMutation.isPending;
+
+  // Danh sách supervisor ACTIVE để chọn người nhận chuyển. Load full để
+  // không phụ thuộc trang hiện tại.
+  const { data: activeSupervisors = [] } = useAllSupervisors({ status: "ACTIVE" });
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [mode, setMode] = useState<"create" | "edit">("edit");
@@ -125,6 +149,9 @@ export default function AdminSupervisorsPage() {
   const [deleteTarget, setDeleteTarget] = useState<SupervisorResponse | null>(
     null,
   );
+  const [transferTarget, setTransferTarget] =
+    useState<SupervisorResponse | null>(null);
+  const [transferRecipientId, setTransferRecipientId] = useState<string>("");
   const [shouldRestoreSheet, setShouldRestoreSheet] = useState(false);
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof SupervisorForm, string>>
@@ -268,6 +295,28 @@ export default function AdminSupervisorsPage() {
         setSheetOpen(false);
         setSelected(null);
       }
+    } catch {
+      // Hook's onError already shows toast
+    }
+  };
+
+  const openTransferDialog = () => {
+    if (!selected) return;
+    setShouldRestoreSheet(true);
+    setSheetOpen(false);
+    setTransferRecipientId("");
+    setTransferTarget(selected);
+  };
+
+  const handleTransfer = async () => {
+    if (!transferTarget || !transferRecipientId) return;
+    try {
+      await transferMutation.mutateAsync({
+        fromId: transferTarget.id,
+        toSupervisorId: transferRecipientId,
+      });
+      setTransferTarget(null);
+      setTransferRecipientId("");
     } catch {
       // Hook's onError already shows toast
     }
@@ -657,14 +706,33 @@ export default function AdminSupervisorsPage() {
 
           <SheetFooter className="border-t bg-background px-5 py-4">
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                variant="destructive"
-                disabled={mode === "create"}
-                onClick={openDeleteConfirm}
-              >
-                <Trash2 className="h-4 w-4" />
-                Xóa giám sát viên
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  disabled={
+                    mode === "create" ||
+                    !selected?.supervisorProfile ||
+                    (selected?.supervisorProfile?._count.farmers ?? 0) === 0
+                  }
+                  onClick={openTransferDialog}
+                  title={
+                    (selected?.supervisorProfile?._count.farmers ?? 0) === 0
+                      ? "Giám sát viên này không có nông dân để chuyển"
+                      : undefined
+                  }
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Chuyển toàn bộ nông dân
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={mode === "create"}
+                  onClick={openDeleteConfirm}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Xóa giám sát viên
+                </Button>
+              </div>
 
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setSheetOpen(false)}>
@@ -696,7 +764,10 @@ export default function AdminSupervisorsPage() {
             <AlertDialogTitle>Xóa giám sát viên</AlertDialogTitle>
             <AlertDialogDescription>
               Bạn chắc chắn muốn xóa <strong>{deleteTarget?.fullName}</strong>?
-              Hành động này không thể hoàn tác.
+              Nếu tài khoản còn nông dân/hợp đồng đang phụ trách, hệ thống sẽ
+              yêu cầu chuyển sang giám sát viên khác trước. Nếu đã sạch dữ liệu,
+              tài khoản sẽ chuyển sang trạng thái <em>Đã ngừng hoạt động</em>
+              (vẫn giữ lịch sử báo cáo để truy xuất nguồn gốc).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -707,6 +778,112 @@ export default function AdminSupervisorsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog: chuyển toàn bộ nông dân/hợp đồng sang supervisor khác. */}
+      <Dialog
+        open={!!transferTarget}
+        onOpenChange={(open) => {
+          if (open) return;
+          if (isTransferring) return;
+          setTransferTarget(null);
+          setTransferRecipientId("");
+          if (shouldRestoreSheet) {
+            setSheetOpen(true);
+          }
+          setShouldRestoreSheet(false);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chuyển toàn bộ nông dân</DialogTitle>
+            <DialogDescription>
+              Chuyển nông dân và lô đất của{' '}
+              <strong>{transferTarget?.fullName}</strong> sang giám sát viên khác.
+              <br />
+              <span className="text-xs text-muted-foreground">
+                Hợp đồng giữ nguyên người ký; giám sát viên mới được phép xem
+                hợp đồng của lô đất nhận bàn giao nhưng không sửa được nội dung
+                bên ký. Lịch sử báo cáo và quét cây giữ nguyên người gốc.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {transferTarget?.supervisorProfile && (
+            <div className="space-y-3">
+              <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                <p className="font-medium">
+                  {transferTarget.fullName} đang phụ trách:
+                </p>
+                <ul className="mt-1 list-disc pl-5 text-muted-foreground text-xs space-y-0.5">
+                  <li>
+                    {transferTarget.supervisorProfile._count.farmers} nông dân
+                  </li>
+                  <li>
+                    {transferTarget.supervisorProfile._count.assignments} phân
+                    công lô đất (tất cả trạng thái)
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">
+                  Chuyển sang giám sát viên nào? <span className="text-rose-500">*</span>
+                </Label>
+                <Select
+                  value={transferRecipientId}
+                  onValueChange={setTransferRecipientId}
+                  disabled={isTransferring}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="-- Chọn giám sát viên --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeSupervisors
+                      .filter((s) => s.id !== transferTarget.id)
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.fullName}
+                          {s.supervisorProfile && (
+                            <span className="text-muted-foreground ml-1 text-xs">
+                              (đang phụ trách {s.supervisorProfile._count.farmers})
+                            </span>
+                          )}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {activeSupervisors.filter((s) => s.id !== transferTarget.id)
+                  .length === 0 && (
+                  <p className="text-xs text-amber-600">
+                    Chưa có giám sát viên nào khác đang hoạt động. Vui lòng tạo
+                    mới trước khi chuyển.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={isTransferring}
+              onClick={() => {
+                setTransferTarget(null);
+                setTransferRecipientId("");
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleTransfer}
+              disabled={!transferRecipientId || isTransferring}
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              {isTransferring ? "Đang chuyển..." : "Xác nhận chuyển"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

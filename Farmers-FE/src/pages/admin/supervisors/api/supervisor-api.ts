@@ -38,5 +38,25 @@ export const supervisorApi = {
   ) => apiPatch<ApiSuccessResponse<SupervisorResponse>>(`/supervisors/${id}`, data),
 
   delete: (id: string) =>
-    apiDelete<ApiSuccessResponse<{ id: string; deletedAt: string }>>(`/supervisors/${id}`),
+    apiDelete<
+      ApiSuccessResponse<{
+        id: string;
+        deletedAt?: string;
+        deactivatedAt?: string;
+        softDeleted?: boolean;
+      }>
+    >(`/supervisors/${id}`),
+
+  transferFarmers: (fromId: string, toSupervisorId: string) =>
+    apiPost<
+      ApiSuccessResponse<{
+        from: { userId: string; supervisorProfileId: string };
+        to: { userId: string; supervisorProfileId: string };
+        movedFarmers: number;
+        movedPlots: number;
+        cancelledAssignments: number;
+        createdAssignments: number;
+        updatedContracts: number;
+      }>
+    >(`/supervisors/${fromId}/transfer-farmers`, { toSupervisorId }),
 };

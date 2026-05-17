@@ -423,26 +423,194 @@ export class SupervisorService {
           is: { adminId },
         },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        supervisorProfile: { select: { id: true } },
+      },
     });
 
-    if (!existing) {
+    if (!existing || !existing.supervisorProfile) {
       throw new NotFoundException(
         'Giám sát viên không tồn tại hoặc bạn không có quyền xóa',
       );
     }
 
-    try {
-      await this.prisma.user.delete({ where: { id } });
-    } catch (error: any) {
-      if (error?.code === 'P2003') {
-        throw new ConflictException(
-          'Không thể xóa giám sát viên vì đang có dữ liệu liên quan',
-        );
-      }
-      throw error;
+    if (id === currentUserId) {
+      throw new ForbiddenException('Không thể tự xóa tài khoản của chính mình');
     }
 
-    return { id, deletedAt: new Date() };
+    // Soft-delete: vì Assignment/DailyReport/Contract/Farmer có FK trỏ về
+    // SupervisorProfile với onDelete RESTRICT. Xóa cứng sẽ vỡ FK; mặt khác
+    // các bản ghi đó là lịch sử truy xuất nguồn gốc, không được mất. Quy tắc:
+    //   • Còn dữ liệu phụ trách → chặn xóa, yêu cầu chuyển sang supervisor
+    //     khác trước (gợi ý dùng POST /supervisors/:id/transfer-farmers).
+    //   • Sạch dữ liệu → set User.status = INACTIVE. Tài khoản không đăng
+    //     nhập được nữa (auth.service kiểm tra status === ACTIVE).
+    // Điều kiện chặn xóa: chỉ check Farmer + Assignment đang hoạt động + hợp
+    // đồng DRAFT (chưa ký) cần được tiếp quản. KHÔNG chặn dựa trên hợp đồng
+    // SIGNED/ACTIVE: đó là chữ ký lịch sử của supervisor cũ, được giữ nguyên
+    // sau khi nghỉ. Vì soft-delete không xóa SupervisorProfile khỏi DB nên
+    // FK Contract.supervisorId vẫn hợp lệ.
+    const supervisorProfileId = existing.supervisorProfile.id;
+    const [activeAssignments, draftContracts, ownedFarmers] = await Promise.all([
+      this.prisma.assignment.count({
+        where: {
+          supervisorId: supervisorProfileId,
+          status: { in: ['PENDING', 'ACTIVE'] },
+        },
+      }),
+      this.prisma.contract.count({
+        where: {
+          supervisorId: supervisorProfileId,
+          status: 'DRAFT',
+        },
+      }),
+      this.prisma.farmer.count({
+        where: { supervisorId: supervisorProfileId },
+      }),
+    ]);
+
+    if (activeAssignments > 0 || draftContracts > 0 || ownedFarmers > 0) {
+      throw new ConflictException(
+        `Giám sát viên còn ${ownedFarmers} nông dân, ${activeAssignments} phân công lô đất, ` +
+          `${draftContracts} hợp đồng nháp chưa ký. Vui lòng chuyển sang giám sát viên khác trước khi xóa. ` +
+          `(Hợp đồng đã ký được giữ nguyên với người ký gốc và không cần chuyển.)`,
+      );
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { status: UserStatus.INACTIVE },
+    });
+
+    return { id, deactivatedAt: new Date(), softDeleted: true };
+  }
+
+  /**
+   * Chuyển toàn bộ nông dân + Plot Assignment + Contract đang hoạt động của
+   * supervisor `fromId` sang supervisor `toId`. Dùng để dọn dữ liệu trước
+   * khi nghỉ việc một supervisor — sau khi gọi xong endpoint này, có thể
+   * gọi DELETE /supervisors/:id (soft-delete) thành công.
+   *
+   * Quy tắc cascade y hệt farmer.service.update khi đổi supervisor:
+   *   - Cancel mọi Assignment (PENDING/ACTIVE) cũ trên plot của các farmer
+   *     thuộc supervisor cũ.
+   *   - Tạo Assignment mới (ACTIVE) cho supervisor mới cho từng plot.
+   *   - Update Contract.supervisorId (DRAFT/SIGNED/ACTIVE) sang supervisor mới.
+   *   - Update Farmer.supervisorId sang supervisor mới.
+   *   - KHÔNG đụng DailyReport / PlantScanRecord (lịch sử audit).
+   */
+  async transferFarmers(
+    fromId: string,
+    toSupervisorUserId: string,
+    currentUserId: string,
+  ) {
+    const adminId = await this.resolveAdminId(currentUserId);
+
+    if (fromId === toSupervisorUserId) {
+      throw new ConflictException(
+        'Giám sát viên đích phải khác giám sát viên nguồn',
+      );
+    }
+
+    const [fromUser, toUser] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: {
+          id: fromId,
+          role: Role.SUPERVISOR,
+          supervisorProfile: { is: { adminId } },
+        },
+        select: { id: true, supervisorProfile: { select: { id: true } } },
+      }),
+      this.prisma.user.findFirst({
+        where: {
+          id: toSupervisorUserId,
+          role: Role.SUPERVISOR,
+          status: UserStatus.ACTIVE,
+          supervisorProfile: { is: { adminId } },
+        },
+        select: { id: true, supervisorProfile: { select: { id: true } } },
+      }),
+    ]);
+
+    if (!fromUser || !fromUser.supervisorProfile) {
+      throw new NotFoundException(
+        'Giám sát viên nguồn không tồn tại trong đơn vị',
+      );
+    }
+    if (!toUser || !toUser.supervisorProfile) {
+      throw new NotFoundException(
+        'Giám sát viên đích không tồn tại hoặc đã ngừng hoạt động',
+      );
+    }
+
+    const fromProfileId = fromUser.supervisorProfile.id;
+    const toProfileId = toUser.supervisorProfile.id;
+
+    return await this.prisma.$transaction(async (tx) => {
+      const farmers = await tx.farmer.findMany({
+        where: { supervisorId: fromProfileId, adminId },
+        select: { id: true },
+      });
+      const farmerIds = farmers.map((f) => f.id);
+
+      const plots = await tx.plot.findMany({
+        where: { farmerId: { in: farmerIds }, adminId },
+        select: { id: true },
+      });
+      const plotIds = plots.map((p) => p.id);
+
+      let cancelledAssignments = 0;
+      let createdAssignments = 0;
+
+      if (plotIds.length > 0) {
+        const cancelRes = await tx.assignment.updateMany({
+          where: {
+            plotId: { in: plotIds },
+            supervisorId: fromProfileId,
+            status: { in: ['PENDING', 'ACTIVE'] },
+          },
+          data: {
+            status: 'CANCELLED',
+            note: 'Chuyển toàn bộ nông dân sang giám sát viên khác',
+          },
+        });
+        cancelledAssignments = cancelRes.count;
+
+        const createRes = await tx.assignment.createMany({
+          data: plotIds.map((plotId) => ({
+            supervisorId: toProfileId,
+            plotId,
+            adminId,
+            status: 'ACTIVE' as const,
+            note: 'Tự động tạo khi chuyển supervisor (bulk transfer)',
+          })),
+        });
+        createdAssignments = createRes.count;
+      }
+
+      // KHÔNG đổi Contract.supervisorId ở bất kỳ status nào. Hợp đồng ghi
+      // nhận chính supervisor đã đại diện ký kết — đổi sau đó sẽ phá vỡ
+      // audit trail. Supervisor mới được phép XEM các hợp đồng của plot mà
+      // mình đang ACTIVE assign (qua contract.service.ts findAll/findOne đã
+      // mở quyền xem qua plot.assignments), nhưng không sửa được vì các
+      // mutation method vẫn check strict `supervisorId = actor.supervisorProfileId`.
+      const updatedContracts = 0;
+
+      const farmerRes = await tx.farmer.updateMany({
+        where: { supervisorId: fromProfileId, adminId },
+        data: { supervisorId: toProfileId },
+      });
+
+      return {
+        from: { userId: fromId, supervisorProfileId: fromProfileId },
+        to: { userId: toSupervisorUserId, supervisorProfileId: toProfileId },
+        movedFarmers: farmerRes.count,
+        movedPlots: plotIds.length,
+        cancelledAssignments,
+        createdAssignments,
+        updatedContracts,
+      };
+    });
   }
 }

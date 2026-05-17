@@ -255,7 +255,18 @@ export class UserService {
             select: { id: true, businessName: true, province: true },
           },
           supervisorProfile: {
-            select: { id: true, employeeCode: true, adminId: true },
+            select: {
+              id: true,
+              employeeCode: true,
+              adminId: true,
+              _count: {
+                select: {
+                  farmers: true,
+                  assignments: true,
+                  contracts: true,
+                },
+              },
+            },
           },
           inventoryProfile: {
             select: { id: true, employeeCode: true, adminId: true },
@@ -584,6 +595,11 @@ export class UserService {
 
     const existing = await this.prisma.user.findFirst({
       where: { id, ...tenantFilter },
+      include: {
+        supervisorProfile: {
+          select: { id: true },
+        },
+      },
     });
     if (!existing)
       throw new NotFoundException(
@@ -592,6 +608,62 @@ export class UserService {
 
     if (id === currentUserId) {
       throw new ForbiddenException('Không thể tự xóa tài khoản của chính mình');
+    }
+
+    // ── SUPERVISOR: dùng soft-delete thay vì xóa cứng ──────────────────────
+    // Lý do: Assignment / DailyReport / PlantScanRecord / Contract / Farmer
+    // đều có FK trỏ về SupervisorProfile với onDelete mặc định RESTRICT.
+    // Xóa cứng sẽ vỡ FK (đã thấy ở error "23001 RESTRICT"). Mặt khác, các
+    // bản ghi đó là LỊCH SỬ truy xuất nguồn gốc — không được mất.
+    //
+    // Quy tắc:
+    //   1. Nếu supervisor còn đang phụ trách farmer / có Assignment ACTIVE
+    //      hoặc PENDING / có Contract còn hoạt động → CHẶN xóa, báo admin
+    //      phải chuyển nông dân sang supervisor khác trước.
+    //   2. Nếu đã sạch dữ liệu phụ trách → đổi User.status = INACTIVE.
+    //      Login flow đã chặn user khác ACTIVE (auth.service.ts), nên tài
+    //      khoản này không đăng nhập được nữa.
+    //   3. Các role khác (CLIENT, SHIPPER, INVENTORY) giữ logic xóa cứng cũ
+    //      — chúng không vướng FK RESTRICT như supervisor.
+    if (existing.role === Role.SUPERVISOR && existing.supervisorProfile) {
+      const supervisorProfileId = existing.supervisorProfile.id;
+
+      // Điều kiện chặn xóa: Farmer + Assignment PENDING/ACTIVE + Contract
+      // DRAFT (chưa ký). KHÔNG chặn vì hợp đồng SIGNED/ACTIVE — đó là chữ ký
+      // lịch sử của supervisor cũ, được giữ nguyên. Soft-delete không xóa
+      // SupervisorProfile khỏi DB nên FK trên Contract vẫn hợp lệ.
+      const [activeAssignments, draftContracts, ownedFarmers] = await Promise.all([
+        this.prisma.assignment.count({
+          where: {
+            supervisorId: supervisorProfileId,
+            status: { in: ['PENDING', 'ACTIVE'] },
+          },
+        }),
+        this.prisma.contract.count({
+          where: {
+            supervisorId: supervisorProfileId,
+            status: 'DRAFT',
+          },
+        }),
+        this.prisma.farmer.count({
+          where: { supervisorId: supervisorProfileId },
+        }),
+      ]);
+
+      if (activeAssignments > 0 || draftContracts > 0 || ownedFarmers > 0) {
+        throw new ConflictException(
+          `Giám sát viên còn ${ownedFarmers} nông dân, ${activeAssignments} phân công lô đất, ` +
+            `${draftContracts} hợp đồng nháp chưa ký. Vui lòng chuyển sang giám sát viên khác trước khi xóa. ` +
+            `(Hợp đồng đã ký được giữ nguyên với người ký gốc và không cần chuyển.)`,
+        );
+      }
+
+      await this.prisma.user.update({
+        where: { id },
+        data: { status: UserStatus.INACTIVE },
+      });
+
+      return { id, deactivatedAt: new Date(), softDeleted: true };
     }
 
     await this.prisma.user.delete({ where: { id } });

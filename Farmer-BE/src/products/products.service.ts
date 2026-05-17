@@ -203,7 +203,11 @@ export class ProductsService {
           include: { farmer: true },
         },
         plot: true,
-        inventoryLots: true,
+        inventoryLots: {
+          include: {
+            contract: { select: { plotId: true } },
+          },
+        },
       },
     });
 
@@ -211,10 +215,21 @@ export class ProductsService {
 
     const dynamicStock = await this.calculateDynamicStock(item.id);
 
+    // Đếm số nông trại (plot) thực sự đóng góp vào sản phẩm này — bao gồm cả
+    // plot gốc + các plot khác đến từ inventoryLots của các hợp đồng liên kết.
+    const contributingPlotIds = new Set<string>();
+    if (item.plotId) contributingPlotIds.add(item.plotId);
+    for (const lot of item.inventoryLots) {
+      const lotPlotId = lot.contract?.plotId;
+      if (lotPlotId) contributingPlotIds.add(lotPlotId);
+    }
+    const contributingFarmCount = contributingPlotIds.size;
+
     return {
       ...item,
       ...dynamicStock,
       categories: item.categories.map((pc) => pc.category),
+      contributingFarmCount,
     };
   }
 

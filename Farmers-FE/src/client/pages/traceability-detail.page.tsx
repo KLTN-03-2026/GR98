@@ -608,40 +608,39 @@ export default function TraceabilityDetailPage() {
               </div>
             )}
 
-            {/* Danh sách tất cả plots đóng góp */}
+            {/* Danh sách tất cả plots đóng góp — chỉ hiển thị thông tin
+                cần thiết cho khách hàng (nguồn gốc, người canh tác).
+                Mã lô, diện tích, mã hợp đồng… là dữ liệu nội bộ, ẩn đi. */}
             {farmCount > 1 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {allPlots.map((p: any, idx: number) => (
                   <Card key={p.id ?? idx} className="rounded-2xl">
                     <CardContent className="pt-5 space-y-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 text-xs font-bold">
                           {idx + 1}
                         </span>
-                        <span className="font-mono text-sm font-semibold">{p.plotCode}</span>
+                        <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white gap-1">
+                          <BadgeCheck className="h-3 w-3" />
+                          Đã xác thực
+                        </Badge>
                       </div>
                       {p.farmer?.fullName && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <User className="h-3.5 w-3.5 shrink-0" />
-                          {p.farmer.fullName}
+                        <div className="flex items-center gap-2 text-sm">
+                          <User className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="font-medium text-foreground">
+                            {p.farmer.fullName}
+                          </span>
                         </div>
                       )}
-                      {p.zone && (
+                      {(p.zone || p.farmer?.province) && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          {[p.zone.district, p.zone.province].filter(Boolean).join(', ') || p.zone.name}
-                        </div>
-                      )}
-                      {p.areaHa && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Ruler className="h-3.5 w-3.5 shrink-0" />
-                          {p.areaHa} ha
-                        </div>
-                      )}
-                      {p.plantingDate && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-3.5 w-3.5 shrink-0" />
-                          Trồng: {formatDate(p.plantingDate)}
+                          {p.zone
+                            ? [p.zone.district, p.zone.province]
+                                .filter(Boolean)
+                                .join(', ') || p.zone.name
+                            : p.farmer?.province}
                         </div>
                       )}
                     </CardContent>
@@ -744,12 +743,15 @@ export default function TraceabilityDetailPage() {
           {/* ----- Quality tab ----- */}
           <TabsContent value="quality" className="mt-6 space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Contract */}
+              {/* Cam kết chất lượng — chỉ hiển thị thông tin khách hàng cần
+                  (phân hạng cam kết, mã QR truy xuất). Số hợp đồng / ngày ký /
+                  hạn thu hoạch là dữ liệu nội bộ giữa nông dân và nhà thu mua,
+                  không show ra trang công khai. */}
               <Card className="rounded-2xl">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    Hợp đồng cam kết
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                    Cam kết chất lượng
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -757,34 +759,29 @@ export default function TraceabilityDetailPage() {
                     <>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <InfoTile
-                          icon={<FileText />}
-                          label="Số hợp đồng"
-                          value={contract.contractNo}
-                          mono
-                        />
-                        <InfoTile
                           icon={<BadgeCheck />}
-                          label="Phân hạng"
-                          value={`Hạng ${contract.grade}`}
-                        />
-                        <InfoTile
-                          icon={<Calendar />}
-                          label="Ngày ký"
+                          label="Phân hạng cam kết"
                           value={
-                            contract.signedAt ? formatDate(contract.signedAt) : '—'
+                            GRADE_LABELS[contract.grade as keyof typeof GRADE_LABELS] ??
+                            `Hạng ${contract.grade}`
                           }
                         />
-                        <InfoTile
-                          icon={<Calendar />}
-                          label="Hạn thu hoạch"
-                          value={
-                            contract.harvestDue
-                              ? formatDate(contract.harvestDue)
-                              : '—'
-                          }
-                        />
+                        {farmCount > 1 && (
+                          <InfoTile
+                            icon={<Sprout />}
+                            label="Số nông trại đối tác"
+                            value={`${farmCount} nông trại`}
+                          />
+                        )}
                       </div>
-                      {contract.traceabilityQr && (
+                      {farmCount > 1 && (
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Sản phẩm này được gộp từ nhiều nông trại cùng đạt mức
+                          cam kết chất lượng nêu trên. Xem tab “Nông trại” để
+                          biết chi tiết từng đơn vị cung cấp.
+                        </p>
+                      )}
+                      {(contract.traceabilityQr ?? product.qrCode) && (
                         <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40">
                           <QrCode className="h-5 w-5 text-primary shrink-0" />
                           <div className="min-w-0">
@@ -792,14 +789,14 @@ export default function TraceabilityDetailPage() {
                               Mã QR truy xuất
                             </p>
                             <p className="text-sm font-mono truncate">
-                              {contract.traceabilityQr}
+                              {contract.traceabilityQr ?? product.qrCode}
                             </p>
                           </div>
                         </div>
                       )}
                     </>
                   ) : (
-                    <EmptyState text="Chưa có hợp đồng." />
+                    <EmptyState text="Chưa có cam kết chất lượng." />
                   )}
                 </CardContent>
               </Card>

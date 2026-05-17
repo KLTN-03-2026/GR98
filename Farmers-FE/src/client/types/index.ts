@@ -114,6 +114,9 @@ export interface Product {
   plot?: Record<string, unknown>;
   contract?: Record<string, unknown>;
   inventoryLot?: Record<string, unknown>;
+  /** Số nông trại (plot) khác nhau đóng góp vào sản phẩm này. >1 nghĩa là
+   *  sản phẩm được gộp từ nhiều hợp đồng/lô. */
+  contributingFarmCount?: number;
   categories?: Category[];
   reviews?: Review[];
   averageRating?: number;

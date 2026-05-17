@@ -478,12 +478,15 @@ export default function TraceabilityDetailPage() {
             value={stats.totalScans}
             sub={`${stats.totalIncidents} sự cố ghi nhận`}
           />
+          {/* Stat: số đợt thu hoạch đã qua kiểm định + nhập kho. Thay cho ô
+              "Tổng sản lượng kho" cũ — ẩn số kg để bảo vệ dữ liệu vận hành,
+              vẫn cho khách biết quy mô sản xuất ở mức không nhạy cảm. */}
           <StatCard
             tone="indigo"
-            icon={<Warehouse className="h-5 w-5" />}
-            label="Tổng sản lượng kho"
-            value={`${stats.totalInventoryKg.toFixed(0)}`}
-            sub="kg đã nhập kho"
+            icon={<Package className="h-5 w-5" />}
+            label="Đợt thu hoạch"
+            value={groupLotsByHarvestAndGrade(inventoryLots).length}
+            sub="đã qua kiểm định"
           />
           {stats.contributingFarmCount > 1 ? (
             <StatCard

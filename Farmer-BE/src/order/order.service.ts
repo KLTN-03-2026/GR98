@@ -125,7 +125,42 @@ export class OrderService {
       }
     }
 
-    // Tính tổng từ items + check stock
+    // ──────────────────────────────────────────────────────────────────────
+    // ĐẶT TRƯỚC TỒN KHO — XỬ LÝ RACE CONDITION GIỮA NHIỀU NGƯỜI MUA
+    // ──────────────────────────────────────────────────────────────────────
+    //
+    // Thuật toán reserve stock an toàn (atomic conditional update):
+    //
+    //   B1. Đọc sản phẩm 1 lần (ngoài transaction) để:
+    //       • Lấy giá, tên, ảnh, minOrderKg, status làm snapshot cho order item.
+    //       • Kiểm tra sơ bộ (trạng thái PUBLISHED, đủ minOrderKg). Phần kiểm
+    //         "đủ hàng" ở bước này chỉ mang tính UX/early-fail; KHÔNG đảm bảo
+    //         tính đúng đắn vì hai request đồng thời đều có thể vượt qua check
+    //         này rồi cùng tăng reservedKg → bán quá tồn (oversell).
+    //
+    //   B2. Trong $transaction, với MỖI sản phẩm dùng updateMany kèm điều kiện:
+    //          where: { id, status: PUBLISHED, stockKg >= reservedKg + qty }
+    //          data:  { reservedKg: { increment: qty } }
+    //       • updateMany trả về { count }. count === 1 ⇨ giữ chỗ thành công.
+    //         count === 0 ⇨ đã có người khác giữ chỗ trước, không đủ hàng.
+    //       • Đây là một câu UPDATE đơn — DB tự khóa hàng (row-level lock) khi
+    //         thực thi, nên hai request song song sẽ tuần tự hóa: chỉ đúng số
+    //         lượng cần thiết được phép tăng reservedKg.
+    //       • Vì điều kiện so sánh ngay trên giá trị mới nhất trong DB, không
+    //         cần SELECT … FOR UPDATE, không cần thử-rồi-rollback nhiều lần.
+    //
+    //   B3. Nếu bất kỳ sản phẩm nào trả count = 0 → throw BadRequestException
+    //       trong transaction → toàn bộ thay đổi rollback (kể cả order vừa tạo
+    //       và các reservedKg đã tăng trước đó). Khách nhận thông báo "Hết hàng"
+    //       thay vì hệ thống nhận đơn rồi giao thiếu.
+    //
+    //   B4. Stock thật (stockKg) chỉ bị giảm khi đơn được xác nhận đã thanh toán
+    //       (confirmPaidOrder). Khi đơn bị hủy hoặc timeout, reservedKg được
+    //       giảm lại để giải phóng chỗ (xem cancelOrder & cron giải phóng).
+    //
+    // Lưu ý: tx.product.updateMany ở đây an toàn vì điều kiện
+    //   `stockKg >= reservedKg + qty`
+    // được DB đánh giá nguyên tử cùng với phép tăng reservedKg.
     const productIds = dto.items.map((i) => i.productId);
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
@@ -169,6 +204,7 @@ export class OrderService {
           `Số lượng tối thiểu là ${product.minOrderKg}kg cho "${product.name}"`,
         );
       }
+      // Early-fail check (không thay thế cho atomic check ở B2 trong transaction).
       const available = product.stockKg - product.reservedKg;
       if (available < item.quantityKg) {
         throw new BadRequestException(
@@ -194,7 +230,7 @@ export class OrderService {
     const orderNo = this.generateOrderNo(adminIdForOrder);
     const orderCode = this.generateOrderCode();
 
-    // Tạo order + reserve stock trong transaction
+    // Tạo order + reserve stock trong transaction (B2 + B3 của thuật toán).
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
@@ -221,12 +257,30 @@ export class OrderService {
         })),
       });
 
-      // Reserve stock: tăng reservedKg
+      // Reserve stock ATOMIC: chỉ tăng reservedKg khi DB còn đủ hàng.
+      // Dùng raw SQL với điều kiện so sánh 2 cột (stockKg - reservedKg >= qty)
+      // — Prisma không hỗ trợ trực tiếp so sánh cột-cột trong `where`. Câu
+      // UPDATE đơn này tự động khóa hàng (row-level lock), nên hai request
+      // chạy song song được DB tuần tự hóa: chỉ đủ chỗ cho người tới trước.
+      // `$executeRaw` trả về số dòng bị ảnh hưởng:
+      //   • rows === 1 → giữ chỗ thành công.
+      //   • rows === 0 → không còn đủ hàng (hoặc sản phẩm vừa bị ngừng bán)
+      //                 → throw → rollback toàn bộ transaction.
       for (const item of orderItems) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { reservedKg: { increment: item.quantityKg } },
-        });
+        const snapshot = productMap.get(item.productId);
+        const rows: number = await tx.$executeRaw`
+          UPDATE "Products"
+             SET "reservedKg" = "reservedKg" + ${item.quantityKg}
+           WHERE "id" = ${item.productId}
+             AND "status" = 'PUBLISHED'
+             AND "stockKg" - "reservedKg" >= ${item.quantityKg}
+        `;
+
+        if (rows !== 1) {
+          throw new BadRequestException(
+            `"${snapshot?.name ?? item.productId}" vừa hết hàng hoặc không đủ ${item.quantityKg}kg, vui lòng thử lại.`,
+          );
+        }
       }
 
       return created;

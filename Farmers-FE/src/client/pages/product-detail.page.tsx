@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   Truck,
   RefreshCw,
-  QrCode,
   ChevronLeft,
   ChevronRight,
   Check,
@@ -34,6 +33,7 @@ import {
   useCart,
 } from '@/client/api';
 import { GRADE_LABELS, CROP_TYPES } from '@/client/types';
+import { TraceQR } from '@/client/components/trace-qr';
 import { toast } from 'sonner';
 import { ProductCard } from '@/client/components/product-card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -254,16 +254,21 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* QR Code */}
-            {product.qrCode && (
-              <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-xl">
-                <QrCode className="h-8 w-8 text-primary shrink-0" />
-                <div>
-                  <p className="text-sm font-medium">Mã QR sản phẩm</p>
-                  <p className="text-xs text-muted-foreground font-mono">{product.qrCode}</p>
-                </div>
+            {/* QR thực encode URL truy xuất công khai. QR này sẽ được in lên
+                bao bì sản phẩm khi giao tới khách. Khách quét bằng camera
+                điện thoại sẽ vào thẳng trang truy xuất, không cần app riêng. */}
+            <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-xl">
+              <div className="shrink-0 bg-white p-2 rounded-lg border">
+                <TraceQR slug={product.slug} size={96} />
               </div>
-            )}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Mã QR truy xuất nguồn gốc</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  Quét bằng camera để xem hành trình từ lô đất, báo cáo định
+                  kỳ, đến tay người tiêu dùng.
+                </p>
+              </div>
+            </div>
 
             <Separator />
 

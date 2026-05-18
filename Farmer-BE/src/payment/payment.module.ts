@@ -4,6 +4,8 @@ import { VnpayModule } from 'nestjs-vnpay';
 import { ignoreLogger } from 'vnpay';
 import { PaymentService } from './payment.service';
 import { PaymentController } from './payment.controller';
+import { MomoService } from './momo.service';
+import { MomoWebhookController } from './momo-webhook.controller';
 
 @Module({
   imports: [
@@ -18,8 +20,8 @@ import { PaymentController } from './payment.controller';
       loggerFn: ignoreLogger,
     }),
   ],
-  controllers: [PaymentController],
-  providers: [PaymentService],
-  exports: [PaymentService],
+  controllers: [PaymentController, MomoWebhookController],
+  providers: [PaymentService, MomoService],
+  exports: [PaymentService, MomoService],
 })
 export class PaymentModule {}

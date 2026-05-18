@@ -25,7 +25,14 @@ export default function PaymentResultPage() {
       params[key] = value;
     });
 
-    apiGet<VerifyResult>('/payment/vnpay/verify', { params })
+    // Phân biệt gateway: VNPay redirect không có `gateway` param (legacy),
+    // MoMo redirect kèm `?gateway=momo` (do BE set trong redirectUrl). Có thể
+    // mở rộng cho gateway khác (zalopay, vnpay-qr...) theo cùng pattern.
+    const gateway = params.gateway === 'momo' ? 'momo' : 'vnpay';
+    const verifyPath =
+      gateway === 'momo' ? '/payment/momo/verify' : '/payment/vnpay/verify';
+
+    apiGet<VerifyResult>(verifyPath, { params })
       .then((res) => {
         const data = (res.data as unknown as { data?: VerifyResult })?.data ?? res.data;
         setResult(data as VerifyResult);

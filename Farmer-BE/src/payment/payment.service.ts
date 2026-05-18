@@ -8,12 +8,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FulfillStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { VnpayService } from 'nestjs-vnpay';
 import { CreatePaymentDto, SimulatePaymentDto } from './dto/payment.dto';
+import { MomoService } from './momo.service';
 
 @Injectable()
 export class PaymentService {
   constructor(
     private prisma: PrismaService,
     private vnpayService: VnpayService,
+    private momoService: MomoService,
   ) {}
 
   async createPaymentSession(dto: CreatePaymentDto, userId: string) {
@@ -30,8 +32,13 @@ export class PaymentService {
       throw new BadRequestException('Đơn đã thanh toán');
     }
 
+    // ── MoMo: delegate sang MomoService (giao tiếp REST với cổng MoMo) ──
+    if (dto.method === PaymentMethod.MOMO) {
+      return this.momoService.createPayment(order.id, clientProfile.id);
+    }
+
     if (dto.method !== PaymentMethod.VNPAY) {
-      throw new BadRequestException('Chỉ hỗ trợ VNPAY');
+      throw new BadRequestException('Phương thức thanh toán chưa hỗ trợ');
     }
 
     const feBase = process.env.FRONTEND_URL || 'http://localhost:5173';

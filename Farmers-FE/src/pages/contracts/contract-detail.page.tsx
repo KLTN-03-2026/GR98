@@ -839,8 +839,9 @@ export default function ContractDetailPage({ mode, listBasePath }: ContractDetai
                 }
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="STANDARD">Tiêu chuẩn</option>
                 <option value="PREMIUM">Cao cấp</option>
+                <option value="STANDARD">Tiêu chuẩn</option>
+                <option value="ECONOMY">Phổ thông</option>
               </select>
             </div>
             <div className="space-y-2">

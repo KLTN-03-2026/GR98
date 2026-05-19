@@ -19,6 +19,9 @@ import { ProductsModule } from './products/products.module';
 import { ContractModule } from './contract/contract.module';
 import { DailyReportModule } from './daily-report/daily-report.module';
 import { PlantScanModule } from './plant-scan/plant-scan.module';
+import { ScanSessionModule } from './scan-session/scan-session.module';
+import { AiAdvisorModule } from './ai-advisor/ai-advisor.module';
+import { ChatModule } from './chat/chat.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { CartModule } from './cart/cart.module';
@@ -46,6 +49,9 @@ import { UploadModule } from './upload/upload.module';
     ContractModule,
     DailyReportModule,
     PlantScanModule,
+    ScanSessionModule,
+    AiAdvisorModule,
+    ChatModule,
     DashboardModule,
     ReviewsModule,
     CartModule,

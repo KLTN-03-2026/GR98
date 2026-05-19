@@ -36,6 +36,14 @@ export class CreatePlantScanDto {
   @IsString()
   plotId?: string;
 
+  /**
+   * ID phiên quét (ScanSession) — nếu supervisor đang mở phiên đa điểm.
+   * Khi truyền vào, BE sẽ gắn scan này vào phiên để cuối phiên tổng hợp.
+   */
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
+
   /** Ảnh base64 — tùy chọn, có thể không lưu để tiết kiệm DB */
   @IsOptional()
   @IsString()

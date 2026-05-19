@@ -74,6 +74,8 @@ model AdminProfile {
   supervisors      SupervisorProfile[]
   zones            Zone[]
   warehouses       Warehouse[]
+  scanSessions     ScanSession[]
+  recommendations  TreatmentRecommendation[]
 
   @@map("AdminProfiles")
 }
@@ -106,6 +108,7 @@ model SupervisorProfile {
   dailyReports     DailyReport[]
   farmers          Farmer[]
   plantScanRecords PlantScanRecord[]
+  scanSessions     ScanSession[]
   admin            AdminProfile      @relation(fields: [adminId], references: [id])
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   zone             Zone?             @relation(fields: [zoneId], references: [id])
@@ -246,6 +249,7 @@ model Plot {
   contracts        Contract[]
   dailyReports     DailyReport[]
   plantScanRecords PlantScanRecord[]
+  scanSessions     ScanSession[]
   admin            AdminProfile      @relation(fields: [adminId], references: [id])
   farmer           Farmer            @relation(fields: [farmerId], references: [id])
   zone             Zone?             @relation(fields: [zoneId], references: [id])
@@ -531,6 +535,7 @@ model PlantScanRecord {
   adminId      String
   supervisorId String
   plotId       String?
+  sessionId    String?
   diseaseEn    String
   diseaseVi    String
   causingAgent String
@@ -545,11 +550,119 @@ model PlantScanRecord {
   admin        AdminProfile      @relation(fields: [adminId], references: [id])
   plot         Plot?             @relation(fields: [plotId], references: [id])
   supervisor   SupervisorProfile @relation(fields: [supervisorId], references: [id])
+  session      ScanSession?      @relation(fields: [sessionId], references: [id])
 
   @@index([adminId])
   @@index([supervisorId])
   @@index([scannedAt])
+  @@index([sessionId])
   @@map("PlantScanRecords")
+}
+
+/// Phiên quét đa điểm — supervisor đi quanh 1 lô, chụp nhiều cây trong 1
+/// phiên. Khi đóng phiên, hệ thống tổng hợp tỉ lệ cây nhiễm theo từng loại
+/// bệnh và đưa ra severity ở cấp lô (light/medium/severe) để làm input cho
+/// AI advisor đưa khuyến nghị xử lý.
+model ScanSession {
+  id             String            @id @default(cuid())
+  adminId        String
+  supervisorId   String
+  plotId         String
+  status         ScanSessionStatus @default(OPEN)
+  startedAt      DateTime          @default(now())
+  closedAt       DateTime?
+  totalScans     Int               @default(0)
+  infectedCount  Int               @default(0)
+  severity       String? // 'light' | 'medium' | 'severe'
+  /// JSON tóm tắt số ảnh theo từng loại bệnh, vd:
+  /// { "Phytophthora": 6, "Anthracnose": 2, "Healthy": 4 }
+  diseaseSummary Json?
+  note           String?
+
+  admin        AdminProfile      @relation(fields: [adminId], references: [id])
+  plot         Plot              @relation(fields: [plotId], references: [id])
+  supervisor   SupervisorProfile @relation(fields: [supervisorId], references: [id])
+  scans        PlantScanRecord[]
+  /// 1 phiên có thể có nhiều recommendation (vd. admin từ chối lần 1 → tạo lại).
+  recommendations TreatmentRecommendation[]
+
+  @@index([adminId])
+  @@index([plotId])
+  @@index([supervisorId])
+  @@index([status])
+  @@map("ScanSessions")
+}
+
+enum ScanSessionStatus {
+  OPEN
+  CLOSED
+  REVIEWED
+  CANCELLED
+}
+
+/// Khuyến nghị xử lý cấp lô do AI Advisor sinh ra từ 1 phiên quét đã đóng.
+/// Luôn ở trạng thái DRAFT lúc tạo — supervisor/kỹ sư phải APPROVE/REJECT
+/// thủ công trước khi áp dụng. Lưu đầy đủ payload + citations để audit.
+model TreatmentRecommendation {
+  id            String   @id @default(cuid())
+  sessionId     String
+  adminId       String
+  /// Phân hạng AI tự tin với khuyến nghị: 'high' | 'medium' | 'low'.
+  /// Nếu 'low' → BE chặn không cho APPROVE, yêu cầu hỏi kỹ sư.
+  confidence    String?
+  /// JSON payload từ Claude: { product, dosagePerHa, totalDosage,
+  /// sprayInterval, duration, warnings, ... }
+  payload       Json
+  /// Citations từ tài liệu BVTV — bắt buộc có ≥1, dùng để chống hallucination.
+  /// Lưu để audit khi user bấm "Xem nguồn tham khảo".
+  citations     Json
+  status        RecommendationStatus @default(DRAFT)
+  createdAt     DateTime @default(now())
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  /// Ghi chú khi duyệt/từ chối, hoặc ghi rõ supervisor đã sửa liều gì.
+  reviewNote    String?
+
+  session ScanSession @relation(fields: [sessionId], references: [id])
+  admin   AdminProfile @relation(fields: [adminId], references: [id])
+
+  @@index([sessionId])
+  @@index([status])
+  @@map("TreatmentRecommendations")
+}
+
+enum RecommendationStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+}
+
+/// Chunk văn bản nhỏ (~500 từ) cắt ra từ tài liệu BVTV (PDF). Dùng cho RAG —
+/// AI Advisor sẽ retrieve top-K chunk liên quan đến câu truy vấn (vd. "thán
+/// thư cà phê liều lượng"), kèm vào prompt Claude để chống hallucination.
+///
+/// Truy hồi: Postgres full-text search trên `searchable` column (cập nhật
+/// qua trigger / raw SQL khi insert), kết hợp ILIKE fallback cho tiếng Việt
+/// có dấu. Không dùng vector embedding để giảm phụ thuộc API thứ 3 — corpus
+/// nhỏ (~10 PDF sầu riêng) đủ phục vụ qua keyword search.
+model KnowledgeChunk {
+  id        String   @id @default(cuid())
+  source    String   // tên file gốc (vd. "30.6.2025 Quy trình Canh tác sầu riêng.pdf")
+  /// Loại cây áp dụng — 'sau-rieng' | 'ca-phe'. Dùng để filter retrieval
+  /// trong AI Advisor / Chat để không trộn KB durian với coffee.
+  cropType  String   @default("sau-rieng")
+  page      Int?     // số trang trong PDF nếu xác định được
+  chunkIdx  Int      // thứ tự chunk trong file
+  content   String   // nội dung gốc của chunk
+  /// Phiên bản không dấu + lowercase để FTS bắt được "thán thư" / "than thu".
+  searchable String
+  /// Metadata phụ — vd. nếu sau này thêm tag bệnh: { "disease": "anthracnose" }
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([source])
+  @@index([cropType])
+  @@map("KnowledgeChunks")
 }
 
 enum Role {

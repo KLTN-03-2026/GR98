@@ -79,11 +79,36 @@ export class PlantScanService {
       if (!plot) throw new NotFoundException('Không tìm thấy lô đất');
     }
 
+    // Nếu có sessionId, kiểm tra phiên thuộc supervisor + đang OPEN + đúng plot
+    if (dto.sessionId) {
+      const session = await this.prisma.scanSession.findFirst({
+        where: {
+          id: dto.sessionId,
+          adminId: actor.adminId,
+          supervisorId: actor.supervisorProfileId,
+          status: 'OPEN',
+        },
+        select: { id: true, plotId: true },
+      });
+      if (!session) {
+        throw new NotFoundException(
+          'Phiên quét không tồn tại, đã đóng, hoặc không thuộc bạn',
+        );
+      }
+      // Nếu DTO truyền cả plotId, đảm bảo khớp với plot của phiên.
+      if (dto.plotId && dto.plotId !== session.plotId) {
+        throw new ForbiddenException(
+          'Lô đất không khớp với phiên quét đang mở',
+        );
+      }
+    }
+
     return this.prisma.plantScanRecord.create({
       data: {
         adminId: actor.adminId,
         supervisorId: actor.supervisorProfileId,
         plotId: dto.plotId ?? null,
+        sessionId: dto.sessionId ?? null,
         diseaseEn: dto.diseaseEn,
         diseaseVi: dto.diseaseVi,
         causingAgent: dto.causingAgent,

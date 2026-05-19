@@ -17,3 +17,6 @@ README-AK-ALIASES.md
 .agent-kit-version
 .agent-kit-backup-*
 # ── End miokit ──
+
+# IDE config (Windsurf editor)
+.windsurf/

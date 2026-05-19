@@ -461,7 +461,7 @@ export class InventoryService {
       where,
       include: {
         warehouse: { select: { id: true, name: true, locationAddress: true } },
-        product: { select: { id: true, name: true, sku: true, unit: true } },
+        product: { select: { id: true, name: true, sku: true, unit: true, status: true, grade: true } },
         contract: {
           select: {
             id: true,
@@ -1017,16 +1017,33 @@ export class InventoryService {
   async updateLotGrade(id: string, currentUser: InventoryUser, dto: UpdateLotGradeDto) {
     const lot = await this.prisma.inventoryLot.findUnique({
       where: { id },
-      select: { status: true }
+      select: { status: true, productId: true, qualityGrade: true },
     });
 
     if ((lot?.status === InventoryLotStatus.RECEIVED || lot?.status === InventoryLotStatus.ARRIVED) && dto.qualityGrade === 'REJECT') {
       throw new BadRequestException('Không thể sử dụng phẩm cấp REJECT. Vui lòng sử dụng chức năng "Từ chối lô hàng" để xử lý các lô hàng không đạt yêu cầu.');
     }
 
-    return this.prisma.inventoryLot.update({
-      where: { id },
-      data: { qualityGrade: dto.qualityGrade },
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.inventoryLot.update({
+        where: { id },
+        data: { qualityGrade: dto.qualityGrade },
+      });
+
+      // Sync Product DRAFT cùng grade (nghiệp vụ: Product chưa publish thì
+      // mirror Lot; sau khi publish thì snapshot frozen).
+      if (
+        lot?.productId &&
+        dto.qualityGrade &&
+        dto.qualityGrade !== lot.qualityGrade
+      ) {
+        await tx.product.updateMany({
+          where: { id: lot.productId, status: 'DRAFT' },
+          data: { grade: dto.qualityGrade as any },
+        });
+      }
+
+      return updated;
     });
   }
 
@@ -1078,6 +1095,16 @@ export class InventoryService {
             createdBy: currentUser.id,
           },
         });
+
+        // 2b. Sync grade sang Product liên kết NẾU Product đang DRAFT.
+        // Nghiệp vụ: Product DRAFT = chưa đóng gói + chưa publish → vẫn mirror
+        // Lot. Sau khi PUBLISHED (đã in nhãn) thì snapshot frozen, không sync.
+        if (lot.productId) {
+          await tx.product.updateMany({
+            where: { id: lot.productId, status: 'DRAFT' },
+            data: { grade: dto.qualityGrade as any },
+          });
+        }
       }
 
       // 3. Nếu có thay đổi ngày hết hạn, ghi log

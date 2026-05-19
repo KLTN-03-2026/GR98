@@ -578,9 +578,9 @@ export const CROP_TYPE_OPTIONS = [
 ];
 
 export const GRADE_OPTIONS = [
-  { value: 'A', label: 'Hạng A - Cao Cấp' },
-  { value: 'B', label: 'Hạng B - Chất Lượng Tốt' },
-  { value: 'C', label: 'Hạng C - Tiết Kiệm' },
+  { value: 'PREMIUM',  label: 'Cao cấp' },
+  { value: 'STANDARD', label: 'Tiêu chuẩn' },
+  { value: 'ECONOMY',  label: 'Phổ thông' },
 ];
 
 export const SORT_OPTIONS = [

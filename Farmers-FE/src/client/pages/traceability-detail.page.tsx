@@ -54,6 +54,8 @@ import {
 import {
   AreaChart,
   Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -65,14 +67,32 @@ import {
   BarChart,
   Bar,
   Legend,
+  LabelList,
 } from 'recharts';
-
-const PIE_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'];
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
   ROUTINE: 'Báo cáo định kỳ',
   INCIDENT: 'Sự cố',
   HARVEST: 'Thu hoạch',
+};
+
+/** Màu fix theo loại báo cáo — không random theo index. */
+const REPORT_TYPE_COLORS: Record<string, string> = {
+  ROUTINE: '#10b981',  // xanh lá — bình thường
+  INCIDENT: '#f59e0b', // cam — sự cố
+  HARVEST: '#3b82f6',  // xanh dương — thu hoạch
+};
+
+/** Mapping bệnh + sâu hại — label tiếng Việt + màu phù hợp ý nghĩa. */
+const SCAN_CATEGORY_META: Record<string, { label: string; color: string }> = {
+  fungal:    { label: 'Bệnh nấm',   color: '#ef4444' },
+  bacterial: { label: 'Vi khuẩn',   color: '#f97316' },
+  viral:     { label: 'Vi rút',     color: '#a855f7' },
+  algal:     { label: 'Tảo / rong', color: '#06b6d4' },
+  pest:      { label: 'Sâu hại',    color: '#eab308' },
+  abiotic:   { label: 'Thiếu dinh dưỡng', color: '#94a3b8' },
+  healthy:   { label: 'Khỏe mạnh',  color: '#22c55e' },
+  unknown:   { label: 'Không rõ',   color: '#9ca3af' },
 };
 
 const TIMELINE_STYLES: Record<
@@ -242,14 +262,22 @@ export default function TraceabilityDetailPage() {
   }));
 
   const reportTypeData = Object.entries(stats.reportTypeCounts).map(([key, value]) => ({
+    key,
     name: REPORT_TYPE_LABELS[key] ?? key,
-    value,
+    value: value as number,
+    color: REPORT_TYPE_COLORS[key] ?? '#94a3b8',
   }));
+  const reportTotal = reportTypeData.reduce((s, d) => s + d.value, 0);
 
-  const scanCategoryData = Object.entries(stats.scanCategoryCounts).map(([key, value]) => ({
-    name: key,
-    value,
-  }));
+  const scanCategoryData = Object.entries(stats.scanCategoryCounts)
+    .map(([key, value]) => {
+      const meta = SCAN_CATEGORY_META[key.toLowerCase()] ?? {
+        label: key,
+        color: '#9ca3af',
+      };
+      return { key, name: meta.label, value: value as number, color: meta.color };
+    })
+    .sort((a, b) => b.value - a.value);  // sắp xếp giảm dần để nhìn rõ hơn
 
   const heroBg = product.thumbnailUrl || product.imageUrls?.[0];
   const cropTypeLabel =
@@ -896,9 +924,30 @@ export default function TraceabilityDetailPage() {
                 <CardContent>
                   {yieldData.length === 0 ? (
                     <EmptyState text="Chưa có dữ liệu năng suất." />
+                  ) : yieldData.length === 1 ? (
+                    /* 1 điểm — không vẽ chart, hiển thị KPI card. */
+                    <div className="flex flex-col items-center justify-center py-8 gap-3">
+                      <div className="rounded-full bg-emerald-100 dark:bg-emerald-950 p-4">
+                        <TrendingUp className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">
+                          Năng suất ước tính ngày {yieldData[0].date}
+                        </p>
+                        <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                          {yieldData[0].value.toLocaleString('vi-VN')}
+                          <span className="text-base font-medium text-muted-foreground ml-1">
+                            kg/ha
+                          </span>
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center max-w-xs">
+                        Cần thêm các báo cáo thu hoạch tiếp theo để hiển thị biểu đồ xu hướng.
+                      </p>
+                    </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={260}>
-                      <AreaChart data={yieldData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                      <AreaChart data={yieldData} margin={{ top: 20, right: 16, left: -10, bottom: 0 }}>
                         <defs>
                           <linearGradient id="yieldGrad" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
@@ -907,7 +956,12 @@ export default function TraceabilityDetailPage() {
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/60" />
                         <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="currentColor" className="text-muted-foreground" />
-                        <YAxis tick={{ fontSize: 11 }} stroke="currentColor" className="text-muted-foreground" />
+                        <YAxis
+                          tick={{ fontSize: 11 }}
+                          stroke="currentColor"
+                          className="text-muted-foreground"
+                          tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)}
+                        />
                         <Tooltip
                           contentStyle={{
                             borderRadius: 12,
@@ -915,6 +969,7 @@ export default function TraceabilityDetailPage() {
                             background: 'hsl(var(--background))',
                             fontSize: 12,
                           }}
+                          formatter={(value: number) => [`${value.toLocaleString('vi-VN')} kg/ha`, 'Năng suất']}
                         />
                         <Area
                           type="monotone"
@@ -922,6 +977,8 @@ export default function TraceabilityDetailPage() {
                           stroke="#10b981"
                           strokeWidth={2.5}
                           fill="url(#yieldGrad)"
+                          dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }}
+                          activeDot={{ r: 6 }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -940,37 +997,51 @@ export default function TraceabilityDetailPage() {
                   {reportTypeData.length === 0 ? (
                     <EmptyState text="Chưa có dữ liệu báo cáo." />
                   ) : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <PieChart>
-                        <Pie
-                          data={reportTypeData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={90}
-                          paddingAngle={3}
-                        >
-                          {reportTypeData.map((_, i) => (
-                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: 12,
-                            border: '1px solid hsl(var(--border))',
-                            background: 'hsl(var(--background))',
-                            fontSize: 12,
-                          }}
-                        />
-                        <Legend
-                          verticalAlign="bottom"
-                          iconType="circle"
-                          wrapperStyle={{ fontSize: 12 }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <div className="relative">
+                      <ResponsiveContainer width="100%" height={260}>
+                        <PieChart>
+                          <Pie
+                            data={reportTypeData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={95}
+                            paddingAngle={2}
+                            stroke="hsl(var(--background))"
+                            strokeWidth={2}
+                          >
+                            {reportTypeData.map((d, i) => (
+                              <Cell key={i} fill={d.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              borderRadius: 12,
+                              border: '1px solid hsl(var(--border))',
+                              background: 'hsl(var(--background))',
+                              fontSize: 12,
+                            }}
+                            formatter={(value: number, name: string) => {
+                              const pct = reportTotal > 0 ? Math.round((value / reportTotal) * 100) : 0;
+                              return [`${value} (${pct}%)`, name];
+                            }}
+                          />
+                          <Legend
+                            verticalAlign="bottom"
+                            iconType="circle"
+                            wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      {/* Tổng ở giữa donut */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                           style={{ marginTop: -32 /* tránh đè lên legend */ }}>
+                        <p className="text-3xl font-bold text-foreground">{reportTotal}</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Báo cáo</p>
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -986,29 +1057,76 @@ export default function TraceabilityDetailPage() {
                   {scanCategoryData.length === 0 ? (
                     <EmptyState text="Chưa có dữ liệu sâu bệnh." />
                   ) : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <BarChart data={scanCategoryData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
-                            <stop offset="100%" stopColor="#10b981" stopOpacity={0.5} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/60" />
-                        <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="currentColor" className="text-muted-foreground" />
-                        <YAxis tick={{ fontSize: 11 }} stroke="currentColor" className="text-muted-foreground" />
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: 12,
-                            border: '1px solid hsl(var(--border))',
-                            background: 'hsl(var(--background))',
-                            fontSize: 12,
-                          }}
-                          cursor={{ fill: 'hsl(var(--muted))' }}
-                        />
-                        <Bar dataKey="value" fill="url(#barGrad)" radius={[8, 8, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart
+                          data={scanCategoryData}
+                          margin={{ top: 28, right: 24, left: -8, bottom: 8 }}
+                          barCategoryGap="40%"
+                        >
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/60" />
+                          <XAxis
+                            dataKey="name"
+                            tick={{ fontSize: 12, fontWeight: 500 }}
+                            stroke="currentColor"
+                            className="text-muted-foreground"
+                            interval={0}
+                            tickLine={false}
+                            axisLine={{ stroke: 'hsl(var(--border))' }}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 11 }}
+                            stroke="currentColor"
+                            className="text-muted-foreground"
+                            allowDecimals={false}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              borderRadius: 12,
+                              border: '1px solid hsl(var(--border))',
+                              background: 'hsl(var(--background))',
+                              color: 'hsl(var(--foreground))',
+                              fontSize: 12,
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                            }}
+                            cursor={{ fill: 'rgba(148, 163, 184, 0.12)' }}
+                            formatter={(value: number) => [`${value} lần`, 'Số lần ghi nhận']}
+                          />
+                          <Bar
+                            dataKey="value"
+                            radius={[8, 8, 0, 0]}
+                            maxBarSize={56}
+                          >
+                            {scanCategoryData.map((d, i) => (
+                              <Cell key={i} fill={d.color} />
+                            ))}
+                            <LabelList
+                              dataKey="value"
+                              position="top"
+                              style={{ fontSize: 12, fontWeight: 600, fill: 'hsl(var(--foreground))' }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                      {/* Chip legend bên dưới cho dễ đọc category */}
+                      <div className="flex flex-wrap gap-2 mt-3 px-2">
+                        {scanCategoryData.map((d) => (
+                          <div
+                            key={d.key}
+                            className="flex items-center gap-1.5 text-xs"
+                          >
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-full"
+                              style={{ backgroundColor: d.color }}
+                            />
+                            <span className="text-muted-foreground">{d.name}</span>
+                            <span className="font-semibold text-foreground">{d.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </CardContent>
               </Card>

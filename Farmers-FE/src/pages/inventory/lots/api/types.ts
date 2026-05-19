@@ -1,4 +1,15 @@
-export type QualityGrade = 'A' | 'B' | 'C' | 'REJECT';
+/**
+ * Unified grade system — dùng chung cho contract + inventory + product.
+ * A/B/C giữ lại để hỗ trợ data legacy (BE map tự động khi hiển thị).
+ */
+export type QualityGrade =
+  | 'PREMIUM'
+  | 'STANDARD'
+  | 'ECONOMY'
+  | 'REJECT'
+  | 'A'  // legacy → tương đương PREMIUM
+  | 'B'  // legacy → tương đương STANDARD
+  | 'C'; // legacy → tương đương ECONOMY
 export type InventoryLotStatus = 'SCHEDULED' | 'ARRIVED' | 'RECEIVED' | 'REJECTED';
 
 export interface InventoryLot {
@@ -32,6 +43,9 @@ export interface InventoryLot {
     name: string;
     sku: string;
     unit: string;
+    /** Trạng thái Product (DRAFT mới sync grade theo Lot) */
+    status?: 'DRAFT' | 'PUBLISHED' | 'OUT_OF_STOCK' | 'ARCHIVED';
+    grade?: QualityGrade;
   };
   contract?: {
     id: string;

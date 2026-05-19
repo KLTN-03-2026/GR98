@@ -93,3 +93,70 @@ export type AdminDashboardOverviewDto = {
   contractStatusDistribution: AdminDashboardStatusSlice[];
   recentActivity: AdminDashboardActivity[];
 };
+
+// ── Disease Heatmap (GIS) ───────────────────────────────────────────────────
+
+export type DiseaseHeatmapPoint = {
+  plotId: string;
+  plotCode: string;
+  farmerName: string;
+  supervisorName: string | null;
+  cropType: string;
+  variety: string | null;
+  province: string | null;
+  district: string | null;
+  lat: number;
+  lng: number;
+  areaHa: number;
+  totalScans: number;
+  infectedCount: number;
+  /** 0..1 — tỉ lệ cây nhiễm trong phiên/lần quét gần nhất */
+  infectionRate: number;
+  severity: 'none' | 'light' | 'medium' | 'severe';
+  topDisease: string | null;
+  diseaseBreakdown: { name: string; count: number; category: string | null }[];
+  lastScanAt: string | null;
+  /** 0..1 — trọng số cho heatmap intensity (kết hợp infectionRate + severity + areaHa) */
+  weight: number;
+};
+
+export type DiseaseHeatmapProvinceStat = {
+  province: string;
+  totalPlots: number;
+  infectedPlots: number;
+  infectionRate: number;
+  alertLevel: 'low' | 'medium' | 'high';
+  /** Bệnh phổ biến nhất ở tỉnh */
+  topDisease: string | null;
+  /** % thay đổi infection rate so với cùng kỳ trước (null khi không tính được) */
+  trendPct: number | null;
+};
+
+export type DiseaseHeatmapTopDisease = {
+  name: string;
+  count: number;
+  category: string | null;
+  /** % thay đổi so với chu kỳ trước (null nếu thiếu data) */
+  trendPct: number | null;
+  /** Các tỉnh đang có ca tăng nhanh */
+  trendingProvinces: string[];
+};
+
+export type DiseaseHeatmapSummary = {
+  totalPlots: number;
+  infectedPlots: number;
+  avgInfectionRate: number;
+  alertLevel: 'low' | 'medium' | 'high';
+  /** Dự báo % thiệt hại sản lượng — heuristic */
+  estimatedYieldLossPct: number;
+  topDiseases: DiseaseHeatmapTopDisease[];
+  provinces: DiseaseHeatmapProvinceStat[];
+  windowFrom: string;
+  windowTo: string;
+};
+
+export type DiseaseHeatmapDto = {
+  scope: DashboardScope;
+  points: DiseaseHeatmapPoint[];
+  summary: DiseaseHeatmapSummary;
+};

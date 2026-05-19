@@ -28,13 +28,20 @@ export function getContractStatusBadgeVariant(status: ContractStatus) {
 export function getGradeBadgeVariant(grade: QualityGrade) {
   if (grade === 'PREMIUM') return 'soft-success' as const;
   if (grade === 'STANDARD') return 'soft-info' as const;
+  if (grade === 'ECONOMY') return 'warning' as const;
   return 'soft-info' as const;
 }
 
 export function getContractGradeLabel(grade: QualityGrade | string) {
+  // Map cả grade mới + legacy (A/B/C) sang label tiếng Việt thống nhất
   const map: Record<string, string> = {
-    STANDARD: 'Tiêu chuẩn',
     PREMIUM: 'Cao cấp',
+    STANDARD: 'Tiêu chuẩn',
+    ECONOMY: 'Phổ thông',
+    REJECT: 'Loại thải',
+    A: 'Cao cấp',
+    B: 'Tiêu chuẩn',
+    C: 'Phổ thông',
   };
   return map[grade] ?? grade;
 }

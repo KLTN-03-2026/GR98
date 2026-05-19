@@ -17,6 +17,7 @@ import {
   AdminOverviewRangePreset,
 } from './dto/admin-overview-query.dto';
 import type { DashboardOverviewQueryDto } from './dto/dashboard-overview-query.dto';
+import type { DiseaseHeatmapQueryDto } from './dto/disease-heatmap-query.dto';
 import type {
   DashboardActivity,
   AdminDashboardActivity,
@@ -29,6 +30,11 @@ import type {
   DashboardScope,
   DashboardStatusSlice,
   DashboardTimePoint,
+  DiseaseHeatmapDto,
+  DiseaseHeatmapPoint,
+  DiseaseHeatmapProvinceStat,
+  DiseaseHeatmapTopDisease,
+  DiseaseHeatmapSummary,
 } from './dashboard.types';
 
 type DashboardActor = {
@@ -982,6 +988,383 @@ export class DashboardService {
       orderPaymentDistribution,
       contractStatusDistribution,
       recentActivity,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DISEASE HEATMAP (GIS) — bản đồ nhiệt cảnh báo dịch bệnh theo khu vực
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // Tận dụng dữ liệu sẵn có:
+  //   • Plot.lat / lng + province / district / areaHa
+  //   • PlantScanRecord.diseaseVi + category + confidence + scannedAt
+  //   • ScanSession.severity + infectedCount + totalScans
+  //
+  // Logic:
+  //   1. Lấy tất cả plot có toạ độ trong scope của actor (admin/supervisor)
+  //   2. Với mỗi plot → tính infection rate trong window (default 7 ngày)
+  //      dựa vào PlantScanRecord (latest scans, không-healthy)
+  //   3. Aggregate: top diseases, province stats, trend (so với chu kỳ trước)
+  //   4. Compute weight cho heatmap: infectionRate × severityWeight × log(areaHa)
+  //
+  async getDiseaseHeatmap(
+    userId: string,
+    query: DiseaseHeatmapQueryDto,
+  ): Promise<DiseaseHeatmapDto> {
+    const actor = await this.resolveActor(userId);
+
+    // ── 1. Time window ────────────────────────────────────────────────
+    const windowDays = query.windowDays ?? 7;
+    const to = query.to ? new Date(query.to) : new Date();
+    const from = query.from
+      ? new Date(query.from)
+      : new Date(to.getTime() - windowDays * 24 * 60 * 60 * 1000);
+
+    // Cùng độ dài cho chu kỳ TRƯỚC (để so trend)
+    const periodMs = to.getTime() - from.getTime();
+    const prevFrom = new Date(from.getTime() - periodMs);
+    const prevTo = from;
+
+    // ── 2. Scope filter ───────────────────────────────────────────────
+    const supId =
+      actor.role === Role.SUPERVISOR ? actor.supervisorProfileId : null;
+
+    // Plot.cropType lưu KHÔNG ĐỒNG NHẤT giữa form UI ("Cà phê" có dấu) và
+    // seed slug ("ca-phe"). Mở rộng filter để match mọi biến thể.
+    const cropVariants = (slug: string): string[] => {
+      const map: Record<string, string[]> = {
+        'ca-phe': ['ca-phe', 'Cà phê', 'cà phê', 'caphe', 'coffee', 'CA-PHE'],
+        'sau-rieng': [
+          'sau-rieng', 'Sầu riêng', 'sầu riêng', 'saurieng', 'durian', 'SAU-RIENG',
+        ],
+      };
+      return map[slug] ?? [slug];
+    };
+
+    const plotWhere: Prisma.PlotWhereInput = {
+      adminId: actor.adminId,
+      lat: { not: null },
+      lng: { not: null },
+      ...(query.cropType
+        ? { cropType: { in: cropVariants(query.cropType) } }
+        : {}),
+      ...(supId
+        ? { assignments: { some: { supervisorId: supId } } }
+        : {}),
+    };
+
+    const plots = await this.prisma.plot.findMany({
+      where: plotWhere,
+      select: {
+        id: true,
+        plotCode: true,
+        cropType: true,
+        areaHa: true,
+        lat: true,
+        lng: true,
+        farmer: {
+          select: {
+            fullName: true,
+            province: true,
+            address: true,
+            supervisor: {
+              select: { user: { select: { fullName: true } } },
+            },
+          },
+        },
+        plantScanRecords: {
+          where: {
+            scannedAt: { gte: from, lte: to },
+            ...(query.category ? { category: query.category } : {}),
+          },
+          select: {
+            diseaseVi: true,
+            diseaseEn: true,
+            category: true,
+            confidence: true,
+            scannedAt: true,
+          },
+          orderBy: { scannedAt: 'desc' },
+        },
+      },
+    });
+
+    // ── 3. Previous period scans (cho trend) ──────────────────────────
+    const prevScansByPlot = new Map<string, number>();
+    if (plots.length > 0) {
+      const prevScans = await this.prisma.plantScanRecord.groupBy({
+        by: ['plotId'],
+        where: {
+          adminId: actor.adminId,
+          plotId: { in: plots.map((p) => p.id) },
+          scannedAt: { gte: prevFrom, lte: prevTo },
+          category: { not: 'healthy' },
+          ...(query.category ? { category: query.category } : {}),
+        },
+        _count: { _all: true },
+      });
+      for (const r of prevScans) {
+        if (r.plotId) prevScansByPlot.set(r.plotId, r._count._all);
+      }
+    }
+
+    // ── 4. Compute per-plot point ─────────────────────────────────────
+    const severityFromRate = (rate: number): DiseaseHeatmapPoint['severity'] => {
+      if (rate >= 0.5) return 'severe';
+      if (rate >= 0.25) return 'medium';
+      if (rate > 0) return 'light';
+      return 'none';
+    };
+
+    const severityWeight: Record<string, number> = {
+      none: 0,
+      light: 0.4,
+      medium: 0.7,
+      severe: 1.0,
+    };
+
+    let points: DiseaseHeatmapPoint[] = plots
+      .filter(
+        (p) => p.lat !== null && p.lng !== null && Number.isFinite(p.lat!) && Number.isFinite(p.lng!),
+      )
+      .map((plot): DiseaseHeatmapPoint => {
+        const scans = plot.plantScanRecords;
+        const totalScans = scans.length;
+        const infected = scans.filter(
+          (s) => (s.category ?? '').toLowerCase() !== 'healthy',
+        );
+        const infectionRate = totalScans > 0 ? infected.length / totalScans : 0;
+        const severity = severityFromRate(infectionRate);
+
+        // Disease breakdown (top per plot)
+        const diseaseCount = new Map<
+          string,
+          { count: number; category: string | null }
+        >();
+        for (const s of infected) {
+          const name = s.diseaseVi || s.diseaseEn || 'Khác';
+          const cur = diseaseCount.get(name);
+          if (cur) {
+            cur.count += 1;
+          } else {
+            diseaseCount.set(name, { count: 1, category: s.category ?? null });
+          }
+        }
+        const breakdown = Array.from(diseaseCount.entries())
+          .map(([name, v]) => ({ name, count: v.count, category: v.category }))
+          .sort((a, b) => b.count - a.count);
+        const topDisease = breakdown[0]?.name ?? null;
+
+        // Heatmap weight = infectionRate × severityWeight × log boost theo diện tích
+        const areaBoost = plot.areaHa > 0 ? Math.min(1.5, Math.log10(plot.areaHa + 1) + 0.7) : 0.7;
+        const rawWeight = infectionRate * severityWeight[severity] * areaBoost;
+        const weight = Math.min(1, rawWeight);
+
+        return {
+          plotId: plot.id,
+          plotCode: plot.plotCode,
+          farmerName: plot.farmer?.fullName ?? 'Chưa rõ',
+          supervisorName: plot.farmer?.supervisor?.user?.fullName ?? null,
+          cropType: plot.cropType,
+          variety: null,
+          province: plot.farmer?.province ?? null,
+          district: null, // Schema chưa có field district riêng — lấy từ address sau nếu cần
+          lat: plot.lat!,
+          lng: plot.lng!,
+          areaHa: plot.areaHa,
+          totalScans,
+          infectedCount: infected.length,
+          infectionRate,
+          severity,
+          topDisease,
+          diseaseBreakdown: breakdown.slice(0, 5),
+          lastScanAt: scans[0]?.scannedAt?.toISOString() ?? null,
+          weight,
+        };
+      });
+
+    // Filter theo minSeverity
+    if (query.minSeverity) {
+      const order = ['none', 'light', 'medium', 'severe'];
+      const minIdx = order.indexOf(query.minSeverity);
+      points = points.filter((p) => order.indexOf(p.severity) >= minIdx);
+    }
+
+    // ── 5. Province aggregate + trend ─────────────────────────────────
+    const provinceMap = new Map<
+      string,
+      {
+        totalPlots: number;
+        infectedPlots: number;
+        totalRate: number;
+        topDiseaseCount: Map<string, number>;
+        currentInfected: number;
+        prevInfected: number;
+      }
+    >();
+    for (const pt of points) {
+      const prov = pt.province ?? 'Không rõ';
+      const cur =
+        provinceMap.get(prov) ??
+        {
+          totalPlots: 0,
+          infectedPlots: 0,
+          totalRate: 0,
+          topDiseaseCount: new Map<string, number>(),
+          currentInfected: 0,
+          prevInfected: 0,
+        };
+      cur.totalPlots += 1;
+      cur.totalRate += pt.infectionRate;
+      if (pt.infectionRate > 0) cur.infectedPlots += 1;
+      cur.currentInfected += pt.infectedCount;
+      cur.prevInfected += prevScansByPlot.get(pt.plotId) ?? 0;
+      for (const d of pt.diseaseBreakdown) {
+        cur.topDiseaseCount.set(
+          d.name,
+          (cur.topDiseaseCount.get(d.name) ?? 0) + d.count,
+        );
+      }
+      provinceMap.set(prov, cur);
+    }
+
+    const provinces: DiseaseHeatmapProvinceStat[] = Array.from(
+      provinceMap.entries(),
+    )
+      .map(([province, v]) => {
+        const infectionRate = v.totalPlots > 0 ? v.totalRate / v.totalPlots : 0;
+        const alertLevel: 'low' | 'medium' | 'high' =
+          infectionRate >= 0.5 ? 'high' : infectionRate >= 0.25 ? 'medium' : 'low';
+        const topDisease =
+          Array.from(v.topDiseaseCount.entries()).sort(
+            (a, b) => b[1] - a[1],
+          )[0]?.[0] ?? null;
+        const trendPct =
+          v.prevInfected > 0
+            ? ((v.currentInfected - v.prevInfected) / v.prevInfected) * 100
+            : v.currentInfected > 0
+              ? 100
+              : null;
+        return {
+          province,
+          totalPlots: v.totalPlots,
+          infectedPlots: v.infectedPlots,
+          infectionRate,
+          alertLevel,
+          topDisease,
+          trendPct: trendPct === null ? null : Math.round(trendPct),
+        };
+      })
+      .sort((a, b) => b.infectionRate - a.infectionRate);
+
+    // ── 6. Top diseases (toàn scope) ──────────────────────────────────
+    const diseaseAgg = new Map<
+      string,
+      { count: number; category: string | null; provinces: Set<string> }
+    >();
+    for (const pt of points) {
+      for (const d of pt.diseaseBreakdown) {
+        const e =
+          diseaseAgg.get(d.name) ?? {
+            count: 0,
+            category: d.category,
+            provinces: new Set<string>(),
+          };
+        e.count += d.count;
+        if (pt.province) e.provinces.add(pt.province);
+        diseaseAgg.set(d.name, e);
+      }
+    }
+
+    // Previous period disease count để tính trend
+    const prevDiseaseAgg = await this.prisma.plantScanRecord.groupBy({
+      by: ['diseaseVi'],
+      where: {
+        adminId: actor.adminId,
+        scannedAt: { gte: prevFrom, lte: prevTo },
+        category: { not: 'healthy' },
+        ...(query.cropType
+          ? { plot: { cropType: { in: cropVariants(query.cropType) } } }
+          : {}),
+        ...(supId
+          ? { plot: { assignments: { some: { supervisorId: supId } } } }
+          : {}),
+      },
+      _count: { _all: true },
+    });
+    const prevDiseaseCount = new Map(
+      prevDiseaseAgg.map((r) => [r.diseaseVi || 'Khác', r._count._all] as const),
+    );
+
+    const topDiseases: DiseaseHeatmapTopDisease[] = Array.from(
+      diseaseAgg.entries(),
+    )
+      .map(([name, v]) => {
+        const prev = prevDiseaseCount.get(name) ?? 0;
+        const trendPct =
+          prev > 0
+            ? Math.round(((v.count - prev) / prev) * 100)
+            : v.count > 0
+              ? 100
+              : null;
+        return {
+          name,
+          count: v.count,
+          category: v.category,
+          trendPct,
+          trendingProvinces: Array.from(v.provinces).slice(0, 3),
+        };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // ── 7. Summary ────────────────────────────────────────────────────
+    const totalPlots = points.length;
+    const infectedPlots = points.filter((p) => p.infectionRate > 0).length;
+    const avgInfectionRate =
+      totalPlots > 0
+        ? points.reduce((s, p) => s + p.infectionRate, 0) / totalPlots
+        : 0;
+    const alertLevel: 'low' | 'medium' | 'high' =
+      avgInfectionRate >= 0.4
+        ? 'high'
+        : avgInfectionRate >= 0.2
+          ? 'medium'
+          : 'low';
+
+    // Heuristic ước tính thiệt hại sản lượng:
+    //   loss = avg(infectionRate × severityFactor) × 40% maxLoss
+    const severityFactor: Record<string, number> = {
+      none: 0,
+      light: 0.1,
+      medium: 0.25,
+      severe: 0.45,
+    };
+    const lossFraction =
+      totalPlots > 0
+        ? points.reduce(
+            (s, p) => s + p.infectionRate * severityFactor[p.severity],
+            0,
+          ) / totalPlots
+        : 0;
+    const estimatedYieldLossPct = Math.round(lossFraction * 100);
+
+    const summary: DiseaseHeatmapSummary = {
+      totalPlots,
+      infectedPlots,
+      avgInfectionRate,
+      alertLevel,
+      estimatedYieldLossPct,
+      topDiseases,
+      provinces,
+      windowFrom: from.toISOString(),
+      windowTo: to.toISOString(),
+    };
+
+    return {
+      scope: actor.role === Role.ADMIN ? 'global' : 'supervisor',
+      points,
+      summary,
     };
   }
 }

@@ -8,7 +8,18 @@ export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 export type FulfillStatus = 'PENDING' | 'PACKING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
 export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'OUT_OF_STOCK' | 'ARCHIVED';
-export type QualityGrade = 'A' | 'B' | 'C' | 'REJECT';
+/**
+ * Unified 4-tier grade system. Legacy A/B/C giữ lại để hỗ trợ dữ liệu cũ.
+ * Hiển thị: dùng `getGradeLabel()` để auto-map cả legacy → label tiếng Việt.
+ */
+export type QualityGrade =
+  | 'PREMIUM'
+  | 'STANDARD'
+  | 'ECONOMY'
+  | 'REJECT'
+  | 'A'  // legacy → PREMIUM
+  | 'B'  // legacy → STANDARD
+  | 'C'; // legacy → ECONOMY
 
 export interface ShippingAddress {
   fullName: string;
@@ -379,11 +390,35 @@ export const CROP_TYPES: Record<string, string> = {
 export type CropTypeKey = keyof typeof CROP_TYPES;
 
 export const GRADE_LABELS: Record<QualityGrade, string> = {
-  A: 'Hạng A - Chất lượng cao nhất',
-  B: 'Hạng B - Chất lượng tốt',
-  C: 'Hạng C - Chất lượng trung bình',
-  REJECT: 'Không đạt',
+  PREMIUM:  'Cao cấp',
+  STANDARD: 'Tiêu chuẩn',
+  ECONOMY:  'Phổ thông',
+  REJECT:   'Không đạt',
+  // Legacy aliases (mapped vào label tương ứng)
+  A: 'Cao cấp',
+  B: 'Tiêu chuẩn',
+  C: 'Phổ thông',
 };
+
+/** Map legacy A/B/C → grade slug mới để chuẩn hoá filter/display. */
+const LEGACY_GRADE_MAP: Record<string, QualityGrade> = {
+  A: 'PREMIUM',
+  B: 'STANDARD',
+  C: 'ECONOMY',
+};
+
+/** Normalize bất kỳ grade nào (legacy hay mới) về slug chuẩn. */
+export function normalizeGrade(grade: string | null | undefined): QualityGrade {
+  if (!grade) return 'STANDARD';
+  const upper = grade.toUpperCase();
+  return (LEGACY_GRADE_MAP[upper] ?? (upper as QualityGrade));
+}
+
+/** Lấy label tiếng Việt từ grade — handle cả legacy + undefined. */
+export function getGradeLabel(grade: string | null | undefined): string {
+  if (!grade) return 'Tiêu chuẩn';
+  return GRADE_LABELS[grade as QualityGrade] ?? GRADE_LABELS[normalizeGrade(grade)];
+}
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   COD: 'Thanh toán khi nhận hàng (COD)',

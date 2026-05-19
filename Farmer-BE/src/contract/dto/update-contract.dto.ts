@@ -48,9 +48,12 @@ export class UpdateContractDto {
 
   @IsOptional()
   @IsEnum(QualityGrade, { message: 'Phân khúc cây trồng không hợp lệ' })
-  @IsIn([QualityGrade.STANDARD, QualityGrade.PREMIUM], {
-    message: 'Hợp đồng chỉ được chọn phân khúc Tiêu chuẩn hoặc Cao cấp',
-  })
+  @IsIn(
+    [QualityGrade.PREMIUM, QualityGrade.STANDARD, QualityGrade.ECONOMY],
+    {
+      message: 'Phân khúc hợp đồng phải là Cao cấp / Tiêu chuẩn / Phổ thông',
+    },
+  )
   grade?: QualityGrade;
 
   @IsOptional()

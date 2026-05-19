@@ -53,6 +53,11 @@ import {
   type Category,
 } from '@/client/types';
 import { toast } from 'sonner';
+import {
+  PRICE_BOARD_GRADES,
+  getGradeLabel,
+  normalizeGrade,
+} from '@/pages/inventory/price-boards/components/grade-badge';
 import FileUpload from '@/components/custom/file-upload';
 import {
   useImageUploader,
@@ -98,7 +103,7 @@ export function ProductDetailsDialog({
     categoryIds: [] as string[],
     pricePerKg: 0,
     stockKg: 0,
-    grade: 'A' as any,
+    grade: 'STANDARD' as any,
     cropType: '',
     harvestDate: '',
     plotId: '',
@@ -122,7 +127,7 @@ export function ProductDetailsDialog({
         categoryIds: product.categories?.map((c: any) => c.id) || [],
         pricePerKg: product.pricePerKg || 0,
         stockKg: product.stockKg || 0,
-        grade: product.grade || 'A',
+        grade: normalizeGrade(product.grade) || 'STANDARD',
         cropType: product.cropType || '',
         harvestDate: product.harvestDate || '',
         plotId: product.plotId || '',
@@ -348,26 +353,34 @@ export function ProductDetailsDialog({
             </StatCard>
 
             <StatCard icon={BadgeCheck} label="Chất lượng" tone="amber">
-              {isEditing ? (
+              {/* Grade chỉ cho phép sửa khi Product đang DRAFT (chưa đăng bán).
+                  Sau khi PUBLISHED/ARCHIVED → đông cứng (đã in nhãn, không sửa). */}
+              {isEditing && product.status === 'DRAFT' ? (
                 <Select
-                  value={form.grade}
+                  value={normalizeGrade(form.grade)}
                   onValueChange={(val) => setForm({ ...form, grade: val })}
                 >
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {['A', 'B', 'C', 'REJECT'].map((g) => (
-                      <SelectItem key={g} value={g}>
-                        Hạng {g}
+                    {PRICE_BOARD_GRADES.filter((g) => g.value !== 'REJECT').map((g) => (
+                      <SelectItem key={g.value} value={g.value}>
+                        {g.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
-                <p className="text-lg font-bold text-foreground">Hạng {product.grade}</p>
+                <p className="text-lg font-bold text-foreground">
+                  {getGradeLabel(product.grade)}
+                </p>
               )}
-              <p className="mt-0.5 text-[10px] text-muted-foreground">Phẩm cấp nông sản</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {product.status === 'DRAFT'
+                  ? 'Có thể sửa khi đang Nháp'
+                  : 'Đã đăng bán — không sửa được phẩm cấp'}
+              </p>
             </StatCard>
           </div>
         </div>

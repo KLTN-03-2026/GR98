@@ -31,6 +31,7 @@ import {
 import { useVietnamAdministrative } from '@/lib/vn-administrative';
 import ContractDetailPage from '@/pages/contracts/contract-detail.page';
 import { ContractLegalTemplate } from '@/pages/contracts/components/contract-legal-template';
+import { getContractGradeLabel } from '@/pages/contracts/components/contract-ui';
 import {
   PARTY_A_DOCUMENT_DEFAULTS,
   buildContractLegalViewModelFromDraft,
@@ -279,7 +280,7 @@ function SupervisorContractCreateWorkspace() {
             </div>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Phân khúc: {form.grade === 'PREMIUM' ? 'Cao cấp' : 'Tiêu chuẩn'}</span>
+            <span>Phân khúc: {getContractGradeLabel(form.grade)}</span>
             <span className="h-1 w-1 rounded-full bg-primary/50" />
             <span>{getCropLabel(form.cropType)}</span>
           </div>
@@ -580,8 +581,9 @@ function SupervisorContractCreateWorkspace() {
                 }
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="STANDARD">Tiêu chuẩn</option>
                 <option value="PREMIUM">Cao cấp</option>
+                <option value="STANDARD">Tiêu chuẩn</option>
+                <option value="ECONOMY">Phổ thông</option>
               </select>
             </div>
           </div>

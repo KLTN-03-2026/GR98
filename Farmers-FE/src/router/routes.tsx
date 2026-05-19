@@ -15,6 +15,7 @@ import AdminAssignmentsPage from '@/pages/admin/assignments';
 import AdminClientsPage from '@/pages/admin/clients';
 import AdminWarehousesPage from '@/pages/admin/warehouses';
 import AdminZonesPage from '@/pages/admin/zones';
+import DiseaseHeatmapPage from '@/pages/admin/disease-heatmap';
 
 import SupervisorOverviewPage from '@/pages/supervisor/overview';
 import SupervisorFarmersPage from '@/pages/supervisor/farmers';
@@ -191,6 +192,10 @@ const adminDashboard: RouteObject = {
     {
       path: 'plots',
       element: <AdminPlotsPage />,
+    },
+    {
+      path: 'disease-heatmap',
+      element: <DiseaseHeatmapPage />,
     },
     {
       path: 'contracts/:id',

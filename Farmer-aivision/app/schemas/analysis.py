@@ -1,7 +1,16 @@
 """Schemas for the unified /analyze endpoint."""
 from datetime import datetime, timezone
+from typing import Optional
 
 from pydantic import BaseModel, Field
+
+
+class SeverityInfo(BaseModel):
+    """Mức độ nặng cho bệnh rust (chỉ trả khi disease == leaf_rust)."""
+    level: str = Field(..., description="healthy | rust_level_1..4")
+    level_index: int = Field(..., ge=0, le=4, description="0=healthy, 1-4=mức độ nặng")
+    label_vi: str = Field(..., description="Mô tả tiếng Việt mức độ")
+    do_chinh_xac: float = Field(..., ge=0.0, le=1.0)
 
 
 class DiseaseInfo(BaseModel):
@@ -35,6 +44,10 @@ class AnalyzeResponse(BaseModel):
     """
 
     benh: DiseaseInfo = Field(..., description="Thông tin bệnh được phát hiện")
+    muc_do_nang: Optional[SeverityInfo] = Field(
+        None,
+        description="Mức độ nặng (chỉ áp dụng cho bệnh rỉ sắt). Null nếu bệnh khác.",
+    )
     thoi_gian_xu_ly_ms: float = Field(
         ...,
         ge=0,

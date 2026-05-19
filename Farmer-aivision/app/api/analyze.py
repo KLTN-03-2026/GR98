@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 import aiofiles
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 
 from app.core.config import get_settings
 from app.core.exceptions import FileTooLargeError, UnsupportedFileTypeError
@@ -42,7 +42,7 @@ async def _save_upload(upload_file: UploadFile, max_size_mb: int) -> Path:
 @router.post(
     "/image",
     response_model=AnalyzeResponse,
-    summary="Phân tích bệnh lá sầu riêng",
+    summary="Phân tích bệnh lá cà phê",
     responses={
         200: {
             "description": "Thông tin bệnh được phát hiện kèm hướng điều trị",
@@ -69,10 +69,18 @@ async def _save_upload(upload_file: UploadFile, max_size_mb: int) -> Path:
     },
 )
 async def analyze_image(
-    file: UploadFile = File(..., description="Ảnh lá sầu riêng (JPEG, PNG, WebP)"),
+    file: UploadFile = File(..., description="Ảnh lá cây (JPEG, PNG, WebP)"),
+    crop_type: str = Form(
+        "ca-phe",
+        description="Loại cây: 'sau-rieng' | 'ca-phe' (default: ca-phe)",
+    ),
 ) -> AnalyzeResponse:
     """
-    Upload ảnh lá sầu riêng → nhận về thông tin bệnh + thuốc điều trị.
+    Upload ảnh lá cây → nhận về thông tin bệnh + thuốc điều trị.
+
+    `crop_type` quyết định pipeline:
+    - **`sau-rieng`** (Sầu riêng): chỉ YOLO detect (9 bệnh, không có severity)
+    - **`ca-phe`** (Cà phê): YOLO + ResNet hybrid (7 bệnh) + Severity cho rỉ sắt
 
     **Response gồm:**
     - `disease` — tên tiếng Anh
@@ -84,6 +92,7 @@ async def analyze_image(
     - `phan_loai` — loại bệnh (fungal / bacterial / viral / algal / healthy)
     - `chi_tiet` — mô tả triệu chứng
     - `do_chinh_xac` — độ chính xác model (0-1)
+    - `muc_do_nang` — mức độ nặng (chỉ cho cà phê + leaf_rust, ngược lại null)
     """
     ext = Path(file.filename or "").suffix.lower()
     if file.content_type not in ALLOWED_IMAGE_TYPES and ext not in {".jpg", ".jpeg", ".png", ".webp"}:
@@ -91,6 +100,6 @@ async def analyze_image(
 
     tmp_path = await _save_upload(file, MAX_IMAGE_SIZE_MB)
     try:
-        return analyze(str(tmp_path))
+        return analyze(str(tmp_path), crop_type=crop_type)
     finally:
         tmp_path.unlink(missing_ok=True)

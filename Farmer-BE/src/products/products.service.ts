@@ -776,9 +776,25 @@ export class ProductsService {
     // 4. Phân tách dữ liệu: Loại bỏ các trường Traceability khỏi DTO để bảo vệ dữ liệu gốc
     const { categoryIds, ...updateData } = dto;
 
-    // Loại bỏ các trường không được phép sửa (frozen fields)
-    const forbiddenFields = ['plotId', 'contractId', 'cropType', 'grade', 'qrCode', 'adminId', 'stockKg'];
+    // Loại bỏ các trường không được phép sửa (frozen fields).
+    // `grade` được handle riêng bên dưới — chỉ được phép sửa khi status=DRAFT.
+    const forbiddenFields = ['plotId', 'contractId', 'cropType', 'qrCode', 'adminId', 'stockKg'];
     forbiddenFields.forEach(f => delete (updateData as any)[f]);
+
+    // Grade: chỉ cho phép thay đổi khi Product đang DRAFT (chưa publish, chưa in
+    // nhãn, chưa đóng gói). Sau khi PUBLISHED/ARCHIVED → grade là snapshot đông
+    // cứng để tuân thủ Luật Ghi nhãn Hàng hoá (đã in nhãn không sửa được).
+    if (dto.grade !== undefined && dto.grade !== existing.grade) {
+      if (existing.status !== 'DRAFT') {
+        throw new BadRequestException(
+          'Chỉ được thay đổi phẩm cấp khi sản phẩm đang ở trạng thái Nháp. ' +
+          'Sản phẩm đã đăng bán không thể sửa phẩm cấp để tránh sai lệch nhãn hàng hoá.',
+        );
+      }
+      // Cho phép → giữ grade trong updateData (không delete)
+    } else {
+      delete (updateData as any).grade;
+    }
 
     // 5. Thực hiện cập nhật trong Transaction
     return this.prisma.$transaction(async (tx) => {

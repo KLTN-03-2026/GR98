@@ -732,12 +732,15 @@ enum ContractStatus {
 }
 
 enum QualityGrade {
-  STANDARD
-  PREMIUM
-  A
-  B
-  C
-  REJECT
+  // ── Unified 4-tier system (dùng cho cả contract + inventory + product) ──
+  PREMIUM   // Cao cấp — chất lượng cao nhất, xuất khẩu / specialty
+  STANDARD  // Tiêu chuẩn — chất lượng phổ biến, bán lẻ thông thường
+  ECONOMY   // Phổ thông — chất lượng thấp hơn, bán sỉ / chế biến
+  REJECT    // Loại thải — không đạt yêu cầu, dùng làm phụ phẩm
+  // ── Legacy grade (dữ liệu cũ — không show trong dropdown, chỉ map khi hiển thị) ──
+  A         // Legacy → tương đương PREMIUM
+  B         // Legacy → tương đương STANDARD
+  C         // Legacy → tương đương ECONOMY
 }
 
 enum ProductStatus {

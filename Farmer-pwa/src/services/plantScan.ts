@@ -12,13 +12,14 @@ export interface SaveScanPayload {
   confidence: number;
   processingMs?: number;
   plotId?: string;
+  sessionId?: string;
   imageDataUrl?: string;
 }
 
 /** Chuyển đổi từ AIVisionResult sang SaveScanPayload */
 export function mapAIResultToPayload(
   result: AIVisionResult,
-  opts?: { plotId?: string; imageDataUrl?: string },
+  opts?: { plotId?: string; sessionId?: string; imageDataUrl?: string },
 ): SaveScanPayload {
   return {
     diseaseEn: result.benh.disease,
@@ -31,6 +32,7 @@ export function mapAIResultToPayload(
     confidence: result.benh.do_chinh_xac,
     processingMs: result.thoi_gian_xu_ly_ms,
     plotId: opts?.plotId,
+    sessionId: opts?.sessionId,
     imageDataUrl: opts?.imageDataUrl,
   };
 }

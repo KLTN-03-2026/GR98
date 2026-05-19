@@ -125,7 +125,42 @@ export class OrderService {
       }
     }
 
-    // Tính tổng từ items + check stock
+    // ──────────────────────────────────────────────────────────────────────
+    // ĐẶT TRƯỚC TỒN KHO — XỬ LÝ RACE CONDITION GIỮA NHIỀU NGƯỜI MUA
+    // ──────────────────────────────────────────────────────────────────────
+    //
+    // Thuật toán reserve stock an toàn (atomic conditional update):
+    //
+    //   B1. Đọc sản phẩm 1 lần (ngoài transaction) để:
+    //       • Lấy giá, tên, ảnh, minOrderKg, status làm snapshot cho order item.
+    //       • Kiểm tra sơ bộ (trạng thái PUBLISHED, đủ minOrderKg). Phần kiểm
+    //         "đủ hàng" ở bước này chỉ mang tính UX/early-fail; KHÔNG đảm bảo
+    //         tính đúng đắn vì hai request đồng thời đều có thể vượt qua check
+    //         này rồi cùng tăng reservedKg → bán quá tồn (oversell).
+    //
+    //   B2. Trong $transaction, với MỖI sản phẩm dùng updateMany kèm điều kiện:
+    //          where: { id, status: PUBLISHED, stockKg >= reservedKg + qty }
+    //          data:  { reservedKg: { increment: qty } }
+    //       • updateMany trả về { count }. count === 1 ⇨ giữ chỗ thành công.
+    //         count === 0 ⇨ đã có người khác giữ chỗ trước, không đủ hàng.
+    //       • Đây là một câu UPDATE đơn — DB tự khóa hàng (row-level lock) khi
+    //         thực thi, nên hai request song song sẽ tuần tự hóa: chỉ đúng số
+    //         lượng cần thiết được phép tăng reservedKg.
+    //       • Vì điều kiện so sánh ngay trên giá trị mới nhất trong DB, không
+    //         cần SELECT … FOR UPDATE, không cần thử-rồi-rollback nhiều lần.
+    //
+    //   B3. Nếu bất kỳ sản phẩm nào trả count = 0 → throw BadRequestException
+    //       trong transaction → toàn bộ thay đổi rollback (kể cả order vừa tạo
+    //       và các reservedKg đã tăng trước đó). Khách nhận thông báo "Hết hàng"
+    //       thay vì hệ thống nhận đơn rồi giao thiếu.
+    //
+    //   B4. Stock thật (stockKg) chỉ bị giảm khi đơn được xác nhận đã thanh toán
+    //       (confirmPaidOrder). Khi đơn bị hủy hoặc timeout, reservedKg được
+    //       giảm lại để giải phóng chỗ (xem cancelOrder & cron giải phóng).
+    //
+    // Lưu ý: tx.product.updateMany ở đây an toàn vì điều kiện
+    //   `stockKg >= reservedKg + qty`
+    // được DB đánh giá nguyên tử cùng với phép tăng reservedKg.
     const productIds = dto.items.map((i) => i.productId);
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
@@ -169,6 +204,7 @@ export class OrderService {
           `Số lượng tối thiểu là ${product.minOrderKg}kg cho "${product.name}"`,
         );
       }
+      // Early-fail check (không thay thế cho atomic check ở B2 trong transaction).
       const available = product.stockKg - product.reservedKg;
       if (available < item.quantityKg) {
         throw new BadRequestException(
@@ -194,7 +230,7 @@ export class OrderService {
     const orderNo = this.generateOrderNo(adminIdForOrder);
     const orderCode = this.generateOrderCode();
 
-    // Tạo order + reserve stock trong transaction
+    // Tạo order + reserve stock trong transaction (B2 + B3 của thuật toán).
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
@@ -221,12 +257,30 @@ export class OrderService {
         })),
       });
 
-      // Reserve stock: tăng reservedKg
+      // Reserve stock ATOMIC: chỉ tăng reservedKg khi DB còn đủ hàng.
+      // Dùng raw SQL với điều kiện so sánh 2 cột (stockKg - reservedKg >= qty)
+      // — Prisma không hỗ trợ trực tiếp so sánh cột-cột trong `where`. Câu
+      // UPDATE đơn này tự động khóa hàng (row-level lock), nên hai request
+      // chạy song song được DB tuần tự hóa: chỉ đủ chỗ cho người tới trước.
+      // `$executeRaw` trả về số dòng bị ảnh hưởng:
+      //   • rows === 1 → giữ chỗ thành công.
+      //   • rows === 0 → không còn đủ hàng (hoặc sản phẩm vừa bị ngừng bán)
+      //                 → throw → rollback toàn bộ transaction.
       for (const item of orderItems) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { reservedKg: { increment: item.quantityKg } },
-        });
+        const snapshot = productMap.get(item.productId);
+        const rows: number = await tx.$executeRaw`
+          UPDATE "Products"
+             SET "reservedKg" = "reservedKg" + ${item.quantityKg}
+           WHERE "id" = ${item.productId}
+             AND "status" = 'PUBLISHED'
+             AND "stockKg" - "reservedKg" >= ${item.quantityKg}
+        `;
+
+        if (rows !== 1) {
+          throw new BadRequestException(
+            `"${snapshot?.name ?? item.productId}" vừa hết hàng hoặc không đủ ${item.quantityKg}kg, vui lòng thử lại.`,
+          );
+        }
       }
 
       return created;
@@ -573,14 +627,8 @@ export class OrderService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      // Tìm 1 warehouse mặc định của admin để ghi giao dịch SALE
-      const warehouse = await tx.warehouse.findFirst({
-        where: { adminId: order.adminId, isActive: true },
-        orderBy: { createdAt: 'asc' },
-      });
-
       for (const item of order.orderItems) {
-        // Giảm stock thật + giảm reserved
+        // Giảm stock thật + giảm reserved trên Product
         await tx.product.update({
           where: { id: item.productId },
           data: {
@@ -589,36 +637,63 @@ export class OrderService {
           },
         });
 
-        // Ghi WarehouseTransaction OUTBOUND/SALE nếu có warehouse
-        if (warehouse) {
-          // Tìm 1 inventory lot còn hàng của product này
-          const lot = await tx.inventoryLot.findFirst({
-            where: {
-              warehouseId: warehouse.id,
-              productId: item.productId,
-              quantityKg: { gt: 0 },
-            },
-            orderBy: { createdAt: 'asc' },
-          });
+        // Phân bổ qty cần trừ qua nhiều inventory lot theo FIFO (lot cũ nhất
+        // trừ trước), không giới hạn warehouse. Mỗi lot chỉ trừ tối đa lượng
+        // còn lại của lot đó để tránh quantityKg bị âm.
+        //
+        // Mỗi lần trừ trên 1 lot → tạo 1 WarehouseTransaction OUTBOUND/SALE
+        // riêng để audit từng phần đã lấy ra ở warehouse nào, lot nào.
+        // FEFO (First-Expired-First-Out): bán lot có ngày hết hạn sớm nhất
+        // trước để tránh tồn quá hạn phải hủy. Prisma sort `expiryDate asc`
+        // mặc định đẩy NULL xuống cuối (Postgres NULLS LAST), nên lot không
+        // có expiry sẽ được bán cuối cùng — hợp lý vì không rõ hạn = không
+        // ưu tiên xử lý.
+        const lots = await tx.inventoryLot.findMany({
+          where: {
+            productId: item.productId,
+            quantityKg: { gt: 0 },
+          },
+          orderBy: [
+            { expiryDate: 'asc' },
+            { harvestDate: 'asc' },
+            { createdAt: 'asc' },
+          ],
+        });
 
-          if (lot) {
-            await tx.inventoryLot.update({
-              where: { id: lot.id },
-              data: { quantityKg: { decrement: item.quantityKg } },
-            });
-            await tx.warehouseTransaction.create({
-              data: {
-                warehouseId: warehouse.id,
-                productId: item.productId,
-                inventoryLotId: lot.id,
-                quantityKg: -item.quantityKg,
-                type: TransactionType.OUTBOUND,
-                action: TransactionAction.SALE,
-                note: `Bán online - Đơn ${order.orderNo}`,
-                createdBy: currentUserId,
-              },
-            });
-          }
+        let remaining = item.quantityKg;
+        for (const lot of lots) {
+          if (remaining <= 0) break;
+          const deduct = Math.min(lot.quantityKg, remaining);
+          await tx.inventoryLot.update({
+            where: { id: lot.id },
+            data: { quantityKg: { decrement: deduct } },
+          });
+          await tx.warehouseTransaction.create({
+            data: {
+              warehouseId: lot.warehouseId,
+              productId: item.productId,
+              inventoryLotId: lot.id,
+              quantityKg: -deduct,
+              type: TransactionType.OUTBOUND,
+              action: TransactionAction.SALE,
+              note: `Bán online - Đơn ${order.orderNo}`,
+              createdBy: currentUserId,
+            },
+          });
+          remaining -= deduct;
+        }
+
+        // Trường hợp này không nên xảy ra vì atomic reserve check (createOrder)
+        // đã đảm bảo `Product.stockKg - Product.reservedKg >= qty` trước khi
+        // tạo đơn. Nếu vẫn vào nhánh này → dữ liệu inventory không khớp với
+        // Product.stockKg, log lại để admin kiểm tra.
+        if (remaining > 0) {
+          console.error(
+            `[order.confirmDelivery] Đơn ${order.orderNo}: thiếu ${remaining}kg ` +
+              `khi phân bổ qua inventory lots của product ${item.productId}. ` +
+              `Stock tổng (Products.stockKg) đã trừ đủ, nhưng tổng quantityKg ` +
+              `trong InventoryLots không khớp.`,
+          );
         }
       }
 

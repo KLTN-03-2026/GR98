@@ -411,6 +411,7 @@ export class FarmerService {
         id: true,
         phone: true,
         cccd: true,
+        supervisorId: true,
       },
     });
 
@@ -464,6 +465,8 @@ export class FarmerService {
       updateData.province = dto.province?.trim() || null;
     if (dto.status !== undefined) updateData.status = dto.status;
 
+    // Xác định supervisor mới (nếu DTO có truyền). null = "gỡ phụ trách".
+    let nextSupervisorId: string | null | undefined = undefined;
     if (dto.supervisorId !== undefined) {
       if (actor.role === 'SUPERVISOR') {
         if (
@@ -474,21 +477,84 @@ export class FarmerService {
             'Bạn không thể chuyển nông dân sang giám sát viên khác',
           );
         }
-        updateData.supervisor = { connect: { id: actor.supervisorProfileId } };
+        nextSupervisorId = actor.supervisorProfileId;
       } else {
-        const supervisorId = await this.ensureSupervisorInTenant(
+        nextSupervisorId = await this.ensureSupervisorInTenant(
           adminId,
           dto.supervisorId,
         );
-        updateData.supervisor = supervisorId
-          ? { connect: { id: supervisorId } }
-          : { disconnect: true };
       }
+      updateData.supervisor =
+        nextSupervisorId === null
+          ? { disconnect: true }
+          : { connect: { id: nextSupervisorId } };
     }
 
-    await this.prisma.farmer.update({
-      where: { id },
-      data: updateData,
+    const prevSupervisorId = existing.supervisorId;
+    const supervisorChanged =
+      nextSupervisorId !== undefined &&
+      (nextSupervisorId ?? null) !== (prevSupervisorId ?? null);
+
+    // Trường hợp đổi supervisor: phải cascade qua Plot.assignments và Contract
+    // trong cùng transaction để không bị nửa-vời (Farmer đã chuyển nhưng Plot
+    // vẫn dính supervisor cũ → PWA/web filter sai).
+    //
+    // Quy tắc cascade:
+    //  - Mọi `Assignment` còn ACTIVE/PENDING của các Plot thuộc farmer này, mà
+    //    trỏ về supervisor cũ → đẩy về CANCELLED kèm note ghi lý do.
+    //  - Nếu có supervisor mới (không phải disconnect): tạo Assignment ACTIVE
+    //    mới cho từng Plot của farmer (1 dòng/plot).
+    //  - Mọi `Contract` của farmer ở trạng thái còn hoạt động (DRAFT/SIGNED/
+    //    ACTIVE) → đổi `supervisorId` sang supervisor mới (hoặc null).
+    //  - KHÔNG đụng `DailyReport.supervisorId` và `PlantScanRecord.supervisorId`
+    //    vì đây là lịch sử "ai đã ghi nhận", phải giữ nguyên đúng tác giả.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.farmer.update({
+        where: { id },
+        data: updateData,
+      });
+
+      if (!supervisorChanged) return;
+
+      const plots = await tx.plot.findMany({
+        where: { farmerId: id, adminId },
+        select: { id: true },
+      });
+      const plotIds = plots.map((p) => p.id);
+
+      if (plotIds.length > 0 && prevSupervisorId) {
+        await tx.assignment.updateMany({
+          where: {
+            plotId: { in: plotIds },
+            supervisorId: prevSupervisorId,
+            status: { in: ['PENDING', 'ACTIVE'] },
+          },
+          data: {
+            status: 'CANCELLED',
+            note: 'Chuyển nông dân sang giám sát viên khác',
+          },
+        });
+      }
+
+      if (plotIds.length > 0 && nextSupervisorId) {
+        // Mỗi plot 1 Assignment ACTIVE mới. Nếu trước đó plot từng có
+        // Assignment với supervisor mới (vd. trùng người cũ vẫn còn DONE) thì
+        // vẫn tạo dòng mới — không reuse — để rõ ràng về timeline phân công.
+        await tx.assignment.createMany({
+          data: plotIds.map((plotId) => ({
+            supervisorId: nextSupervisorId as string,
+            plotId,
+            adminId,
+            status: 'ACTIVE' as const,
+            note: 'Tự động tạo khi chuyển nông dân sang giám sát viên mới',
+          })),
+        });
+      }
+
+      // KHÔNG đụng `Contract.supervisorId` ở bất kỳ status nào: hợp đồng ghi
+      // nhận supervisor đã ký, đổi sau đó phá vỡ audit trail. Supervisor mới
+      // sẽ thấy được hợp đồng qua quyền xem theo Plot.assignments (đã mở ở
+      // contract.service.ts) mà không cần đổi Contract.supervisorId.
     });
 
     return this.findOne(id, currentUserId);

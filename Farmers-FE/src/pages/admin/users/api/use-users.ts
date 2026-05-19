@@ -82,11 +82,20 @@ export function useDeleteUser() {
   return useMutation({
     mutationFn: async (id: string) => {
       const response = await userApi.delete(id);
-      return extractData<{ id: string; deletedAt: string }>(response);
+      return extractData<{
+        id: string;
+        deletedAt?: string;
+        deactivatedAt?: string;
+        softDeleted?: boolean;
+      }>(response);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('Đã xóa người dùng');
+      toast.success(
+        data.softDeleted
+          ? 'Đã ngừng hoạt động tài khoản'
+          : 'Đã xóa người dùng',
+      );
     },
     onError: (error: { message?: string }) => {
       toast.error(error.message || 'Không xóa được người dùng');

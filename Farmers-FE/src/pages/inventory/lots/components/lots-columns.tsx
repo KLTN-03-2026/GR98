@@ -76,7 +76,7 @@ export function createLotColumns(handlers: {
     },
     {
       id: 'date',
-      header: mode === 'upcoming' ? 'Dự kiến' : 'Ngày nhập',
+      header: mode === 'upcoming' ? 'Ngày thu hoạch' : 'Ngày nhập',
       cell: ({ row }) => {
         const dateValue = mode === 'upcoming' ? row.original.harvestDate : row.original.createdAt;
         if (!dateValue) return <span className="text-muted-foreground text-sm">—</span>;

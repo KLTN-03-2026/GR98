@@ -20,6 +20,7 @@ import { CreateDailyReportDto } from './dto/create-daily-report.dto';
 import { UpdateDailyReportDto } from './dto/update-daily-report.dto';
 import { QueryDailyReportDto } from './dto/query-daily-report.dto';
 import { UpdateIncidentHandlingDto } from './dto/update-incident-handling.dto';
+import { computeDefaultExpiry } from '../common/utils/expiry.util';
 
 const MAX_IMAGES = 10;
 const MAX_IMAGE_ENTRY_CHARS = 7_000_000;
@@ -489,10 +490,75 @@ export class DailyReportService {
     if (status === ReportStatus.APPROVED && existing.type === 'HARVEST' && existing.yieldEstimateKg) {
       const contract = await this.prisma.contract.findFirst({
         where: { plotId: existing.plotId, status: ContractStatus.ACTIVE },
-        select: { id: true, product: { select: { id: true, grade: true } } }
+        select: {
+          id: true,
+          cropType: true,
+          grade: true,
+          plotDraftProvince: true,
+          plotDraftDistrict: true,
+          product: { select: { id: true, grade: true, cropType: true } },
+        },
       });
-      
-      if (contract?.product) {
+
+      // Tìm Product để gắn lot vào.
+      //  - Trường hợp thường: contract.product có sẵn (Product 1-1 với contract).
+      //  - Trường hợp dedup: lúc duyệt hợp đồng, BE thấy đã có Product cùng
+      //    cropType+grade+vùng nên không tạo Product mới → contract.product=null.
+      //    Khi đó phải tìm lại Product chung đó qua các contract cùng vùng để
+      //    sản lượng harvest mới được cộng vào đúng SKU thương mại.
+      let productForLot: { id: string; grade: any; cropType: string } | null =
+        contract?.product ?? null;
+
+      if (!productForLot && contract) {
+        const plot = await this.prisma.plot.findUnique({
+          where: { id: existing.plotId },
+          include: { zone: { select: { province: true, district: true } } },
+        });
+
+        const zoneProvince =
+          plot?.zone?.province ?? contract.plotDraftProvince ?? null;
+        const zoneDistrict =
+          plot?.zone?.district ?? contract.plotDraftDistrict ?? null;
+
+        if (zoneProvince) {
+          // Lấy các contract cùng vùng địa lý + cùng cropType + cùng grade.
+          // Product được dedup theo bộ key này.
+          const sameAreaContracts = await this.prisma.contract.findMany({
+            where: {
+              adminId: actor.adminId,
+              cropType: contract.cropType,
+              grade: contract.grade,
+              OR: [
+                { plot: { zone: { province: zoneProvince } } },
+                { plotDraftProvince: zoneProvince },
+              ],
+              ...(zoneDistrict
+                ? {
+                    OR: [
+                      { plot: { zone: { district: zoneDistrict } } },
+                      { plotDraftDistrict: zoneDistrict },
+                    ],
+                  }
+                : {}),
+            },
+            select: { id: true },
+          });
+
+          if (sameAreaContracts.length > 0) {
+            productForLot = await this.prisma.product.findFirst({
+              where: {
+                adminId: actor.adminId,
+                cropType: contract.cropType,
+                contractId: { in: sameAreaContracts.map((c) => c.id) },
+                status: { notIn: ['ARCHIVED'] },
+              },
+              select: { id: true, grade: true, cropType: true },
+            });
+          }
+        }
+      }
+
+      if (productForLot && contract) {
         // --- Logic Smart Routing: Tìm kho có đủ sức chứa ---
         const warehouses = await this.prisma.warehouse.findMany({
           where: { adminId: actor.adminId, isActive: true },
@@ -537,14 +603,23 @@ export class DailyReportService {
           });
 
           if (!existingLot) {
+            // Set harvestDate = ngày báo cáo thu hoạch (supervisor báo cáo
+            // ngày nào thì coi đó là ngày thu hoạch tại ruộng). expiryDate
+            // tự tính theo cropType để FEFO sort khi bán hàng hoạt động đúng.
+            const harvestDate = existing.reportedAt ?? new Date();
+            const cropType = productForLot.cropType ?? contract.cropType;
+            const expiryDate = computeDefaultExpiry(cropType, harvestDate);
+
             await this.prisma.inventoryLot.create({
               data: {
                 warehouseId: targetWarehouseId,
-                productId: contract.product.id,
+                productId: productForLot.id,
                 contractId: contract.id,
                 quantityKg: existing.yieldEstimateKg,
-                qualityGrade: contract.product.grade,
+                qualityGrade: productForLot.grade,
                 status: InventoryLotStatus.SCHEDULED,
+                harvestDate,
+                expiryDate,
               }
             });
           } else {

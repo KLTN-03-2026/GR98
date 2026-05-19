@@ -1,0 +1,19 @@
+{
+  "weights_file": "ai\\weights\\coffee_leaf_detector.pt",
+  "task": "detect",
+  "base_model": "yolov8s.pt",
+  "nc": 5,
+  "names": [
+    "healthy",
+    "leaf_rust",
+    "red_spider_mite",
+    "malnutrition",
+    "pest"
+  ],
+  "data_yaml": "C:\\Users\\VHDN\\GR98\\Farmer-aivision\\datasets_coffee\\processed\\yolo\\data.yaml",
+  "epochs": 150,
+  "batch": 16,
+  "imgsz": 640,
+  "best_map": 0.43922701498288863,
+  "run_dir": "C:\\Users\\VHDN\\GR98\\Farmer-aivision\\ai\\runs\\detect\\coffee_detect"
+}

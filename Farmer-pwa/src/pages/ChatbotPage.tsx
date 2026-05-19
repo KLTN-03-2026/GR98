@@ -19,7 +19,7 @@ export default function ChatbotPage() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Xin chào! Tôi là trợ lý kỹ thuật canh tác sầu riêng. Bạn có thể hỏi tôi về:\n• Kỹ thuật chăm sóc cây\n• Thuốc bảo vệ thực vật\n• Lịch phun xịt\n• Cách phòng trừ sâu bệnh',
+      content: 'Xin chào! Tôi là trợ lý kỹ thuật canh tác cây sầu riêng và cà phê. Câu trả lời được trích dẫn từ tài liệu BVTV chính thức.\n\n📌 Một số câu mày có thể hỏi:\n• "Bệnh rỉ sắt cà phê chữa bằng thuốc gì?"\n• "Các loại sâu bệnh hại cây cà phê"\n• "Bệnh thán thư sầu riêng triệu chứng và cách trị"\n• "Lịch phun thuốc cho cà phê mùa mưa"\n• "Liều dùng Hexaconazole 5% cho rust"\n• "Phòng bệnh thối lá Phytophthora trên sầu riêng"\n\n💡 Tip: ghi rõ tên cây (cà phê / sầu riêng) trong câu hỏi để tôi tìm đúng tài liệu.',
       timestamp: new Date(),
     },
   ]);
@@ -53,19 +53,31 @@ export default function ChatbotPage() {
         question: userMessage.content,
       });
 
+      // BE wrap response: { success, data: { answer, citations } }
+      // Axios `response.data` chính là body, nên cần `.data.data.answer`.
+      const payload = response.data?.data ?? response.data;
+      const answer: string =
+        payload?.answer ||
+        'Xin lỗi, tôi không thể trả lời câu hỏi này.';
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response.data.answer || 'Xin lỗi, tôi không thể trả lời câu hỏi này.',
+        content: answer,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch {
+    } catch (err) {
+      // Hiện message lỗi cụ thể từ BE (giúp debug rate-limit, API key, etc.)
+      const apiError = err as { response?: { data?: { message?: string } } };
+      const detail =
+        apiError.response?.data?.message ||
+        'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.';
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.',
+        content: detail,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -86,7 +98,7 @@ export default function ChatbotPage() {
       {
         id: 'welcome',
         role: 'assistant',
-        content: 'Xin chào! Tôi là trợ lý kỹ thuật canh tác sầu riêng. Bạn có thể hỏi tôi về:\n• Kỹ thuật chăm sóc cây\n• Thuốc bảo vệ thực vật\n• Lịch phun xịt\n• Cách phòng trừ sâu bệnh',
+        content: 'Xin chào! Tôi là trợ lý kỹ thuật canh tác cây sầu riêng và cà phê. Câu trả lời được trích dẫn từ tài liệu BVTV chính thức.\n\n📌 Một số câu mày có thể hỏi:\n• "Bệnh rỉ sắt cà phê chữa bằng thuốc gì?"\n• "Các loại sâu bệnh hại cây cà phê"\n• "Bệnh thán thư sầu riêng triệu chứng và cách trị"\n• "Lịch phun thuốc cho cà phê mùa mưa"\n• "Liều dùng Hexaconazole 5% cho rust"\n• "Phòng bệnh thối lá Phytophthora trên sầu riêng"\n\n💡 Tip: ghi rõ tên cây (cà phê / sầu riêng) trong câu hỏi để tôi tìm đúng tài liệu.',
         timestamp: new Date(),
       },
     ]);

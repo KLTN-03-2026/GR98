@@ -82,9 +82,28 @@ export class SupervisorController {
   @Delete(':id')
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xóa giám sát viên' })
+  @ApiOperation({ summary: 'Xóa giám sát viên (soft-delete, set INACTIVE)' })
   @ApiResponse({ status: 200, description: 'Xóa thành công' })
   remove(@Param('id') id: string, @Request() req: any) {
     return this.supervisorService.remove(id, req.user.id);
+  }
+
+  @Post(':id/transfer-farmers')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Chuyển toàn bộ nông dân sang supervisor khác (bulk transfer)',
+  })
+  @ApiResponse({ status: 200, description: 'Chuyển thành công' })
+  transferFarmers(
+    @Param('id') id: string,
+    @Body() body: { toSupervisorId: string },
+    @Request() req: any,
+  ) {
+    return this.supervisorService.transferFarmers(
+      id,
+      body.toSupervisorId,
+      req.user.id,
+    );
   }
 }

@@ -9,7 +9,16 @@ export interface UserResponse {
   createdAt: string;
   updatedAt: string;
   adminProfile?: { id: string; businessName: string; province: string } | null;
-  supervisorProfile?: { id: string; employeeCode: string; adminId: string } | null;
+  supervisorProfile?: {
+    id: string;
+    employeeCode: string;
+    adminId: string;
+    _count?: {
+      farmers: number;
+      assignments: number;
+      contracts: number;
+    };
+  } | null;
   clientProfile?: { id: string; province: string | null; defaultAddress: string | null } | null;
 }
 

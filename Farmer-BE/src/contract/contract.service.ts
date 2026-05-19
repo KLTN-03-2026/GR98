@@ -540,7 +540,28 @@ export class ContractService {
     ];
 
     if (actor.role === Role.SUPERVISOR && actor.supervisorProfileId) {
-      andConditions.push({ supervisorId: actor.supervisorProfileId });
+      // Supervisor được XEM hợp đồng nếu thoả 1 trong 2:
+      //   1. Là supervisor đã ký hợp đồng (Contract.supervisorId trùng).
+      //   2. Đang ACTIVE assign vào plot của hợp đồng (sau khi nhận bàn giao
+      //      từ supervisor nghỉ việc).
+      // Mutations (update/sign/approve) vẫn dùng filter strict
+      // `supervisorId = actor.supervisorProfileId`, nên người mới chỉ xem,
+      // không sửa được thông tin bên ký.
+      andConditions.push({
+        OR: [
+          { supervisorId: actor.supervisorProfileId },
+          {
+            plot: {
+              assignments: {
+                some: {
+                  supervisorId: actor.supervisorProfileId,
+                  status: AssignStatus.ACTIVE,
+                },
+              },
+            },
+          },
+        ],
+      });
     }
 
     if (query.status) {
@@ -612,7 +633,23 @@ export class ContractService {
       { adminId: actor.adminId },
     ];
     if (actor.role === Role.SUPERVISOR && actor.supervisorProfileId) {
-      andConditions.push({ supervisorId: actor.supervisorProfileId });
+      // Cùng quy tắc xem như findAll: supervisor đã ký HOẶC đang ACTIVE
+      // assign vào plot. Mutations vẫn check strict supervisorId.
+      andConditions.push({
+        OR: [
+          { supervisorId: actor.supervisorProfileId },
+          {
+            plot: {
+              assignments: {
+                some: {
+                  supervisorId: actor.supervisorProfileId,
+                  status: AssignStatus.ACTIVE,
+                },
+              },
+            },
+          },
+        ],
+      });
     }
 
     const item = await this.prisma.contract.findFirst({

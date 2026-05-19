@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams, useParams } from 'react-router-dom';
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Filter,
@@ -282,6 +282,7 @@ const FilterContent = ({
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { slug: categorySlugParam } = useParams<{ slug?: string }>();
+  const navigate = useNavigate();
   const [gridCols, setGridCols] = useState<2 | 3 | 4>(4);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
@@ -361,7 +362,13 @@ export default function ProductsPage() {
   };
 
   const clearFilters = () => {
-    setSearchParams({ sortBy: filters.sortBy });
+    if (categorySlugParam) {
+      navigate(`/products?sortBy=${encodeURIComponent(filters.sortBy)}`, {
+        replace: true,
+      });
+    } else {
+      setSearchParams({ sortBy: filters.sortBy });
+    }
   };
 
   return (

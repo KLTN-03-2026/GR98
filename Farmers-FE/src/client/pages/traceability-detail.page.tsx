@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -26,6 +26,7 @@ import {
   Tractor,
   Building2,
   ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +34,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { TraceQR } from '@/client/components/trace-qr';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useProductTraceability } from '@/client/api';
 import { formatPrice } from '@/lib/utils';
 import {
@@ -112,6 +121,16 @@ const TIMELINE_STYLES: Record<
     ring: 'ring-rose-200 dark:ring-rose-800',
     Icon: ScanLine,
   },
+  // Biến thể "scan khỏe mạnh" — khi dangerLevel = "Không": cây khoẻ, không
+  // có bệnh. Dùng tone emerald + icon check để khách hàng phân biệt nhanh
+  // với scan phát hiện bệnh (tone đỏ).
+  scan_healthy: {
+    label: 'Khoẻ mạnh',
+    color: 'text-emerald-700 dark:text-emerald-400',
+    bg: 'bg-emerald-100 dark:bg-emerald-900/40',
+    ring: 'ring-emerald-200 dark:ring-emerald-800',
+    Icon: CheckCircle2,
+  },
   warehouse: {
     label: 'Nhập kho',
     color: 'text-indigo-700 dark:text-indigo-400',
@@ -128,7 +147,14 @@ const TIMELINE_STYLES: Record<
   },
 };
 
-function getTimelineStyle(type: string) {
+function getTimelineStyle(type: string, meta?: Record<string, unknown>) {
+  // Scan + dangerLevel="Không" → cây khoẻ mạnh → dùng style emerald.
+  if (type === 'scan') {
+    const danger = String(meta?.dangerLevel ?? '').trim().toLowerCase();
+    if (danger === 'không' || danger === '' || danger === 'none') {
+      return TIMELINE_STYLES.scan_healthy;
+    }
+  }
   return TIMELINE_STYLES[type] ?? TIMELINE_STYLES.report;
 }
 
@@ -147,6 +173,37 @@ function formatDate(d: string | Date) {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+  });
+}
+
+/**
+ * Gộp inventory lots theo (harvestDate quy về YYYY-MM-DD) + qualityGrade.
+ * Để FE hiển thị "Đợt thu hoạch ngày X — Hạng Y" thay vì liệt kê từng lot
+ * (mỗi lot = 1 dòng InventoryLot trong DB). Ẩn warehouse và số kg để bảo vệ
+ * dữ liệu vận hành.
+ */
+function groupLotsByHarvestAndGrade(lots: TraceInventoryLot[]) {
+  const map = new Map<
+    string,
+    { key: string; harvestDate: string | null; qualityGrade: string }
+  >();
+  for (const lot of lots) {
+    const dayKey = lot.harvestDate
+      ? new Date(lot.harvestDate).toISOString().slice(0, 10)
+      : 'unknown';
+    const key = `${dayKey}::${lot.qualityGrade}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        harvestDate: lot.harvestDate ?? null,
+        qualityGrade: lot.qualityGrade,
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    if (!a.harvestDate) return 1;
+    if (!b.harvestDate) return -1;
+    return new Date(b.harvestDate).getTime() - new Date(a.harvestDate).getTime();
   });
 }
 
@@ -205,7 +262,14 @@ export default function TraceabilityDetailPage() {
     ? `${farmCount} nông trại`
     : (plot?.farmer?.fullName ?? contract?.farmer?.fullName ?? 'Chưa xác định');
 
-  const supervisorName = contract?.supervisor?.fullName ?? null;
+  // Card "Người canh tác → Giám sát viên" hiển thị NGƯỜI ĐANG PHỤ TRÁCH plot
+  // (Assignment ACTIVE) — có thể khác với người ký hợp đồng nếu plot đã được
+  // bàn giao. Fallback về contract.supervisor (signer) khi BE chưa kịp trả
+  // currentSupervisor.
+  const supervisorName =
+    (plot as any)?.currentSupervisor?.fullName ??
+    contract?.supervisor?.fullName ??
+    null;
   const locationLabel = plot?.zone
     ? [plot.zone.district, plot.zone.province].filter(Boolean).join(', ') ||
       plot.zone.name
@@ -326,48 +390,46 @@ export default function TraceabilityDetailPage() {
                 <QuickFact
                   icon={<Calendar className="h-4 w-4" />}
                   label="Thu hoạch"
-                  value={
-                    product.harvestDate
+                  value={(() => {
+                    // Ưu tiên: lấy `harvestDate` mới nhất từ inventoryLots
+                    // (= ngày thu hoạch thực tế gần nhất đã nhập kho).
+                    // Fallback: `product.harvestDate` — field cũ ít khi được
+                    // populate. Nếu cả 2 đều null → "Chưa thu hoạch".
+                    const lotDates = inventoryLots
+                      .map((l) => l.harvestDate)
+                      .filter((d): d is string => Boolean(d));
+                    if (lotDates.length > 0) {
+                      const latest = lotDates.reduce((a, b) =>
+                        new Date(a).getTime() > new Date(b).getTime() ? a : b,
+                      );
+                      return formatDate(latest);
+                    }
+                    return product.harvestDate
                       ? formatDate(product.harvestDate)
-                      : 'Chưa thu hoạch'
-                  }
+                      : 'Chưa thu hoạch';
+                  })()}
                 />
               </div>
 
-              {/* Trust bar */}
-              <div className="flex flex-col sm:flex-row gap-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/60">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
+              {/* Trust bar: chỉ giữ thông tin Hợp đồng — bỏ "Mã truy xuất xác
+                  thực" cũ vì link đó trỏ tới route /trace/contracts/:code
+                  đã không triển khai. Trang truy xuất hiện tại (URL bạn đang
+                  ở) đã là điểm verify chính. */}
+              {contract?.contractNo && (
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/60">
                   <div className="shrink-0 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 text-white">
-                    <ShieldCheck className="h-5 w-5" />
+                    <FileText className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 font-medium">
-                      Mã truy xuất xác thực
+                      Hợp đồng liên kết
                     </p>
                     <p className="text-sm font-mono font-semibold text-emerald-900 dark:text-emerald-300 truncate">
-                      {contract?.traceabilityQr ?? product.qrCode ?? product.sku}
+                      {contract.contractNo}
                     </p>
                   </div>
                 </div>
-                {contract?.contractNo && (
-                  <>
-                    <div className="hidden sm:block w-px bg-emerald-200 dark:bg-emerald-800/60" />
-                    <div className="flex items-center gap-3">
-                      <div className="shrink-0 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600/10 text-emerald-700 dark:text-emerald-400">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 font-medium">
-                          Hợp đồng
-                        </p>
-                        <p className="text-sm font-mono font-semibold text-emerald-900 dark:text-emerald-300">
-                          {contract.contractNo}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+              )}
 
               {/* Price + rating */}
               <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
@@ -440,12 +502,15 @@ export default function TraceabilityDetailPage() {
             value={stats.totalScans}
             sub={`${stats.totalIncidents} sự cố ghi nhận`}
           />
+          {/* Stat: số đợt thu hoạch đã qua kiểm định + nhập kho. Thay cho ô
+              "Tổng sản lượng kho" cũ — ẩn số kg để bảo vệ dữ liệu vận hành,
+              vẫn cho khách biết quy mô sản xuất ở mức không nhạy cảm. */}
           <StatCard
             tone="indigo"
-            icon={<Warehouse className="h-5 w-5" />}
-            label="Tổng sản lượng kho"
-            value={`${stats.totalInventoryKg.toFixed(0)}`}
-            sub="kg đã nhập kho"
+            icon={<Package className="h-5 w-5" />}
+            label="Đợt thu hoạch"
+            value={groupLotsByHarvestAndGrade(inventoryLots).length}
+            sub="đã qua kiểm định"
           />
           {stats.contributingFarmCount > 1 ? (
             <StatCard
@@ -508,84 +573,11 @@ export default function TraceabilityDetailPage() {
                 </p>
               </CardHeader>
               <CardContent className="pt-0">
-                {(() => {
-                  const publicTimeline = sanitizePublicTimeline(timeline);
-                  if (publicTimeline.length === 0) {
-                    return <EmptyState text="Chưa có sự kiện nào." />;
-                  }
-                  return (
-                    <ol className="relative space-y-3 pl-9 sm:pl-12">
-                      <span
-                        aria-hidden
-                        className="absolute left-[14px] sm:left-[18px] top-3 bottom-3 w-px bg-gradient-to-b from-emerald-300/70 via-border to-emerald-200/30"
-                      />
-                      {publicTimeline.map((item, idx) => {
-                        const style = getTimelineStyle(item.type);
-                        const Icon = style.Icon;
-                        return (
-                          <li key={idx} className="relative">
-                            {/* Marker */}
-                            <span
-                              className={`absolute -left-9 sm:-left-12 top-2.5 flex h-7 w-7 items-center justify-center rounded-full ring-2 ${style.bg} ${style.ring} ${style.color}`}
-                            >
-                              <Icon className="h-3.5 w-3.5" />
-                            </span>
-                            <div className="rounded-lg border bg-card px-3.5 py-2.5 hover:shadow-sm transition-shadow">
-                              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                <span className={`text-[11px] font-semibold uppercase tracking-wide ${style.color}`}>
-                                  {style.label}
-                                </span>
-                                <span className="text-[11px] text-muted-foreground">
-                                  {formatDateTime(item.date)}
-                                </span>
-                              </div>
-                              <h4 className="mt-0.5 text-sm font-semibold leading-snug">
-                                {item.title}
-                              </h4>
-                              {item.description && (
-                                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                                  {item.description}
-                                </p>
-                              )}
-                              {/* Source tag — hiển thị khi sản phẩm gộp nhiều nông trại */}
-                              {item.source && (item.source.plotCode || item.source.farmerName) && (
-                                <div className="mt-1.5 flex flex-wrap gap-1">
-                                  {item.source.plotCode && (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                      <MapPin className="h-2.5 w-2.5" />
-                                      {item.source.plotCode}
-                                    </span>
-                                  )}
-                                  {item.source.farmerName && (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                      <User className="h-2.5 w-2.5" />
-                                      {item.source.farmerName}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                              {item.imageUrls && item.imageUrls.length > 0 && (
-                                <div className="mt-2 flex gap-1.5 overflow-x-auto">
-                                  {item.imageUrls.slice(0, 4).map((url: string, i: number) => (
-                                    <img
-                                      key={i}
-                                      src={url}
-                                      alt=""
-                                      className="h-16 w-16 object-cover rounded-md border shrink-0"
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                              {item.meta && Object.keys(item.meta).length > 0 && (
-                                <TimelineMeta meta={item.meta} />
-                              )}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  );
-                })()}
+                <TimelineSection
+                  timeline={sanitizePublicTimeline(timeline)}
+                  farmCount={farmCount}
+                  allPlots={allPlots}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -608,40 +600,39 @@ export default function TraceabilityDetailPage() {
               </div>
             )}
 
-            {/* Danh sách tất cả plots đóng góp */}
+            {/* Danh sách tất cả plots đóng góp — chỉ hiển thị thông tin
+                cần thiết cho khách hàng (nguồn gốc, người canh tác).
+                Mã lô, diện tích, mã hợp đồng… là dữ liệu nội bộ, ẩn đi. */}
             {farmCount > 1 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {allPlots.map((p: any, idx: number) => (
                   <Card key={p.id ?? idx} className="rounded-2xl">
                     <CardContent className="pt-5 space-y-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 text-xs font-bold">
                           {idx + 1}
                         </span>
-                        <span className="font-mono text-sm font-semibold">{p.plotCode}</span>
+                        <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white gap-1">
+                          <BadgeCheck className="h-3 w-3" />
+                          Đã xác thực
+                        </Badge>
                       </div>
                       {p.farmer?.fullName && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <User className="h-3.5 w-3.5 shrink-0" />
-                          {p.farmer.fullName}
+                        <div className="flex items-center gap-2 text-sm">
+                          <User className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="font-medium text-foreground">
+                            {p.farmer.fullName}
+                          </span>
                         </div>
                       )}
-                      {p.zone && (
+                      {(p.zone || p.farmer?.province) && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          {[p.zone.district, p.zone.province].filter(Boolean).join(', ') || p.zone.name}
-                        </div>
-                      )}
-                      {p.areaHa && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Ruler className="h-3.5 w-3.5 shrink-0" />
-                          {p.areaHa} ha
-                        </div>
-                      )}
-                      {p.plantingDate && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-3.5 w-3.5 shrink-0" />
-                          Trồng: {formatDate(p.plantingDate)}
+                          {p.zone
+                            ? [p.zone.district, p.zone.province]
+                                .filter(Boolean)
+                                .join(', ') || p.zone.name
+                            : p.farmer?.province}
                         </div>
                       )}
                     </CardContent>
@@ -744,12 +735,15 @@ export default function TraceabilityDetailPage() {
           {/* ----- Quality tab ----- */}
           <TabsContent value="quality" className="mt-6 space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Contract */}
+              {/* Cam kết chất lượng — chỉ hiển thị thông tin khách hàng cần
+                  (phân hạng cam kết, mã QR truy xuất). Số hợp đồng / ngày ký /
+                  hạn thu hoạch là dữ liệu nội bộ giữa nông dân và nhà thu mua,
+                  không show ra trang công khai. */}
               <Card className="rounded-2xl">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    Hợp đồng cam kết
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                    Cam kết chất lượng
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -757,49 +751,46 @@ export default function TraceabilityDetailPage() {
                     <>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <InfoTile
-                          icon={<FileText />}
-                          label="Số hợp đồng"
-                          value={contract.contractNo}
-                          mono
-                        />
-                        <InfoTile
                           icon={<BadgeCheck />}
-                          label="Phân hạng"
-                          value={`Hạng ${contract.grade}`}
-                        />
-                        <InfoTile
-                          icon={<Calendar />}
-                          label="Ngày ký"
+                          label="Phân hạng cam kết"
                           value={
-                            contract.signedAt ? formatDate(contract.signedAt) : '—'
+                            GRADE_LABELS[contract.grade as keyof typeof GRADE_LABELS] ??
+                            `Hạng ${contract.grade}`
                           }
                         />
-                        <InfoTile
-                          icon={<Calendar />}
-                          label="Hạn thu hoạch"
-                          value={
-                            contract.harvestDue
-                              ? formatDate(contract.harvestDue)
-                              : '—'
-                          }
-                        />
+                        {farmCount > 1 && (
+                          <InfoTile
+                            icon={<Sprout />}
+                            label="Số nông trại đối tác"
+                            value={`${farmCount} nông trại`}
+                          />
+                        )}
                       </div>
-                      {contract.traceabilityQr && (
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40">
-                          <QrCode className="h-5 w-5 text-primary shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-xs text-muted-foreground">
-                              Mã QR truy xuất
-                            </p>
-                            <p className="text-sm font-mono truncate">
-                              {contract.traceabilityQr}
-                            </p>
-                          </div>
-                        </div>
+                      {farmCount > 1 && (
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Sản phẩm này được gộp từ nhiều nông trại cùng đạt mức
+                          cam kết chất lượng nêu trên. Xem tab “Nông trại” để
+                          biết chi tiết từng đơn vị cung cấp.
+                        </p>
                       )}
+                      {/* QR thực encode URL truy xuất công khai. Khi in lên
+                          bao bì sản phẩm, khách quét QR bằng camera điện thoại
+                          sẽ vào thẳng trang này (không cần app riêng). */}
+                      <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40">
+                        <div className="shrink-0 bg-white p-2 rounded-lg border">
+                          <TraceQR slug={product.slug} size={120} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold">Mã QR truy xuất nguồn gốc</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                            Quét mã này bằng camera điện thoại để xem hành
+                            trình sản phẩm từ lô đất đến tay người tiêu dùng.
+                          </p>
+                        </div>
+                      </div>
                     </>
                   ) : (
-                    <EmptyState text="Chưa có hợp đồng." />
+                    <EmptyState text="Chưa có cam kết chất lượng." />
                   )}
                 </CardContent>
               </Card>
@@ -841,49 +832,49 @@ export default function TraceabilityDetailPage() {
             </div>
 
             {/* Inventory */}
+            {/* "Đợt thu hoạch & phân hạng" — gộp các lot có cùng ngày thu hoạch
+                + phân hạng thành 1 thẻ. Ẩn warehouse name và số kg tồn hiện
+                tại vì đó là dữ liệu vận hành nội bộ, không có giá trị cho
+                khách hàng và có rủi ro lộ thông tin kinh doanh. Chỉ hiển thị
+                ngày thu hoạch + phân hạng + dấu xác nhận "Đã nhập kho". */}
             <Card className="rounded-2xl">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Warehouse className="h-5 w-5 text-primary" />
-                  Lô hàng đã nhập kho
+                  Đợt thu hoạch & phân hạng
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {inventoryLots.length === 0 ? (
-                  <EmptyState text="Chưa có lô hàng nào trong kho." />
+                  <EmptyState text="Chưa có dữ liệu thu hoạch." />
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {inventoryLots.map((lot: TraceInventoryLot) => (
+                    {groupLotsByHarvestAndGrade(inventoryLots).map((group) => (
                       <div
-                        key={lot.id}
+                        key={group.key}
                         className="rounded-xl border bg-card p-4 space-y-3 hover:shadow-md transition-shadow"
                       >
                         <div className="flex items-center justify-between">
                           <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-400">
-                            Hạng {lot.qualityGrade}
+                            Hạng {group.qualityGrade}
                           </Badge>
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         </div>
                         <div>
-                          <p className="text-2xl font-bold">
-                            {lot.quantityKg.toLocaleString('vi-VN')}
-                            <span className="text-sm font-normal text-muted-foreground ml-1">
-                              kg
-                            </span>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                            Đợt thu hoạch
                           </p>
-                          {lot.warehouseName && (
-                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                              <Warehouse className="h-3 w-3" />
-                              {lot.warehouseName}
-                            </p>
-                          )}
+                          <p className="text-lg font-bold mt-0.5 flex items-center gap-1.5">
+                            <Calendar className="h-4 w-4 text-primary" />
+                            {group.harvestDate
+                              ? formatDate(group.harvestDate)
+                              : 'Chưa cập nhật'}
+                          </p>
                         </div>
-                        {lot.harvestDate && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Thu hoạch: {formatDate(lot.harvestDate)}
-                          </p>
-                        )}
+                        <p className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Đã qua kiểm định và nhập kho
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -1228,6 +1219,415 @@ function PersonRow({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * 1 item trên timeline — extract ra component để reuse khi render gộp lẫn
+ * khi render theo nhóm plot. Marker tròn + thẻ nội dung.
+ */
+function TimelineItem({
+  item,
+  showSourceTag,
+}: {
+  item: TraceTimelineItem;
+  showSourceTag: boolean;
+}) {
+  const style = getTimelineStyle(item.type, item.meta);
+  const Icon = style.Icon;
+  return (
+    <li className="relative">
+      <span
+        className={`absolute -left-9 sm:-left-12 top-2.5 flex h-7 w-7 items-center justify-center rounded-full ring-2 ${style.bg} ${style.ring} ${style.color}`}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <div className="rounded-lg border bg-card px-3.5 py-2.5 hover:shadow-sm transition-shadow">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className={`text-[11px] font-semibold uppercase tracking-wide ${style.color}`}>
+            {style.label}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {formatDateTime(item.date)}
+          </span>
+        </div>
+        <h4 className="mt-0.5 text-sm font-semibold leading-snug">{item.title}</h4>
+        {item.description && (
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            {item.description}
+          </p>
+        )}
+        {/* Source tag — chỉ hiện khi list gộp (mode "Tất cả"); khi render theo
+            section/tab plot riêng thì context đã rõ, không cần dán nhãn. */}
+        {showSourceTag &&
+          item.source &&
+          (item.source.plotCode || item.source.farmerName) && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {item.source.plotCode && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <MapPin className="h-2.5 w-2.5" />
+                  {item.source.plotCode}
+                </span>
+              )}
+              {item.source.farmerName && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <User className="h-2.5 w-2.5" />
+                  {item.source.farmerName}
+                </span>
+              )}
+            </div>
+          )}
+        {item.imageUrls && item.imageUrls.length > 0 && (
+          <div className="mt-2 flex gap-1.5 overflow-x-auto">
+            {item.imageUrls.slice(0, 4).map((url: string, i: number) => (
+              <img
+                key={i}
+                src={url}
+                alt=""
+                className="h-16 w-16 object-cover rounded-md border shrink-0"
+              />
+            ))}
+          </div>
+        )}
+        {item.meta && Object.keys(item.meta).length > 0 && (
+          <TimelineMeta meta={item.meta} />
+        )}
+      </div>
+    </li>
+  );
+}
+
+/** Khung ol cho danh sách timeline + đường dọc bên trái. */
+function TimelineList({
+  items,
+  showSourceTag,
+}: {
+  items: TraceTimelineItem[];
+  showSourceTag: boolean;
+}) {
+  return (
+    <ol className="relative space-y-3 pl-9 sm:pl-12">
+      <span
+        aria-hidden
+        className="absolute left-[14px] sm:left-[18px] top-3 bottom-3 w-px bg-gradient-to-b from-emerald-300/70 via-border to-emerald-200/30"
+      />
+      {items.map((item, idx) => (
+        <TimelineItem key={idx} item={item} showSourceTag={showSourceTag} />
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * Render timeline tab:
+ *  - 1 plot (farmCount = 1): flat list như cũ.
+ *  - >1 plot:
+ *     - Desktop (md+): mỗi plot 1 section riêng, dễ scan tuần tự.
+ *     - Mobile (<md): tab "Tất cả / Nông trại X / Nông trại Y" — tiết kiệm
+ *       không gian, người dùng filter theo plot.
+ */
+// Palette 8 màu cho multi-farm. Khi số nông trại > 8 thì quay vòng — kèm
+// badge "Nông trại N" để bù khi trùng màu.
+const FARM_PALETTE = [
+  { tint: 'border-emerald-200 dark:border-emerald-900/60 bg-gradient-to-br from-emerald-50/80 via-white to-emerald-50/20 dark:from-emerald-950/30 dark:via-background dark:to-background', headerBg: 'bg-emerald-100 dark:bg-emerald-900/40', headerFg: 'text-emerald-700 dark:text-emerald-400', avatarBg: 'bg-emerald-600 dark:bg-emerald-700' },
+  { tint: 'border-sky-200 dark:border-sky-900/60 bg-gradient-to-br from-sky-50/80 via-white to-sky-50/20 dark:from-sky-950/30 dark:via-background dark:to-background', headerBg: 'bg-sky-100 dark:bg-sky-900/40', headerFg: 'text-sky-700 dark:text-sky-400', avatarBg: 'bg-sky-600 dark:bg-sky-700' },
+  { tint: 'border-amber-200 dark:border-amber-900/60 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/20 dark:from-amber-950/30 dark:via-background dark:to-background', headerBg: 'bg-amber-100 dark:bg-amber-900/40', headerFg: 'text-amber-700 dark:text-amber-400', avatarBg: 'bg-amber-600 dark:bg-amber-700' },
+  { tint: 'border-rose-200 dark:border-rose-900/60 bg-gradient-to-br from-rose-50/80 via-white to-rose-50/20 dark:from-rose-950/30 dark:via-background dark:to-background', headerBg: 'bg-rose-100 dark:bg-rose-900/40', headerFg: 'text-rose-700 dark:text-rose-400', avatarBg: 'bg-rose-600 dark:bg-rose-700' },
+  { tint: 'border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/80 via-white to-indigo-50/20 dark:from-indigo-950/30 dark:via-background dark:to-background', headerBg: 'bg-indigo-100 dark:bg-indigo-900/40', headerFg: 'text-indigo-700 dark:text-indigo-400', avatarBg: 'bg-indigo-600 dark:bg-indigo-700' },
+  { tint: 'border-teal-200 dark:border-teal-900/60 bg-gradient-to-br from-teal-50/80 via-white to-teal-50/20 dark:from-teal-950/30 dark:via-background dark:to-background', headerBg: 'bg-teal-100 dark:bg-teal-900/40', headerFg: 'text-teal-700 dark:text-teal-400', avatarBg: 'bg-teal-600 dark:bg-teal-700' },
+  { tint: 'border-fuchsia-200 dark:border-fuchsia-900/60 bg-gradient-to-br from-fuchsia-50/80 via-white to-fuchsia-50/20 dark:from-fuchsia-950/30 dark:via-background dark:to-background', headerBg: 'bg-fuchsia-100 dark:bg-fuchsia-900/40', headerFg: 'text-fuchsia-700 dark:text-fuchsia-400', avatarBg: 'bg-fuchsia-600 dark:bg-fuchsia-700' },
+  { tint: 'border-lime-200 dark:border-lime-900/60 bg-gradient-to-br from-lime-50/80 via-white to-lime-50/20 dark:from-lime-950/30 dark:via-background dark:to-background', headerBg: 'bg-lime-100 dark:bg-lime-900/40', headerFg: 'text-lime-700 dark:text-lime-400', avatarBg: 'bg-lime-600 dark:bg-lime-700' },
+];
+
+// Ngưỡng chuyển từ "card mở sẵn" sang "accordion thu gọn".
+const ACCORDION_THRESHOLD = 7;
+
+function TimelineSection({
+  timeline,
+  farmCount,
+  allPlots,
+}: {
+  timeline: TraceTimelineItem[];
+  farmCount: number;
+  allPlots: any[];
+}) {
+  const [mobileFilter, setMobileFilter] = useState<string>('all');
+  // Lưu plotCode của các nông trại đang mở trong accordion mode.
+  // Mặc định: chỉ nông trại đầu tiên mở.
+  const initialOpen = allPlots[0]?.plotCode ?? '';
+  const [openFarms, setOpenFarms] = useState<Set<string>>(
+    () => new Set(initialOpen ? [initialOpen] : []),
+  );
+
+  if (timeline.length === 0) {
+    return <EmptyState text="Chưa có sự kiện nào." />;
+  }
+
+  // Single farm: giữ layout flat cũ.
+  if (farmCount <= 1) {
+    return <TimelineList items={timeline} showSourceTag={false} />;
+  }
+
+  const groups = allPlots.map((plot: any, idx: number) => ({
+    plotCode: plot.plotCode as string,
+    farmerName: (plot.farmer?.fullName as string | undefined) ?? '',
+    items: timeline.filter((it) => it.source?.plotCode === plot.plotCode),
+    palette: FARM_PALETTE[idx % FARM_PALETTE.length],
+  }));
+  const orphans = timeline.filter(
+    (it) => !it.source?.plotCode || !allPlots.some((p: any) => p.plotCode === it.source?.plotCode),
+  );
+
+  const useAccordion = groups.length >= ACCORDION_THRESHOLD;
+
+  const toggleFarm = (plotCode: string) => {
+    setOpenFarms((prev) => {
+      const next = new Set(prev);
+      if (next.has(plotCode)) next.delete(plotCode);
+      else next.add(plotCode);
+      return next;
+    });
+  };
+  const expandAll = () => setOpenFarms(new Set(groups.map((g) => g.plotCode)));
+  const collapseAll = () => setOpenFarms(new Set());
+
+  // Ngày sự kiện gần nhất cho mỗi nông trại — dùng cho header accordion.
+  const lastEventDate = (items: TraceTimelineItem[]): string | null => {
+    if (items.length === 0) return null;
+    const sorted = [...items].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+    return sorted[0].date;
+  };
+
+  // Card "expanded" cho mode 2-6 nông trại (card mở sẵn).
+  const renderExpandedCard = (g: typeof groups[number], farmIndex: number) => (
+    <section
+      key={g.plotCode}
+      className={`relative rounded-2xl border ${g.palette.tint} p-4 sm:p-5`}
+    >
+      <header className="mb-4 flex items-center gap-3">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${g.palette.avatarBg} text-white font-bold shadow-sm`}
+        >
+          {(g.farmerName || g.plotCode).charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <span
+            className={`inline-flex items-center rounded-full px-1.5 text-[10px] font-bold uppercase tracking-wider ${g.palette.headerBg} ${g.palette.headerFg}`}
+          >
+            Nông trại {farmIndex + 1}
+          </span>
+          <p className="mt-0.5 text-base font-semibold leading-tight truncate">
+            {g.farmerName || 'Nông trại'}
+          </p>
+          <p className="text-[11px] text-muted-foreground font-mono leading-tight truncate">
+            <MapPin className="inline h-2.5 w-2.5 mr-0.5 align-text-bottom" />
+            {g.plotCode}
+            <span className="ml-2 text-muted-foreground/70">
+              · {g.items.length} sự kiện
+            </span>
+          </p>
+        </div>
+      </header>
+      {g.items.length === 0 ? (
+        <p className="pl-9 sm:pl-12 text-xs text-muted-foreground italic">
+          Chưa có sự kiện nào cho nông trại này.
+        </p>
+      ) : (
+        <TimelineList items={g.items} showSourceTag={false} />
+      )}
+    </section>
+  );
+
+  // Card "accordion" cho mode 7+ nông trại (collapse/expand từng cái).
+  const renderAccordionCard = (g: typeof groups[number], farmIndex: number) => {
+    const isOpen = openFarms.has(g.plotCode);
+    const last = lastEventDate(g.items);
+    return (
+      <section
+        key={g.plotCode}
+        className={`rounded-xl border ${g.palette.tint} overflow-hidden`}
+      >
+        <button
+          type="button"
+          onClick={() => toggleFarm(g.plotCode)}
+          className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors text-left"
+        >
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${g.palette.avatarBg} text-white text-sm font-bold shadow-sm`}
+          >
+            {farmIndex + 1}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold leading-tight truncate">
+              {g.farmerName || 'Nông trại'}
+            </p>
+            <p className="text-[11px] text-muted-foreground leading-tight truncate flex items-center gap-2 flex-wrap mt-0.5">
+              <span className="font-mono">{g.plotCode}</span>
+              <span>·</span>
+              <span>{g.items.length} sự kiện</span>
+              {last && (
+                <>
+                  <span>·</span>
+                  <span>Gần nhất: {formatDate(last)}</span>
+                </>
+              )}
+            </p>
+          </div>
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+        {isOpen && (
+          <div className="px-3 sm:px-4 pb-4 pt-1 border-t border-current/10">
+            {g.items.length === 0 ? (
+              <p className="pl-9 sm:pl-12 text-xs text-muted-foreground italic">
+                Chưa có sự kiện nào cho nông trại này.
+              </p>
+            ) : (
+              <TimelineList items={g.items} showSourceTag={false} />
+            )}
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  return (
+    <>
+      {/* DESKTOP md+ */}
+      <div className="hidden md:block">
+        {/* Toolbar: nút mở/thu tất cả — chỉ cần khi ở accordion mode */}
+        {useAccordion && (
+          <div className="mb-3 flex items-center justify-between text-xs">
+            <p className="text-muted-foreground">
+              Sản phẩm gộp từ <strong>{groups.length}</strong> nông trại. Bấm vào tiêu đề để xem timeline.
+            </p>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={expandAll}
+                className="rounded-md border px-2 py-1 font-medium hover:bg-muted"
+              >
+                Mở rộng tất cả
+              </button>
+              <button
+                type="button"
+                onClick={collapseAll}
+                className="rounded-md border px-2 py-1 font-medium hover:bg-muted"
+              >
+                Thu gọn tất cả
+              </button>
+            </div>
+          </div>
+        )}
+
+        {useAccordion ? (
+          // 7+ nông trại: accordion xếp dọc.
+          <div className="space-y-2">
+            {groups.map((g, idx) => renderAccordionCard(g, idx))}
+          </div>
+        ) : (
+          // 2-6 nông trại: 2 cột grid (xl). Mỗi card mở sẵn để dễ scan.
+          <div className="grid gap-4 xl:grid-cols-2">
+            {groups.map((g, idx) => renderExpandedCard(g, idx))}
+          </div>
+        )}
+
+        {orphans.length > 0 && (
+          <section className="mt-4 rounded-2xl border bg-muted/30 p-4 sm:p-5">
+            <header className="mb-3 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                <Clock className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold leading-tight">Sự kiện chung</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Áp dụng cho toàn bộ sản phẩm (nhập kho, giao hàng…)
+                </p>
+              </div>
+            </header>
+            <TimelineList items={orphans} showSourceTag={false} />
+          </section>
+        )}
+      </div>
+
+      {/* MOBILE: <md */}
+      <div className="md:hidden">
+        {useAccordion ? (
+          // 7+ nông trại trên mobile: dropdown thay vì chip strip (tránh tràn).
+          <div className="mb-4">
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Lọc theo nông trại
+            </label>
+            <Select value={mobileFilter} onValueChange={setMobileFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  Tất cả ({timeline.length} sự kiện)
+                </SelectItem>
+                {groups.map((g, idx) => (
+                  <SelectItem key={g.plotCode} value={g.plotCode}>
+                    {`${idx + 1}. ${g.farmerName || g.plotCode} (${g.items.length})`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          // 2-6 nông trại trên mobile: chip strip có thể wrap.
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            <button
+              type="button"
+              onClick={() => setMobileFilter('all')}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                mobileFilter === 'all'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground border-muted hover:border-primary/40'
+              }`}
+            >
+              Tất cả
+            </button>
+            {groups.map((g, idx) => {
+              const active = mobileFilter === g.plotCode;
+              return (
+                <button
+                  key={g.plotCode}
+                  type="button"
+                  onClick={() => setMobileFilter(g.plotCode)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                    active
+                      ? `${g.palette.avatarBg} text-white border-transparent`
+                      : 'bg-background text-muted-foreground border-muted hover:border-primary/40'
+                  }`}
+                >
+                  <span
+                    className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${
+                      active ? 'bg-white/20 text-white' : `${g.palette.avatarBg} text-white`
+                    }`}
+                  >
+                    {idx + 1}
+                  </span>
+                  {g.farmerName || g.plotCode}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <TimelineList
+          items={
+            mobileFilter === 'all'
+              ? timeline
+              : timeline.filter((it) => it.source?.plotCode === mobileFilter)
+          }
+          showSourceTag={mobileFilter === 'all'}
+        />
+      </div>
+    </>
   );
 }
 

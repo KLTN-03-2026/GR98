@@ -134,7 +134,7 @@ export default function SupervisorAIAnalysisPage() {
             variant="outline"
             size="sm"
             className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
-            onClick={() => window.open('http://localhost:5174', '_blank')}
+            onClick={() => window.open('https://localhost:5174', '_blank')}
           >
             <ScanLine className="h-4 w-4 mr-2" />
             Máy quét AI thực địa

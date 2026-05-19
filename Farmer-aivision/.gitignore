@@ -27,6 +27,13 @@ wandb/
 mlruns/
 "dataset dowload"/
 
+# Training data (datasets coffee ~14GB — re-download nếu cần)
+datasets_coffee/
+
+# Base YOLO weights — auto-download by ultralytics khi train
+yolov8*.pt
+yolo11*.pt
+
 # ── ai/weights/ model files: negate dir → re-ignore *.pt → keep selected files ──
 !ai/weights/
 ai/weights/*.pt

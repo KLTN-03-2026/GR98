@@ -127,7 +127,9 @@ function FarmerManagementPage() {
   const [supervisorFilter, setSupervisorFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: supervisors = [] } = useAllSupervisors();
+  // Dropdown chọn supervisor: chỉ tài khoản còn hoạt động (ACTIVE). Tránh gán
+  // farmer cho supervisor đã ngừng hoạt động (soft-deleted = INACTIVE).
+  const { data: supervisors = [] } = useAllSupervisors({ status: "ACTIVE" });
 
   const { data: queryData, isLoading, isFetching, isPlaceholderData } = useFarmers({
     page: currentPage,

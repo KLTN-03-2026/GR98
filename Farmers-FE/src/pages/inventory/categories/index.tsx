@@ -44,7 +44,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { ColumnDef } from '@tanstack/react-table';
 import FileUpload from '@/components/custom/file-upload';
-import { uploadImage } from '@/client/api/upload';
+import { useSingleImageUploader } from '@/client/hooks/use-image-uploader';
+import { ImageUploadTile } from '@/client/components/image-upload-tile';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -97,7 +98,11 @@ function CategoryDialog({
     sortOrder: 0,
     isActive: true,
   });
-  const [isUploading, setIsUploading] = useState(false);
+  const uploader = useSingleImageUploader({
+    folder: 'categories',
+    onChange: (url) => setForm((prev) => ({ ...prev, imageUrl: url ?? '' })),
+  });
+  const isUploading = uploader.isUploading;
 
   // Sync form when category changes (edit mode)
   useEffect(() => {
@@ -111,6 +116,7 @@ function CategoryDialog({
           sortOrder: category.sortOrder,
           isActive: category.isActive ?? true,
         });
+        uploader.setFromUrl(category.imageUrl ?? null);
       } else {
         setForm({
           name: '',
@@ -120,8 +126,10 @@ function CategoryDialog({
           sortOrder: 0,
           isActive: true,
         });
+        uploader.clear();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, mode, open]);
 
   const handleNameChange = (name: string) => {
@@ -278,30 +286,15 @@ function CategoryDialog({
                   </Label>
                   <FileUpload
                     acceptedFileTypes={['image/*']}
-                    onFileSelect={async (file) => {
-                      setIsUploading(true);
-                      try {
-                        const uploaded = await uploadImage(file, 'categories');
-                        setForm({ ...form, imageUrl: uploaded.url });
-                      } catch {
-                        toast.error('Lỗi tải ảnh danh mục');
-                      } finally {
-                        setIsUploading(false);
-                      }
-                    }}
+                    onFileSelect={(file) => void uploader.upload(file)}
                   />
-                  {isUploading && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <RefreshCw className="size-3 animate-spin" />
-                      Đang tải ảnh lên...
-                    </div>
-                  )}
-                  {form.imageUrl && !isUploading && (
-                    <div className="mt-2 inline-flex">
-                      <img
-                        src={form.imageUrl}
-                        alt="category"
-                        className="size-20 rounded-lg border object-cover"
+                  {uploader.item && (
+                    <div className="mt-2 inline-block w-32">
+                      <ImageUploadTile
+                        item={uploader.item}
+                        onRemove={uploader.clear}
+                        onRetry={() => void uploader.retry()}
+                        className="aspect-square"
                       />
                     </div>
                   )}

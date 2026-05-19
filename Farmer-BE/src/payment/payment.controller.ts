@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
+import { MomoService } from './momo.service';
 import { CreatePaymentDto, SimulatePaymentDto } from './dto/payment.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -23,7 +24,10 @@ import { Role } from '@prisma/client';
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(Role.CLIENT)
 export class PaymentController {
-  constructor(private readonly paymentService: PaymentService) {}
+  constructor(
+    private readonly paymentService: PaymentService,
+    private readonly momoService: MomoService,
+  ) {}
 
   @Post('create')
   @HttpCode(HttpStatus.OK)
@@ -39,6 +43,12 @@ export class PaymentController {
   @ApiOperation({ summary: 'Xác thực callback từ VNPay (return URL)' })
   verifyReturnUrl(@Query() query: Record<string, string>) {
     return this.paymentService.verifyReturnUrl(query);
+  }
+
+  @Get('momo/verify')
+  @ApiOperation({ summary: 'Xác thực callback từ MoMo (return URL)' })
+  verifyMomoReturn(@Query() query: Record<string, string>) {
+    return this.momoService.verifyRedirect(query);
   }
 
   @Post('simulate')

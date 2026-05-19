@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowRightLeft,
   Mail,
   Phone,
   UserRound,
   Plus,
   Pencil,
+  RotateCcw,
   Trash2,
   Users,
 } from "lucide-react";
@@ -33,7 +35,21 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DataGrid } from "@/components/data-grid";
-import { useUsers, useDeleteUser, type UserResponse } from "./api";
+import { useUsers, useDeleteUser, useUpdateUser, type UserResponse } from "./api";
+import {
+  useTransferFarmers,
+  useAllSupervisors,
+} from "@/pages/admin/supervisors/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import CreateUserForm from "./forms/create-user.form";
 import UpdateUserForm from "./forms/update-user.form";
 
@@ -111,9 +127,9 @@ function getStatusVariant(status: string) {
 
 function getStatusLabel(status: string) {
   const map: Record<string, string> = {
-    ACTIVE: "Hoạt động",
-    INACTIVE: "Không hoạt động",
-    SUSPENDED: "Tạm ngưng",
+    ACTIVE: "Đang hoạt động",
+    INACTIVE: "Đã ngừng hoạt động",
+    SUSPENDED: "Tạm khóa",
   };
   return map[status] ?? status;
 }
@@ -183,6 +199,8 @@ export default function UsersManagementPage({
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null);
+  const [transferTarget, setTransferTarget] = useState<UserResponse | null>(null);
+  const [transferRecipientId, setTransferRecipientId] = useState<string>("");
 
   // Debounce search
   useEffect(() => {
@@ -223,7 +241,47 @@ export default function UsersManagementPage({
   });
 
   const deleteMutation = useDeleteUser();
+  const updateMutation = useUpdateUser();
+  const transferMutation = useTransferFarmers();
   const isDeleting = deleteMutation.isPending;
+  const isRestoring = updateMutation.isPending;
+  const isTransferring = transferMutation.isPending;
+
+  // Danh sách supervisor ACTIVE để chọn người nhận khi chuyển nông dân.
+  const { data: activeSupervisors = [] } = useAllSupervisors({ status: "ACTIVE" });
+
+  function openTransferDialog(user: UserResponse) {
+    setTransferRecipientId("");
+    setTransferTarget(user);
+  }
+
+  async function handleTransfer() {
+    if (!transferTarget || !transferRecipientId) return;
+    try {
+      await transferMutation.mutateAsync({
+        fromId: transferTarget.id,
+        toSupervisorId: transferRecipientId,
+      });
+      setTransferTarget(null);
+      setTransferRecipientId("");
+    } catch {
+      // toast đã hiện ở hook
+    }
+  }
+
+  // Khôi phục tài khoản INACTIVE về ACTIVE. Vì soft-delete chỉ đổi
+  // `User.status = INACTIVE`, admin có thể đảo lại bằng PATCH /users/:id.
+  async function handleRestore(user: UserResponse) {
+    try {
+      await updateMutation.mutateAsync({
+        id: user.id,
+        data: { status: "ACTIVE" },
+      });
+      toast.success("Đã khôi phục tài khoản");
+    } catch {
+      // hook đã toast lỗi
+    }
+  }
   const fetchError = queryError?.message ?? null;
   const activeCount = useMemo(
     () => users.filter((item) => item.status === "ACTIVE").length,
@@ -288,6 +346,9 @@ export default function UsersManagementPage({
                 tone.border,
                 tone.hover,
                 tone.bg,
+                // Tài khoản đã soft-delete: làm mờ thẻ để admin dễ phân biệt
+                // với tài khoản còn hoạt động.
+                user.status === "INACTIVE" && "opacity-60 grayscale",
               )}
             >
               <div className="flex shrink-0 items-start justify-between gap-3">
@@ -347,18 +408,53 @@ export default function UsersManagementPage({
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleDeletePrompt(user);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {/* Chỉ supervisor ACTIVE còn nông dân mới có nút chuyển. */}
+                  {user.role === "SUPERVISOR" &&
+                    user.status === "ACTIVE" &&
+                    (user.supervisorProfile?._count?.farmers ?? 0) > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-sky-600"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openTransferDialog(user);
+                        }}
+                        title={`Chuyển ${user.supervisorProfile?._count?.farmers} nông dân sang giám sát viên khác`}
+                      >
+                        <ArrowRightLeft className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  {user.status === "INACTIVE" ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-emerald-600"
+                      disabled={isRestoring}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleRestore(user);
+                      }}
+                      title="Khôi phục tài khoản về trạng thái hoạt động"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleDeletePrompt(user);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
@@ -502,6 +598,116 @@ export default function UsersManagementPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog: chuyển toàn bộ nông dân + lô đất + hợp đồng đang hoạt động
+          của supervisor này sang supervisor khác. Sau khi chuyển xong, có thể
+          xóa supervisor mà không bị chặn FK. */}
+      <Dialog
+        open={!!transferTarget}
+        onOpenChange={(open) => {
+          if (open || isTransferring) return;
+          setTransferTarget(null);
+          setTransferRecipientId("");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chuyển toàn bộ nông dân</DialogTitle>
+            <DialogDescription>
+              Chuyển nông dân và lô đất của{" "}
+              <strong>{transferTarget?.fullName}</strong> sang giám sát viên khác.
+              <br />
+              <span className="text-xs text-muted-foreground">
+                Hợp đồng giữ nguyên người ký; giám sát viên mới được phép xem
+                hợp đồng của lô đất nhận bàn giao nhưng không sửa được nội dung
+                bên ký. Lịch sử báo cáo và quét cây giữ nguyên người gốc.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {transferTarget?.supervisorProfile?._count && (
+            <div className="space-y-3">
+              <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                <p className="font-medium">
+                  {transferTarget.fullName} đang phụ trách:
+                </p>
+                <ul className="mt-1 list-disc pl-5 text-muted-foreground text-xs space-y-0.5">
+                  <li>
+                    <strong>{transferTarget.supervisorProfile._count.farmers}</strong>{" "}
+                    nông dân — sẽ chuyển sang người mới
+                  </li>
+                  <li>
+                    <strong>{transferTarget.supervisorProfile._count.assignments}</strong>{" "}
+                    phân công lô đất — sẽ chuyển sang người mới
+                  </li>
+                  <li>
+                    <strong>{transferTarget.supervisorProfile._count.contracts}</strong>{" "}
+                    hợp đồng — giữ nguyên người ký, người mới chỉ được xem
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">
+                  Chuyển sang giám sát viên nào?{" "}
+                  <span className="text-rose-500">*</span>
+                </Label>
+                <Select
+                  value={transferRecipientId}
+                  onValueChange={setTransferRecipientId}
+                  disabled={isTransferring}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="-- Chọn giám sát viên --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeSupervisors
+                      .filter((s) => s.id !== transferTarget.id)
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.fullName}
+                          {s.supervisorProfile && (
+                            <span className="text-muted-foreground ml-1 text-xs">
+                              (đang phụ trách{" "}
+                              {s.supervisorProfile._count.farmers})
+                            </span>
+                          )}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {activeSupervisors.filter((s) => s.id !== transferTarget.id)
+                  .length === 0 && (
+                  <p className="text-xs text-amber-600">
+                    Chưa có giám sát viên nào khác đang hoạt động. Vui lòng
+                    tạo mới trước khi chuyển.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={isTransferring}
+              onClick={() => {
+                setTransferTarget(null);
+                setTransferRecipientId("");
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleTransfer}
+              disabled={!transferRecipientId || isTransferring}
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              {isTransferring ? "Đang chuyển..." : "Xác nhận chuyển"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

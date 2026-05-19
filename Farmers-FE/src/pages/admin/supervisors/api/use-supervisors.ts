@@ -108,14 +108,57 @@ export function useDeleteSupervisor() {
   return useMutation({
     mutationFn: async (id: string) => {
       const response = await supervisorApi.delete(id);
-      return extractData<{ id: string; deletedAt: string }>(response);
+      return extractData<{
+        id: string;
+        deletedAt?: string;
+        deactivatedAt?: string;
+        softDeleted?: boolean;
+      }>(response);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['supervisors'] });
-      toast.success('Đã xóa giám sát viên');
+      toast.success(
+        data.softDeleted
+          ? 'Đã ngừng hoạt động tài khoản giám sát viên'
+          : 'Đã xóa giám sát viên',
+      );
     },
     onError: (error: { message?: string }) => {
       toast.error(error.message || 'Không xóa được giám sát viên');
+    },
+  });
+}
+
+export function useTransferFarmers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      fromId,
+      toSupervisorId,
+    }: {
+      fromId: string;
+      toSupervisorId: string;
+    }) => {
+      const response = await supervisorApi.transferFarmers(fromId, toSupervisorId);
+      return extractData<{
+        movedFarmers: number;
+        movedPlots: number;
+        cancelledAssignments: number;
+        createdAssignments: number;
+        updatedContracts: number;
+      }>(response);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['supervisors'] });
+      queryClient.invalidateQueries({ queryKey: ['farmers'] });
+      queryClient.invalidateQueries({ queryKey: ['plots'] });
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      toast.success(
+        `Đã chuyển ${data.movedFarmers} nông dân và ${data.movedPlots} lô đất sang giám sát viên mới`,
+      );
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Không thể chuyển nông dân');
     },
   });
 }

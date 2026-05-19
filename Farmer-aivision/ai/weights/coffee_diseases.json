@@ -1,0 +1,92 @@
+{
+  "healthy": {
+    "disease": "Healthy Coffee Leaf",
+    "benh": "Lá cà phê khỏe mạnh",
+    "tac_nhan": "Không có",
+    "do_nguy_hiem": "Không",
+    "xuc_tac": "Không có",
+    "dieu_tri": "Không cần xử lý. Tiếp tục chăm sóc bình thường: bón phân cân đối NPK, tưới đủ ẩm, làm cỏ định kỳ.",
+    "phan_loai": "healthy",
+    "chi_tiet": "- Lá xanh đậm, bóng, không có đốm bệnh hay vết cháy.\n- Mép lá nguyên vẹn, không bị cong xoắn.\n- Đặc trưng: lớp biểu bì mịn, gân lá rõ, mặt dưới sạch không có nấm/mạng nhện."
+  },
+  "leaf_rust": {
+    "disease": "Coffee Leaf Rust",
+    "benh": "Bệnh rỉ sắt cà phê",
+    "tac_nhan": "Hemileia vastatrix (nấm)",
+    "do_nguy_hiem": "Rất cao",
+    "xuc_tac": "Độ ẩm cao 70-90%, nhiệt độ 21-25°C, sương đêm nhiều, vườn rậm thiếu nắng. Mùa mưa là đỉnh dịch.",
+    "dieu_tri": "Phun Hexaconazole 5% (5g/16L) hoặc Propiconazole + Difenoconazole. Phun lặp 7-10 ngày/lần khi mật độ bệnh cao. Cắt tỉa lá bệnh tiêu hủy. Bón đầy đủ K để tăng đề kháng.",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Ban đầu: Đốm vàng nhỏ trên mặt dưới lá, đường kính 2-5mm.\n- Phát triển: Đốm chuyển màu cam-vàng (giống rỉ sắt), bột bào tử lan rộng. Mặt trên lá thấy đốm vàng tương ứng.\n- Nặng: Lá vàng rụng hàng loạt, cây suy kiệt, năng suất giảm 30-70%.\n- ĐẶC TRƯNG: Bột màu cam đỏ ở mặt dưới lá — khi sờ tay dính bột."
+  },
+  "cercospora": {
+    "disease": "Cercospora Leaf Spot (Brown Eye Spot)",
+    "benh": "Bệnh đốm mắt cua (Cercospora)",
+    "tac_nhan": "Cercospora coffeicola (nấm)",
+    "do_nguy_hiem": "Cao",
+    "xuc_tac": "Cây thiếu dinh dưỡng (đặc biệt N, K), ánh nắng gay gắt, đất nghèo. Thường gặp ở vườn không che bóng.",
+    "dieu_tri": "Phun Mancozeb 80WP (40-60g/16L) hoặc thuốc gốc Đồng (Copper hydroxide). Bón phân cân đối, bổ sung phân hữu cơ. Trồng cây che bóng (muồng đen, keo).",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Đốm tròn 3-15mm trên lá, có viền nâu đỏ rõ, tâm xám trắng (giống mắt cua).\n- Đôi khi xuất hiện trên trái: đốm nâu thẫm lõm, dẫn đến rụng trái.\n- ĐẶC TRƯNG: Đốm có 'mắt' rõ — vòng tròn đồng tâm: viền nâu → vùng nâu nhạt → tâm xám/trắng."
+  },
+  "miner": {
+    "disease": "Coffee Leaf Miner",
+    "benh": "Sâu vẽ bùa cà phê",
+    "tac_nhan": "Leucoptera coffeella (sâu đục lá)",
+    "do_nguy_hiem": "Cao",
+    "xuc_tac": "Khô hạn kéo dài, vườn rậm rạp ít gió, không có thiên địch. Bùng phát mạnh mùa khô.",
+    "dieu_tri": "Phun thuốc trừ sâu nội hấp: Abamectin (10ml/16L), Imidacloprid, hoặc Cyantraniliprole. Bảo vệ thiên địch (ong ký sinh). Tỉa cành thông thoáng.",
+    "phan_loai": "pest",
+    "chi_tiet": "- Đường ngoằn ngoèo màu nâu-trắng trên mặt lá do ấu trùng đục bên trong biểu bì.\n- Vùng bị đục khô lại tạo mảng phồng giòn, dễ rách.\n- Khi nặng: nhiều đường giao nhau, lá vàng rụng sớm.\n- ĐẶC TRƯNG: Đường mòn ngoằn ngoèo (mine) — không phải đốm, không phải lỗ tròn."
+  },
+  "phoma": {
+    "disease": "Phoma Leaf Blight",
+    "benh": "Bệnh thối khô lá (Phoma)",
+    "tac_nhan": "Phoma costarricensis / Ascochyta tarda (nấm)",
+    "do_nguy_hiem": "Trung bình",
+    "xuc_tac": "Mưa lạnh kéo dài, sương muối, vườn ẩm thấp, vết thương cơ học. Thường gặp ở vùng cao.",
+    "dieu_tri": "Phun Carbendazim, Mancozeb hoặc thuốc gốc Đồng. Tỉa lá bệnh, không phun tưới trên tán khi trời lạnh. Bón vôi cải tạo đất chua.",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Đốm nâu thẫm hoặc đen ở mép và chóp lá, lan dần vào trong.\n- Trên đốm có chấm đen li ti (ổ bào tử pycnidia).\n- Nặng: lá khô từ rìa vào, rụng sớm; cành non chết khô.\n- ĐẶC TRƯNG: Vết khô từ mép lá, ranh giới rõ với vùng xanh; bề mặt có chấm đen như rắc tiêu."
+  },
+  "red_spider_mite": {
+    "disease": "Red Spider Mite",
+    "benh": "Nhện đỏ hại cà phê",
+    "tac_nhan": "Oligonychus coffeae (nhện hại)",
+    "do_nguy_hiem": "Cao",
+    "xuc_tac": "Thời tiết khô nóng, bụi nhiều, vườn không cây che bóng. Bùng phát mạnh mùa khô.",
+    "dieu_tri": "Phun thuốc trừ nhện chuyên dụng: Abamectin (10ml/16L), Propargite, Hexythiazox. Tưới phun mưa hạ ẩm độ. Tránh phun thuốc trừ sâu phổ rộng (giết thiên địch nhện bắt mồi).",
+    "phan_loai": "pest",
+    "chi_tiet": "- Mặt trên lá xuất hiện chấm vàng li ti, sau đó lá chuyển màu đồng-nâu.\n- Mặt dưới có mạng nhện mảnh + chấm đỏ nhỏ chuyển động (nhện trưởng thành).\n- Nặng: lá rụng, cây suy kiệt, năng suất giảm.\n- ĐẶC TRƯNG: Lá đổi màu đồng/bạc + có mạng nhện mảnh ở mặt dưới."
+  },
+  "ojo_gallo": {
+    "disease": "American Leaf Spot (Ojo de Gallo)",
+    "benh": "Bệnh mắt gà / đốm mắt Mỹ",
+    "tac_nhan": "Mycena citricolor (nấm)",
+    "do_nguy_hiem": "Cao",
+    "xuc_tac": "Độ ẩm rất cao >85%, sương mù dày, vùng cao (>1000m), vườn rậm. Phổ biến ở Latin America, ít gặp ở VN.",
+    "dieu_tri": "Phun Mancozeb hoặc Copper hydroxide. Cắt tỉa thông thoáng, giảm độ ẩm tán. Trồng giống kháng nếu có.",
+    "phan_loai": "fungal",
+    "chi_tiet": "- Đốm tròn 5-20mm, tâm trắng/xám sáng, viền nâu mỏng (giống mắt gà nhìn thẳng).\n- Trên tâm trắng có cấu trúc giống đầu kim (gemmae) — đặc trưng nhận diện.\n- Nặng: đốm liên kết, lá rụng, cành non chết.\n- ĐẶC TRƯNG: Tâm đốm có 'đầu kim' nhỏ — phân biệt với cercospora (cercospora có vòng đồng tâm, không có đầu kim)."
+  },
+  "malnutrition": {
+    "disease": "Nutritional Deficiency",
+    "benh": "Lá thiếu dinh dưỡng",
+    "tac_nhan": "Thiếu N/K/Mg/Fe (không phải tác nhân sinh học)",
+    "do_nguy_hiem": "Trung bình",
+    "xuc_tac": "Đất nghèo, bón phân không cân đối, pH bất lợi (quá chua hoặc quá kiềm), khô hạn.",
+    "dieu_tri": "Phân tích đất → bón bổ sung NPK + vi lượng theo kết quả. Phun bổ sung phân bón lá (Mg, Fe, Zn) khi triệu chứng rõ. Bón vôi nếu đất chua (pH<5).",
+    "phan_loai": "abiotic",
+    "chi_tiet": "- Thiếu N: lá chuyển vàng đều, bắt đầu từ lá già.\n- Thiếu K: vàng mép lá, lan vào trong, chóp lá cháy khô.\n- Thiếu Mg: vàng giữa gân lá (gân vẫn xanh).\n- ĐẶC TRƯNG: KHÔNG có đốm bệnh, không có nấm — chỉ đổi màu/cháy mép/vàng giữa gân."
+  },
+  "pest": {
+    "disease": "General Pest Damage",
+    "benh": "Sâu hại tổng hợp",
+    "tac_nhan": "Côn trùng cắn phá (sâu cuốn lá, rệp sáp, bọ trĩ, sâu đo...)",
+    "do_nguy_hiem": "Tùy mức độ",
+    "xuc_tac": "Vườn rậm, thiếu thiên địch, mùa khô, lạm dụng thuốc phổ rộng.",
+    "dieu_tri": "Xác định loài cụ thể → dùng thuốc phù hợp. Ưu tiên thuốc sinh học (BT, neem). Bảo vệ thiên địch. Bẫy dính vàng/xanh giám sát mật độ.",
+    "phan_loai": "pest",
+    "chi_tiet": "- Lá bị cắn rách lỗ chỗ hoặc khuyết mép.\n- Cuộn lá, lá biến dạng cong xoắn (do rệp/bọ trĩ chích hút).\n- Có thể thấy phân sâu màu đen trên lá.\n- ĐẶC TRƯNG: Tổn thương cơ học rõ ràng (lỗ, vết cắn) — phân biệt với đốm bệnh nấm."
+  }
+}

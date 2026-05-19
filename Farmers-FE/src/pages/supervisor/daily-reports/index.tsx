@@ -5,7 +5,6 @@ import {
   ImagePlus,
   Plus,
   Send,
-  Trash2,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -48,7 +47,8 @@ import {
 } from './api';
 import { createSupervisorDailyReportColumns } from './components';
 import { CreateLotFromReportDialog } from './components/CreateLotFromReportDialog';
-import { uploadImage } from '@/client/api/upload';
+import { useImageUploader } from '@/client/hooks/use-image-uploader';
+import { ImageUploadTile } from '@/client/components/image-upload-tile';
 
 const PAGE_LIMIT = 15;
 const MAX_IMAGES = 10;
@@ -56,11 +56,6 @@ const MAX_FILE_BYTES = 2 * 1024 * 1024;
 
 type StatusTab = 'ALL' | 'DRAFT' | 'SUBMITTED';
 type CategoryTab = 'ALL' | 'HARVEST' | 'OTHER';
-type ImageItem = {
-  id: string;
-  payload: string;
-  previewUrl: string;
-};
 
 const translateCropType = (type?: string) => {
   if (!type) return '—';
@@ -70,27 +65,6 @@ const translateCropType = (type?: string) => {
   };
   return map[type] || type;
 };
-
-function isBlobUrl(url: string) {
-  return url.startsWith('blob:');
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) {
-      reject(new Error('Chỉ chấp nhận file ảnh'));
-      return;
-    }
-    if (file.size > MAX_FILE_BYTES) {
-      reject(new Error(`Ảnh "${file.name}" vượt quá 2MB. Vui lòng chọn ảnh nhỏ hơn.`));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Không đọc được file'));
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function SupervisorDailyReportsPage() {
   const queryClient = useQueryClient();
@@ -106,7 +80,11 @@ export default function SupervisorDailyReportsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [plotId, setPlotId] = useState('');
   const [content, setContent] = useState('');
-  const [imageItems, setImageItems] = useState<ImageItem[]>([]);
+  const uploader = useImageUploader({
+    folder: 'reports',
+    maxImages: MAX_IMAGES,
+    maxFileBytes: MAX_FILE_BYTES,
+  });
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -164,7 +142,8 @@ export default function SupervisorDailyReportsPage() {
   const rows = listData?.data ?? [];
   const total = listData?.total ?? 0;
   const totalPages = Math.max(1, listData?.totalPages ?? 1);
-  const imageUrls = useMemo(() => imageItems.map((item) => item.payload), [imageItems]);
+  const imageUrls = uploader.urls;
+  const isUploadingImages = uploader.isUploading;
 
   useEffect(() => {
     setCurrentPage(1);
@@ -176,24 +155,15 @@ export default function SupervisorDailyReportsPage() {
     }
   }, [currentPage, totalPages, isLoading]);
 
-  const replaceImageItems = useCallback((nextItems: ImageItem[]) => {
-    setImageItems((prev) => {
-      prev.forEach((item) => {
-        if (isBlobUrl(item.previewUrl)) URL.revokeObjectURL(item.previewUrl);
-      });
-      return nextItems;
-    });
-  }, []);
-
   const resetForm = useCallback(() => {
-    replaceImageItems([]);
+    uploader.clear();
     setEditingId(null);
     setPlotId('');
     setContent('');
     setReportType('ROUTINE');
     setIsHarvest(false);
     setYieldEstimateKg('');
-  }, [replaceImageItems]);
+  }, [uploader.clear]);
 
   const openCreate = () => {
     setSheetMode('create');
@@ -218,6 +188,7 @@ export default function SupervisorDailyReportsPage() {
       areaHa: row.plot?.areaHa,
     });
       setReportType(row.type ?? 'ROUTINE');
+      setContent(row.content ?? '');
       const yVal = row.yieldEstimateKg;
       if (yVal && yVal > 0) {
         setIsHarvest(true);
@@ -226,16 +197,10 @@ export default function SupervisorDailyReportsPage() {
         setIsHarvest(false);
         setYieldEstimateKg('');
       }
-      replaceImageItems(
-        (row.imageUrls ?? []).map((url, idx) => ({
-          id: `existing-${row.id}-${idx}`,
-          payload: url,
-          previewUrl: url,
-        })),
-      );
+      uploader.setFromUrls(row.imageUrls ?? []);
       setSheetOpen(true);
     },
-    [replaceImageItems],
+    [uploader.setFromUrls],
   );
 
   const openView = useCallback(
@@ -250,6 +215,7 @@ export default function SupervisorDailyReportsPage() {
       areaHa: row.plot?.areaHa,
     });
       setReportType(row.type ?? 'ROUTINE');
+      setContent(row.content ?? '');
       const yValView = row.yieldEstimateKg;
       if (yValView && yValView > 0) {
         setIsHarvest(true);
@@ -258,16 +224,10 @@ export default function SupervisorDailyReportsPage() {
         setIsHarvest(false);
         setYieldEstimateKg('');
       }
-      replaceImageItems(
-        (row.imageUrls ?? []).map((url, idx) => ({
-          id: `existing-${row.id}-${idx}`,
-          payload: url,
-          previewUrl: url,
-        })),
-      );
+      uploader.setFromUrls(row.imageUrls ?? []);
       setSheetOpen(true);
     },
-    [replaceImageItems],
+    [uploader.setFromUrls],
   );
 
   const handleRowClick = useCallback(
@@ -317,45 +277,8 @@ export default function SupervisorDailyReportsPage() {
 
   const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files?.length) return;
-    const next: ImageItem[] = [...imageItems];
-    for (const file of Array.from(files)) {
-      if (next.length >= MAX_IMAGES) {
-        toast.message(`Tối đa ${MAX_IMAGES} ảnh`);
-        break;
-      }
-      try {
-        // Validate file type and size locally first
-        if (!file.type.startsWith('image/')) {
-          toast.error('Chỉ chấp nhận file ảnh');
-          continue;
-        }
-        if (file.size > MAX_FILE_BYTES) {
-          toast.error(`Ảnh "${file.name}" vượt quá 2MB`);
-          continue;
-        }
-        const uploaded = await uploadImage(file, 'reports');
-        next.push({
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          payload: uploaded.url,
-          previewUrl: uploaded.url,
-        });
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : `Không thể thêm ảnh ${file.name}`);
-      }
-    }
-    setImageItems(next);
+    await uploader.addFiles(files);
     e.target.value = '';
-  };
-
-  const removeImageAt = (index: number) => {
-    setImageItems((prev) =>
-      prev.filter((item, i) => {
-        if (i !== index) return true;
-        if (isBlobUrl(item.previewUrl)) URL.revokeObjectURL(item.previewUrl);
-        return false;
-      }),
-    );
   };
 
   const invalidateList = async () => {
@@ -727,8 +650,8 @@ export default function SupervisorDailyReportsPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <Label>Ảnh đính kèm ({imageItems.length}/{MAX_IMAGES})</Label>
-                {isDraftSheet && imageItems.length < MAX_IMAGES && (
+                <Label>Ảnh đính kèm ({uploader.items.length}/{MAX_IMAGES})</Label>
+                {isDraftSheet && uploader.items.length < MAX_IMAGES && (
                   <div>
                     <Input
                       type="file"
@@ -748,24 +671,14 @@ export default function SupervisorDailyReportsPage() {
                 )}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {imageItems.map((item, idx) => (
-                  <div
+                {uploader.items.map((item) => (
+                  <ImageUploadTile
                     key={item.id}
-                    className="relative group aspect-video rounded-md border overflow-hidden bg-muted"
-                  >
-                    <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
-                    {isDraftSheet && (
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="destructive"
-                        className="absolute top-1 right-1 h-7 w-7 opacity-90"
-                        onClick={() => removeImageAt(idx)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
+                    item={item}
+                    onRemove={() => uploader.remove(item.id)}
+                    onRetry={() => void uploader.retry(item.id)}
+                    readOnly={!isDraftSheet}
+                  />
                 ))}
               </div>
             </div>
@@ -773,23 +686,46 @@ export default function SupervisorDailyReportsPage() {
 
           {isDraftSheet && (
             <SheetFooter className="mt-6 gap-2 sm:gap-2 flex-col sm:flex-row">
-              <Button variant="secondary" disabled={saving || sending} onClick={() => closeSheet(false)}>
+              <Button
+                variant="secondary"
+                disabled={saving || sending}
+                onClick={() => closeSheet(false)}
+              >
                 Hủy
               </Button>
-              <Button 
-                variant="outline" 
-                disabled={saving || sending || isHarvestBlocked} 
-                onClick={handleSaveDraft}
-              >
-                {saving ? 'Đang lưu...' : 'Lưu nháp'}
-              </Button>
-              <Button 
-                disabled={saving || sending || isHarvestBlocked} 
-                onClick={handleSend}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {sending ? 'Đang gửi...' : 'Gửi báo cáo'}
-              </Button>
+              {sheetMode === 'create' ? (
+                <Button
+                  disabled={saving || sending || isUploadingImages || isHarvestBlocked}
+                  onClick={handleSaveDraft}
+                >
+                  {isUploadingImages
+                    ? 'Đang tải ảnh...'
+                    : saving
+                      ? 'Đang lưu...'
+                      : 'Lưu nháp'}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    disabled={saving || sending || isUploadingImages || isHarvestBlocked}
+                    onClick={handleSaveDraft}
+                  >
+                    {saving ? 'Đang lưu...' : 'Lưu nháp'}
+                  </Button>
+                  <Button
+                    disabled={saving || sending || isUploadingImages || isHarvestBlocked}
+                    onClick={handleSend}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {isUploadingImages
+                      ? 'Đang tải ảnh...'
+                      : sending
+                        ? 'Đang gửi...'
+                        : 'Gửi báo cáo'}
+                  </Button>
+                </>
+              )}
             </SheetFooter>
           )}
         </SheetContent>

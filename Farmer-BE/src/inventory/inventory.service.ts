@@ -13,6 +13,7 @@ import { CreateInventoryLotDto } from './dto/create-inventory-lot.dto';
 import { UpdateLotGradeDto } from './dto/update-lot-grade.dto';
 import { ReceiveHarvestDto } from './dto/receive-harvest.dto';
 import { UpdateInventoryLotDto } from './dto/update-inventory-lot.dto';
+import { computeDefaultExpiry } from '../common/utils/expiry.util';
 
 interface InventoryUser {
   id: string;
@@ -539,6 +540,19 @@ export class InventoryService {
 
       const lotStatus = harvestDate && harvestDate > now ? InventoryLotStatus.SCHEDULED : InventoryLotStatus.ARRIVED;
 
+      // Nếu DTO không truyền expiryDate, tự tính theo cropType + harvestDate.
+      // Logic FEFO khi bán hàng (order.service) dựa vào field này nên cần đảm
+      // bảo mỗi lot mới đều có expiry hợp lý. Nhân viên kho vẫn có thể truyền
+      // tay để override (vd. cà phê rang xay có hạn ngắn hơn cà phê nhân).
+      let expiryDate: Date | null = dto.expiryDate ? new Date(dto.expiryDate) : null;
+      if (!expiryDate) {
+        const product = await tx.product.findUnique({
+          where: { id: dto.productId },
+          select: { cropType: true },
+        });
+        expiryDate = computeDefaultExpiry(product?.cropType, harvestDate ?? now);
+      }
+
       const lot = await tx.inventoryLot.create({
         data: {
           warehouseId: dto.warehouseId,
@@ -547,7 +561,7 @@ export class InventoryService {
           quantityKg: dto.quantityKg,
           qualityGrade: dto.qualityGrade,
           harvestDate: harvestDate,
-          expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
+          expiryDate,
           status: lotStatus,
         },
       });
@@ -567,30 +581,52 @@ export class InventoryService {
   async getRemainingBalance(contractId: string) {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
-      select: { plotId: true },
+      select: {
+        plotId: true,
+        signedAt: true,
+        approvedAt: true,
+        createdAt: true,
+      },
     });
 
     if (!contract || !contract.plotId) {
       throw new NotFoundException('Hợp đồng không tồn tại');
     }
 
-    // Tổng sản lượng từ TẤT CẢ báo cáo thu hoạch đã duyệt cho contract này
+    // Thời điểm "bắt đầu" của contract — dùng để giới hạn báo cáo HARVEST
+    // được tính vào tổng thu hoạch của hợp đồng này.
+    //
+    // Lý do: 1 plot có thể tái sử dụng qua nhiều mùa vụ → nhiều contract
+    // trên cùng plotId. Nếu cộng tất cả HARVEST report của plot vào contract
+    // hiện tại sẽ bị trùng số liệu của mùa vụ trước.
+    //
+    // Ưu tiên: signedAt > approvedAt > createdAt. Fallback xa nhất nếu thiếu.
+    const contractStart =
+      contract.signedAt ?? contract.approvedAt ?? contract.createdAt;
+
+    // Tổng sản lượng từ các báo cáo HARVEST cho plot này, chỉ tính những
+    // báo cáo phát sinh kể từ khi contract bắt đầu (không gộp mùa vụ cũ).
     const totalYieldResult = await this.prisma.dailyReport.aggregate({
       where: {
         plotId: contract.plotId,
         type: 'HARVEST',
         status: { notIn: ['DRAFT', 'REJECTED'] },
+        reportedAt: { gte: contractStart },
       },
       _sum: { yieldEstimateKg: true },
     });
 
     const totalYield = totalYieldResult._sum?.yieldEstimateKg || 0;
 
-    // Tổng đã xuất (loại trừ REJECTED và SCHEDULED)
+    // Tổng đã xuất: cộng quantityKg dương của các InventoryLot thuộc contract
+    // này (loại REJECTED và SCHEDULED). Filter `gt: 0` để loại data rác từ
+    // bug -2050kg cũ — các record âm là di tích từ trước khi fix FEFO, không
+    // phản ánh sản lượng thực sự đã xuất.
     const totalIssued = await this.prisma.inventoryLot.aggregate({
       where: {
         contractId,
         status: { notIn: [InventoryLotStatus.REJECTED, InventoryLotStatus.SCHEDULED] },
+        quantityKg: { gt: 0 },
       },
       _sum: { quantityKg: true },
     });
@@ -806,7 +842,14 @@ export class InventoryService {
           },
         });
       } else {
-        // Fallback: Tạo mới lô hàng ARRIVED (nếu chưa có SCHEDULED)
+        // Fallback: Tạo mới lô hàng ARRIVED (nếu chưa có SCHEDULED).
+        // Auto-tính expiryDate theo cropType (giống createLot) — FEFO sort khi
+        // bán hàng cần field này.
+        const product = await tx.product.findUnique({
+          where: { id: resolvedProductId! },
+          select: { cropType: true },
+        });
+        const harvestNow = new Date();
         lot = await tx.inventoryLot.create({
           data: {
             warehouseId,
@@ -814,7 +857,8 @@ export class InventoryService {
             contractId,
             quantityKg: actualWeight,
             qualityGrade,
-            harvestDate: new Date(),
+            harvestDate: harvestNow,
+            expiryDate: computeDefaultExpiry(product?.cropType, harvestNow),
             status: InventoryLotStatus.ARRIVED,
           },
         });

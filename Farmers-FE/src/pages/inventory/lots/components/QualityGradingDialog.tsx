@@ -15,6 +15,10 @@ import { cn } from '@/lib/utils';
 import { ShieldCheck, AlertCircle, Save } from 'lucide-react';
 import type { InventoryLot, QualityGrade } from '../api/types';
 import { useUpdateLot } from '../api/hooks';
+import {
+  getGradeLabel,
+  normalizeGrade,
+} from '@/pages/inventory/price-boards/components/grade-badge';
 import { toast } from 'sonner';
 
 interface QualityGradingDialogProps {
@@ -28,18 +32,18 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
   const [reason, setReason] = React.useState('');
   const updateLot = useUpdateLot();
 
-  // Tự động ghi giá trị cập nhật vào note
+  // Tự động ghi giá trị cập nhật vào note (dùng label tiếng Việt thay vì A/B/C)
   React.useEffect(() => {
     if (selectedGrade !== lot.qualityGrade) {
-      const prefix = `[CẬP NHẬT PHẨM CẤP] Từ Loại ${lot.qualityGrade} -> Loại ${selectedGrade}. Lý do: `;
+      const fromLabel = getGradeLabel(lot.qualityGrade);
+      const toLabel = getGradeLabel(selectedGrade);
+      const prefix = `[CẬP NHẬT PHẨM CẤP] Từ ${fromLabel} -> ${toLabel}. Lý do: `;
       setReason(prev => {
-        // Lấy ra phần người dùng đã tự gõ (nếu có) bằng cách xóa prefix cũ
-        const userText = prev.replace(/^\[CẬP NHẬT PHẨM CẤP\] Từ Loại .*? -> Loại .*?\. Lý do: /, '');
+        const userText = prev.replace(/^\[CẬP NHẬT PHẨM CẤP\] Từ .*? -> .*?\. Lý do: /, '');
         return prefix + userText;
       });
     } else {
-      // Xóa prefix nếu chọn lại phẩm cấp cũ
-      setReason(prev => prev.replace(/^\[CẬP NHẬT PHẨM CẤP\] Từ Loại .*? -> Loại .*?\. Lý do: /, ''));
+      setReason(prev => prev.replace(/^\[CẬP NHẬT PHẨM CẤP\] Từ .*? -> .*?\. Lý do: /, ''));
     }
   }, [selectedGrade, lot.qualityGrade]);
 
@@ -68,9 +72,15 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
     }
   };
 
+  // Unified grade system — PREMIUM / STANDARD / ECONOMY (+ REJECT khi chưa nhận kho)
   const grades: QualityGrade[] = (lot.status === 'RECEIVED' || lot.status === 'ARRIVED')
-    ? ['A', 'B', 'C'] 
-    : ['A', 'B', 'C', 'REJECT'];
+    ? ['PREMIUM', 'STANDARD', 'ECONOMY']
+    : ['PREMIUM', 'STANDARD', 'ECONOMY', 'REJECT'];
+
+  // Product status: DRAFT = sync grade theo Lot khi save; còn lại = snapshot frozen.
+  // Nếu BE chưa trả status → assume PUBLISHED (an toàn — không tự nhận sync).
+  const productStatus = lot.product?.status ?? 'PUBLISHED';
+  const willSyncProduct = productStatus === 'DRAFT';
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
@@ -95,7 +105,7 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
             <div className="text-center space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hiện tại</p>
               <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 font-bold">
-                Loại {lot.qualityGrade}
+                {getGradeLabel(lot.qualityGrade)}
               </Badge>
             </div>
             <div className="h-px flex-1 mx-4 bg-slate-200 relative">
@@ -109,12 +119,12 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
               <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Phẩm cấp mới</p>
               <Badge className={cn(
                 "font-bold shadow-sm",
-                selectedGrade === 'A' ? "bg-emerald-500" :
-                selectedGrade === 'B' ? "bg-blue-500" :
-                selectedGrade === 'C' ? "bg-amber-500" :
+                normalizeGrade(selectedGrade) === 'PREMIUM'  ? "bg-emerald-500" :
+                normalizeGrade(selectedGrade) === 'STANDARD' ? "bg-blue-500" :
+                normalizeGrade(selectedGrade) === 'ECONOMY'  ? "bg-amber-500" :
                 "bg-rose-500"
               )}>
-                {selectedGrade === 'REJECT' ? 'REJECT' : `Loại ${selectedGrade}`}
+                {getGradeLabel(selectedGrade)}
               </Badge>
             </div>
           </div>
@@ -122,20 +132,20 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
           {/* Grade Selection */}
           <div className="space-y-3">
             <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chọn phẩm cấp mới</Label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className={cn("grid gap-2", grades.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
               {grades.map((g) => (
                 <button
                   key={g}
                   type="button"
                   onClick={() => setSelectedGrade(g)}
                   className={cn(
-                    "relative h-12 rounded-xl border-2 transition-all flex items-center justify-center font-bold text-sm",
-                    selectedGrade === g 
-                      ? "border-slate-900 bg-slate-900 text-white ring-4 ring-slate-100" 
-                      : "border-slate-100 bg-white text-slate-400 hover:border-slate-200"
+                    "relative h-12 rounded-xl border-2 transition-all flex items-center justify-center font-bold text-xs px-1",
+                    selectedGrade === g
+                      ? "border-slate-900 bg-slate-900 text-white ring-4 ring-slate-100"
+                      : "border-slate-100 bg-white text-slate-500 hover:border-slate-200"
                   )}
                 >
-                  {g}
+                  {getGradeLabel(g)}
                 </button>
               ))}
             </div>
@@ -159,7 +169,24 @@ export function QualityGradingDialog({ lot, isOpen, onClose }: QualityGradingDia
               </p>
             </div>
           </div>
-          
+
+          {/* Banner thông báo sync vs frozen */}
+          {willSyncProduct ? (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+              <ShieldCheck className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-emerald-800 leading-normal">
+                Sản phẩm liên kết đang ở trạng thái <strong>Nháp</strong> — phẩm cấp sản phẩm sẽ tự động đồng bộ theo lô sau khi lưu.
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
+              <AlertCircle className="size-4 text-blue-600 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-blue-800 leading-normal">
+                Sản phẩm liên kết <strong>đã đăng bán / đóng gói</strong> — phẩm cấp sản phẩm sẽ <strong>giữ nguyên</strong> để tránh sai lệch nhãn hàng hoá. Chỉ phẩm cấp <strong>lô hàng</strong> được cập nhật để theo dõi nội bộ.
+              </p>
+            </div>
+          )}
+
           {selectedGrade === lot.qualityGrade && (
             <div className="text-center p-2 rounded-lg bg-rose-50 border border-rose-100">
               <p className="text-xs font-semibold text-rose-600">

@@ -9,7 +9,7 @@ import type { Product } from '@/client/types';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/client/store';
 import { useAddToCart, useCart } from '@/client/api';
-import { GRADE_LABELS, CROP_TYPES } from '@/client/types';
+import { CROP_TYPES, getGradeLabel, normalizeGrade } from '@/client/types';
 
 interface ProductCardProps {
   product: Product;
@@ -51,12 +51,16 @@ export function ProductCard({ product }: ProductCardProps) {
     });
   };
 
+  // Normalize grade (handle legacy A/B/C + new system) trước khi chọn màu
+  const normalizedGrade = normalizeGrade(product.grade);
   const gradeColor =
-    product.grade === 'A'
+    normalizedGrade === 'PREMIUM'
       ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-      : product.grade === 'B'
+      : normalizedGrade === 'STANDARD'
         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+        : normalizedGrade === 'ECONOMY'
+          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+          : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400'; // REJECT
 
   return (
     <motion.div
@@ -80,7 +84,7 @@ export function ProductCard({ product }: ProductCardProps) {
             {/* Grade Badge */}
             <div className="absolute top-3 left-3">
               <Badge className={`${gradeColor} text-xs font-semibold shadow-sm`}>
-                {GRADE_LABELS[product.grade]}
+                {getGradeLabel(product.grade)}
               </Badge>
             </div>
 

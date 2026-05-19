@@ -15,6 +15,7 @@ import {
     Warehouse,
     Layers,
     ArrowRightLeft,
+    MapIcon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -45,6 +46,7 @@ export const getSidebarItems = (basePath: '/dashboard' | '/supervisor' | '/inven
             { icon: Sprout, label: 'Quản lý Lô đất', category: 'management', path: `${basePath}/plots` },
             { icon: ClipboardList, label: 'Quản lý hợp đồng', category: 'management', path: `${basePath}/contracts` },
             { icon: FileSpreadsheet, label: 'Báo cáo hằng ngày', category: 'management', path: `${basePath}/daily-reports` },
+            { icon: MapIcon, label: 'Bản đồ dịch bệnh (GIS)', category: 'management', path: `${basePath}/disease-heatmap` },
 
             // Contract & Monitoring
             { icon: Warehouse, label: 'Giám sát Kho hàng', category: 'system', path: `${basePath}/warehouses` },
